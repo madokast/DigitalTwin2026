@@ -114,19 +114,23 @@ AI 把模糊时间塌缩成精确值时，**不做硬约束，交给 AI 自由�
 - 不用 PG 特有的 `text[]` 数组，改用 SQL 标准的 JSON 存 tag 数组；
 - `TIMESTAMPTZ` 即 SQL 标准的 `TIMESTAMP WITH TIME ZONE`，可用。
 
-### 2.2 三个时间字段，按语义区分存储方式
+### 2.2 记录表字段（最终）
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `recorded_at` | `BIGINT`（Unix epoch，秒或毫秒待定） | 系统写入时刻，纯绝对时刻，无"用户当地体验"要保留；用整型存最通用、跨库无差异（连 SQLite 都没问题） |
-| `happened_at` | `TIMESTAMP WITH TIME ZONE` | 用户表达的事件时间，含"7:50 醒的"这种本地时区语义；带时区才能既存绝对时刻又保留当地体验 |
-| `happened_until` | `TIMESTAMP WITH TIME ZONE` | 同上，时间段结束点 |
+| `id` | UUID（v7，PK） | 唯一 ID，时间有序，兼任"最新写入"判据（§2.7） |
+| `happened_at` | `TIMESTAMP WITH TIME ZONE` | 用户表达的事件时间，带时区（§2.4） |
+| `value_numeric` | `NUMERIC` | 数值型记录的值（如体重 70.5、消费 15）；text 型留空。**不可省**（S7） |
+| `value_text` | `TEXT` | 文本型记录的内容；numeric 型留空 |
+| `tags` | `TEXT`（存 JSON 字符串，如 `["工作","学习"]`） | tag 数组，不含双引号（§2.5） |
+| `context` | `TEXT`（可空） | 对话上下文：AI 的分析/提问/讨论背景，依附于同一条记录（§4.6.1、§7.12） |
+| `raw_time_text` | `TEXT`（可空） | 原文中的自然语言时间（如"今天下午"），原样保留 |
 
-### 2.3 为什么 recorded_at 用整型、happened_* 用时间类型
+> 共 7 个字段。`recorded_at` 已砍（由 `id` UUIDv7 兼任），`happened_until` 已砍（§6.2）。
 
-- `recorded_at` 是系统生成的、无地理语境的绝对时刻，bigint 足矣；
-- `happened_*` 承载"用户在当地 7:50 醒的"这种本地体验，必须带时区，否则旅行跨时区时数据会错位；
-- 区分存储让"标准且通用"在 recorded_at 上贯彻得更彻底，happened_* 用标准时间类型也不破坏可移植性。
+### 2.3 （已废弃）原 recorded_at 用整型的理由
+
+> `recorded_at` 已于 §2.7 砍掉，由 `id`（UUIDv7）兼任。本节保留作历史记录。
 
 ### 2.4 时区"不乱"的具体含义
 
@@ -159,8 +163,7 @@ AI 把模糊时间塌缩成精确值时，**不做硬约束，交给 AI 自由�
 ### 2.6 仍待定
 
 - [x] `recorded_at` 用秒还是毫秒精度？
-  - **结论：毫秒。**
-  - 理由：64 位下秒/毫秒存储空间无差异；毫秒能区分同秒内多次写入（如体脂秤批量录入 N 条、反向账单+正确账单几乎同时），秒级会撞上相同 `recorded_at`，导致 §9.11 "按 `recorded_at` 取最大值"无法区分先后。
+  - **结论：该字段已砍（§2.7），由 UUIDv7 兼任，此决策不再适用。**
 - [x] JSON 在不同库的行为差异是否需要在应用层做一层封装？
   - **结论：不需要，因为根本不用 JSON 类型，直接 TEXT 存 JSON 字符串。**
 - [x] `id` 字段用 `BIGINT` 自增还是 UUID？
@@ -309,8 +312,8 @@ AI 把模糊时间塌缩成精确值时，**不做硬约束，交给 AI 自由�
 | 原文保真 | AI 转述/总结 | 约定逐字保真（§1.9，软约束） | ⚠️ 软约束，无法强校验 |
 | 数值提取 | 埋在文本里（"400ml 酸奶"） | 抽到 `value_numeric` | ❌ 违反 S7 |
 | tag | 无 | 应有内容 tag（学习/睡眠/社交…） | ❌ 缺失 |
-| AI 评论 | 与事实混在一起（"我之前的判断偏了"） | ？未定义 | ⚠️ 待定 |
-| 重复行 | AI 多次重新总结同一件事 | 一条记录一次入库 | ⚠️ 待定 |
+| AI 评论 | 与事实混在一起（"我之前的判断偏了"） | 分列存放：`context` 字段（§4.6.1） | ✅ 已解决 |
+| 重复行 | AI 多次重新总结同一件事 | 一条记录一次入库 | ✅ 已解决 |
 
 **暴露出的新问题**
 
@@ -541,7 +544,9 @@ Vercel 上的 HTTP 接口如果不鉴权，任何人都能往库里乱写。个�
 ### 6.3 对 §7.2（昨天文档）字段表的影响
 
 - `happened_until` 字段**删除**；
-- 记录表字段变为：`id` / `recorded_at` / `happened_at` / `value_numeric` / `value_text` / `tags`（JSON） / `context` / `raw_time_text`。
+- `recorded_at` 字段**删除**（由 `id` UUIDv7 兼任，§2.7）；
+- 记录表字段变为：`id`（UUIDv7）/ `happened_at` / `value_numeric` / `value_text` / `tags`（TEXT 存 JSON）/ `context` / `raw_time_text`。
+- 共 7 个字段。
 
 ### 6.4 边界情况：天然时间段事件的处理
 
