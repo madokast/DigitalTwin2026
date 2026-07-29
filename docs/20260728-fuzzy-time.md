@@ -551,6 +551,8 @@ Vercel 上的 HTTP 接口如果不鉴权，任何人都能往库里乱写。个�
 - `happened_until` 字段**删除**；
 - `recorded_at` 字段**删除**（由 `id` UUIDv7 兼任，§2.7）；
 - 记录表字段变为：`id`（UUIDv7）/ `happened_at` / `value_numeric` / `value_text` / `tags`（TEXT 存 JSON）/ `context` / `raw_time_text`。
+
+> 注：`raw_time_text` 后于 7/29 砍掉——`happened_at` 必填，模糊时间塌缩后原始文本无独立检索价值，搜索无完整性，符合 §7.5 能省则省。最终字段表 6 个字段。
 - 共 7 个字段。
 
 ### 6.4 边界情况：天然时间段事件的处理
