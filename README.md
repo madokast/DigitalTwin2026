@@ -1,15 +1,18 @@
 # DigitalTwin2026
 
-个人数字孪生系统 — 对"我"本人进行数字化的孪生映射。
+个人数字孪生系统 — 对「我」本人进行数字化的孪生映射。
+
+录入以 **AI 对话 / HTTP API** 为主（无表单）；网页用于检视记录、标签管理与磨合期纠错。
 
 ## 技术栈
 
 - **前端/后端**: Next.js 16 + React 19
 - **语言**: TypeScript
 - **样式**: Tailwind CSS 4
-- **数据库**: PostgreSQL (Neon)
+- **数据库**: PostgreSQL（Neon）
 - **ORM**: Drizzle ORM
-- **部署**: Vercel + Neon
+- **测试**: Vitest（真实测试库）
+- **部署**: Vercel（主）+ 阿里云函数计算（规划中备用）
 
 ## 快速开始
 
@@ -21,16 +24,28 @@ npm install
 
 ### 2. 配置环境变量
 
-创建 `.env` 文件：
-
 ```bash
-DATABASE_URL='postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require'
+cp .env.example .env
 ```
+
+编辑 `.env`（本地指向**专用测试库**，生产连接串只放 Vercel）：
+
+| 变量 | 用途 |
+|------|------|
+| `DATABASE_URL` | PostgreSQL 连接串 |
+| `DIGITAL_TWIN_TOKEN` | AI / 普通 API（查询、录入） |
+| `DIGITAL_TWIN_ADMIN_TOKEN` | 仅 `/api/admin/*`；只给网页，**勿交给 AI** |
 
 ### 3. 初始化数据库
 
 ```bash
 npm run db:migrate
+```
+
+空库可从 0 建表（库本身需已在 Neon 创建）。对生产库：
+
+```bash
+DATABASE_URL='生产连接串' npm run db:migrate
 ```
 
 ### 4. 启动开发服务器
@@ -39,69 +54,72 @@ npm run db:migrate
 npm run dev
 ```
 
-访问 http://localhost:3000
+访问 http://localhost:3000 — 在「设置」中填入两个 Token。
+
+## API 一览
+
+鉴权：`Authorization: Bearer <token>`，由 `src/proxy.ts` 统一拦截 `/api/*`。
+
+| 接口 | 方法 | 说明 | Token |
+|------|------|------|-------|
+| `/api/log/number` | POST | 记数值 | AI 或 Admin |
+| `/api/log/text` | POST | 记文本 | AI 或 Admin |
+| `/api/query` | GET | 通用查询（`from`/`to`/`tag`/`q`） | AI 或 Admin |
+| `/api/query/tags` | GET | 全表 tag→条数（字典序） | AI 或 Admin |
+| `/api/admin/tags/rename` | POST | 全局 tag 替换 `{ from, to }` | **仅 Admin** |
+
+成功响应形如 `{ "success": true, ... }`；失败为 `{ "error": "..." }`。
 
 ## 数据库管理
 
 ```bash
-# 修改 schema 后生成 migration
-npm run db:generate
-
-# 执行 migration 到数据库
-npm run db:migrate
-
-# 验证表结构
-npm run db:check
+npm run db:generate   # 改 schema 后生成 migration
+npm run db:migrate    # 执行到当前 DATABASE_URL 指向的库
+npm run db:check      # 验证表结构
 ```
 
 ## 测试
 
 ```bash
-# 使用 .env 中的测试库 DATABASE_URL，勿对生产库执行
-npm test
-
-# 监听模式
+npm test              # 使用 .env 测试库，勿对生产库执行
 npm run test:watch
 ```
 
-单元测试覆盖 `src/lib`（tag / auth）与 `src/proxy`（API 鉴权）；API 集成测试直接调用 Route Handler，连 Neon 测试库（migrate → TRUNCATE → 测 → DROP）。
-
-HTTP 鉴权由 Next.js 16 `src/proxy.ts` 统一拦截 `/api/*`：
-
-- 普通接口：`DIGITAL_TWIN_TOKEN` 或 `DIGITAL_TWIN_ADMIN_TOKEN`
-- `/api/admin/*`：仅 `DIGITAL_TWIN_ADMIN_TOKEN`（勿交给 AI）
+单元测 `src/lib`、`src/proxy`；集成测连真实 PG（migrate → TRUNCATE → 测 → DROP）。
 
 ## 项目结构
 
 ```
 ├── src/
-│   ├── app/           # Next.js App Router 页面和 API
-│   ├── db/            # 数据库配置
-│   └── lib/           # 鉴权、tag 校验等
+│   ├── app/           # 页面与 API Route Handlers
+│   ├── db/            # Drizzle schema / 连接
+│   ├── lib/           # 鉴权、tag 工具
+│   └── proxy.ts       # Next.js 16：/api/* 鉴权入口
 ├── tests/             # API 集成测试与 helpers
-├── drizzle/           # 自动生成的 migration 文件
-├── docs/              # 项目文档
-└── public/            # 静态资源
+├── drizzle/           # migration
+├── docs/              # 设计与开发日志
+└── public/
 ```
 
 ## 数据模型
 
-一张记录表，7 个字段：
+一张 `records` 表：
 
 | 字段 | 类型 | 说明 |
-|---|---|---|
+|------|------|------|
 | id | UUID (v7) | 主键，时间有序 |
 | happened_at | TIMESTAMPTZ | 事件时间 |
-| value_number | NUMERIC | 数值型记录（体重、消费等） |
-| value_text | TEXT | 文本型记录（叙事、复盘等） |
-| tags | TEXT | JSON 数组，标签 |
+| value_number | NUMERIC | 数值（可空） |
+| value_text | TEXT | 文本（可空；与数值至少填一） |
+| tags | TEXT | JSON 数组 |
 | objective_context | TEXT | 客观背景（必填） |
 | subjective_interpretation | TEXT | 主观解读（可空） |
 
 ## 设计文档
 
-详见 `docs/` 目录：
+详见 `docs/`：
 
-- `20260727-initial-vision.md` — 项目初始设想
-- `20260728-fuzzy-time.md` — 模糊时间处理方案
-- `20260729-schema-v1.md` — 数据表设计定稿
+- `20260727-initial-vision.md` — 初始设想
+- `20260728-fuzzy-time.md` — 模糊时间
+- `20260729-schema-v1.md` — 表与接口定稿
+- `20260730-development-log.md` — 当日开发日志与已完成项

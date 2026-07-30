@@ -1,7 +1,27 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-07-30
-> 状态：进行中
+> 状态：进行中（当日已完成 MVP + 测试基建 + 双 Token / Admin 能力）
+
+## 0. 今日做成了什么（总览）
+
+一天下来，从空项目到可用的个人数字孪生后端 + 简易前端，并补齐测试与权限分层：
+
+| 类别 | 已完成 |
+|------|--------|
+| 工程骨架 | Next.js 16 + React 19 + TS + Tailwind 4；README / `.env.example` / AGENTS.md 约定 |
+| 数据库 | Neon PostgreSQL + Drizzle；单表 `records`；migration 可从空库建表 |
+| 环境策略 | 本地 `.env` → **专用测试库**；生产 `DATABASE_URL` 只放 Vercel；不引入多 env 文件 |
+| 录入 / 查询 API | `POST /api/log/number`、`POST /api/log/text`、`GET /api/query` |
+| 标签 API | `GET /api/query/tags`（字典序 tag→条数）；`POST /api/admin/tags/rename`（全局替换） |
+| 鉴权 | Next.js 16 `src/proxy.ts` 统一拦 `/api/*`；AI Token vs Admin Token 分流 |
+| 前端 | 设置双 Token；查看记录；标签管理（列表 + 全局替换） |
+| 自动化测试 | Vitest：单元（tag/auth/proxy）+ API 集成（真 PG：migrate → TRUNCATE → 测 → DROP） |
+| 部署 | Vercel 线上已通；规划阿里云函数计算备用 |
+
+设计原则仍有效：生产只用标准 PostgreSQL；AI 侧 append-only；改库（如 tag rename）只给网页 Admin Token。
+
+---
 
 ## 1. 项目初始化
 
@@ -28,25 +48,36 @@ npx create-next-app@latest digitaltwin --app --src-dir --eslint --typescript --t
 
 ### 2.1 Neon 连接
 
-注册 Neon 账号，创建项目，获取连接字符串。
+- **生产 / 主开发库**：Neon 项目 `DigitalTwin2026`（连接串只配在 Vercel）
+- **专用测试库**：Neon 项目 `TestDigitalTwin2026`（写入本地 `.env` 的 `DATABASE_URL`）
+- 曾讨论 Neon 临时分支；最终采用「独立测试库 + migrate/TRUNCATE/DROP」，避免业务绑 Neon branching
 
-**环境变量配置**（`.env`）：
+**环境变量**（见 `.env.example`）：
+
 ```
-DATABASE_URL='postgresql://neondb_owner:xxx@ep-xxx.neon.tech/neondb?sslmode=require'
-DIGITAL_TWIN_TOKEN='your-secret-token-here'
+DATABASE_URL=          # 本地指向测试库；生产在 Vercel
+DIGITAL_TWIN_TOKEN=    # AI / 普通 API
+DIGITAL_TWIN_ADMIN_TOKEN=  # 仅 /api/admin/*；勿交给 AI
 ```
+
+对生产建表 / 迁移：
+
+```bash
+DATABASE_URL='生产连接串' npm run db:migrate
+```
+
+空库只要库已存在，migrate 可从 0 建表（不负责 `CREATE DATABASE`）。
 
 ### 2.2 Drizzle ORM 集成
 
-安装依赖：
 ```bash
 npm install drizzle-orm postgres
 npm install -D drizzle-kit
 ```
 
-**设计原则**（记录在 AGENTS.md）：
+**设计原则**（AGENTS.md）：
 - 生产代码只用标准 PostgreSQL 功能，不依赖 Neon 特色
-- 测试环境可以用 Neon 分支功能
+- 测试可用独立测试库（或 Neon 分支，非必须）
 
 ### 2.3 数据表设计
 
@@ -74,24 +105,30 @@ npm install -D drizzle-kit
 
 ## 3. API 接口开发
 
-### 3.1 接口设计
+### 3.1 接口一览
 
-三个通用接口：
+| 接口 | 方法 | 用途 | Token |
+|---|---|---|---|
+| `/api/log/number` | POST | 记录数值 | AI 或 Admin |
+| `/api/log/text` | POST | 记录文本 | AI 或 Admin |
+| `/api/query` | GET | 通用查询 | AI 或 Admin |
+| `/api/query/tags` | GET | 全表 tag 计数（按 tag 名字典序） | AI 或 Admin |
+| `/api/admin/tags/rename` | POST | 全局 tag 替换 `{ from, to }` | **仅 Admin** |
 
-| 接口 | 方法 | 用途 |
-|---|---|---|
-| `/api/log/number` | POST | 记录数值 |
-| `/api/log/text` | POST | 记录文本 |
-| `/api/query` | GET | 通用查询 |
+成功响应统一带 `{ success, ... }`；失败为 `{ error }`。
 
-### 3.2 认证机制
+### 3.2 认证机制（Next.js 16 Proxy）
 
-使用标准 Bearer Token 认证：
+鉴权集中在 [`src/proxy.ts`](../src/proxy.ts)，`matcher: '/api/:path*'`：
+
+- 普通 `/api/*`：`DIGITAL_TWIN_TOKEN` **或** `DIGITAL_TWIN_ADMIN_TOKEN`
+- `/api/admin/*`：仅 `DIGITAL_TWIN_ADMIN_TOKEN`（AI 即使知道 path 也无法操作）
+
+各 Route Handler 不再重复写鉴权代码。
+
 ```
 Authorization: Bearer <token>
 ```
-
-Token 通过环境变量 `DIGITAL_TWIN_TOKEN` 配置。
 
 ### 3.3 Tag 格式验证
 
@@ -103,106 +140,113 @@ Token 通过环境变量 `DIGITAL_TWIN_TOKEN` 配置。
 
 **正则表达式**：`/^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$/`
 
-**允许的示例**：
-- `weight`
-- `source:device`
-- `review:weekly`
-
-**禁止的示例**：
-- `:device`（冒号开头）
-- `source:`（冒号结尾）
-- `source::device`（连续冒号）
-- `体重`（中文）
+**允许的示例**：`weight`、`source:device`、`review:weekly`  
+**禁止的示例**：`:device`、`source:`、`source::device`、`体重`
 
 ### 3.4 查询接口
 
 支持的过滤条件：
-- `from` / `to`：时间区间（ISO 8601 带时区）
+- `from` / `to`：时间区间（ISO 8601 带时区），半开区间 `[from, to)`
 - `tag`：多 tag 过滤（AND 语义）
 - `q`：模糊搜索（value_text、objective_context、subjective_interpretation、tags）
+
+### 3.5 标签计数与全局替换
+
+- `GET /api/query/tags` → `{ success: true, tags: { morning: 1, weight: 2, ... } }`（key 字典序）
+- `POST /api/admin/tags/rename` → 精确替换 tag 名；同条记录若 `to` 已存在则去重；返回 `{ success, updated }`
 
 ## 4. 前端页面
 
 ### 4.1 页面结构
 
-采用移动端优先设计：
+移动端优先单页三态（后扩展为四态）：
 
-- **首页**：简洁设计
-  - 「查看记录」按钮
-  - 「设置」按钮
-- **设置页面**：Token 输入 + 保存（存 localStorage）
-- **记录页面**：表格展示所有记录
+- **首页**：查看记录 / 标签管理 / 设置
+- **设置**：API Token + Admin Token（localStorage：`digitaltwin_token` / `digitaltwin_admin_token`）
+- **记录**：表格只读展示
+- **标签管理**：展示 tag 计数；Admin Token 下做全局替换
 
 ### 4.2 功能特性
 
-- Token 持久化（localStorage）
-- 响应式设计（移动端优先，桌面端自适应）
-- 表格展示所有字段
-- 标签以蓝色标签样式显示
+- 双 Token 持久化；Admin 仅网页使用
+- 响应式表格；标签蓝色 chip
 
-## 5. 部署
+## 5. 自动化测试
 
-### 5.1 Vercel 部署
+### 5.1 方案
 
-1. 代码推送到 GitHub
-2. Vercel 导入项目
-3. 配置环境变量：
-   - `DATABASE_URL`
-   - `DIGITAL_TWIN_TOKEN`
-4. 自动部署
+- 框架：**Vitest**
+- 单元：`src/lib/*.test.ts`、`src/proxy.test.ts`（无库 / 测鉴权分流）
+- 集成：`tests/api/*.test.ts` 直接调 Route Handler + **真实测试 PG**
+- 生命周期：migrate → 每用例 TRUNCATE → 套件结束 DROP
+- 不使用 SQLite / mock DB；不绑 Neon branching
 
-**线上地址**：https://digital-twin2026.vercel.app
-
-### 5.2 部署规划
-
-- **Vercel**：主要部署平台（海外访问）
-- **阿里云函数计算**：国内备用（Vercel 可能被墙）
-- API 保持标准，便于移植
-
-## 6. 测试结果
-
-### 6.1 本地测试
+### 5.2 命令
 
 ```bash
-# 记录数值
+npm test
+npm run test:watch
+```
+
+当日验证约 **49** 条用例通过。
+
+## 6. 部署
+
+### 6.1 Vercel
+
+1. 代码推送到 GitHub  
+2. Vercel 导入项目  
+3. 环境变量：`DATABASE_URL`、`DIGITAL_TWIN_TOKEN`、`DIGITAL_TWIN_ADMIN_TOKEN`  
+4. 自动部署  
+
+**线上地址**：https://digital-twin2026.vercel.app  
+
+Schema 变更需另对生产执行 `DATABASE_URL='...' npm run db:migrate`（部署不会自动 migrate）。
+
+### 6.2 部署规划
+
+- **Vercel**：主要（海外）
+- **阿里云函数计算**：国内备用
+- API 保持标准，便于移植
+
+## 7. 早期手工测试备忘
+
+```bash
 curl -X POST http://localhost:3001/api/log/number \
   -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
   -d '{"happened_at":"2026-07-30T08:00:00+08:00","value_number":75.5,"tags":["weight"],"objective_context":"早上空腹称重"}'
 
-# 记录文本
-curl -X POST http://localhost:3001/api/log/text \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"happened_at":"2026-07-30T10:00:00+08:00","value_text":"今天背了50个单词","tags":["study","vocabulary"],"objective_context":"下午学习时间"}'
-
-# 查询
-curl -X GET "http://localhost:3001/api/query?tag=weight" \
+curl -X GET "http://localhost:3001/api/query/tags" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-### 6.2 线上测试
+线上曾对基础录入/查询接口验证通过。
 
-所有接口在 Vercel 上测试通过。
-
-## 7. Git 提交记录
+## 8. Git 提交记录（节选，新 → 旧）
 
 ```
+3e5260c 添加 admin 鉴权与标签全局替换接口
+1d3895e 将 API Bearer 鉴权集中到 Next.js 16 proxy
+7da10b3 添加 GET /api/query/tags 标签计数接口
+8b19887 添加 Vitest 单元与 API 集成测试基建
+d8e9466 添加 .env.example 并允许其提交
+5eba1b1 添加 2026-07-30 开发日志
 d620446 重构页面：移动端优先
 a01628c 创建数据展示页面
-d1ed87c 完善 tag 规则：冒号不能开头、结尾、连续
-995a2ed 添加 tag 格式验证：只允许英文、数字、下划线、冒号，不能以数字开头
-78402cb 记录部署规划：Vercel 主要 + 阿里云函数计算备用
+d1ed87c / 995a2ed tag 格式规则
 7f3f285 创建三个通用 API 接口
-ba42d44 更新 README：项目说明、技术栈、使用指南
-91346c0 字段重命名：value_numeric → value_number
-55dbc1b 修改字段：context → objective_context（必填），新增 subjective_interpretation（可空）
-98f4aba 配置 Neon 数据库连接
+91346c0 / 55dbc1b 字段演进
+98f4aba 配置 Neon
 c3e2f25 初始化 Next.js 项目
 ```
 
-## 8. 待办事项
+## 9. 待办事项
 
-- [ ] 创建更多专用接口（账单、体重、复盘等）
+- [ ] 专用录入接口（账单、体重、复盘等，见 schema-v1 设计）
+- [ ] 账单汇总 `GET /query/bill/summary`
+- [ ] AI 侧 CLI 包装（只注入 AI Token，永不接触 Admin）
 - [ ] 添加数据库注释（COMMENT ON）
-- [ ] 完善查询接口（支持更多过滤条件）
-- [ ] 添加数据导出功能
-- [ ] 实现阿里云函数计算版本
+- [ ] 数据导出
+- [ ] 阿里云函数计算版本
+- [ ] 前端 v1 完整 CRUD / v2 图表（体重折线等）
