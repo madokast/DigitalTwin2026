@@ -1,5 +1,5 @@
 {
-  "id": "bdc38cbd-a4f8-45db-a063-a0004e648c98",
+  "id": "2945aa44-8ac1-47dc-9dfa-344bc5a8c0df",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -20,8 +20,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "value_numeric": {
-          "name": "value_numeric",
+        "value_number": {
+          "name": "value_number",
           "type": "numeric",
           "primaryKey": false,
           "notNull": false
@@ -59,7 +59,7 @@
       "checkConstraints": {
         "chk_value": {
           "name": "chk_value",
-          "value": "\"records\".\"value_numeric\" IS NOT NULL OR \"records\".\"value_text\" IS NOT NULL"
+          "value": "\"records\".\"value_number\" IS NOT NULL OR \"records\".\"value_text\" IS NOT NULL"
         },
         "chk_tags": {
           "name": "chk_tags",

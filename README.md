@@ -75,7 +75,7 @@ npm run db:check
 |---|---|---|
 | id | UUID (v7) | 主键，时间有序 |
 | happened_at | TIMESTAMPTZ | 事件时间 |
-| value_numeric | NUMERIC | 数值型记录（体重、消费等） |
+| value_number | NUMERIC | 数值型记录（体重、消费等） |
 | value_text | TEXT | 文本型记录（叙事、复盘等） |
 | tags | TEXT | JSON 数组，标签 |
 | objective_context | TEXT | 客观背景（必填） |
