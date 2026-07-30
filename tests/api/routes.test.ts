@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { POST as postNumber } from '@/app/api/log/number/route'
 import { POST as postText } from '@/app/api/log/text/route'
 import { GET as queryRecords } from '@/app/api/query/route'
+import { GET as queryTags } from '@/app/api/query/tags/route'
 import { closeDb } from '@/db'
 import { dropTestSchema, migrateTestDatabase, truncateRecords } from '../helpers/db'
 import { jsonGet, jsonPost } from '../helpers/http'
@@ -177,6 +178,54 @@ describe('API integration', () => {
       const tagBody = await byTag.json()
       expect(tagBody.count).toBe(1)
       expect(tagBody.records[0].valueNumber).toBe('75.5')
+    })
+  })
+
+  describe('GET /api/query/tags', () => {
+    it('returns 401 without token', async () => {
+      const res = await queryTags(jsonGet('http://localhost/api/query/tags', false))
+      expect(res.status).toBe(401)
+      const body = await res.json()
+      expect(body.error).toBeTruthy()
+    })
+
+    it('returns success wrapper with lexicographically sorted tag counts', async () => {
+      await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        value_number: 75.5,
+        tags: ['weight', 'morning'],
+        objective_context: 'fasting weight',
+      }))
+      await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-07-30T15:00:00+08:00',
+        value_text: 'reviewed physics notes',
+        tags: ['study', 'physics'],
+        objective_context: 'focused session',
+      }))
+      await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-31T08:00:00+08:00',
+        value_number: 75.2,
+        tags: ['weight'],
+        objective_context: 'follow-up weigh-in',
+      }))
+
+      const res = await queryTags(jsonGet('http://localhost/api/query/tags'))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.success).toBe(true)
+      expect(Object.keys(body.tags)).toEqual(['morning', 'physics', 'study', 'weight'])
+      expect(body.tags).toEqual({
+        morning: 1,
+        physics: 1,
+        study: 1,
+        weight: 2,
+      })
+    })
+
+    it('returns empty tags object when there are no records', async () => {
+      const res = await queryTags(jsonGet('http://localhost/api/query/tags'))
+      expect(res.status).toBe(200)
+      await expect(res.json()).resolves.toEqual({ success: true, tags: {} })
     })
   })
 })

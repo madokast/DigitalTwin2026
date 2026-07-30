@@ -32,3 +32,23 @@ export function validateTags(tags: string[]): { valid: boolean; error?: string }
   
   return { valid: true }
 }
+
+/**
+ * 从 records.tags（JSON 字符串数组）汇总「记录条数」，按 tag 名字典序返回。
+ */
+export function aggregateTagCounts(tagFields: string[]): Record<string, number> {
+  const counts = new Map<string, number>()
+
+  for (const field of tagFields) {
+    const parsed = JSON.parse(field) as unknown
+    if (!Array.isArray(parsed)) continue
+    for (const tag of parsed) {
+      if (typeof tag !== 'string') continue
+      counts.set(tag, (counts.get(tag) ?? 0) + 1)
+    }
+  }
+
+  return Object.fromEntries(
+    [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)),
+  )
+}

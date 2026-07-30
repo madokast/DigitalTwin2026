@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isValidTag, validateTags } from './tags'
+import { aggregateTagCounts, isValidTag, validateTags } from './tags'
 
 describe('isValidTag', () => {
   it.each(['weight', 'source:device', 'review:weekly', 'a', 'A1_b:c2'])(
@@ -45,5 +45,26 @@ describe('validateTags', () => {
 
   it('accepts a non-empty array of valid tags', () => {
     expect(validateTags(['weight', 'source:device'])).toEqual({ valid: true })
+  })
+})
+
+describe('aggregateTagCounts', () => {
+  it('returns empty object for no rows', () => {
+    expect(aggregateTagCounts([])).toEqual({})
+  })
+
+  it('counts tags across records and sorts keys lexicographically', () => {
+    const result = aggregateTagCounts([
+      JSON.stringify(['weight', 'morning']),
+      JSON.stringify(['study', 'physics']),
+      JSON.stringify(['weight']),
+    ])
+    expect(Object.keys(result)).toEqual(['morning', 'physics', 'study', 'weight'])
+    expect(result).toEqual({
+      morning: 1,
+      physics: 1,
+      study: 1,
+      weight: 2,
+    })
   })
 })
