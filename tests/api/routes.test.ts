@@ -285,6 +285,41 @@ describe('API integration', () => {
       const badFrom = await queryRecords(jsonGet('http://localhost/api/query?from=not-a-date'))
       expect(badFrom.status).toBe(400)
     })
+
+    it('returns 400 when from/to lack timezone offset', async () => {
+      const dateOnly = await queryRecords(
+        jsonGet('http://localhost/api/query?from=2026-07-30'),
+      )
+      expect(dateOnly.status).toBe(400)
+      const dateOnlyBody = await dateOnly.json()
+      expect(dateOnlyBody.error).toMatch(/timezone/i)
+
+      const noOffset = await queryRecords(
+        jsonGet('http://localhost/api/query?from=2026-07-30T00:00:00'),
+      )
+      expect(noOffset.status).toBe(400)
+      const noOffsetBody = await noOffset.json()
+      expect(noOffsetBody.error).toMatch(/timezone/i)
+    })
+
+    it('accepts from/to with Z or +08:00', async () => {
+      await seed()
+      const withZ = await queryRecords(
+        jsonGet(
+          'http://localhost/api/query?from=2026-07-29T16:00:00Z&to=2026-07-30T16:00:00Z',
+        ),
+      )
+      expect(withZ.status).toBe(200)
+      expect((await withZ.json()).count).toBe(2)
+
+      const withOffset = await queryRecords(
+        jsonGet(
+          'http://localhost/api/query?from=2026-07-30T00:00:00%2B08:00&to=2026-07-31T00:00:00%2B08:00',
+        ),
+      )
+      expect(withOffset.status).toBe(200)
+      expect((await withOffset.json()).count).toBe(2)
+    })
   })
 
   describe('GET /api/query/tags', () => {

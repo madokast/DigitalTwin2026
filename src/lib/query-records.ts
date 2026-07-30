@@ -19,8 +19,16 @@ function parsePositiveInt(raw: string | null, fallback: number): number | null {
   return n
 }
 
+/** ISO 8601 末尾时区：Z / ±HH:MM / ±HHMM */
+const ISO_TZ_SUFFIX = /(Z|[+-]\d{2}:?\d{2})$/i
+
 function parseIsoDate(raw: string | null, label: string): Date | ParseError | null {
   if (raw === null || raw === '') return null
+  if (!ISO_TZ_SUFFIX.test(raw)) {
+    return {
+      error: `${label} must be ISO 8601 with timezone (Z or ±HH:MM)`,
+    }
+  }
   const d = new Date(raw)
   if (Number.isNaN(d.getTime())) {
     return { error: `Invalid ${label} datetime` }
