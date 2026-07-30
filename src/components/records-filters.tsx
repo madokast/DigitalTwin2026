@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FormEvent, useState } from 'react'
+import { TagMultiSelect } from '@/components/tag-multi-select'
 import { dayRangeToIso } from '@/lib/datetime-ui'
 import { resolveTimezone } from '@/lib/prefs'
 
@@ -23,8 +24,8 @@ export function RecordsFilters({
   const searchParams = useSearchParams()
 
   const [q, setQ] = useState(searchParams.get('q') ?? '')
-  const [tag, setTag] = useState(
-    lockedTag ?? searchParams.getAll('tag').filter((t) => t !== lockedTag)[0] ?? '',
+  const [tags, setTags] = useState(() =>
+    searchParams.getAll('tag').filter((t) => t && t !== lockedTag),
   )
   const [day, setDay] = useState(() => {
     // 仅当 URL 无 from/to 时为空；有则不回填复杂 ISO，留给高级用户改 URL
@@ -36,7 +37,9 @@ export function RecordsFilters({
     const params = new URLSearchParams()
     if (q.trim()) params.set('q', q.trim())
     if (lockedTag) params.append('tag', lockedTag)
-    if (tag.trim() && tag.trim() !== lockedTag) params.append('tag', tag.trim())
+    for (const tag of tags) {
+      if (tag && tag !== lockedTag) params.append('tag', tag)
+    }
     if (day) {
       const { from, to } = dayRangeToIso(day, resolveTimezone())
       params.set('from', from)
@@ -74,17 +77,11 @@ export function RecordsFilters({
             placeholder="q"
           />
         </div>
-        {!lockedTag && (
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">标签</label>
-            <input
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-              placeholder="tag"
-            />
-          </div>
-        )}
+        <TagMultiSelect
+          selected={tags}
+          lockedTag={lockedTag}
+          onChange={setTags}
+        />
         <div>
           <label className="block text-xs text-gray-500 mb-1">日期（按时区展开）</label>
           <input
