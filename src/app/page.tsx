@@ -17,6 +17,8 @@ export default function Home() {
   const [records, setRecords] = useState<Record[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showSettings, setShowSettings] = useState(false)
+  const [showRecords, setShowRecords] = useState(false)
 
   // 从 localStorage 读取 token
   useEffect(() => {
@@ -26,10 +28,10 @@ export default function Home() {
     }
   }, [])
 
-  // 保存 token 到 localStorage
+  // 保存 token
   const saveToken = () => {
     localStorage.setItem('digitaltwin_token', token)
-    alert('Token 已保存')
+    setShowSettings(false)
   }
 
   // 获取数据
@@ -55,6 +57,7 @@ export default function Home() {
 
       const data = await res.json()
       setRecords(data.records)
+      setShowRecords(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : '请求失败')
     } finally {
@@ -63,100 +66,128 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">DigitalTwin2026</h1>
-        
-        {/* Token 设置 */}
-        <div className="bg-white p-4 rounded-lg shadow mb-6">
-          <h2 className="text-lg font-semibold mb-4">Token 设置</h2>
-          <div className="flex gap-4">
-            <input
-              type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="输入 Token"
-              className="flex-1 px-4 py-2 border rounded-lg"
-            />
-            <button
-              onClick={saveToken}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              保存
-            </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* 主页 */}
+      {!showSettings && !showRecords && (
+        <div className="flex flex-col items-center justify-center min-h-screen p-4">
+          <h1 className="text-2xl font-bold mb-8">DigitalTwin2026</h1>
+          
+          <div className="flex flex-col gap-4 w-full max-w-xs">
             <button
               onClick={fetchRecords}
-              className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+              disabled={loading}
+              className="w-full px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
             >
-              加载数据
+              {loading ? '加载中...' : '查看记录'}
+            </button>
+            
+            <button
+              onClick={() => setShowSettings(true)}
+              className="w-full px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              设置
             </button>
           </div>
+
+          {error && (
+            <div className="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded w-full max-w-xs">
+              {error}
+            </div>
+          )}
         </div>
+      )}
 
-        {/* 错误提示 */}
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
+      {/* 设置页面 */}
+      {showSettings && (
+        <div className="min-h-screen p-4">
+          <div className="max-w-md mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">设置</h2>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="bg-white p-4 rounded-lg shadow">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Token
+              </label>
+              <input
+                type="password"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="输入 Token"
+                className="w-full px-4 py-2 border rounded-lg mb-4"
+              />
+              <button
+                onClick={saveToken}
+                className="w-full px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              >
+                保存
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* 数据表格 */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-4 py-3 text-left">ID</th>
-                <th className="px-4 py-3 text-left">时间</th>
-                <th className="px-4 py-3 text-left">数值</th>
-                <th className="px-4 py-3 text-left">文本</th>
-                <th className="px-4 py-3 text-left">标签</th>
-                <th className="px-4 py-3 text-left">客观背景</th>
-                <th className="px-4 py-3 text-left">主观解读</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                    加载中...
-                  </td>
-                </tr>
-              ) : records.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                    暂无数据，点击"加载数据"获取
-                  </td>
-                </tr>
-              ) : (
-                records.map((record) => (
-                  <tr key={record.id} className="border-t hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-mono">{record.id.slice(0, 8)}...</td>
-                    <td className="px-4 py-3 text-sm">{new Date(record.happenedAt).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm">{record.valueNumber || '-'}</td>
-                    <td className="px-4 py-3 text-sm max-w-xs truncate">{record.valueText || '-'}</td>
-                    <td className="px-4 py-3 text-sm">
-                      {JSON.parse(record.tags).map((tag: string) => (
-                        <span key={tag} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded mr-1 text-xs">
-                          {tag}
-                        </span>
-                      ))}
-                    </td>
-                    <td className="px-4 py-3 text-sm max-w-xs truncate">{record.objectiveContext}</td>
-                    <td className="px-4 py-3 text-sm max-w-xs truncate">{record.subjectiveInterpretation || '-'}</td>
+      {/* 记录展示页面 */}
+      {showRecords && (
+        <div className="min-h-screen p-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">记录</h2>
+              <button
+                onClick={() => setShowRecords(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-sm">ID</th>
+                    <th className="px-3 py-2 text-left text-sm">时间</th>
+                    <th className="px-3 py-2 text-left text-sm">数值</th>
+                    <th className="px-3 py-2 text-left text-sm">文本</th>
+                    <th className="px-3 py-2 text-left text-sm">标签</th>
+                    <th className="px-3 py-2 text-left text-sm">客观背景</th>
+                    <th className="px-3 py-2 text-left text-sm">主观解读</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {records.map((record) => (
+                    <tr key={record.id} className="border-t hover:bg-gray-50">
+                      <td className="px-3 py-2 text-xs font-mono">{record.id.slice(0, 8)}...</td>
+                      <td className="px-3 py-2 text-xs">{new Date(record.happenedAt).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-xs">{record.valueNumber || '-'}</td>
+                      <td className="px-3 py-2 text-xs max-w-[150px] truncate">{record.valueText || '-'}</td>
+                      <td className="px-3 py-2 text-xs">
+                        {JSON.parse(record.tags).map((tag: string) => (
+                          <span key={tag} className="inline-block bg-blue-100 text-blue-800 px-1 py-0.5 rounded mr-1 text-xs">
+                            {tag}
+                          </span>
+                        ))}
+                      </td>
+                      <td className="px-3 py-2 text-xs max-w-[150px] truncate">{record.objectiveContext}</td>
+                      <td className="px-3 py-2 text-xs max-w-[150px] truncate">{record.subjectiveInterpretation || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-        {/* 统计信息 */}
-        {records.length > 0 && (
-          <div className="mt-4 text-gray-500 text-sm">
-            共 {records.length} 条记录
+            <div className="mt-4 text-gray-500 text-sm">
+              共 {records.length} 条记录
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
