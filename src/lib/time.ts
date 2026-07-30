@@ -73,12 +73,25 @@ export function getZonedDayBounds(
   }
 
   const { year, month, day } = zonedParts(now, timeZone)
+  return calendarDayBounds(year, month, day, timeZone)
+}
+
+/** 指定墙钟日历日在 IANA 时区下的半开区间 [start, end) */
+export function calendarDayBounds(
+  year: number,
+  month: number,
+  day: number,
+  timeZone: string,
+): { start: Date; end: Date } {
+  if (!isValidTimeZone(timeZone)) {
+    throw new Error(`Invalid time zone: ${timeZone}`)
+  }
+
   const start = zonedLocalToUtc(year, month, day, 0, 0, 0, timeZone)
 
   // 次日 00:00：用 start + 25h 再取该区日历日，避免夏令时少一小时踩坑
   const probe = new Date(start.getTime() + 25 * 60 * 60 * 1000)
   const next = zonedParts(probe, timeZone)
-  // 若 probe 仍落在同一天（极罕见），再加一天
   let endDay = { year: next.year, month: next.month, day: next.day }
   if (endDay.year === year && endDay.month === month && endDay.day === day) {
     const later = new Date(start.getTime() + 36 * 60 * 60 * 1000)

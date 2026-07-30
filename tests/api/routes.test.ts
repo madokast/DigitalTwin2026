@@ -198,9 +198,12 @@ describe('API integration', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.count).toBe(2)
+      expect(body.page).toBe(1)
+      expect(body.pageSize).toBe(20)
+      // happenedAt desc
       expect(body.records.map((r: { valueText: string | null }) => r.valueText)).toEqual([
-        null,
         'reviewed physics notes',
+        null,
       ])
     })
 
@@ -228,6 +231,59 @@ describe('API integration', () => {
       const tagBody = await byTag.json()
       expect(tagBody.count).toBe(1)
       expect(tagBody.records[0].valueNumber).toBe('75.5')
+    })
+
+    it('defaults to page=1 pageSize=20 and supports page 2', async () => {
+      for (let i = 0; i < 25; i++) {
+        await postText(jsonPost('http://localhost/api/log/text', {
+          happened_at: `2026-07-30T${String(10 + Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}:00+08:00`,
+          value_text: `row-${i}`,
+          tags: ['bulk'],
+          objective_context: `ctx-${i}`,
+        }))
+      }
+
+      const page1 = await queryRecords(jsonGet('http://localhost/api/query'))
+      expect(page1.status).toBe(200)
+      const body1 = await page1.json()
+      expect(body1.count).toBe(25)
+      expect(body1.page).toBe(1)
+      expect(body1.pageSize).toBe(20)
+      expect(body1.records).toHaveLength(20)
+      expect(body1.records[0].valueText).toBe('row-24')
+
+      const page2 = await queryRecords(jsonGet('http://localhost/api/query?page=2'))
+      const body2 = await page2.json()
+      expect(body2.count).toBe(25)
+      expect(body2.page).toBe(2)
+      expect(body2.records).toHaveLength(5)
+      expect(body2.records[0].valueText).toBe('row-4')
+    })
+
+    it('returns a single record by id and ignores pagination', async () => {
+      await seed()
+      const list = await queryRecords(jsonGet('http://localhost/api/query?q=productive'))
+      const target = (await list.json()).records[0]
+
+      const res = await queryRecords(jsonGet(
+        `http://localhost/api/query?id=${target.id}&page=2&pageSize=1`,
+      ))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.count).toBe(1)
+      expect(body.records).toHaveLength(1)
+      expect(body.records[0].id).toBe(target.id)
+    })
+
+    it('returns 400 for invalid page, pageSize, from, or to', async () => {
+      const badPage = await queryRecords(jsonGet('http://localhost/api/query?page=0'))
+      expect(badPage.status).toBe(400)
+
+      const badSize = await queryRecords(jsonGet('http://localhost/api/query?pageSize=101'))
+      expect(badSize.status).toBe(400)
+
+      const badFrom = await queryRecords(jsonGet('http://localhost/api/query?from=not-a-date'))
+      expect(badFrom.status).toBe(400)
     })
   })
 
