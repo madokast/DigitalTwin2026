@@ -69,7 +69,7 @@ npm run db:check
 
 ## 数据模型
 
-一张记录表，6 个字段：
+一张记录表，7 个字段：
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -78,7 +78,8 @@ npm run db:check
 | value_numeric | NUMERIC | 数值型记录（体重、消费等） |
 | value_text | TEXT | 文本型记录（叙事、复盘等） |
 | tags | TEXT | JSON 数组，标签 |
-| context | TEXT | 对话上下文 |
+| objective_context | TEXT | 客观背景（必填） |
+| subjective_interpretation | TEXT | 主观解读（可空） |
 
 ## 设计文档
 
