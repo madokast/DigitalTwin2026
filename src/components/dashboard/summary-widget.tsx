@@ -5,8 +5,8 @@ import { fetchSummary } from '@/lib/api-client'
 import { resolveTimezone } from '@/lib/prefs'
 
 export function SummaryWidget() {
-  const [total, setTotal] = useState<number | null>(null)
-  const [today, setToday] = useState<number | null>(null)
+  const [total, setTotal] = useState(0)
+  const [today, setToday] = useState(0)
   const [tz, setTz] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -36,32 +36,24 @@ export function SummaryWidget() {
     }
   }, [])
 
-  if (loading) {
-    return <p className="text-sm text-muted-foreground">加载 summary…</p>
-  }
-
   if (error) {
     return <p className="text-sm text-destructive">{error}</p>
   }
 
   return (
-    <div className="space-y-2">
-      <h2 className="text-lg font-semibold text-card-foreground">概览</h2>
-      <p className="text-sm text-subtle">时区：{tz}</p>
-      <div className="flex gap-8">
-        <div>
-          <div className="text-3xl font-bold tabular-nums text-card-foreground">
-            {total}
-          </div>
-          <div className="text-sm text-muted-foreground">全部记录</div>
-        </div>
-        <div>
-          <div className="text-3xl font-bold tabular-nums text-card-foreground">
-            {today}
-          </div>
-          <div className="text-sm text-muted-foreground">今日新增</div>
-        </div>
-      </div>
+    <div className="flex items-baseline gap-4 overflow-x-auto whitespace-nowrap text-sm">
+      <h2 className="text-lg font-semibold text-card-foreground shrink-0">
+        {loading ? '加载中' : '概览'}
+      </h2>
+      <span className="text-subtle shrink-0">时区：{tz || '—'}</span>
+      <span className="tabular-nums text-card-foreground shrink-0">
+        <span className="text-lg font-bold">{total}</span>
+        <span className="ml-1 text-muted-foreground">全部记录</span>
+      </span>
+      <span className="tabular-nums text-card-foreground shrink-0">
+        <span className="text-lg font-bold">{today}</span>
+        <span className="ml-1 text-muted-foreground">今日新增</span>
+      </span>
     </div>
   )
 }
