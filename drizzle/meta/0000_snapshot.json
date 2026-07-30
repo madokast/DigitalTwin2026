@@ -1,5 +1,5 @@
 {
-  "id": "2641ff5d-0cf4-4b5b-a629-1265af3fff39",
+  "id": "bdc38cbd-a4f8-45db-a063-a0004e648c98",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -38,8 +38,14 @@
           "primaryKey": false,
           "notNull": true
         },
-        "context": {
-          "name": "context",
+        "objective_context": {
+          "name": "objective_context",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subjective_interpretation": {
+          "name": "subjective_interpretation",
           "type": "text",
           "primaryKey": false,
           "notNull": false

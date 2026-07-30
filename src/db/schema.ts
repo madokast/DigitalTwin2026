@@ -7,7 +7,8 @@ export const records = pgTable('records', {
   valueNumeric: numeric('value_numeric'),
   valueText: text('value_text'),
   tags: text('tags').notNull(),
-  context: text('context'),
+  objectiveContext: text('objective_context').notNull(),
+  subjectiveInterpretation: text('subjective_interpretation'),
 }, (table) => [
   // 确保 value_numeric 和 value_text 至少填一个
   check('chk_value', sql`${table.valueNumeric} IS NOT NULL OR ${table.valueText} IS NOT NULL`),
