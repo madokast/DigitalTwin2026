@@ -1,12 +1,12 @@
 import 'dotenv/config'
 import postgres from 'postgres'
 
-const sql = postgres(process.env.DATABASE_URL!)
+const client = postgres(process.env.DATABASE_URL!)
 
 async function checkDB() {
   try {
     // 检查表是否存在
-    const tables = await sql`
+    const tables = await client`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public'
@@ -14,7 +14,7 @@ async function checkDB() {
     console.log('表列表:', tables.map(t => t.table_name))
     
     // 检查 records 表结构
-    const columns = await sql`
+    const columns = await client`
       SELECT column_name, data_type, is_nullable
       FROM information_schema.columns
       WHERE table_name = 'records'
@@ -26,7 +26,7 @@ async function checkDB() {
     })
     
     // 检查约束
-    const constraints = await sql`
+    const constraints = await client`
       SELECT constraint_name, constraint_type
       FROM information_schema.table_constraints
       WHERE table_name = 'records'
@@ -36,7 +36,7 @@ async function checkDB() {
   } catch (error) {
     console.error('检查失败:', error)
   } finally {
-    await sql.end()
+    await client.end()
   }
 }
 
