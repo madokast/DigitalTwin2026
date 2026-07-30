@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
-import { verifyToken, unauthorizedResponse } from '@/lib/auth'
 import { validateTags } from '@/lib/tags'
 
 interface LogTextRequest {
@@ -14,11 +13,6 @@ interface LogTextRequest {
 }
 
 export async function POST(request: NextRequest) {
-  // 验证 token
-  if (!verifyToken(request)) {
-    return unauthorizedResponse()
-  }
-  
   try {
     const body: LogTextRequest = await request.json()
     

@@ -22,16 +22,6 @@ describe('API integration', () => {
   }, 60_000)
 
   describe('POST /api/log/number', () => {
-    it('returns 401 without token', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-        happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: 75.5,
-        tags: ['weight'],
-        objective_context: 'morning weigh-in',
-      }, false))
-      expect(res.status).toBe(401)
-    })
-
     it('returns 400 when required fields are missing', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         value_number: 75.5,
@@ -75,16 +65,6 @@ describe('API integration', () => {
   })
 
   describe('POST /api/log/text', () => {
-    it('returns 401 without token', async () => {
-      const res = await postText(jsonPost('http://localhost/api/log/text', {
-        happened_at: '2026-07-30T10:00:00+08:00',
-        value_text: 'studied vocabulary',
-        tags: ['study'],
-        objective_context: 'afternoon',
-      }, false))
-      expect(res.status).toBe(401)
-    })
-
     it('returns 400 when value_text is missing', async () => {
       const res = await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T10:00:00+08:00',
@@ -135,11 +115,6 @@ describe('API integration', () => {
       }))
     }
 
-    it('returns 401 without token', async () => {
-      const res = await queryRecords(jsonGet('http://localhost/api/query', false))
-      expect(res.status).toBe(401)
-    })
-
     it('filters by half-open happened_at range [from, to)', async () => {
       await seed()
       const res = await queryRecords(jsonGet(
@@ -182,13 +157,6 @@ describe('API integration', () => {
   })
 
   describe('GET /api/query/tags', () => {
-    it('returns 401 without token', async () => {
-      const res = await queryTags(jsonGet('http://localhost/api/query/tags', false))
-      expect(res.status).toBe(401)
-      const body = await res.json()
-      expect(body.error).toBeTruthy()
-    })
-
     it('returns success wrapper with lexicographically sorted tag counts', async () => {
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',

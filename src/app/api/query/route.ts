@@ -2,14 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sql, and, gte, lt, like } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
-import { verifyToken, unauthorizedResponse } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
-  // 验证 token
-  if (!verifyToken(request)) {
-    return unauthorizedResponse()
-  }
-  
   try {
     const { searchParams } = new URL(request.url)
     const from = searchParams.get('from')
