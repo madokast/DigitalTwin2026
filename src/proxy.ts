@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { unauthorizedResponse, verifyToken } from '@/lib/auth'
+import {
+  unauthorizedResponse,
+  verifyAdminAccess,
+  verifyApiAccess,
+} from '@/lib/auth'
 
 /**
  * Next.js 16 Proxy：在进入 Route Handler 之前统一鉴权。
- * matcher 仅匹配 /api/*，页面与静态资源不受影响。
+ * - /api/admin/* → 仅 DIGITAL_TWIN_ADMIN_TOKEN
+ * - 其它 /api/* → DIGITAL_TWIN_TOKEN 或 DIGITAL_TWIN_ADMIN_TOKEN
  */
 export function proxy(request: NextRequest) {
-  if (!verifyToken(request)) {
+  const isAdminRoute = request.nextUrl.pathname.startsWith('/api/admin')
+  const ok = isAdminRoute ? verifyAdminAccess(request) : verifyApiAccess(request)
+
+  if (!ok) {
     return unauthorizedResponse()
   }
   return NextResponse.next()

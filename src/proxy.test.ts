@@ -11,7 +11,8 @@ function apiRequest(path: string, authorization?: string): NextRequest {
 }
 
 describe('proxy API auth', () => {
-  const token = process.env.DIGITAL_TWIN_TOKEN!
+  const ai = process.env.DIGITAL_TWIN_TOKEN!
+  const admin = process.env.DIGITAL_TWIN_ADMIN_TOKEN!
 
   it('rejects missing Authorization with 401 JSON', async () => {
     const res = proxy(apiRequest('/api/query'))
@@ -21,15 +22,28 @@ describe('proxy API auth', () => {
     })
   })
 
-  it('rejects wrong Bearer token', async () => {
+  it('rejects wrong Bearer token on normal API', async () => {
     const res = proxy(apiRequest('/api/log/number', 'Bearer wrong'))
     expect(res.status).toBe(401)
   })
 
-  it('allows valid Bearer token through', () => {
-    const res = proxy(apiRequest('/api/query/tags', `Bearer ${token}`))
-    // NextResponse.next() uses a special null-body response
+  it('allows AI token on normal API', () => {
+    const res = proxy(apiRequest('/api/query/tags', `Bearer ${ai}`))
     expect(res.status).toBe(200)
-    expect(res.headers.get('x-middleware-next') || res.headers.get('x-middleware-rewrite') || true).toBeTruthy()
+  })
+
+  it('allows admin token on normal API', () => {
+    const res = proxy(apiRequest('/api/query', `Bearer ${admin}`))
+    expect(res.status).toBe(200)
+  })
+
+  it('rejects AI token on /api/admin', () => {
+    const res = proxy(apiRequest('/api/admin/tags/rename', `Bearer ${ai}`))
+    expect(res.status).toBe(401)
+  })
+
+  it('allows admin token on /api/admin', () => {
+    const res = proxy(apiRequest('/api/admin/tags/rename', `Bearer ${admin}`))
+    expect(res.status).toBe(200)
   })
 })

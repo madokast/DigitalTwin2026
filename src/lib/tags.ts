@@ -52,3 +52,32 @@ export function aggregateTagCounts(tagFields: string[]): Record<string, number> 
     [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)),
   )
 }
+
+/**
+ * 在单条 records.tags JSON 中精确替换 tag 名。
+ * 若 from 不存在返回 null；若 to 已存在则去重，保持首次出现顺序。
+ */
+export function renameTagInTagsJson(
+  tagsJson: string,
+  from: string,
+  to: string,
+): string | null {
+  const parsed = JSON.parse(tagsJson) as unknown
+  if (!Array.isArray(parsed)) return null
+
+  let found = false
+  const next: string[] = []
+  const seen = new Set<string>()
+
+  for (const item of parsed) {
+    if (typeof item !== 'string') continue
+    const mapped = item === from ? to : item
+    if (item === from) found = true
+    if (seen.has(mapped)) continue
+    seen.add(mapped)
+    next.push(mapped)
+  }
+
+  if (!found) return null
+  return JSON.stringify(next)
+}

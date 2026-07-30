@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateTagCounts, isValidTag, validateTags } from './tags'
+import { aggregateTagCounts, isValidTag, renameTagInTagsJson, validateTags } from './tags'
 
 describe('isValidTag', () => {
   it.each(['weight', 'source:device', 'review:weekly', 'a', 'A1_b:c2'])(
@@ -66,5 +66,20 @@ describe('aggregateTagCounts', () => {
       study: 1,
       weight: 2,
     })
+  })
+})
+
+describe('renameTagInTagsJson', () => {
+  it('returns null when from tag is absent', () => {
+    expect(renameTagInTagsJson(JSON.stringify(['weight']), 'exercise', 'workout')).toBeNull()
+  })
+
+  it('renames exact tag and dedupes if to already exists', () => {
+    expect(renameTagInTagsJson(JSON.stringify(['exercise', 'morning']), 'exercise', 'workout')).toBe(
+      JSON.stringify(['workout', 'morning']),
+    )
+    expect(renameTagInTagsJson(JSON.stringify(['exercise', 'workout']), 'exercise', 'workout')).toBe(
+      JSON.stringify(['workout']),
+    )
   })
 })

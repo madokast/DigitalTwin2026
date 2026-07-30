@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { NextRequest } from 'next/server'
-import { unauthorizedResponse, verifyToken } from './auth'
+import {
+  unauthorizedResponse,
+  verifyAdminAccess,
+  verifyApiAccess,
+} from './auth'
 
 function requestWithAuth(header?: string): NextRequest {
   const headers = new Headers()
@@ -10,23 +14,45 @@ function requestWithAuth(header?: string): NextRequest {
   return new NextRequest('http://localhost/api/query', { headers })
 }
 
-describe('verifyToken', () => {
-  const token = process.env.DIGITAL_TWIN_TOKEN!
+describe('verifyApiAccess', () => {
+  const ai = process.env.DIGITAL_TWIN_TOKEN!
+  const admin = process.env.DIGITAL_TWIN_ADMIN_TOKEN!
 
   it('rejects missing Authorization header', () => {
-    expect(verifyToken(requestWithAuth())).toBe(false)
+    expect(verifyApiAccess(requestWithAuth())).toBe(false)
   })
 
   it('rejects non-Bearer scheme', () => {
-    expect(verifyToken(requestWithAuth(`Token ${token}`))).toBe(false)
+    expect(verifyApiAccess(requestWithAuth(`Token ${ai}`))).toBe(false)
   })
 
   it('rejects wrong token', () => {
-    expect(verifyToken(requestWithAuth('Bearer wrong-token'))).toBe(false)
+    expect(verifyApiAccess(requestWithAuth('Bearer wrong-token'))).toBe(false)
   })
 
-  it('accepts correct Bearer token', () => {
-    expect(verifyToken(requestWithAuth(`Bearer ${token}`))).toBe(true)
+  it('accepts AI token', () => {
+    expect(verifyApiAccess(requestWithAuth(`Bearer ${ai}`))).toBe(true)
+  })
+
+  it('accepts admin token', () => {
+    expect(verifyApiAccess(requestWithAuth(`Bearer ${admin}`))).toBe(true)
+  })
+})
+
+describe('verifyAdminAccess', () => {
+  const ai = process.env.DIGITAL_TWIN_TOKEN!
+  const admin = process.env.DIGITAL_TWIN_ADMIN_TOKEN!
+
+  it('rejects AI token', () => {
+    expect(verifyAdminAccess(requestWithAuth(`Bearer ${ai}`))).toBe(false)
+  })
+
+  it('accepts admin token', () => {
+    expect(verifyAdminAccess(requestWithAuth(`Bearer ${admin}`))).toBe(true)
+  })
+
+  it('rejects missing token', () => {
+    expect(verifyAdminAccess(requestWithAuth())).toBe(false)
   })
 })
 

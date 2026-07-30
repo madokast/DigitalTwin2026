@@ -64,7 +64,12 @@ npm test
 npm run test:watch
 ```
 
-单元测试覆盖 `src/lib`（tag / auth）与 `src/proxy`（API 鉴权）；API 集成测试直接调用 Route Handler，连 Neon 测试库（migrate → TRUNCATE → 测 → DROP）。HTTP 鉴权由 Next.js 16 `src/proxy.ts` 统一拦截 `/api/*`。
+单元测试覆盖 `src/lib`（tag / auth）与 `src/proxy`（API 鉴权）；API 集成测试直接调用 Route Handler，连 Neon 测试库（migrate → TRUNCATE → 测 → DROP）。
+
+HTTP 鉴权由 Next.js 16 `src/proxy.ts` 统一拦截 `/api/*`：
+
+- 普通接口：`DIGITAL_TWIN_TOKEN` 或 `DIGITAL_TWIN_ADMIN_TOKEN`
+- `/api/admin/*`：仅 `DIGITAL_TWIN_ADMIN_TOKEN`（勿交给 AI）
 
 ## 项目结构
 

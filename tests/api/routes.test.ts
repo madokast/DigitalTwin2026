@@ -3,6 +3,7 @@ import { POST as postNumber } from '@/app/api/log/number/route'
 import { POST as postText } from '@/app/api/log/text/route'
 import { GET as queryRecords } from '@/app/api/query/route'
 import { GET as queryTags } from '@/app/api/query/tags/route'
+import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
 import { closeDb } from '@/db'
 import { dropTestSchema, migrateTestDatabase, truncateRecords } from '../helpers/db'
 import { jsonGet, jsonPost } from '../helpers/http'
@@ -194,6 +195,64 @@ describe('API integration', () => {
       const res = await queryTags(jsonGet('http://localhost/api/query/tags'))
       expect(res.status).toBe(200)
       await expect(res.json()).resolves.toEqual({ success: true, tags: {} })
+    })
+  })
+
+  describe('POST /api/admin/tags/rename', () => {
+    it('returns 400 when from/to missing or invalid', async () => {
+      const missing = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
+        from: 'exercise',
+      }))
+      expect(missing.status).toBe(400)
+
+      const invalid = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
+        from: 'exercise',
+        to: '体锻',
+      }))
+      expect(invalid.status).toBe(400)
+
+      const same = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
+        from: 'exercise',
+        to: 'exercise',
+      }))
+      expect(same.status).toBe(400)
+    })
+
+    it('renames tags across records and reports updated count', async () => {
+      await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        value_number: 1,
+        tags: ['exercise', 'morning'],
+        objective_context: 'a',
+      }))
+      await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-07-30T09:00:00+08:00',
+        value_text: 'gym',
+        tags: ['exercise', 'workout'],
+        objective_context: 'b',
+      }))
+      await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-07-30T10:00:00+08:00',
+        value_text: 'read',
+        tags: ['study'],
+        objective_context: 'c',
+      }))
+
+      const res = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
+        from: 'exercise',
+        to: 'workout',
+      }))
+      expect(res.status).toBe(200)
+      await expect(res.json()).resolves.toEqual({ success: true, updated: 2 })
+
+      const tagsRes = await queryTags(jsonGet('http://localhost/api/query/tags'))
+      const body = await tagsRes.json()
+      expect(body.tags).toEqual({
+        morning: 1,
+        study: 1,
+        workout: 2,
+      })
+      expect(body.tags.exercise).toBeUndefined()
     })
   })
 })
