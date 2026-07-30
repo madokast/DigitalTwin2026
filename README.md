@@ -61,7 +61,7 @@ npm run dev
 | 路径 | 说明 |
 |------|------|
 | `/` | Dashboard（prefs 控制是否挂载 Summary） |
-| `/records` | 记录列表（分页/过滤；表格不显示 UUID） |
+| `/records` | 记录列表（分页/过滤；可搜索多 tag chips；表格不显示 UUID） |
 | `/records/[id]` | 记录详情（含 UUID） |
 | `/tags` | 标签列表 |
 | `/tags/[tag]` | 标签详情：Admin 改名 + 同款记录表 |
@@ -77,7 +77,7 @@ npm run dev
 |------|------|------|-------|
 | `/api/log/number` | POST | 记数值 | AI 或 Admin |
 | `/api/log/text` | POST | 记文本 | AI 或 Admin |
-| `/api/query` | GET | 分页查询：`page`/`pageSize`（默认 1/20）、`from`/`to`（ISO8601 带时区半开区间）、多 `tag` AND、`q`、可选 `id`；`happenedAt` 倒序 | AI 或 Admin |
+| `/api/query` | GET | 分页查询：`page`/`pageSize`（默认 1/20）、`from`/`to`（须带 `Z`/`±HH:MM`，无偏移或纯日期 → 400；半开区间）、多 `tag` AND、`q`、可选 `id`；`happenedAt` 倒序 | AI 或 Admin |
 | `/api/query/summary` | GET | 概览：必填 `tz`（IANA）；返回 `{ total, today, tz }`，今日=该时区日历日 | AI 或 Admin |
 | `/api/query/tags` | GET | 全表 tag→条数（字典序） | AI 或 Admin |
 | `/api/admin/tags/rename` | POST | 全局 tag 替换 `{ from, to }` | **仅 Admin** |

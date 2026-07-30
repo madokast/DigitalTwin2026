@@ -147,7 +147,7 @@ Authorization: Bearer <token>
 ### 3.4 查询接口
 
 支持的过滤条件：
-- `from` / `to`：时间区间（ISO 8601 带时区），半开区间 `[from, to)`
+- `from` / `to`：时间区间（ISO 8601 **必须**带时区 `Z`/`±offset`；无偏移或纯日期拒绝），半开区间 `[from, to)`
 - `tag`：多 tag 过滤（AND 语义）
 - `q`：模糊搜索（value_text、objective_context、subjective_interpretation、tags）
 
@@ -231,13 +231,16 @@ curl -X GET "http://localhost:3001/api/query/tags" \
 - **prefs**（`src/lib/prefs.ts`）：Token / Admin / `dashboard.summary` / `timezone`；业务禁止直接 `localStorage`
 - **时区**：IANA；空=跟随浏览器；Settings 用 `Intl.supportedValuesOf('timeZone')`
 - **Summary**：`GET /api/query/summary?tz=`；Dashboard 关则不挂载、不请求
-- **Query**：默认 `page=1` `pageSize=20`；多 tag AND；`q`；可选 `id`；`from`/`to` ISO8601 带时区半开区间；`happenedAt` desc
+- **Query**：默认 `page=1` `pageSize=20`；多 tag AND；`q`；可选 `id`；`from`/`to` 须为 ISO8601 且带时区（`Z` / `±HH:MM` / `±HHMM`），纯日期或无偏移 → 400；半开区间；`happenedAt` desc
 - **页面**：`/`、`/records`、`/records/[id]`、`/tags`、`/tags/[tag]`、`/settings`；布局导航；表格无 UUID、长文本截断
+- **记录筛选 UI**：`TagMultiSelect` 可搜索多 tag chips（AND）；日期按 prefs 时区展开为带偏移的 `from`/`to`
 
 相关提交（新 → 旧）：
 
 ```
-（本提交）布局导航打通，并更新 README / 开发日志
+c320fcd 将记录筛选改为可搜索的多 tag chips，并放宽远端测试超时
+f5bd40b 强制 query 的 from/to 必须带时区，拒绝无偏移时间串
+1a865c0 打通全局导航并同步 README 与开发日志
 692b8d7 补上标签列表与详情页，并复用同一套记录表
 397c6d4 扩展查询分页过滤并补上记录列表与详情页
 a69b211 添加按 IANA 时区计算「今日」的 summary API 与仪表盘组件
