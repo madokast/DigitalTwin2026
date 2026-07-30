@@ -1,7 +1,8 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST as postNumber } from '@/app/api/log/number/route'
 import { POST as postText } from '@/app/api/log/text/route'
 import { GET as queryRecords } from '@/app/api/query/route'
+import { GET as querySummary } from '@/app/api/query/summary/route'
 import { GET as queryTags } from '@/app/api/query/tags/route'
 import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
 import { closeDb } from '@/db'
@@ -90,6 +91,79 @@ describe('API integration', () => {
       expect(body.record.valueText).toBe('studied 50 words')
       expect(body.record.valueNumber).toBeNull()
       expect(body.record.tags).toBe(JSON.stringify(['study', 'vocabulary']))
+    })
+  })
+
+  describe('GET /api/query/summary', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('returns 0+0 on empty database', async () => {
+      const res = await querySummary(jsonGet('http://localhost/api/query/summary?tz=UTC'))
+      expect(res.status).toBe(200)
+      await expect(res.json()).resolves.toEqual({
+        success: true,
+        total: 0,
+        today: 0,
+        tz: 'UTC',
+      })
+    })
+
+    it('returns 400 when tz is missing or invalid', async () => {
+      const missing = await querySummary(jsonGet('http://localhost/api/query/summary'))
+      expect(missing.status).toBe(400)
+
+      const invalid = await querySummary(jsonGet('http://localhost/api/query/summary?tz=Not%2FAZone'))
+      expect(invalid.status).toBe(400)
+      const body = await invalid.json()
+      expect(body.error).toBeTruthy()
+    })
+
+    it('counts today differently across time zones at day boundary', async () => {
+      // Fixed "now": 2026-07-30 16:30 UTC = 2026-07-31 00:30 Asia/Shanghai
+      await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T10:00:00.000Z',
+        value_number: 1,
+        tags: ['a'],
+        objective_context: 'utc-only today',
+      }))
+      await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T18:00:00.000Z',
+        value_number: 2,
+        tags: ['b'],
+        objective_context: 'both today',
+      }))
+      await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-31T02:00:00.000Z',
+        value_number: 3,
+        tags: ['c'],
+        objective_context: 'shanghai-only today',
+      }))
+
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-07-30T16:30:00.000Z'))
+
+      // UTC 今日 = a+b；Asia/Shanghai 今日 = b+c（条数同为 2，集合不同）
+      const utcRes = await querySummary(jsonGet('http://localhost/api/query/summary?tz=UTC'))
+      expect(utcRes.status).toBe(200)
+      await expect(utcRes.json()).resolves.toEqual({
+        success: true,
+        total: 3,
+        today: 2,
+        tz: 'UTC',
+      })
+
+      const shRes = await querySummary(jsonGet(
+        'http://localhost/api/query/summary?tz=Asia%2FShanghai',
+      ))
+      expect(shRes.status).toBe(200)
+      await expect(shRes.json()).resolves.toEqual({
+        success: true,
+        total: 3,
+        today: 2,
+        tz: 'Asia/Shanghai',
+      })
     })
   })
 
