@@ -15,15 +15,35 @@ function listTimeZones(): string[] {
   }
 }
 
+function browserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    return ''
+  }
+}
+
 export function TimezoneSelect({ value, onChange }: Props) {
   const [filter, setFilter] = useState('')
   const zones = useMemo(() => listTimeZones(), [])
+  const browserTz = useMemo(() => browserTimeZone(), [])
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase()
     if (!q) return zones
     return zones.filter((z) => z.toLowerCase().includes(q))
   }, [filter, zones])
+
+  const options = useMemo(() => {
+    if (value && !filtered.includes(value) && zones.includes(value)) {
+      return [value, ...filtered]
+    }
+    return filtered
+  }, [filtered, value, zones])
+
+  const followLabel = browserTz
+    ? `跟随浏览器（${browserTz}）`
+    : '跟随浏览器'
 
   return (
     <div className="space-y-2">
@@ -38,10 +58,9 @@ export function TimezoneSelect({ value, onChange }: Props) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground"
-        size={8}
       >
-        <option value="">跟随浏览器</option>
-        {filtered.map((z) => (
+        <option value="">{followLabel}</option>
+        {options.map((z) => (
           <option key={z} value={z}>
             {z}
           </option>
