@@ -1,7 +1,7 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-07-30
-> 状态：进行中（MVP + 测试基建 + 双 Token / Admin + Web 路由与 Dashboard）
+> 状态：当日收尾（MVP + 测试基建 + 双 Token / Admin + Web 路由与 Dashboard UI 打磨）
 
 ## 0. 今日做成了什么（总览）
 
@@ -16,7 +16,8 @@
 | Summary | `GET /api/query/summary?tz=`；今日按 IANA 日历日 |
 | 标签 API | `GET /api/query/tags`；`POST /api/admin/tags/rename` |
 | 鉴权 | Next.js 16 `src/proxy.ts` 统一拦 `/api/*`；AI Token vs Admin Token 分流 |
-| 前端 | 真实路由：Dashboard / 记录 / 标签 / 设置；prefs 抽象；Summary 可关 |
+| 前端 | 真实路由：Dashboard / 记录 / 标签 / 设置；prefs 抽象；Summary 可关；语义色明暗主题 |
+| UI 打磨 | Summary 单行骨架；时区首屏即显；设置页时区单行下拉（跟随浏览器 IANA） |
 | 自动化测试 | Vitest：单元（tag/auth/proxy/prefs/time）+ API 集成（真 PG） |
 | 部署 | Vercel 线上已通；规划阿里云函数计算备用 |
 
@@ -245,6 +246,26 @@ f5bd40b 强制 query 的 from/to 必须带时区，拒绝无偏移时间串
 397c6d4 扩展查询分页过滤并补上记录列表与详情页
 a69b211 添加按 IANA 时区计算「今日」的 summary API 与仪表盘组件
 1ef3227 封装 prefs 与设置页，避免业务直接读写 localStorage
+```
+
+## 8.1 今日收尾（同日后期）
+
+文档对齐前的后期 commits（UI / 主题）：
+
+- **明暗主题**：`globals.css` 语义色 token，跟随 `prefers-color-scheme`（`b391d69`）
+- **Summary UI**：始终单行数字骨架，避免加载跳动；标题「加载中」→「概览」（`91855e8`）
+- **时区首屏**：Summary 用 `resolveTimezone()` 本地即显，不依赖 API 返回（`89e37b1`）
+- **设置时区**：单行 `<select>` + 搜索；空选项文案「跟随浏览器（实际 IANA）」（`5bb18de`）
+- **文档**：此前已补 from/to 强制时区与多 tag chips（`10c8a05`）；本收尾再对齐主题 / Summary / 时区下拉
+
+相关提交（新 → 旧）：
+
+```
+5bb18de 将设置页时区改为单行下拉，并显示浏览器实际 IANA
+89e37b1 修复 SummaryWidget：时区首屏用 resolveTimezone 渲染，不再等待 API
+91855e8 修复 SummaryWidget 加载时布局跳动：始终渲染单行数字骨架
+b391d69 统一明暗主题：用语义色 token 替换写死灰阶，跟随系统配色
+10c8a05 补充文档：from/to 强制时区与多 tag chips 筛选
 ```
 
 ## 9. Git 提交记录（节选，新 → 旧）

@@ -56,6 +56,8 @@ npm run dev
 
 访问 http://localhost:3000 — 在「设置」中填入 Token；可选配置 IANA 时区与 Dashboard summary 开关。
 
+主题：语义色 token（`globals.css`），跟随系统 `prefers-color-scheme` 明暗切换。
+
 ## Web 路由
 
 | 路径 | 说明 |
@@ -65,9 +67,9 @@ npm run dev
 | `/records/[id]` | 记录详情（含 UUID） |
 | `/tags` | 标签列表 |
 | `/tags/[tag]` | 标签详情：Admin 改名 + 同款记录表 |
-| `/settings` | Token / Admin / summary 开关 / IANA 时区 |
+| `/settings` | Token / Admin / summary 开关；时区单行下拉（「跟随浏览器（IANA）」） |
 
-客户端 prefs（`src/lib/prefs.ts`）封装 localStorage：禁止业务直接读写。时区默认空=跟随浏览器；Summary 请求带 `tz=<IANA>`。
+客户端 prefs（`src/lib/prefs.ts`）封装 localStorage：禁止业务直接读写。时区默认空=跟随浏览器。Summary：单行布局；标题加载中/概览；时区用 `resolveTimezone()` 首屏即显；请求带 `tz=<IANA>`。
 
 ## API 一览
 
