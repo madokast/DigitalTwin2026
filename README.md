@@ -54,14 +54,26 @@ npm run db:migrate
 npm run db:check
 ```
 
+## 测试
+
+```bash
+# 使用 .env 中的测试库 DATABASE_URL，勿对生产库执行
+npm test
+
+# 监听模式
+npm run test:watch
+```
+
+单元测试覆盖 `src/lib`（tag / auth）；API 集成测试直接调用 Route Handler，连 Neon 测试库（migrate → TRUNCATE → 测 → DROP）。
+
 ## 项目结构
 
 ```
 ├── src/
 │   ├── app/           # Next.js App Router 页面和 API
-│   └── db/            # 数据库配置
-│       ├── schema.ts  # 表定义
-│       └── index.ts   # 连接配置
+│   ├── db/            # 数据库配置
+│   └── lib/           # 鉴权、tag 校验等
+├── tests/             # API 集成测试与 helpers
 ├── drizzle/           # 自动生成的 migration 文件
 ├── docs/              # 项目文档
 └── public/            # 静态资源

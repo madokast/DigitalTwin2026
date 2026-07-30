@@ -6,5 +6,9 @@ import * as schema from './schema'
 const client = postgres(process.env.DATABASE_URL!)
 const db = drizzle(client, { schema })
 
+export async function closeDb() {
+  await client.end({ timeout: 5 })
+}
+
 export default db
 export { schema }
