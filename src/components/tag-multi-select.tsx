@@ -89,26 +89,26 @@ export function TagMultiSelect({ selected, lockedTag, onChange }: Props) {
 
   return (
     <div ref={rootRef} className="relative min-w-[14rem]">
-      <label className="block text-xs text-gray-500 mb-1">标签</label>
+      <label className="block text-xs text-muted-foreground mb-1">标签</label>
       <div
-        className="flex flex-wrap gap-1.5 items-center px-2 py-1.5 border rounded-lg bg-white min-h-[2.5rem] focus-within:ring-1 focus-within:ring-blue-400"
+        className="flex flex-wrap gap-1.5 items-center px-2 py-1.5 border border-border rounded-lg bg-input text-foreground min-h-[2.5rem] focus-within:ring-1 focus-within:ring-ring"
         onClick={() => setOpen(true)}
       >
         {lockedTag && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-xs font-mono">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-foreground text-xs font-mono">
             {lockedTag}
           </span>
         )}
         {selected.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 text-xs font-mono"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-accent text-accent-foreground text-xs font-mono"
           >
             {tag}
             <button
               type="button"
               aria-label={`移除 ${tag}`}
-              className="text-blue-500 hover:text-blue-800 leading-none"
+              className="text-link hover:text-accent-foreground leading-none"
               onClick={(e) => {
                 e.stopPropagation()
                 removeTag(tag)
@@ -132,7 +132,7 @@ export function TagMultiSelect({ selected, lockedTag, onChange }: Props) {
           aria-controls={listId}
           aria-autocomplete="list"
           placeholder={selected.length || lockedTag ? '继续添加…' : '搜索标签…'}
-          className="flex-1 min-w-[6rem] outline-none text-sm py-0.5 bg-transparent"
+          className="flex-1 min-w-[6rem] outline-none text-sm py-0.5 bg-transparent text-foreground placeholder:text-muted-foreground"
         />
       </div>
 
@@ -140,18 +140,18 @@ export function TagMultiSelect({ selected, lockedTag, onChange }: Props) {
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-48 w-full overflow-auto border rounded-lg bg-white shadow-sm text-sm"
+          className="absolute z-20 mt-1 max-h-48 w-full overflow-auto border border-border rounded-lg bg-card text-card-foreground shadow-sm text-sm"
         >
           {loadError ? (
-            <li className="px-3 py-2 text-red-600">{loadError}</li>
+            <li className="px-3 py-2 text-destructive">{loadError}</li>
           ) : options.length === 0 ? (
-            <li className="px-3 py-2 text-gray-400">无匹配标签</li>
+            <li className="px-3 py-2 text-muted-foreground">无匹配标签</li>
           ) : (
             options.map((tag) => (
               <li key={tag} role="option">
                 <button
                   type="button"
-                  className="w-full text-left px-3 py-1.5 hover:bg-blue-50 font-mono text-xs"
+                  className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground font-mono text-xs"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => addTag(tag)}
                 >

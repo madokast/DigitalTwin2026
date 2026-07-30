@@ -23,9 +23,9 @@ export function RecordsTable({ records }: Props) {
   const tz = typeof window !== 'undefined' ? resolveTimezone() : 'UTC'
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-x-auto border border-gray-100">
+    <div className="bg-card text-card-foreground rounded-lg shadow overflow-x-auto border border-border">
       <table className="w-full min-w-[720px]">
-        <thead className="bg-gray-100">
+        <thead className="bg-muted text-foreground">
           <tr>
             <th className="px-3 py-2 text-left text-sm">时间</th>
             <th className="px-3 py-2 text-left text-sm">数值</th>
@@ -39,7 +39,7 @@ export function RecordsTable({ records }: Props) {
           {records.map((record) => (
             <tr
               key={record.id}
-              className="border-t hover:bg-gray-50 cursor-pointer"
+              className="border-t border-border hover:bg-muted/60 cursor-pointer"
               onClick={() => router.push(`/records/${record.id}`)}
             >
               <td className="px-3 py-2 text-xs whitespace-nowrap">
@@ -64,7 +64,10 @@ export function RecordsTable({ records }: Props) {
           ))}
           {records.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-3 py-6 text-center text-sm text-gray-500">
+              <td
+                colSpan={6}
+                className="px-3 py-6 text-center text-sm text-muted-foreground"
+              >
                 暂无记录
               </td>
             </tr>

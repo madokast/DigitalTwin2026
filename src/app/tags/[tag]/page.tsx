@@ -34,33 +34,33 @@ export default function TagDetailPage() {
   return (
     <div className="space-y-6">
       <div className="max-w-6xl mx-auto px-4 pt-4">
-        <Link href="/tags" className="text-sm text-blue-600 hover:underline">
+        <Link href="/tags" className="text-sm text-link hover:underline">
           ← 返回标签列表
         </Link>
 
         <form
           onSubmit={onRename}
-          className="mt-4 bg-white border border-gray-100 rounded-lg p-4 shadow-sm space-y-3 max-w-md"
+          className="mt-4 bg-card text-card-foreground border border-border rounded-lg p-4 shadow-sm space-y-3 max-w-md"
         >
           <h2 className="font-medium">全局改名（需 Admin Token）</h2>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-subtle">
             将 <span className="font-mono">{tag}</span> 替换为：
           </p>
           <input
             value={to}
             onChange={(e) => setTo(e.target.value)}
             placeholder="新标签名"
-            className="w-full px-3 py-2 border rounded-lg text-sm"
+            className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-input text-foreground placeholder:text-muted-foreground"
           />
           <button
             type="submit"
             disabled={loading || !to.trim()}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 disabled:bg-gray-400"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary-hover disabled:bg-disabled disabled:text-primary-foreground"
           >
             {loading ? '处理中…' : '替换'}
           </button>
-          {message && <p className="text-sm text-green-700">{message}</p>}
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {message && <p className="text-sm text-success">{message}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </form>
       </div>
 

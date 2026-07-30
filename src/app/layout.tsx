@@ -35,10 +35,10 @@ export default function RootLayout({
       lang="zh-CN"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900">
-        <header className="border-b border-gray-200 bg-white">
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        <header className="border-b border-border bg-nav">
           <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-4">
-            <Link href="/" className="font-semibold tracking-tight">
+            <Link href="/" className="font-semibold tracking-tight text-foreground">
               DigitalTwin2026
             </Link>
             <nav className="flex flex-wrap gap-3 text-sm">
@@ -46,7 +46,7 @@ export default function RootLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="text-gray-600 hover:text-gray-900"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   {item.label}
                 </Link>

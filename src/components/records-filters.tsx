@@ -69,11 +69,11 @@ export function RecordsFilters({
     <div className="space-y-3 mb-4">
       <form onSubmit={apply} className="flex flex-wrap gap-2 items-end">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">搜索</label>
+          <label className="block text-xs text-muted-foreground mb-1">搜索</label>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="px-3 py-2 border rounded-lg text-sm"
+            className="px-3 py-2 border border-border rounded-lg text-sm bg-input text-foreground"
             placeholder="q"
           />
         </div>
@@ -83,23 +83,25 @@ export function RecordsFilters({
           onChange={setTags}
         />
         <div>
-          <label className="block text-xs text-gray-500 mb-1">日期（按时区展开）</label>
+          <label className="block text-xs text-muted-foreground mb-1">
+            日期（按时区展开）
+          </label>
           <input
             type="date"
             value={day}
             onChange={(e) => setDay(e.target.value)}
-            className="px-3 py-2 border rounded-lg text-sm"
+            className="px-3 py-2 border border-border rounded-lg text-sm bg-input text-foreground"
           />
         </div>
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary-hover"
         >
           筛选
         </button>
       </form>
 
-      <div className="flex items-center justify-between text-sm text-gray-600">
+      <div className="flex items-center justify-between text-sm text-subtle">
         <span>
           共 {totalCount} 条 · 第 {page}/{totalPages} 页
         </span>
@@ -108,7 +110,7 @@ export function RecordsFilters({
             type="button"
             disabled={page <= 1}
             onClick={() => goPage(page - 1)}
-            className="px-3 py-1 border rounded disabled:opacity-40"
+            className="px-3 py-1 border border-border rounded bg-card text-foreground disabled:opacity-40"
           >
             上一页
           </button>
@@ -116,7 +118,7 @@ export function RecordsFilters({
             type="button"
             disabled={page >= totalPages}
             onClick={() => goPage(page + 1)}
-            className="px-3 py-1 border rounded disabled:opacity-40"
+            className="px-3 py-1 border border-border rounded bg-card text-foreground disabled:opacity-40"
           >
             下一页
           </button>

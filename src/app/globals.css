@@ -1,26 +1,90 @@
 @import "tailwindcss";
 
+/*
+  语义色：light 默认，dark 跟随 prefers-color-scheme。
+  组件请用 bg-background / bg-card / text-foreground 等 token，勿写死灰阶。
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  --background: #f4f4f5;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --nav: #ffffff;
+  --muted: #e4e4e7;
+  --muted-foreground: #71717a;
+  --subtle: #52525b;
+  --border: #d4d4d8;
+  --input: #ffffff;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --primary-hover: #1d4ed8;
+  --accent: #eff6ff;
+  --accent-foreground: #1e40af;
+  --link: #2563eb;
+  --destructive: #dc2626;
+  --success: #15803d;
+  --ring: #60a5fa;
+  --disabled: #a1a1aa;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --background: #09090b;
+    --foreground: #fafafa;
+    --card: #18181b;
+    --card-foreground: #fafafa;
+    --nav: #18181b;
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
+    --subtle: #a1a1aa;
+    --border: #3f3f46;
+    --input: #18181b;
+    --primary: #3b82f6;
+    --primary-foreground: #ffffff;
+    --primary-hover: #60a5fa;
+    --accent: #1e3a5f;
+    --accent-foreground: #93c5fd;
+    --link: #60a5fa;
+    --destructive: #f87171;
+    --success: #4ade80;
+    --ring: #3b82f6;
+    --disabled: #52525b;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-nav: var(--nav);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle: var(--subtle);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-link: var(--link);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-ring: var(--ring);
+  --color-disabled: var(--disabled);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

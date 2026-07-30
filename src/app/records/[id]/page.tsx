@@ -54,43 +54,43 @@ export default function RecordDetailPage() {
   return (
     <div className="max-w-2xl mx-auto p-4">
       <div className="mb-4">
-        <Link href="/records" className="text-sm text-blue-600 hover:underline">
+        <Link href="/records" className="text-sm text-link hover:underline">
           ← 返回记录
         </Link>
       </div>
-      <h1 className="text-xl font-bold mb-4">记录详情</h1>
+      <h1 className="text-xl font-bold mb-4 text-foreground">记录详情</h1>
 
-      {loading && <p className="text-sm text-gray-500">加载中…</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {loading && <p className="text-sm text-muted-foreground">加载中…</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       {record && (
-        <dl className="space-y-3 bg-white border border-gray-100 rounded-lg p-4 shadow-sm">
+        <dl className="space-y-3 bg-card text-card-foreground border border-border rounded-lg p-4 shadow-sm">
           <div>
-            <dt className="text-xs text-gray-500">UUID</dt>
+            <dt className="text-xs text-muted-foreground">UUID</dt>
             <dd className="font-mono text-sm break-all">{record.id}</dd>
           </div>
           <div>
-            <dt className="text-xs text-gray-500">时间</dt>
+            <dt className="text-xs text-muted-foreground">时间</dt>
             <dd className="text-sm">{formatHappenedAt(record.happenedAt, tz)}</dd>
           </div>
           <div>
-            <dt className="text-xs text-gray-500">数值</dt>
+            <dt className="text-xs text-muted-foreground">数值</dt>
             <dd className="text-sm">{record.valueNumber ?? '-'}</dd>
           </div>
           <div>
-            <dt className="text-xs text-gray-500">文本</dt>
+            <dt className="text-xs text-muted-foreground">文本</dt>
             <dd className="text-sm whitespace-pre-wrap">{record.valueText ?? '-'}</dd>
           </div>
           <div>
-            <dt className="text-xs text-gray-500">标签</dt>
+            <dt className="text-xs text-muted-foreground">标签</dt>
             <dd className="text-sm">{tags.join(', ') || '-'}</dd>
           </div>
           <div>
-            <dt className="text-xs text-gray-500">客观背景</dt>
+            <dt className="text-xs text-muted-foreground">客观背景</dt>
             <dd className="text-sm whitespace-pre-wrap">{record.objectiveContext}</dd>
           </div>
           <div>
-            <dt className="text-xs text-gray-500">主观解读</dt>
+            <dt className="text-xs text-muted-foreground">主观解读</dt>
             <dd className="text-sm whitespace-pre-wrap">
               {record.subjectiveInterpretation ?? '-'}
             </dd>

@@ -37,11 +37,11 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-md mx-auto p-4">
-      <h1 className="text-xl font-bold mb-6">设置</h1>
+      <h1 className="text-xl font-bold mb-6 text-foreground">设置</h1>
 
-      <div className="bg-white p-4 rounded-lg shadow space-y-4 border border-gray-100">
+      <div className="bg-card text-card-foreground p-4 rounded-lg shadow space-y-4 border border-border">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-foreground mb-2">
             API Token（AI / 查询录入）
           </label>
           <input
@@ -49,12 +49,12 @@ export default function SettingsPage() {
             value={token}
             onChange={(e) => setTokenState(e.target.value)}
             placeholder="DIGITAL_TWIN_TOKEN"
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground placeholder:text-muted-foreground"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-foreground mb-2">
             Admin Token（仅网页改库，勿给 AI）
           </label>
           <input
@@ -62,24 +62,24 @@ export default function SettingsPage() {
             value={adminToken}
             onChange={(e) => setAdminTokenState(e.target.value)}
             placeholder="DIGITAL_TWIN_ADMIN_TOKEN"
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground placeholder:text-muted-foreground"
           />
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-foreground">
             Dashboard：显示 summary
           </label>
           <input
             type="checkbox"
             checked={summary}
             onChange={(e) => setSummaryState(e.target.checked)}
-            className="h-4 w-4"
+            className="h-4 w-4 accent-primary"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-foreground mb-2">
             时区（IANA；空=跟随浏览器）
           </label>
           <TimezoneSelect value={timezone} onChange={setTimezoneState} />
@@ -88,12 +88,12 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={save}
-          className="w-full px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          className="w-full px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover"
         >
           保存
         </button>
 
-        {message && <p className="text-sm text-green-700">{message}</p>}
+        {message && <p className="text-sm text-success">{message}</p>}
       </div>
     </div>
   )

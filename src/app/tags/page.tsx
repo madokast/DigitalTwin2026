@@ -35,13 +35,13 @@ export default function TagsPage() {
 
   return (
     <div className="max-w-md mx-auto p-4">
-      <h1 className="text-xl font-bold mb-6">标签</h1>
+      <h1 className="text-xl font-bold mb-6 text-foreground">标签</h1>
 
-      {loading && <p className="text-sm text-gray-500">加载中…</p>}
-      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+      {loading && <p className="text-sm text-muted-foreground">加载中…</p>}
+      {error && <p className="text-sm text-destructive mb-3">{error}</p>}
 
       {!loading && !error && entries.length === 0 && (
-        <p className="text-sm text-gray-500">暂无标签</p>
+        <p className="text-sm text-muted-foreground">暂无标签</p>
       )}
 
       <ul className="space-y-1">
@@ -49,10 +49,10 @@ export default function TagsPage() {
           <li key={tag}>
             <Link
               href={`/tags/${encodeURIComponent(tag)}`}
-              className="flex justify-between px-3 py-2 rounded-lg hover:bg-gray-100 font-mono text-sm"
+              className="flex justify-between px-3 py-2 rounded-lg hover:bg-muted font-mono text-sm text-foreground"
             >
               <span>{tag}</span>
-              <span className="text-gray-500">{count}</span>
+              <span className="text-muted-foreground">{count}</span>
             </Link>
           </li>
         ))}
