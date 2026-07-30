@@ -3,6 +3,7 @@ import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
 import { verifyToken, unauthorizedResponse } from '@/lib/auth'
+import { validateTags } from '@/lib/tags'
 
 interface LogNumberRequest {
   happened_at: string
@@ -39,6 +40,15 @@ export async function POST(request: NextRequest) {
     if (!body.tags || !Array.isArray(body.tags) || body.tags.length === 0) {
       return NextResponse.json(
         { error: 'Missing required field: tags (non-empty array)' },
+        { status: 400 }
+      )
+    }
+    
+    // 验证 tag 格式
+    const tagsValidation = validateTags(body.tags)
+    if (!tagsValidation.valid) {
+      return NextResponse.json(
+        { error: tagsValidation.error },
         { status: 400 }
       )
     }
