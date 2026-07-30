@@ -6,29 +6,24 @@ import {
   getAdminToken,
   getDashboardSummary,
   getTimezone,
-  getToken,
   setAdminToken,
   setDashboardSummary,
   setTimezone,
-  setToken,
 } from '@/lib/prefs'
 
 export default function SettingsPage() {
-  const [token, setTokenState] = useState('')
   const [adminToken, setAdminTokenState] = useState('')
   const [summary, setSummaryState] = useState(true)
   const [timezone, setTimezoneState] = useState('')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    setTokenState(getToken())
     setAdminTokenState(getAdminToken())
     setSummaryState(getDashboardSummary())
     setTimezoneState(getTimezone())
   }, [])
 
   const save = () => {
-    setToken(token)
     setAdminToken(adminToken)
     setDashboardSummary(summary)
     setTimezone(timezone)
@@ -42,20 +37,7 @@ export default function SettingsPage() {
       <div className="bg-card text-card-foreground p-4 rounded-lg shadow space-y-4 border border-border">
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">
-            API Token（AI / 查询录入）
-          </label>
-          <input
-            type="password"
-            value={token}
-            onChange={(e) => setTokenState(e.target.value)}
-            placeholder="DIGITAL_TWIN_TOKEN"
-            className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground placeholder:text-muted-foreground"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Admin Token（仅网页改库，勿给 AI）
+            Token
           </label>
           <input
             type="password"
