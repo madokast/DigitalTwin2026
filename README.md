@@ -54,7 +54,20 @@ DATABASE_URL='生产连接串' npm run db:migrate
 npm run dev
 ```
 
-访问 http://localhost:3000 — 在「设置」中填入两个 Token。
+访问 http://localhost:3000 — 在「设置」中填入 Token；可选配置 IANA 时区与 Dashboard summary 开关。
+
+## Web 路由
+
+| 路径 | 说明 |
+|------|------|
+| `/` | Dashboard（prefs 控制是否挂载 Summary） |
+| `/records` | 记录列表（分页/过滤；表格不显示 UUID） |
+| `/records/[id]` | 记录详情（含 UUID） |
+| `/tags` | 标签列表 |
+| `/tags/[tag]` | 标签详情：Admin 改名 + 同款记录表 |
+| `/settings` | Token / Admin / summary 开关 / IANA 时区 |
+
+客户端 prefs（`src/lib/prefs.ts`）封装 localStorage：禁止业务直接读写。时区默认空=跟随浏览器；Summary 请求带 `tz=<IANA>`。
 
 ## API 一览
 
@@ -64,7 +77,8 @@ npm run dev
 |------|------|------|-------|
 | `/api/log/number` | POST | 记数值 | AI 或 Admin |
 | `/api/log/text` | POST | 记文本 | AI 或 Admin |
-| `/api/query` | GET | 通用查询（`from`/`to`/`tag`/`q`） | AI 或 Admin |
+| `/api/query` | GET | 分页查询：`page`/`pageSize`（默认 1/20）、`from`/`to`（ISO8601 带时区半开区间）、多 `tag` AND、`q`、可选 `id`；`happenedAt` 倒序 | AI 或 Admin |
+| `/api/query/summary` | GET | 概览：必填 `tz`（IANA）；返回 `{ total, today, tz }`，今日=该时区日历日 | AI 或 Admin |
 | `/api/query/tags` | GET | 全表 tag→条数（字典序） | AI 或 Admin |
 | `/api/admin/tags/rename` | POST | 全局 tag 替换 `{ from, to }` | **仅 Admin** |
 
@@ -92,8 +106,9 @@ npm run test:watch
 ```
 ├── src/
 │   ├── app/           # 页面与 API Route Handlers
+│   ├── components/    # 表格、过滤器、Dashboard widget 等
 │   ├── db/            # Drizzle schema / 连接
-│   ├── lib/           # 鉴权、tag 工具
+│   ├── lib/           # prefs、鉴权、query、时区工具
 │   └── proxy.ts       # Next.js 16：/api/* 鉴权入口
 ├── tests/             # API 集成测试与 helpers
 ├── drizzle/           # migration

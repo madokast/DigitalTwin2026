@@ -1,22 +1,23 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-07-30
-> 状态：进行中（当日已完成 MVP + 测试基建 + 双 Token / Admin 能力）
+> 状态：进行中（MVP + 测试基建 + 双 Token / Admin + Web 路由与 Dashboard）
 
 ## 0. 今日做成了什么（总览）
 
-一天下来，从空项目到可用的个人数字孪生后端 + 简易前端，并补齐测试与权限分层：
+一天下来，从空项目到可用的个人数字孪生后端 + App Router 前端，并补齐测试与权限分层：
 
 | 类别 | 已完成 |
 |------|--------|
 | 工程骨架 | Next.js 16 + React 19 + TS + Tailwind 4；README / `.env.example` / AGENTS.md 约定 |
 | 数据库 | Neon PostgreSQL + Drizzle；单表 `records`；migration 可从空库建表 |
 | 环境策略 | 本地 `.env` → **专用测试库**；生产 `DATABASE_URL` 只放 Vercel；不引入多 env 文件 |
-| 录入 / 查询 API | `POST /api/log/number`、`POST /api/log/text`、`GET /api/query` |
-| 标签 API | `GET /api/query/tags`（字典序 tag→条数）；`POST /api/admin/tags/rename`（全局替换） |
+| 录入 / 查询 API | `POST /api/log/number`、`POST /api/log/text`、`GET /api/query`（分页/过滤/id） |
+| Summary | `GET /api/query/summary?tz=`；今日按 IANA 日历日 |
+| 标签 API | `GET /api/query/tags`；`POST /api/admin/tags/rename` |
 | 鉴权 | Next.js 16 `src/proxy.ts` 统一拦 `/api/*`；AI Token vs Admin Token 分流 |
-| 前端 | 设置双 Token；查看记录；标签管理（列表 + 全局替换） |
-| 自动化测试 | Vitest：单元（tag/auth/proxy）+ API 集成（真 PG：migrate → TRUNCATE → 测 → DROP） |
+| 前端 | 真实路由：Dashboard / 记录 / 标签 / 设置；prefs 抽象；Summary 可关 |
+| 自动化测试 | Vitest：单元（tag/auth/proxy/prefs/time）+ API 集成（真 PG） |
 | 部署 | Vercel 线上已通；规划阿里云函数计算备用 |
 
 设计原则仍有效：生产只用标准 PostgreSQL；AI 侧 append-only；改库（如 tag rename）只给网页 Admin Token。
@@ -223,9 +224,30 @@ curl -X GET "http://localhost:3001/api/query/tags" \
 
 线上曾对基础录入/查询接口验证通过。
 
-## 8. Git 提交记录（节选，新 → 旧）
+## 8. Web 路由与仪表盘改造（同日续）
+
+将单页状态机替换为真实 App Router：
+
+- **prefs**（`src/lib/prefs.ts`）：Token / Admin / `dashboard.summary` / `timezone`；业务禁止直接 `localStorage`
+- **时区**：IANA；空=跟随浏览器；Settings 用 `Intl.supportedValuesOf('timeZone')`
+- **Summary**：`GET /api/query/summary?tz=`；Dashboard 关则不挂载、不请求
+- **Query**：默认 `page=1` `pageSize=20`；多 tag AND；`q`；可选 `id`；`from`/`to` ISO8601 带时区半开区间；`happenedAt` desc
+- **页面**：`/`、`/records`、`/records/[id]`、`/tags`、`/tags/[tag]`、`/settings`；布局导航；表格无 UUID、长文本截断
+
+相关提交（新 → 旧）：
 
 ```
+（本提交）布局导航打通，并更新 README / 开发日志
+692b8d7 补上标签列表与详情页，并复用同一套记录表
+397c6d4 扩展查询分页过滤并补上记录列表与详情页
+a69b211 添加按 IANA 时区计算「今日」的 summary API 与仪表盘组件
+1ef3227 封装 prefs 与设置页，避免业务直接读写 localStorage
+```
+
+## 9. Git 提交记录（节选，新 → 旧）
+
+```
+a257c91 补充开发日志与 README，使文档与当前 MVP、双 Token 与测试现状对齐
 3e5260c 添加 admin 鉴权与标签全局替换接口
 1d3895e 将 API Bearer 鉴权集中到 Next.js 16 proxy
 7da10b3 添加 GET /api/query/tags 标签计数接口
@@ -241,12 +263,13 @@ d1ed87c / 995a2ed tag 格式规则
 c3e2f25 初始化 Next.js 项目
 ```
 
-## 9. 待办事项
+## 10. 待办事项
 
 - [ ] 专用录入接口（账单、体重、复盘等，见 schema-v1 设计）
 - [ ] 账单汇总 `GET /query/bill/summary`
+- [ ] Dashboard 其它组件（体重/支出等；prefs 已留扩展位）
 - [ ] AI 侧 CLI 包装（只注入 AI Token，永不接触 Admin）
 - [ ] 添加数据库注释（COMMENT ON）
 - [ ] 数据导出
 - [ ] 阿里云函数计算版本
-- [ ] 前端 v1 完整 CRUD / v2 图表（体重折线等）
+- [ ] 前端记录增删改 UI / 图表
