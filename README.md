@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DigitalTwin2026
 
-## Getting Started
+个人数字孪生系统 — 对"我"本人进行数字化的孪生映射。
 
-First, run the development server:
+## 技术栈
+
+- **前端/后端**: Next.js 16 + React 19
+- **语言**: TypeScript
+- **样式**: Tailwind CSS 4
+- **数据库**: PostgreSQL (Neon)
+- **ORM**: Drizzle ORM
+- **部署**: Vercel + Neon
+
+## 快速开始
+
+### 1. 安装依赖
+
+```bash
+npm install
+```
+
+### 2. 配置环境变量
+
+创建 `.env` 文件：
+
+```bash
+DATABASE_URL='postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require'
+```
+
+### 3. 初始化数据库
+
+```bash
+npm run db:migrate
+```
+
+### 4. 启动开发服务器
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+访问 http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 数据库管理
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# 修改 schema 后生成 migration
+npm run db:generate
 
-## Learn More
+# 执行 migration 到数据库
+npm run db:migrate
 
-To learn more about Next.js, take a look at the following resources:
+# 验证表结构
+npm run db:check
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 项目结构
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+├── src/
+│   ├── app/           # Next.js App Router 页面和 API
+│   └── db/            # 数据库配置
+│       ├── schema.ts  # 表定义
+│       └── index.ts   # 连接配置
+├── drizzle/           # 自动生成的 migration 文件
+├── docs/              # 项目文档
+└── public/            # 静态资源
+```
 
-## Deploy on Vercel
+## 数据模型
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+一张记录表，6 个字段：
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | UUID (v7) | 主键，时间有序 |
+| happened_at | TIMESTAMPTZ | 事件时间 |
+| value_numeric | NUMERIC | 数值型记录（体重、消费等） |
+| value_text | TEXT | 文本型记录（叙事、复盘等） |
+| tags | TEXT | JSON 数组，标签 |
+| context | TEXT | 对话上下文 |
+
+## 设计文档
+
+详见 `docs/` 目录：
+
+- `20260727-initial-vision.md` — 项目初始设想
+- `20260728-fuzzy-time.md` — 模糊时间处理方案
+- `20260729-schema-v1.md` — 数据表设计定稿
