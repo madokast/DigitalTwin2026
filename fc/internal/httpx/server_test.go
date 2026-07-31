@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mdk/digitaltwin2026/fc/internal/auth"
+	"github.com/mdk/digitaltwin2026/fc/internal/telegram"
 )
 
 func testServer() *Server {
@@ -97,13 +98,94 @@ func TestSummaryInvalidTZWithoutDB(t *testing.T) {
 	}
 }
 
-func TestQueryBadPageWithoutDB(t *testing.T) {
-	h := testServer().Handler()
-	req := httptest.NewRequest(http.MethodGet, "/api/query?page=0", nil)
+func TestTelegramProbeNotConfigured(t *testing.T) {
+	s := testServer()
+	s.Telegram = &telegram.Sender{
+		Getenv: func(string) string { return "" },
+	}
+	h := s.Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/telegram/probe", nil)
 	req.Header.Set("Authorization", "Bearer ai-tok")
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
 	if rr.Code != 400 {
-		t.Fatalf("status %d", rr.Code)
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if !strings.Contains(body["error"], "TELEGRAM_BOT_TOKEN") {
+		t.Fatalf("error: %v", body)
 	}
 }
+
+func TestTelegramProbeSuccess(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	s := testServer()
+	s.Telegram = &telegram.Sender{
+		HTTPClient: srv.Client(),
+		APIBase:    srv.URL,
+		Getenv: func(k string) string {
+			switch k {
+			case "TELEGRAM_BOT_TOKEN":
+				return "tok"
+			case "TELEGRAM_USER_ID":
+				return "1"
+			}
+			return ""
+		},
+	}
+	h := s.Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/telegram/probe", strings.NewReader(`{"text":"hi"}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["success"] != true {
+		t.Fatalf("body: %v", body)
+	}
+}
+
+func TestTelegramProbeSendFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"ok":false,"description":"chat not found"}`))
+	}))
+	defer srv.Close()
+
+	s := testServer()
+	s.Telegram = &telegram.Sender{
+		HTTPClient: srv.Client(),
+		APIBase:    srv.URL,
+		Getenv: func(k string) string {
+			switch k {
+			case "TELEGRAM_BOT_TOKEN":
+				return "tok"
+			case "TELEGRAM_USER_ID":
+				return "1"
+			}
+			return ""
+		},
+	}
+	h := s.Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/telegram/probe", nil)
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 502 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "chat not found") {
+		t.Fatalf("body: %s", rr.Body.String())
+	}
+}
+

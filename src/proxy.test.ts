@@ -32,6 +32,11 @@ describe('proxy API auth', () => {
     expect(res.status).toBe(200)
   })
 
+  it('allows AI token on POST /api/telegram/probe (non-admin)', () => {
+    const res = proxy(apiRequest('/api/telegram/probe', `Bearer ${ai}`))
+    expect(res.status).toBe(200)
+  })
+
   it('allows admin token on normal API', () => {
     const res = proxy(apiRequest('/api/query', `Bearer ${admin}`))
     expect(res.status).toBe(200)

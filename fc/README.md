@@ -19,10 +19,21 @@
 当前应对齐的路由：
 
 - `POST /api/log/number`、`POST /api/log/text`
+- `POST /api/telegram/probe`（普通 API Token；校验 Telegram 配置并试发消息）
 - `GET /api/query`、`/api/query/summary`、`/api/query/tags`
 - `POST /api/admin/tags/rename`、`PATCH /api/admin/records/{id}`
 
 鉴权：`Authorization: Bearer …`；`/api/admin/*` 仅 Admin Token；其余 AI 或 Admin。
+
+### Telegram 录入通知（可选）
+
+- 环境变量：`TELEGRAM_BOT_TOKEN`、`TELEGRAM_USER_ID`（**两者皆非空**才启用；任一为空则运行时跳过通知）。
+- 触发：仅 `POST /api/log/number|text` **INSERT 成功之后** best-effort 推送纯文本；Telegram 失败不影响 `201`。
+- 测试：`POST /api/telegram/probe`（未配置 / 发送失败返回明确英文 `error`；成功 `{ success: true }`）。
+- 模板：根 `.env.example`、`fc/env.fc.example`、`fc/s.yaml` 的 `environmentVariables`。
+- **部署**：`npx tsx fc/scripts/deploy.ts`（或 `./scripts/deploy.sh`）在 `s deploy` 前会询问是否使用仓库根 `.env` 的 `TELEGRAM_*`；手填允许皆空（关闭通知）；若任一非空则两者必须齐全，并真实 `sendMessage` 文案 `DigitalTwin2026 deploying`，失败则 `exit 1`。选用值会写回当前 `.env.fc.<env>`。`secrets:refresh-prod` 调用部署时会跳过二次询问。
+- `secrets:rotate-test` **不**轮换 Telegram；生产刷新走 `deploy.sh prod` 时同样走上述交互（可从根 `.env` 选用）。
+- **禁止**把真实 Bot Token / User ID 提交进 git。
 
 ## 本地开发
 
@@ -44,18 +55,30 @@ go run ./cmd/api          # :8080，可用 PORT 覆盖
 | `DATABASE_URL` / Token | 测试：`fc/.env.fc.test`；生产：优先用 `npm run secrets:refresh-prod`（部署时临时写 `.env.fc.prod`，结束后删除）。模板 `env.fc.example` |
 
 - **禁止**裸跑 `s deploy`：会明文打印 `environmentVariables`。
-- 部署只用 [`scripts/deploy.sh`](scripts/deploy.sh)（内部 `s deploy … >/dev/null`）。
+- 部署只用 [`scripts/deploy.ts`](scripts/deploy.ts) / [`scripts/deploy.sh`](scripts/deploy.sh) 薄包装（内部 `s deploy` 输出丢弃）。
 - 真实 `*.fcapp.run` **禁止进 git**；只粘到浏览器「API 加速地址」。
 - 轮换**测试**库密码 + Token：`npm run secrets:rotate-test`（根目录），然后必须再 `cd fc && ./scripts/deploy.sh test`。
 - 刷新**生产**密钥（Vercel + FC）：见下文「生产密钥刷新」。
 
 ## 生产密钥刷新（Vercel + FC prod）
 
-交互脚本会依次询问 `DATABASE_URL`、`DIGITAL_TWIN_TOKEN`、`DIGITAL_TWIN_ADMIN_TOKEN`（输入后掩码确认；`DATABASE_URL` 会真实连库校验），然后：
+交互脚本（TypeScript：`scripts/refresh-prod-env.ts`，`npm run secrets:refresh-prod`）依次询问：`DATABASE_URL`、`DIGITAL_TWIN_TOKEN`、`DIGITAL_TWIN_ADMIN_TOKEN`、`TELEGRAM_BOT_TOKEN`、`TELEGRAM_USER_ID`。
 
-1. 写入 Vercel **production**（`vercel env update` / `add --force` / 必要时先删后加）
-2. **临时**写入 `fc/.env.fc.prod` → `./scripts/deploy.sh prod`（若尚无则首次创建 `digitaltwin-api-prod`）
-3. **删除** `fc/.env.fc.prod`（不在磁盘长期留生产密钥；以后再部署可重跑本脚本，或手动建该文件）
+- **回车（DB URL / Token 等不可空项）**：跳过 upsert，保留 Vercel 现值。
+- **回车（`TELEGRAM_*` 可空项）**：再问一次 —— `[e]` 显式写成空串并 upsert（关闭通知），`[s]` 跳过 upsert。
+- 只想加 Telegram：前三项一路回车（skip），只填两个 `TELEGRAM_*`。
+- 跳过的必填项从 `vercel env pull` 合并进临时 `.env.fc.prod`，保证 FC 仍能部署。
+- `TELEGRAM_*` 最终要么都空，要么都非空。
+- 新填的 `DATABASE_URL` 会真实连库校验；**跳过则不校验**。
+- 本次若 upsert 了任一 `TELEGRAM_*` 且最终双非空，会 `sendMessage` 探测；**双跳过或显式清空则不测**。
+- **全部跳过**：不 upsert 任何 env，只做 FC prod + `vercel deploy --prod`（纯代码部署）。
+
+然后：
+
+1. 仅把**本次有输入**的 key 写入 Vercel **production**
+2. **临时**写入完整合并后的 `fc/.env.fc.prod` → `npx tsx fc/scripts/deploy.ts prod`（或 `./scripts/deploy.sh prod`）
+3. **删除** `fc/.env.fc.prod`
+4. `vercel deploy --prod`
 
 ```bash
 # 仓库根目录
@@ -63,7 +86,6 @@ vercel login          # 若未登录
 vercel link           # 若无 .vercel/project.json
 s config get -a dt    # 确认 FC 部署用的 AK 别名（见 fc/s.yaml access）
 npm run secrets:refresh-prod
-# 等价: ./scripts/refresh-prod-env.sh
 ```
 
 脚本开头会预检：Vercel login/link、以及 `s` CLI + `s.yaml` 的 access 凭证（再 `s info --env prod` 探活）。
@@ -116,7 +138,8 @@ fc/
   internal/          # auth / db / handlers …
   s.yaml             # FC3 资源与规格
   env.yaml           # test / prod 函数名 overlays
-  scripts/deploy.sh  # 唯一允许的部署入口
+  scripts/deploy.ts  # 唯一允许的部署入口（deploy.sh → tsx）
+  scripts/deploy.sh  # 薄包装
   scripts/info.sh    # 打印 HTTP Base URL
   env.fc.example     # 密钥模板
 ```

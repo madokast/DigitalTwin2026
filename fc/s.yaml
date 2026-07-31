@@ -43,6 +43,9 @@ resources:
         DATABASE_URL: ${env('DATABASE_URL', '')}
         DIGITAL_TWIN_TOKEN: ${env('DIGITAL_TWIN_TOKEN', '')}
         DIGITAL_TWIN_ADMIN_TOKEN: ${env('DIGITAL_TWIN_ADMIN_TOKEN', '')}
+        # 可空：两者皆空则关闭通知；deploy.sh 在任一非空时强制两者齐全并探测
+        TELEGRAM_BOT_TOKEN: ${env('TELEGRAM_BOT_TOKEN', '')}
+        TELEGRAM_USER_ID: ${env('TELEGRAM_USER_ID', '')}
       triggers:
         - triggerName: httpTrigger
           triggerType: http

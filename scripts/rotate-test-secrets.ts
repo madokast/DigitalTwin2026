@@ -10,35 +10,15 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
+import { maskValue } from './lib/mask'
+
+export { maskValue } from './lib/mask'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const ENV_FILES = [resolve(ROOT, '.env'), resolve(ROOT, 'fc/.env.fc.test')]
 const KEYS = ['DATABASE_URL', 'DIGITAL_TWIN_TOKEN', 'DIGITAL_TWIN_ADMIN_TOKEN'] as const
 
 type Key = (typeof KEYS)[number]
-
-function maskMiddle(value: string, head = 4, tail = 4): string {
-  if (value.length <= head + tail) {
-    return '*'.repeat(Math.max(value.length, 4))
-  }
-  const stars = Math.min(16, Math.max(6, value.length - head - tail))
-  return `${value.slice(0, head)}${'*'.repeat(stars)}${value.slice(-tail)}`
-}
-
-/** DATABASE_URL 只掩码 password 段，便于看出 host 未变、密码已换 */
-export function maskValue(raw: string): string {
-  try {
-    const u = new URL(raw)
-    if (u.password) {
-      const user = decodeURIComponent(u.username)
-      const pass = maskMiddle(decodeURIComponent(u.password))
-      return `${u.protocol}//${user}:${pass}@${u.host}${u.pathname}${u.search}`
-    }
-  } catch {
-    /* not a URL */
-  }
-  return maskMiddle(raw)
-}
 
 function unquote(raw: string): string {
   if (
@@ -80,6 +60,7 @@ export function replaceEnvLine(
     oldRaw,
   }
 }
+
 
 function readEnvFile(path: string): string {
   try {

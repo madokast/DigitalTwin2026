@@ -1,0 +1,147 @@
+package telegram
+
+import (
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/mdk/digitaltwin2026/fc/internal/record"
+)
+
+func TestLoadConfig(t *testing.T) {
+	cfg := LoadConfig(func(k string) string { return "" })
+	if cfg.Configured() {
+		t.Fatal("expected not configured")
+	}
+	if ConfigError(cfg) != "Telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)" {
+		t.Fatalf("error: %q", ConfigError(cfg))
+	}
+
+	cfg = LoadConfig(func(k string) string {
+		if k == "TELEGRAM_BOT_TOKEN" {
+			return " tok "
+		}
+		return ""
+	})
+	if ConfigError(cfg) != "Telegram is not configured (missing TELEGRAM_USER_ID)" {
+		t.Fatalf("error: %q", ConfigError(cfg))
+	}
+
+	cfg = LoadConfig(func(k string) string {
+		switch k {
+		case "TELEGRAM_BOT_TOKEN":
+			return "tok"
+		case "TELEGRAM_USER_ID":
+			return "42"
+		}
+		return ""
+	})
+	if !cfg.Configured() || cfg.Token != "tok" || cfg.UserID != "42" {
+		t.Fatalf("cfg: %+v", cfg)
+	}
+}
+
+func TestFormatRecordMessage(t *testing.T) {
+	num := "72.5"
+	subj := "Feeling lighter"
+	rec := record.Record{
+		ID:                       "id-1",
+		HappenedAt:               "2026-07-31T12:00:00.000Z",
+		ValueNumber:              &num,
+		Tags:                     `["weight","morning"]`,
+		ObjectiveContext:         "Scale reading",
+		SubjectiveInterpretation: &subj,
+	}
+	got := FormatRecordMessage(rec)
+	want := strings.Join([]string{
+		"New record",
+		"id: id-1",
+		"happened_at: 2026-07-31T12:00:00.000Z",
+		"value_number: 72.5",
+		"tags: weight, morning",
+		"objective: Scale reading",
+		"subjective: Feeling lighter",
+	}, "\n")
+	if got != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+
+	text := "Ran 5k"
+	rec2 := record.Record{
+		ID:               "id-2",
+		HappenedAt:       "2026-07-31T13:00:00.000Z",
+		ValueText:        &text,
+		Tags:             `["run"]`,
+		ObjectiveContext: "Park loop",
+	}
+	got2 := FormatRecordMessage(rec2)
+	if !strings.Contains(got2, "value_text: Ran 5k") || !strings.Contains(got2, "subjective: (null)") {
+		t.Fatalf("unexpected:\n%s", got2)
+	}
+}
+
+func TestSendMessageSuccessAndFailure(t *testing.T) {
+	var sawBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/sendMessage") {
+			t.Fatalf("path %s", r.URL.Path)
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &sawBody)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	s := &Sender{
+		HTTPClient: srv.Client(),
+		APIBase:    srv.URL,
+		Getenv: func(k string) string {
+			switch k {
+			case "TELEGRAM_BOT_TOKEN":
+				return "bot"
+			case "TELEGRAM_USER_ID":
+				return "7"
+			}
+			return ""
+		},
+	}
+	if err := s.SendMessage("DigitalTwin2026 probe"); err != nil {
+		t.Fatal(err)
+	}
+	if sawBody["chat_id"] != "7" || sawBody["text"] != "DigitalTwin2026 probe" {
+		t.Fatalf("body: %#v", sawBody)
+	}
+
+	failSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"ok":false,"description":"chat not found"}`))
+	}))
+	defer failSrv.Close()
+	s.APIBase = failSrv.URL
+	s.HTTPClient = failSrv.Client()
+	err := s.SendMessage("x")
+	if err == nil || !strings.Contains(err.Error(), "chat not found") {
+		t.Fatalf("err: %v", err)
+	}
+}
+
+func TestNotifySkipsWhenUnconfigured(t *testing.T) {
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	defer srv.Close()
+	s := &Sender{
+		HTTPClient: srv.Client(),
+		APIBase:    srv.URL,
+		Getenv:     func(string) string { return "" },
+	}
+	s.NotifyRecordInserted(record.Record{ID: "x", HappenedAt: "t", Tags: `["a"]`, ObjectiveContext: "o"})
+	if called {
+		t.Fatal("should not call Telegram when unconfigured")
+	}
+}

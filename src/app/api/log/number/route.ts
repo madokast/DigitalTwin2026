@@ -3,6 +3,7 @@ import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
 import { validateTags } from '@/lib/tags'
+import { notifyRecordInserted } from '@/lib/telegram'
 
 interface LogNumberRequest {
   happened_at: string
@@ -64,6 +65,9 @@ export async function POST(request: NextRequest) {
       objectiveContext: body.objective_context,
       subjectiveInterpretation: body.subjective_interpretation || null,
     }).returning()
+
+    // 仅 INSERT 成功后 best-effort 通知；失败不影响 201
+    await notifyRecordInserted(result[0])
     
     return NextResponse.json({
       success: true,
