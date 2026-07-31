@@ -2,7 +2,7 @@
 # 密钥勿写入本文件；用 ${env(...)} + scripts/deploy.sh 注入。
 edition: 3.0.0
 name: digitaltwin-api
-access: default
+access: dt
 
 resources:
   api:
@@ -17,10 +17,20 @@ resources:
       description: DigitalTwin2026 HTTP API (Go)
       runtime: custom.debian10
       handler: bootstrap
+      # —— 省钱：全部按平台允许的最低档；空闲缩到 0；最多 1 个实例 ——
+      # 内存 / CPU / 磁盘最低；CPU:内存(GB) 须约在 1:1～1:4
       memorySize: 128
       cpu: 0.05
       diskSize: 512
-      timeout: 60
+      timeout: 30
+      # 单实例只处理 1 个请求（最低）
+      instanceConcurrency: 1
+      # 空闲缩到 0，不常驻。禁止 provisionConfig / minInstances≥1
+      scalingConfig:
+        minInstances: 0
+      # 预留并发=1 ⇒ 全函数同时最多 1 请求 ⇒ 最多 1 个实例
+      concurrencyConfig:
+        reservedConcurrency: 1
       internetAccess: true
       code: ./.s-build
       customRuntimeConfig:
@@ -29,9 +39,10 @@ resources:
           - ./bootstrap
       environmentVariables:
         PORT: "9000"
-        DATABASE_URL: ${env('DATABASE_URL')}
-        DIGITAL_TWIN_TOKEN: ${env('DIGITAL_TWIN_TOKEN')}
-        DIGITAL_TWIN_ADMIN_TOKEN: ${env('DIGITAL_TWIN_ADMIN_TOKEN')}
+        # 缺省为空以便 `s info` 不强制本机已 export；真正部署由 deploy.sh 校验非空
+        DATABASE_URL: ${env('DATABASE_URL', '')}
+        DIGITAL_TWIN_TOKEN: ${env('DIGITAL_TWIN_TOKEN', '')}
+        DIGITAL_TWIN_ADMIN_TOKEN: ${env('DIGITAL_TWIN_ADMIN_TOKEN', '')}
       triggers:
         - triggerName: httpTrigger
           triggerType: http

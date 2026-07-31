@@ -12,7 +12,8 @@
 - **数据库**: PostgreSQL（Neon）
 - **ORM**: Drizzle ORM
 - **测试**: Vitest（真实测试库）
-- **部署**: Vercel（主）+ 阿里云函数计算（规划中；本期仅本地 Go API）
+- **部署**: Vercel（主）+ 阿里云函数计算（国内 API 加速，见 [`fc/README.md`](fc/README.md)）
+
 
 ## 快速开始
 
@@ -56,29 +57,12 @@ npm run dev
 
 访问 http://localhost:3000 — 在「设置」中填入 Token；可选配置 IANA 时区、Dashboard summary，以及 **API 加速地址**（空=同源 Vercel `/api/...`）。
 
-### 阿里云 FC（Serverless Devs）
+### 阿里云 FC（国内 API）
 
-1. 本机已 `s config add`（AK 在 `~/.s/`，勿进仓库）且开通函数计算 + `AliyunFCFullAccess`
-2. 在 `fc/` 准备密钥文件（gitignore）：
+操作、双后端约定、部署与安全：**见 [`fc/README.md`](fc/README.md)**。
 
-```bash
-cd fc
-cp env.fc.example .env.fc.test
-# 编辑填入测试库 DATABASE_URL 与两个 Token
-./scripts/deploy.sh test   # 内部 s deploy >/dev/null；禁止裸跑 s deploy（会明文打出密钥）
-```
+摘要：`cd fc && ./scripts/deploy.sh test`，`./scripts/info.sh test` 取 Base URL 填到设置「API 加速地址」。禁止裸跑 `s deploy`。密钥轮换：`npm run secrets:rotate-test` 后须再 deploy。
 
-轮换本地测试库密码与 Token（只改 `.env` / `fc/.env.fc.test` 匹配行；打印旧→新掩码）：
-
-```bash
-npm run secrets:rotate-test
-# 然后务必再 ./scripts/deploy.sh test 把新密钥注入 FC
-```
-
-3. 用 `s info --env test` 查看 `*.fcapp.run`，**只粘到浏览器设置 → API 加速地址**，不要写进 git  
-4. 生产：复制为 `.env.fc.prod`（生产库与 Vercel 相同），确认 test 无误后再 `./scripts/deploy.sh prod`
-
-区域默认 `cn-hangzhou`（见 `fc/s.yaml`）。
 
 主题：语义色 token（`globals.css`），跟随系统 `prefers-color-scheme` 明暗切换。
 
@@ -93,9 +77,8 @@ export $(grep -v '^#' ../.env | xargs)   # 或自行 export
 go run ./cmd/api                         # 默认 :8080；可用 PORT=9090
 ```
 
-网页「设置 → API 加速地址」填本地 `http://localhost:8080` 或部署后的 FC HTTP 域名（仅本机 prefs；**不要**把真实 FC 域名写进仓库）。空则仍走同源 Vercel。
+网页「设置 → API 加速地址」填本地 `http://localhost:8080` 或 FC 的 `*.fcapp.run`（仅本机 prefs；**不要**把真实 FC 域名写进仓库）。空则仍走同源 Vercel。FC 细则见 [`fc/README.md`](fc/README.md)。
 
-部署骨架：`fc/s.yaml` + `fc/scripts/deploy.sh`（custom.debian10）。**未默认替你执行**云上 deploy，需本地准备 `.env.fc.test` 后自行跑脚本。
 
 ## Web 路由
 
@@ -159,7 +142,8 @@ cd fc && go test ./...
 │   ├── db/            # Drizzle schema / 连接
 │   ├── lib/           # prefs、鉴权、query、时区、api-client
 │   └── proxy.ts       # Next.js 16：/api/* 鉴权入口
-├── fc/                # Go HTTP API（本地 go run；FC 部署后续）
+├── fc/                # Go HTTP API + 阿里云 FC（见 fc/README.md）
+
 │   ├── cmd/api/       # 入口 :8080 / PORT
 │   └── internal/      # auth / db / tags / timeutil / draft / query / logapi / httpx
 ├── tests/             # API 集成测试与 helpers

@@ -40,5 +40,11 @@ if ! s deploy --env "$ENV_NAME" -y >/dev/null 2>&1; then
 fi
 
 echo "deploy OK."
-echo "Get HTTP URL with: s info --env $ENV_NAME   (paste into Settings → API 加速地址; never commit)"
+url="$("$ROOT/scripts/info.sh" "$ENV_NAME" 2>/dev/null || true)"
+if [[ -n "${url:-}" ]]; then
+  echo "HTTP Base URL: $url"
+  echo "Paste into Settings → API 加速地址 (never commit)."
+else
+  echo "Get HTTP URL with: ./scripts/info.sh $ENV_NAME"
+fi
 echo "Do NOT run: s deploy   (leaks env secrets to the terminal)"
