@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -69,7 +70,7 @@ func TestAdminRejectsAIToken(t *testing.T) {
 func TestLogNumberValidationWithoutDB(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
-		"value_number": 1,
+		"value_number": "1",
 		"tags": ["weight"],
 		"objective_context": "x"
 	}`))
@@ -83,6 +84,55 @@ func TestLogNumberValidationWithoutDB(t *testing.T) {
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
 	if !strings.Contains(body["error"], "happened_at") {
+		t.Fatalf("error: %v", body)
+	}
+}
+
+func TestLogNumberRejectsMissingTimezone(t *testing.T) {
+	h := testServer().Handler()
+	for _, happened := range []string{"2026-07-30", "2026-07-30T08:00:00"} {
+		payload := fmt.Sprintf(`{
+			"happened_at": %q,
+			"value_number": "1",
+			"tags": ["weight"],
+			"objective_context": "x"
+		}`, happened)
+		req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(payload))
+		req.Header.Set("Authorization", "Bearer ai-tok")
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if rr.Code != 400 {
+			t.Fatalf("%q status %d body %s", happened, rr.Code, rr.Body.String())
+		}
+		var body map[string]string
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		want := "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)"
+		if body["error"] != want {
+			t.Fatalf("%q error: %v", happened, body)
+		}
+	}
+}
+
+func TestLogTextRejectsMissingTimezone(t *testing.T) {
+	h := testServer().Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/log/text", strings.NewReader(`{
+		"happened_at": "2026-07-30T10:00:00",
+		"value_text": "hello",
+		"tags": ["study"],
+		"objective_context": "x"
+	}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	want := "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)"
+	if body["error"] != want {
 		t.Fatalf("error: %v", body)
 	}
 }

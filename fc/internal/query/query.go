@@ -170,7 +170,7 @@ func FetchFilteredRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedQuer
 		return nil, err
 	}
 
-	selectSQL := `SELECT id, happened_at, value_number::text, value_text, tags, objective_context, subjective_interpretation
+	selectSQL := `SELECT id, happened_at, value_number, value_text, tags, objective_context, subjective_interpretation
 FROM records`
 	if where != "" {
 		selectSQL += " WHERE " + where

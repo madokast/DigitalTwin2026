@@ -173,9 +173,35 @@ func (s *Sender) SendMessage(text string) error {
 	return fmt.Errorf("Telegram sendMessage failed: %s", reason)
 }
 
-// NotifyRecordInserted best-effort：未配置跳过；失败只打日志。
+// ShouldSkipNotifyInTest 测试态下跳过录入后自动通知。
+// TELEGRAM_ALLOW_IN_TEST=1 可放行；probe 走 SendMessage，不受此限制。
+// 同时看注入 getenv 与 os.Getenv（TestMain 设的 DIGITAL_TWIN_TEST）。
+func ShouldSkipNotifyInTest(getenv func(string) string) bool {
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	allow := strings.TrimSpace(getenv("TELEGRAM_ALLOW_IN_TEST"))
+	if allow == "" {
+		allow = strings.TrimSpace(os.Getenv("TELEGRAM_ALLOW_IN_TEST"))
+	}
+	if allow == "1" {
+		return false
+	}
+	flag := strings.TrimSpace(getenv("DIGITAL_TWIN_TEST"))
+	if flag == "" {
+		flag = strings.TrimSpace(os.Getenv("DIGITAL_TWIN_TEST"))
+	}
+	return flag == "1"
+}
+
+// NotifyRecordInserted best-effort：测试态 / 未配置跳过；失败只打日志。
 func (s *Sender) NotifyRecordInserted(rec record.Record) {
-	cfg := LoadConfig(s.getenv())
+	getenv := s.getenv()
+	// 测试态静默跳过，避免集成/插入路径打扰真实 Bot
+	if ShouldSkipNotifyInTest(getenv) {
+		return
+	}
+	cfg := LoadConfig(getenv)
 	if !cfg.Configured() {
 		log.Printf("Telegram notify skipped: not configured")
 		return

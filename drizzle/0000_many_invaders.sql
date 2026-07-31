@@ -1,7 +1,7 @@
 CREATE TABLE "records" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"happened_at" timestamp with time zone NOT NULL,
-	"value_number" numeric,
+	"value_number" text,
 	"value_text" text,
 	"tags" text NOT NULL,
 	"objective_context" text NOT NULL,

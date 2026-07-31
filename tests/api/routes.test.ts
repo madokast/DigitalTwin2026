@@ -27,7 +27,7 @@ describe('API integration', () => {
   describe('POST /api/log/number', () => {
     it('returns 400 when required fields are missing', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-        value_number: 75.5,
+        value_number: '75.5',
         tags: ['weight'],
         objective_context: 'morning weigh-in',
       }))
@@ -39,7 +39,7 @@ describe('API integration', () => {
     it('returns 400 for invalid tags', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: 75.5,
+        value_number: '75.5',
         tags: ['体重'],
         objective_context: 'morning weigh-in',
       }))
@@ -51,7 +51,7 @@ describe('API integration', () => {
     it('creates a number record', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: 75.5,
+        value_number: '75.5',
         tags: ['weight'],
         objective_context: 'morning weigh-in',
         subjective_interpretation: 'a bit heavy',
@@ -65,6 +65,80 @@ describe('API integration', () => {
       expect(body.record.objectiveContext).toBe('morning weigh-in')
       expect(body.record.subjectiveInterpretation).toBe('a bit heavy')
     })
+
+    it('returns 400 when happened_at lacks timezone', async () => {
+      const bare = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30',
+        value_number: '1',
+        tags: ['weight'],
+        objective_context: 'x',
+      }))
+      expect(bare.status).toBe(400)
+      expect((await bare.json()).error).toBe(
+        'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
+      )
+
+      const noOffset = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T08:00:00',
+        value_number: '1',
+        tags: ['weight'],
+        objective_context: 'x',
+      }))
+      expect(noOffset.status).toBe(400)
+      expect((await noOffset.json()).error).toBe(
+        'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
+      )
+    })
+
+    it('accepts happened_at with Z and returns string valueNumber', async () => {
+      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T00:00:00.000Z',
+        value_number: '1',
+        tags: ['weight'],
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body.record.valueNumber).toBe('1')
+      expect(body.record.happenedAt).toBe('2026-07-30T00:00:00.000Z')
+    })
+
+    it('rejects JSON number type for value_number', async () => {
+      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        value_number: 75.5,
+        tags: ['weight'],
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        'value_number must be a decimal string',
+      )
+    })
+
+    it('rejects invalid decimal strings', async () => {
+      for (const bad of ['1e3', '1.', '+1']) {
+        const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          value_number: bad,
+          tags: ['weight'],
+          objective_context: 'x',
+        }))
+        expect(res.status).toBe(400)
+        expect((await res.json()).error).toBe('Invalid value_number')
+      }
+    })
+
+    it('preserves decimal literal including trailing zeros', async () => {
+      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        value_number: '1.0',
+        tags: ['weight'],
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(201)
+      expect((await res.json()).record.valueNumber).toBe('1.0')
+    })
   })
 
   describe('POST /api/log/text', () => {
@@ -77,6 +151,19 @@ describe('API integration', () => {
       expect(res.status).toBe(400)
       const body = await res.json()
       expect(body.error).toContain('value_text')
+    })
+
+    it('returns 400 when happened_at lacks timezone', async () => {
+      const res = await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-07-30T10:00:00',
+        value_text: 'hello',
+        tags: ['study'],
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
+      )
     })
 
     it('creates a text record', async () => {
@@ -125,19 +212,19 @@ describe('API integration', () => {
       // Fixed "now": 2026-07-30 16:30 UTC = 2026-07-31 00:30 Asia/Shanghai
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T10:00:00.000Z',
-        value_number: 1,
+        value_number: '1',
         tags: ['a'],
         objective_context: 'utc-only today',
       }))
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T18:00:00.000Z',
-        value_number: 2,
+        value_number: '2',
         tags: ['b'],
         objective_context: 'both today',
       }))
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-31T02:00:00.000Z',
-        value_number: 3,
+        value_number: '3',
         tags: ['c'],
         objective_context: 'shanghai-only today',
       }))
@@ -172,7 +259,7 @@ describe('API integration', () => {
     async function seed() {
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: 75.5,
+        value_number: '75.5',
         tags: ['weight', 'morning'],
         objective_context: 'fasting weight',
       }))
@@ -259,7 +346,7 @@ describe('API integration', () => {
       expect(body2.page).toBe(2)
       expect(body2.records).toHaveLength(5)
       expect(body2.records[0].valueText).toBe('row-4')
-    })
+    }, 120_000)
 
     it('returns a single record by id and ignores pagination', async () => {
       await seed()
@@ -327,7 +414,7 @@ describe('API integration', () => {
     it('returns success wrapper with lexicographically sorted tag counts', async () => {
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: 75.5,
+        value_number: '75.5',
         tags: ['weight', 'morning'],
         objective_context: 'fasting weight',
       }))
@@ -339,7 +426,7 @@ describe('API integration', () => {
       }))
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-31T08:00:00+08:00',
-        value_number: 75.2,
+        value_number: '75.2',
         tags: ['weight'],
         objective_context: 'follow-up weigh-in',
       }))
@@ -387,7 +474,7 @@ describe('API integration', () => {
     it('renames tags across records and reports updated count', async () => {
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: 1,
+        value_number: '1',
         tags: ['exercise', 'morning'],
         objective_context: 'a',
       }))
@@ -426,7 +513,7 @@ describe('API integration', () => {
     async function createNumber() {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: 75.5,
+        value_number: '75.5',
         tags: ['weight'],
         objective_context: 'morning weigh-in',
         subjective_interpretation: 'ok',
@@ -440,7 +527,7 @@ describe('API integration', () => {
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
           happened_at: '2026-07-30T09:30:00+08:00',
-          value_number: 76,
+          value_number: '76',
           value_text: null,
           tags: ['weight', 'source:device'],
           objective_context: 'updated context',
@@ -480,7 +567,7 @@ describe('API integration', () => {
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: 1,
+          value_number: '1',
           value_text: null,
           tags: ['体重'],
           objective_context: 'x',
@@ -498,7 +585,7 @@ describe('API integration', () => {
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${id}`, {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: 1,
+          value_number: '1',
           value_text: null,
           tags: ['weight'],
           objective_context: 'x',

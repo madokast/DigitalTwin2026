@@ -16,7 +16,8 @@ info:
     **camelCase** (Drizzle / Go `record.Record` JSON tags).
 
     `Record.tags` is a **JSON array encoded as a string** (e.g. `"[\"weight\"]"`),
-    not a JSON array value. `Record.valueNumber` is a decimal string or null.
+    not a JSON array value. `Record.valueNumber` is a decimal string or null
+    (see `Record.valueNumber` description for write/read rules).
 
     Auth is enforced before handlers (Next `src/proxy.ts`; FC `httpx.withAuth`).
   license:
@@ -61,7 +62,7 @@ paths:
               $ref: '#/components/schemas/LogNumberRequest'
             example:
               happened_at: '2026-07-30T08:00:00+08:00'
-              value_number: 75.5
+              value_number: '75.5'
               tags: [weight]
               objective_context: morning weigh-in
               subjective_interpretation: a bit heavy
@@ -298,9 +299,10 @@ paths:
       description: |
         Full editable snapshot replace via `parseRecordDraft` / `draft.ParseRecordDraft`
         (`src/lib/record-draft.ts`, `fc/internal/draft`).
-        Unlike log endpoints, `happened_at` **must** include an explicit timezone
-        suffix (`Z` or `±HH:MM` / `±HHMM`), and at least one of `value_number` /
-        `value_text` must be non-null after normalization (empty strings → null).
+        `happened_at` **must** include an explicit timezone suffix
+        (`Z` or `±HH:MM` / `±HHMM`) — same rule as log endpoints — and at least
+        one of `value_number` / `value_text` must be non-null after normalization
+        (empty strings → null).
         Auth: **AdminToken only**.
       security:
         - AdminToken: []
@@ -320,7 +322,7 @@ paths:
               $ref: '#/components/schemas/RecordDraftRequest'
             example:
               happened_at: '2026-07-30T08:00:00+08:00'
-              value_number: 76
+              value_number: '76'
               value_text: null
               tags: [weight]
               objective_context: morning weigh-in
@@ -501,9 +503,10 @@ components:
     HappenedAtInput:
       type: string
       description: |
-        Event timestamp. Log endpoints accept values parseable as timestamptz
-        (Next `new Date` / PG cast). Admin PATCH and query `from`/`to` require
-        an explicit timezone suffix matching `(Z|[+-]HH:?MM)`.
+        Event timestamp as ISO 8601 **with required timezone** suffix
+        `(Z|[+-]HH:?MM)` — same rule for log insert, Admin PATCH `happened_at`,
+        and query `from`/`to`. Bare dates or offset-less local datetimes → 400
+        (`happened_at must be ISO 8601 with timezone (Z or ±HH:MM)`).
       examples:
         - '2026-07-30T08:00:00+08:00'
         - '2026-07-30T00:00:00.000Z'
@@ -533,9 +536,23 @@ components:
             (`YYYY-MM-DDTHH:mm:ss.sssZ`). Both backends normalize this way
             (Go `record.FormatHappenedAt`; Next `toApiRecord` / `toISOString`).
           examples:
-            - '2026-07-30T00:00:00.000Z'        valueNumber:
+            - '2026-07-30T00:00:00.000Z'
+        valueNumber:
           type: [string, 'null']
-          description: Decimal as string, or null for text-only records
+          description: |
+            Decimal as string, or null for text-only records.
+            On write (log/number and PATCH), JSON **number is rejected** (400:
+            `value_number must be a decimal string`). Only a decimal **string**
+            matching `^-?(?:0|[1-9]\d*)(?:\.\d+)?$` is accepted (no scientific
+            notation, leading `+`, trailing/leading dots, or leading zeros like
+            `01`). Length caps: ≤40 chars; ≤28 integer digits; ≤10 fraction digits.
+            The validated literal is stored as-is in `TEXT` (no Number round-trip,
+            trailing zeros preserved, e.g. `"1.0"` stays `"1.0"`).
+          examples:
+            - '75.5'
+            - '1'
+            - '1.0'
+            - null
         valueText:
           type: [string, 'null']
         tags:
@@ -654,8 +671,10 @@ components:
         happened_at:
           $ref: '#/components/schemas/HappenedAtInput'
         value_number:
-          type: number
-          description: Required finite number (stored as numeric / decimal string)
+          type: string
+          description: |
+            Required decimal string (not a JSON number). Same pattern and length
+            caps as `Record.valueNumber`. Empty / whitespace-only → 400 missing.
         tags:
           $ref: '#/components/schemas/TagList'
         objective_context:
@@ -688,7 +707,7 @@ components:
       description: |
         Editable snapshot for PATCH. Aligns with `parseRecordDraft`:
         empty strings on nullable fields become null; `objective_context` must
-        be a non-empty string; `value_number` may be number or numeric string.
+        be a non-empty string; `value_number` is string | null only (JSON number → 400).
       required: [happened_at, tags, objective_context]
       additionalProperties: true
       properties:
@@ -698,11 +717,10 @@ components:
           examples:
             - '2026-07-30T08:00:00+08:00'
         value_number:
-          description: Number, numeric string, null, or omit/empty → null
-          oneOf:
-            - type: number
-            - type: string
-            - type: 'null'
+          description: |
+            Decimal string, null, or omit/empty → null. JSON number → 400
+            (`value_number must be a decimal string`).
+          type: [string, 'null']
         value_text:
           type: [string, 'null']
         tags:

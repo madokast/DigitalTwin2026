@@ -22,7 +22,7 @@
         },
         "value_number": {
           "name": "value_number",
-          "type": "numeric",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

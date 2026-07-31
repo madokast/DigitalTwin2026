@@ -136,7 +136,7 @@ cd fc && go test ./...
 |------|------|------|
 | id | UUID (v7) | 主键，时间有序 |
 | happened_at | TIMESTAMPTZ | 事件时间 |
-| value_number | NUMERIC | 数值（可空） |
+| value_number | TEXT | 十进制数字符串字面量（可空；JSON/API 一律 string，禁止 number） |
 | value_text | TEXT | 文本（可空；与数值至少填一） |
 | tags | TEXT | JSON 数组 |
 | objective_context | TEXT | 客观背景（必填） |

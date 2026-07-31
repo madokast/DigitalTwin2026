@@ -1,10 +1,10 @@
-import { pgTable, uuid, timestamp, numeric, text, check } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, timestamp, text, check } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
 export const records = pgTable('records', {
   id: uuid('id').primaryKey().notNull(),
   happenedAt: timestamp('happened_at', { withTimezone: true }).notNull(),
-  valueNumber: numeric('value_number'),
+  valueNumber: text('value_number'),
   valueText: text('value_text'),
   tags: text('tags').notNull(),
   objectiveContext: text('objective_context').notNull(),

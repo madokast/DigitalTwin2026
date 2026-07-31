@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
   emptyStringToNull,
+  parseHappenedAt,
   parseRecordDraft,
+  parseValueNumber,
+  validateDecimalString,
+  VALUE_NUMBER_MUST_BE_STRING,
 } from './record-draft'
 
 const validBase = {
   happened_at: '2026-07-30T08:00:00+08:00',
-  value_number: 75.5,
+  value_number: '75.5',
   value_text: null,
   tags: ['weight'],
   objective_context: 'morning weigh-in',
@@ -26,6 +30,50 @@ describe('emptyStringToNull', () => {
   it('keeps non-empty strings', () => {
     expect(emptyStringToNull('-')).toBe('-')
     expect(emptyStringToNull('hello')).toBe('hello')
+  })
+})
+
+describe('parseHappenedAt', () => {
+  it('accepts Z and ±HH:MM offsets', () => {
+    const z = parseHappenedAt('2026-07-30T00:00:00.000Z')
+    expect('error' in z).toBe(false)
+    const offset = parseHappenedAt('2026-07-30T08:00:00+08:00')
+    expect('error' in offset).toBe(false)
+  })
+
+  it('rejects bare date and missing offset', () => {
+    expect(parseHappenedAt('2026-07-30')).toEqual({
+      error: 'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
+    })
+    expect(parseHappenedAt('2026-07-30T08:00:00')).toEqual({
+      error: 'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
+    })
+  })
+})
+
+describe('validateDecimalString / parseValueNumber', () => {
+  it('accepts valid literals and preserves trailing zeros', () => {
+    expect(validateDecimalString('1')).toEqual({ ok: true })
+    expect(validateDecimalString('75.5')).toEqual({ ok: true })
+    expect(validateDecimalString('1.0')).toEqual({ ok: true })
+    expect(parseValueNumber('  1.0  ')).toEqual({ ok: true, value: '1.0' })
+    expect(parseValueNumber('')).toEqual({ ok: true, value: null })
+    expect(parseValueNumber(null)).toEqual({ ok: true, value: null })
+  })
+
+  it('rejects JSON number type', () => {
+    expect(parseValueNumber(75.5)).toEqual({
+      error: VALUE_NUMBER_MUST_BE_STRING,
+    })
+    expect(parseValueNumber(1)).toEqual({
+      error: VALUE_NUMBER_MUST_BE_STRING,
+    })
+  })
+
+  it('rejects scientific notation, +sign, incomplete decimals, leading zeros', () => {
+    for (const bad of ['1e3', '1E3', '+1', '1.', '.5', '01', '00.5', '1,000']) {
+      expect(parseValueNumber(bad)).toEqual({ error: 'Invalid value_number' })
+    }
   })
 })
 
@@ -66,7 +114,7 @@ describe('parseRecordDraft', () => {
   it('maps empty value_text and subjective to null', () => {
     const parsed = parseRecordDraft({
       ...validBase,
-      value_number: 1,
+      value_number: '1',
       value_text: '',
       subjective_interpretation: '',
     })
@@ -74,6 +122,15 @@ describe('parseRecordDraft', () => {
     if ('error' in parsed) return
     expect(parsed.valueText).toBeNull()
     expect(parsed.subjectiveInterpretation).toBeNull()
+  })
+
+  it('rejects JSON number value_number', () => {
+    expect(
+      parseRecordDraft({
+        ...validBase,
+        value_number: 75.5,
+      }),
+    ).toEqual({ error: VALUE_NUMBER_MUST_BE_STRING })
   })
 
   it('rejects empty objective_context', () => {
@@ -108,7 +165,7 @@ describe('parseRecordDraft', () => {
     })
   })
 
-  it('accepts string value_number and text-only records', () => {
+  it('accepts empty value_number with text-only records', () => {
     const parsed = parseRecordDraft({
       ...validBase,
       value_number: '',

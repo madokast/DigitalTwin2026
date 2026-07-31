@@ -345,13 +345,13 @@ func (s *Server) handlePatchRecord(w http.ResponseWriter, r *http.Request) {
 	err = s.Pool.QueryRow(r.Context(), `
 UPDATE records SET
   happened_at = $1,
-  value_number = $2::numeric,
+  value_number = $2,
   value_text = $3,
   tags = $4,
   objective_context = $5,
   subjective_interpretation = $6
 WHERE id = $7
-RETURNING id, happened_at, value_number::text, value_text, tags, objective_context, subjective_interpretation
+RETURNING id, happened_at, value_number, value_text, tags, objective_context, subjective_interpretation
 `, parsed.HappenedAt, parsed.ValueNumber, parsed.ValueText, tagsJSON, parsed.ObjectiveContext, parsed.SubjectiveInterpretation, id).Scan(
 		&outID, &outHappened, &outNum, &outText, &outTags, &outObj, &outSubj,
 	)

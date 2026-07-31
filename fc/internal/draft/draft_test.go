@@ -21,7 +21,7 @@ func TestEmptyStringToNull(t *testing.T) {
 func TestParseRecordDraftValid(t *testing.T) {
 	body := RecordDraftBody{
 		HappenedAt:       "2026-07-30T08:00:00+08:00",
-		ValueNumber:      float64(75.5),
+		ValueNumber:      "75.5",
 		ValueText:        nil,
 		Tags:             []any{"weight"},
 		ObjectiveContext: "morning weigh-in",
@@ -38,10 +38,44 @@ func TestParseRecordDraftValid(t *testing.T) {
 	}
 }
 
+func TestParseHappenedAt(t *testing.T) {
+	if _, err := ParseHappenedAt("2026-07-30T00:00:00.000Z"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseHappenedAt("2026-07-30T08:00:00+08:00"); err != nil {
+		t.Fatal(err)
+	}
+	for _, raw := range []string{"2026-07-30", "2026-07-30T08:00:00"} {
+		_, err := ParseHappenedAt(raw)
+		if err == nil || err.Error() != "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)" {
+			t.Fatalf("%q: got %v", raw, err)
+		}
+	}
+}
+
+func TestParseValueNumber(t *testing.T) {
+	got, err := ParseValueNumber("1.0")
+	if err != nil || got == nil || *got != "1.0" {
+		t.Fatalf("literal: %#v %v", got, err)
+	}
+	got, err = ParseValueNumber("  ")
+	if err != nil || got != nil {
+		t.Fatalf("blank: %#v %v", got, err)
+	}
+	if _, err := ParseValueNumber(float64(75.5)); err == nil || err.Error() != ValueNumberMustBeString {
+		t.Fatalf("float64: %v", err)
+	}
+	for _, bad := range []string{"1e3", "1.", "+1", ".5", "01", "00.5"} {
+		if _, err := ParseValueNumber(bad); err == nil || err.Error() != "Invalid value_number" {
+			t.Fatalf("%q: %v", bad, err)
+		}
+	}
+}
+
 func TestParseRecordDraftRejectsNoTZ(t *testing.T) {
 	_, err := ParseRecordDraft(RecordDraftBody{
 		HappenedAt:       "2026-07-30T08:00:00",
-		ValueNumber:      float64(1),
+		ValueNumber:      "1",
 		Tags:             []any{"weight"},
 		ObjectiveContext: "x",
 	})
@@ -66,7 +100,7 @@ func TestParseRecordDraftBothNull(t *testing.T) {
 func TestParseRecordDraftJSON(t *testing.T) {
 	raw := []byte(`{
 		"happened_at":"2026-07-30T08:00:00+08:00",
-		"value_number":75.5,
+		"value_number":"75.5",
 		"value_text":"",
 		"tags":["weight"],
 		"objective_context":"morning",
@@ -81,5 +115,18 @@ func TestParseRecordDraftJSON(t *testing.T) {
 	}
 	if parsed.ValueNumber == nil || *parsed.ValueNumber != "75.5" {
 		t.Fatalf("number: %#v", parsed.ValueNumber)
+	}
+}
+
+func TestParseRecordDraftJSONRejectsNumberType(t *testing.T) {
+	raw := []byte(`{
+		"happened_at":"2026-07-30T08:00:00+08:00",
+		"value_number":75.5,
+		"tags":["weight"],
+		"objective_context":"morning"
+	}`)
+	_, err := ParseRecordDraftJSON(raw)
+	if err == nil || err.Error() != ValueNumberMustBeString {
+		t.Fatalf("got %v", err)
 	}
 }

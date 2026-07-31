@@ -3,6 +3,38 @@
 export type EnvLike = {
   TELEGRAM_BOT_TOKEN?: string
   TELEGRAM_USER_ID?: string
+  DIGITAL_TWIN_TEST?: string
+  TELEGRAM_ALLOW_IN_TEST?: string
+  NODE_ENV?: string
+  VITEST?: string
+}
+
+function envFlagOn(value: string | undefined): boolean {
+  return (value ?? '').trim() === '1'
+}
+
+/**
+ * 测试态下跳过录入后自动通知。
+ * TELEGRAM_ALLOW_IN_TEST=1 可放行（Telegram 单测注入 mock 时用）。
+ * probe 走 sendTelegramMessage，不受此限制。
+ */
+export function shouldSkipNotifyInTest(env: EnvLike = process.env): boolean {
+  const proc = process.env
+  if (
+    envFlagOn(env.TELEGRAM_ALLOW_IN_TEST) ||
+    envFlagOn(proc.TELEGRAM_ALLOW_IN_TEST)
+  ) {
+    return false
+  }
+  if (envFlagOn(env.DIGITAL_TWIN_TEST) || envFlagOn(proc.DIGITAL_TWIN_TEST)) {
+    return true
+  }
+  if ((env.NODE_ENV ?? proc.NODE_ENV) === 'test') {
+    return true
+  }
+  // Vitest 会设 VITEST（通常为 "true"）
+  const vitest = env.VITEST ?? proc.VITEST
+  return vitest != null && String(vitest).trim() !== ''
 }
 
 export type TelegramConfig = {
@@ -152,12 +184,16 @@ export async function sendTelegramMessage(
   }
 }
 
-/** 录入成功后 best-effort：未配置跳过；失败只打日志 */
+/** 录入成功后 best-effort：测试态 / 未配置跳过；失败只打日志 */
 export async function notifyRecordInserted(
   record: NotifyRecord,
   options?: { env?: EnvLike; fetch?: FetchLike },
 ): Promise<void> {
   const env = options?.env ?? process.env
+  // 测试态静默跳过，避免每次 insert 打真实 Bot（dotenv 可能写回 TELEGRAM_*）
+  if (shouldSkipNotifyInTest(env)) {
+    return
+  }
   if (!isTelegramConfigured(env)) {
     console.warn('Telegram notify skipped: not configured')
     return

@@ -23,14 +23,20 @@
 
 改 API 时请同时更新本 YAML、两套实现，以及现有双端测试（契约 CI 未就绪前以 Vitest / `go test` 为准）。
 
+## 已对齐约定（摘要）
+
+| 项 | 规则 |
+|----|------|
+| `happened_at` / query `from`/`to` | 一律要求 ISO 8601 **带时区**（`Z` 或 `±HH:MM` / `±HHMM`）；裸日期或无 offset → 400 |
+| `Record.happenedAt` 输出 | UTC `…sssZ`（Go `FormatHappenedAt`；Next `toApiRecord`） |
+| `Record.valueNumber` | **仅**十进制字符串 / null（DB `TEXT`）；JSON **number 一律 400**（`value_number must be a decimal string`）；写入保留校验后字面量，不经 Number 往返 |
+
 ## Phase 1 已知差异（有意延后）
 
-下列项**已在契约中如实描述**，暂不强制双端完全同校验；留给 Phase 2 契约测试或产品决策后再收紧：
+下列项**已在契约中如实描述**，留给 Phase 2 契约测试再锁死：
 
 | 项 | 现状 | 建议 |
 |----|------|------|
-| Log `happened_at` 输入 | 比 Admin PATCH / query `from`/`to` **更松**：不强制 `(Z\|±HH:MM)` 后缀；Next 用 `new Date`，Go 直接交给 PG `timestamptz` 解析 | 全局收紧需改 AI 录入约定与双端校验，属产品决策；Phase 2 再统一 |
-| `Record.happenedAt` 输出 | **已对齐**：两端均为 UTC `…sssZ`（Go `FormatHappenedAt`；Next `toApiRecord`） | Phase 2 契约测试应锁定该格式 |
-| `valueNumber` 文本 | 入库路径不同（Next `Number#toString` vs Go `json.Marshal` float）；读出均为 PG numeric 文本 | 一般客户端可忽略；契约测试可对常见样例做快照 |
+| （暂无） | — | — |
 
 其余 8 条路径（log×2、query×3、admin×2、telegram probe）的成功/错误外壳与字段名已对齐；发现新漂移时先改 YAML 再改双端。

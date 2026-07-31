@@ -5,11 +5,24 @@ import {
   isTelegramConfigured,
   notifyRecordInserted,
   sendTelegramMessage,
+  shouldSkipNotifyInTest,
   telegramConfigError,
 } from './telegram'
 
 afterEach(() => {
   vi.restoreAllMocks()
+})
+
+describe('shouldSkipNotifyInTest', () => {
+  it('skips when DIGITAL_TWIN_TEST=1 unless allow flag', () => {
+    expect(shouldSkipNotifyInTest({ DIGITAL_TWIN_TEST: '1' })).toBe(true)
+    expect(
+      shouldSkipNotifyInTest({
+        DIGITAL_TWIN_TEST: '1',
+        TELEGRAM_ALLOW_IN_TEST: '1',
+      }),
+    ).toBe(false)
+  })
 })
 
 const sampleNumber = {
@@ -176,9 +189,25 @@ describe('notifyRecordInserted', () => {
   it('skips when unconfigured and does not call fetch', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const fetchMock = vi.fn()
-    await notifyRecordInserted(sampleNumber, { env: {}, fetch: fetchMock })
+    await notifyRecordInserted(sampleNumber, {
+      env: { TELEGRAM_ALLOW_IN_TEST: '1' },
+      fetch: fetchMock,
+    })
     expect(fetchMock).not.toHaveBeenCalled()
     expect(warn).toHaveBeenCalled()
+  })
+
+  it('skips in test mode even when Telegram is configured', async () => {
+    const fetchMock = vi.fn()
+    await notifyRecordInserted(sampleNumber, {
+      env: {
+        TELEGRAM_BOT_TOKEN: 't',
+        TELEGRAM_USER_ID: '1',
+        DIGITAL_TWIN_TEST: '1',
+      },
+      fetch: fetchMock,
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('logs error on send failure without throwing', async () => {
@@ -190,7 +219,11 @@ describe('notifyRecordInserted', () => {
     })
     await expect(
       notifyRecordInserted(sampleNumber, {
-        env: { TELEGRAM_BOT_TOKEN: 't', TELEGRAM_USER_ID: '1' },
+        env: {
+          TELEGRAM_BOT_TOKEN: 't',
+          TELEGRAM_USER_ID: '1',
+          TELEGRAM_ALLOW_IN_TEST: '1',
+        },
         fetch: fetchMock,
       }),
     ).resolves.toBeUndefined()

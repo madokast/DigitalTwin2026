@@ -3,24 +3,35 @@ package draft
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mdk/digitaltwin2026/fc/internal/tags"
 )
 
 var isoTZSuffix = regexp.MustCompile(`(?i)(Z|[+-]\d{2}:?\d{2})$`)
 
+// 十进制字面量：无科学计数、无前导 +、无前导零、须有整数部（与 Next DECIMAL_STRING 一致）
+var decimalString = regexp.MustCompile(`^-?(?:0|[1-9]\d*)(?:\.\d+)?$`)
+
+const (
+	valueNumberMaxLen        = 40
+	valueNumberMaxIntDigits  = 28
+	valueNumberMaxFracDigits = 10
+)
+
+// ValueNumberMustBeString 在 JSON 以 number 传入 value_number 时返回（硬切断，不静默转 string）。
+const ValueNumberMustBeString = "value_number must be a decimal string"
+
 type RecordDraftBody struct {
-	HappenedAt                any `json:"happened_at"`
-	ValueNumber               any `json:"value_number"`
-	ValueText                 any `json:"value_text"`
-	Tags                      any `json:"tags"`
-	ObjectiveContext          any `json:"objective_context"`
-	SubjectiveInterpretation  any `json:"subjective_interpretation"`
+	HappenedAt               any `json:"happened_at"`
+	ValueNumber              any `json:"value_number"`
+	ValueText                any `json:"value_text"`
+	Tags                     any `json:"tags"`
+	ObjectiveContext         any `json:"objective_context"`
+	SubjectiveInterpretation any `json:"subjective_interpretation"`
 }
 
 type NormalizedRecordDraft struct {
@@ -39,7 +50,46 @@ func EmptyStringToNull(value *string) *string {
 	return value
 }
 
-func parseValueNumber(raw any) (*string, error) {
+// ParseHappenedAt 校验 ISO 8601 且必须带显式时区（与 Next parseHappenedAt / query from|to 一致）。
+func ParseHappenedAt(raw string) (time.Time, error) {
+	if raw == "" {
+		return time.Time{}, fmt.Errorf("Missing required field: happened_at")
+	}
+	if !isoTZSuffix.MatchString(raw) {
+		return time.Time{}, fmt.Errorf("happened_at must be ISO 8601 with timezone (Z or ±HH:MM)")
+	}
+	happenedAt, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		happenedAt, err = time.Parse(time.RFC3339, raw)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("Invalid happened_at datetime")
+		}
+	}
+	return happenedAt, nil
+}
+
+// ValidateDecimalString 校验已 trim 的十进制字面量（不经 float 往返；与 Next validateDecimalString 一致）。
+func ValidateDecimalString(s string) error {
+	if utf8.RuneCountInString(s) > valueNumberMaxLen || !decimalString.MatchString(s) {
+		return fmt.Errorf("Invalid value_number")
+	}
+	unsigned := s
+	if strings.HasPrefix(s, "-") {
+		unsigned = s[1:]
+	}
+	intPart, fracPart, hasDot := strings.Cut(unsigned, ".")
+	if len(intPart) > valueNumberMaxIntDigits {
+		return fmt.Errorf("Invalid value_number")
+	}
+	if hasDot && len(fracPart) > valueNumberMaxFracDigits {
+		return fmt.Errorf("Invalid value_number")
+	}
+	return nil
+}
+
+// ParseValueNumber：仅接受 string | null；JSON number / json.Number → 明确拒绝。
+// trim 后空串 → null（PATCH/draft）；非空则校验并保留字面量。
+func ParseValueNumber(raw any) (*string, error) {
 	if raw == nil {
 		return nil, nil
 	}
@@ -49,26 +99,12 @@ func parseValueNumber(raw any) (*string, error) {
 		if trimmed == "" {
 			return nil, nil
 		}
-		if _, err := strconv.ParseFloat(trimmed, 64); err != nil {
-			return nil, fmt.Errorf("Invalid value_number")
+		if err := ValidateDecimalString(trimmed); err != nil {
+			return nil, err
 		}
 		return &trimmed, nil
-	case float64:
-		if math.IsNaN(v) || math.IsInf(v, 0) {
-			return nil, fmt.Errorf("Invalid value_number")
-		}
-		// Prefer compact representation similar to JS String(number)
-		s := strconv.FormatFloat(v, 'f', -1, 64)
-		return &s, nil
-	case json.Number:
-		s := string(v)
-		if s == "" {
-			return nil, nil
-		}
-		if _, err := v.Float64(); err != nil {
-			return nil, fmt.Errorf("Invalid value_number")
-		}
-		return &s, nil
+	case float64, json.Number:
+		return nil, fmt.Errorf("%s", ValueNumberMustBeString)
 	default:
 		return nil, fmt.Errorf("Invalid value_number")
 	}
@@ -88,22 +124,15 @@ func asStringPtr(raw any) (*string, error) {
 // ParseRecordDraft validates and normalizes an editable record snapshot.
 func ParseRecordDraft(body RecordDraftBody) (*NormalizedRecordDraft, error) {
 	happenedRaw, ok := body.HappenedAt.(string)
-	if !ok || happenedRaw == "" {
-		return nil, fmt.Errorf("Missing required field: happened_at")
+	if !ok {
+		happenedRaw = ""
 	}
-	if !isoTZSuffix.MatchString(happenedRaw) {
-		return nil, fmt.Errorf("happened_at must be ISO 8601 with timezone (Z or ±HH:MM)")
-	}
-	happenedAt, err := time.Parse(time.RFC3339Nano, happenedRaw)
+	happenedAt, err := ParseHappenedAt(happenedRaw)
 	if err != nil {
-		// Also try RFC3339 without fractional seconds variants Go accepts via Parse
-		happenedAt, err = time.Parse(time.RFC3339, happenedRaw)
-		if err != nil {
-			return nil, fmt.Errorf("Invalid happened_at datetime")
-		}
+		return nil, err
 	}
 
-	valueNumber, err := parseValueNumber(body.ValueNumber)
+	valueNumber, err := ParseValueNumber(body.ValueNumber)
 	if err != nil {
 		return nil, err
 	}

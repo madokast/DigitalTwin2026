@@ -101,7 +101,7 @@ export async function renameTag(from: string, to: string): Promise<number> {
 
 export type PatchRecordBody = {
   happened_at: string
-  value_number: number | string | null
+  value_number: string | null
   value_text: string | null
   tags: string[]
   objective_context: string
