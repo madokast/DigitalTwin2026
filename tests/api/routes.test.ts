@@ -5,9 +5,10 @@ import { GET as queryRecords } from '@/app/api/query/route'
 import { GET as querySummary } from '@/app/api/query/summary/route'
 import { GET as queryTags } from '@/app/api/query/tags/route'
 import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
+import { PATCH as patchRecord } from '@/app/api/admin/records/[id]/route'
 import { closeDb } from '@/db'
 import { dropTestSchema, migrateTestDatabase, truncateRecords } from '../helpers/db'
-import { jsonGet, jsonPost } from '../helpers/http'
+import { jsonGet, jsonPatch, jsonPost } from '../helpers/http'
 
 describe('API integration', () => {
   beforeAll(async () => {
@@ -418,6 +419,94 @@ describe('API integration', () => {
         workout: 2,
       })
       expect(body.tags.exercise).toBeUndefined()
+    })
+  })
+
+  describe('PATCH /api/admin/records/[id]', () => {
+    async function createNumber() {
+      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        value_number: 75.5,
+        tags: ['weight'],
+        objective_context: 'morning weigh-in',
+        subjective_interpretation: 'ok',
+      }))
+      const body = await res.json()
+      return body.record as { id: string }
+    }
+
+    it('updates editable fields', async () => {
+      const record = await createNumber()
+      const res = await patchRecord(
+        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
+          happened_at: '2026-07-30T09:30:00+08:00',
+          value_number: 76,
+          value_text: null,
+          tags: ['weight', 'source:device'],
+          objective_context: 'updated context',
+          subjective_interpretation: '',
+        }),
+        { params: Promise.resolve({ id: record.id }) },
+      )
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.success).toBe(true)
+      expect(body.record.valueNumber).toBe('76')
+      expect(body.record.tags).toBe(JSON.stringify(['weight', 'source:device']))
+      expect(body.record.objectiveContext).toBe('updated context')
+      expect(body.record.subjectiveInterpretation).toBeNull()
+    })
+
+    it('returns 400 when both values are null', async () => {
+      const record = await createNumber()
+      const res = await patchRecord(
+        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          value_number: null,
+          value_text: '',
+          tags: ['weight'],
+          objective_context: 'x',
+          subjective_interpretation: null,
+        }),
+        { params: Promise.resolve({ id: record.id }) },
+      )
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body.error).toMatch(/both be null/)
+    })
+
+    it('returns 400 for invalid tags', async () => {
+      const record = await createNumber()
+      const res = await patchRecord(
+        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          value_number: 1,
+          value_text: null,
+          tags: ['体重'],
+          objective_context: 'x',
+          subjective_interpretation: null,
+        }),
+        { params: Promise.resolve({ id: record.id }) },
+      )
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body.error).toContain('Invalid tag')
+    })
+
+    it('returns 404 for unknown id', async () => {
+      const id = '01900000-0000-7000-8000-000000000000'
+      const res = await patchRecord(
+        jsonPatch(`http://localhost/api/admin/records/${id}`, {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          value_number: 1,
+          value_text: null,
+          tags: ['weight'],
+          objective_context: 'x',
+          subjective_interpretation: null,
+        }),
+        { params: Promise.resolve({ id }) },
+      )
+      expect(res.status).toBe(404)
     })
   })
 })

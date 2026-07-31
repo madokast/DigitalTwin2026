@@ -45,7 +45,7 @@ function offsetMsAt(date: Date, timeZone: string): number {
 }
 
 /** 将 timeZone 墙钟时间转为绝对 UTC Date */
-function zonedLocalToUtc(
+export function zonedLocalToUtc(
   year: number,
   month: number,
   day: number,

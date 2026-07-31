@@ -42,6 +42,13 @@ describe('proxy API auth', () => {
     expect(res.status).toBe(401)
   })
 
+  it('rejects AI token on PATCH /api/admin/records/:id', () => {
+    const res = proxy(
+      apiRequest('/api/admin/records/01900000-0000-7000-8000-000000000000', `Bearer ${ai}`),
+    )
+    expect(res.status).toBe(401)
+  })
+
   it('allows admin token on /api/admin', () => {
     const res = proxy(apiRequest('/api/admin/tags/rename', `Bearer ${admin}`))
     expect(res.status).toBe(200)
