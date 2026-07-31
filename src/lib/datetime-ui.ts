@@ -1,4 +1,4 @@
-import { calendarDayBounds } from '@/lib/time'
+import { calendarDayBounds, zonedLocalToUtc } from '@/lib/time'
 import { resolveTimezone } from '@/lib/prefs'
 
 function formatOffsetIso(date: Date, timeZone: string): string {
@@ -65,4 +65,51 @@ export function formatHappenedAt(iso: string, timeZone?: string): string {
     minute: '2-digit',
     second: '2-digit',
   }).format(new Date(iso))
+}
+
+/**
+ * 将 datetime-local 墙钟值（YYYY-MM-DDTHH:mm[:ss]）按 IANA 时区
+ * 拼成带偏移的 ISO（人选本地时间、提交时附 resolveTimezone）。
+ */
+export function wallDateTimeToOffsetIso(
+  wallLocal: string,
+  timeZone?: string,
+): string {
+  const tz = timeZone || resolveTimezone()
+  const match = wallLocal.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/,
+  )
+  if (!match) {
+    throw new Error('Invalid datetime-local value')
+  }
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const hour = Number(match[4])
+  const minute = Number(match[5])
+  const second = Number(match[6] ?? '0')
+  const utc = zonedLocalToUtc(year, month, day, hour, minute, second, tz)
+  return formatOffsetIso(utc, tz)
+}
+
+/** ISO → datetime-local 用的墙钟值（指定时区，精确到分钟） */
+export function isoToDatetimeLocalValue(
+  iso: string,
+  timeZone?: string,
+): string {
+  const tz = timeZone || resolveTimezone()
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso))
+
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? ''
+
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
 }

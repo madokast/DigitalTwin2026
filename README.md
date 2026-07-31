@@ -64,7 +64,7 @@ npm run dev
 |------|------|
 | `/` | Dashboard（prefs 控制是否挂载 Summary） |
 | `/records` | 记录列表（分页/过滤；可搜索多 tag chips；表格不显示 UUID） |
-| `/records/[id]` | 记录详情（含 UUID） |
+| `/records/[id]` | 记录详情（含 UUID）；Admin 双击字段就地编辑，脏数据才显示提交 |
 | `/tags` | 标签列表 |
 | `/tags/[tag]` | 标签详情：Admin 改名 + 同款记录表 |
 | `/settings` | Token / Admin / summary 开关；时区单行下拉（「跟随浏览器（IANA）」） |
@@ -83,6 +83,7 @@ npm run dev
 | `/api/query/summary` | GET | 概览：必填 `tz`（IANA）；返回 `{ total, today, tz }`，今日=该时区日历日 | AI 或 Admin |
 | `/api/query/tags` | GET | 全表 tag→条数（字典序） | AI 或 Admin |
 | `/api/admin/tags/rename` | POST | 全局 tag 替换 `{ from, to }` | **仅 Admin** |
+| `/api/admin/records/[id]` | PATCH | 更新记录可编辑字段快照（`happened_at` / `value_*` / `tags` / 客观·主观）；空串→null（`objective_context` 除外） | **仅 Admin** |
 
 成功响应形如 `{ "success": true, ... }`；失败为 `{ "error": "..." }`。
 
@@ -140,3 +141,4 @@ npm run test:watch
 - `20260728-fuzzy-time.md` — 模糊时间
 - `20260729-schema-v1.md` — 表与接口定稿
 - `20260730-development-log.md` — 当日开发日志与已完成项
+- `20260731-development-log.md` — 详情双击编辑（Admin PATCH）
