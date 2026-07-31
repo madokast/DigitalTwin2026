@@ -1,0 +1,14 @@
+# Redocly CLI（Phase 2 OpenAPI lint）
+# https://redocly.com/docs/cli/configuration/
+apis:
+  digitaltwin@v1:
+    root: openapi.yaml
+
+extends:
+  - recommended
+
+rules:
+  # 个人项目：无 SPDX / license URL
+  info-license-strict: off
+  # servers 含 accelerate 变量即可
+  no-server-example.com: off

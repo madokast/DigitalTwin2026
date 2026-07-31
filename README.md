@@ -95,7 +95,7 @@ HTTP API 由 **Next（Vercel）** 与 **Go（FC）** 双端实现，路径 / 鉴
 
 鉴权：`Authorization: Bearer <token>`（`src/proxy.ts` / FC 同等逻辑）。普通 API：AI Token 或 Admin Token；`/api/admin/*`：仅 Admin Token。
 
-**接口契约**以 OpenAPI 3.1 为准：[`openapi/openapi.yaml`](openapi/openapi.yaml)（说明见 [`openapi/README.md`](openapi/README.md)）。根 README 不再维护接口表；实现与测试须与该契约对齐（Phase 1 仅文档，契约测试 CI 与 codegen 尚未落地）。
+**接口契约**以 OpenAPI 3.1 为准：[`openapi/openapi.yaml`](openapi/openapi.yaml)（说明见 [`openapi/README.md`](openapi/README.md)）。根 README 不再维护接口表。Phase 2：`npm run openapi:lint` + `npm run test:openapi` + `cd fc && go test ./internal/contract/`（CI 已接；无 codegen）。本地 Redoc：`npm run openapi:preview`。
 
 ## 数据库管理
 
@@ -108,12 +108,16 @@ npm run db:check      # 验证表结构
 ## 测试
 
 ```bash
+npm run openapi:lint     # Redocly 校验 openapi.yaml
+npm run openapi:preview  # 生成 Redoc 静态页 openapi/redoc-static.html
+npm run test:openapi     # 契约 fixture（无 DB）
 npm test              # 使用 .env 测试库，勿对生产库执行
 npm run test:watch
+cd fc && go test ./internal/contract/   # Go 契约（无 DB）
 cd fc && go test ./...
 ```
 
-单元测 `src/lib`、`src/proxy`；集成测连真实 PG（migrate → TRUNCATE → 测 → DROP）。Go：有 `DATABASE_URL` 时跑 httptest 冒烟，否则 Skip。
+单元测 `src/lib`、`src/proxy`；集成测连真实 PG（migrate → TRUNCATE → 测 → DROP）。Go：有 `DATABASE_URL` 时跑 httptest 冒烟，否则 Skip。契约测与 DB 无关，见 `openapi/README.md`。
 
 ## 项目结构
 

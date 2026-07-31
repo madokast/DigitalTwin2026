@@ -47,3 +47,6 @@ fc/.env.fc.prod
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# OpenAPI Redoc preview (npm run openapi:preview)
+openapi/redoc-static.html

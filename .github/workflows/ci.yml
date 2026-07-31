@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  openapi:
+    name: OpenAPI lint + contract (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run openapi:lint
+      # 契约测无 DB；勿跑完整 npm test（集成测需 DATABASE_URL）
+      - run: npm run test:openapi
+
+  go-contract:
+    name: OpenAPI contract (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: fc/go.mod
+          cache-dependency-path: fc/go.sum
+      - working-directory: fc
+        run: go test ./internal/contract/ -count=1

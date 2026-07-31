@@ -500,6 +500,20 @@ components:
         $ref: '#/components/schemas/TagName'
       description: Non-empty array of valid tag names
 
+    DecimalString:
+      type: string
+      description: |
+        Strict decimal literal (no scientific notation, no leading `+`, no
+        leading/trailing dots, no leading zeros like `01`). Additional caps
+        enforced in code: ≤28 integer digits, ≤10 fraction digits.
+      pattern: '^-?(?:0|[1-9]\d*)(?:\.\d+)?$'
+      maxLength: 40
+      examples:
+        - '75.5'
+        - '1'
+        - '1.0'
+        - '-0.01'
+
     HappenedAtInput:
       type: string
       description: |
@@ -507,8 +521,19 @@ components:
         `(Z|[+-]HH:?MM)` — same rule for log insert, Admin PATCH `happened_at`,
         and query `from`/`to`. Bare dates or offset-less local datetimes → 400
         (`happened_at must be ISO 8601 with timezone (Z or ±HH:MM)`).
+      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})$'
       examples:
         - '2026-07-30T08:00:00+08:00'
+        - '2026-07-30T00:00:00.000Z'
+
+    HappenedAtUtcZ:
+      type: string
+      description: |
+        Instant as UTC ISO-8601 with millisecond precision and `Z`
+        (`YYYY-MM-DDTHH:mm:ss.sssZ`). Both backends normalize this way
+        (Go `record.FormatHappenedAt`; Next `toApiRecord` / `toISOString`).
+      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$'
+      examples:
         - '2026-07-30T00:00:00.000Z'
 
     Record:
@@ -530,29 +555,16 @@ components:
           format: uuid
           description: UUIDv7 primary key
         happenedAt:
-          type: string
-          description: |
-            Instant as UTC ISO-8601 with millisecond precision and `Z`
-            (`YYYY-MM-DDTHH:mm:ss.sssZ`). Both backends normalize this way
-            (Go `record.FormatHappenedAt`; Next `toApiRecord` / `toISOString`).
-          examples:
-            - '2026-07-30T00:00:00.000Z'
+          $ref: '#/components/schemas/HappenedAtUtcZ'
         valueNumber:
-          type: [string, 'null']
           description: |
             Decimal as string, or null for text-only records.
             On write (log/number and PATCH), JSON **number is rejected** (400:
-            `value_number must be a decimal string`). Only a decimal **string**
-            matching `^-?(?:0|[1-9]\d*)(?:\.\d+)?$` is accepted (no scientific
-            notation, leading `+`, trailing/leading dots, or leading zeros like
-            `01`). Length caps: ≤40 chars; ≤28 integer digits; ≤10 fraction digits.
-            The validated literal is stored as-is in `TEXT` (no Number round-trip,
-            trailing zeros preserved, e.g. `"1.0"` stays `"1.0"`).
-          examples:
-            - '75.5'
-            - '1'
-            - '1.0'
-            - null
+            `value_number must be a decimal string`). Validated literal stored
+            as TEXT (no Number round-trip; trailing zeros preserved).
+          oneOf:
+            - $ref: '#/components/schemas/DecimalString'
+            - type: 'null'
         valueText:
           type: [string, 'null']
         tags:
@@ -644,11 +656,9 @@ components:
       additionalProperties: false
       properties:
         from:
-          type: string
-          description: Existing tag name (trimmed; must be a valid TagName)
+          $ref: '#/components/schemas/TagName'
         to:
-          type: string
-          description: New tag name (trimmed; must be a valid TagName and ≠ from)
+          $ref: '#/components/schemas/TagName'
 
     RenameTagsSuccess:
       type: object
@@ -671,10 +681,7 @@ components:
         happened_at:
           $ref: '#/components/schemas/HappenedAtInput'
         value_number:
-          type: string
-          description: |
-            Required decimal string (not a JSON number). Same pattern and length
-            caps as `Record.valueNumber`. Empty / whitespace-only → 400 missing.
+          $ref: '#/components/schemas/DecimalString'
         tags:
           $ref: '#/components/schemas/TagList'
         objective_context:
@@ -712,15 +719,14 @@ components:
       additionalProperties: true
       properties:
         happened_at:
-          type: string
-          description: ISO 8601 with required timezone suffix
-          examples:
-            - '2026-07-30T08:00:00+08:00'
+          $ref: '#/components/schemas/HappenedAtInput'
         value_number:
           description: |
             Decimal string, null, or omit/empty → null. JSON number → 400
             (`value_number must be a decimal string`).
-          type: [string, 'null']
+          oneOf:
+            - $ref: '#/components/schemas/DecimalString'
+            - type: 'null'
         value_text:
           type: [string, 'null']
         tags:

@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "record": {
+    "id": "01900000-0000-7000-8000-000000000001",
+    "happenedAt": "2026-07-30T00:00:00.000Z",
+    "valueNumber": "75.5",
+    "valueText": null,
+    "tags": "[\"weight\"]",
+    "objectiveContext": "morning weigh-in",
+    "subjectiveInterpretation": "a bit heavy"
+  }
+}
