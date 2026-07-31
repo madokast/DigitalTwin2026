@@ -3,6 +3,7 @@ import {
   fetchFilteredRecords,
   parseRecordQueryParams,
 } from '@/lib/query-records'
+import { toApiRecord } from '@/lib/record-json'
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
       count: result.total,
       page: result.page,
       pageSize: result.pageSize,
-      records: result.records,
+      records: result.records.map(toApiRecord),
     })
   } catch (error) {
     console.error('Error querying records:', error)

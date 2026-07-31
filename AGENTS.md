@@ -26,7 +26,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | 部署 | Vercel | 阿里云函数计算 |
 | 详情 | 根 [`README.md`](README.md) | **[`fc/README.md`](fc/README.md)**（测试、部署、安全一条龙） |
 
-- **改 API = 双改代码 + 双跑测试**（Vitest 与 `cd fc && go test ./...`）。
+- **API 契约**：[`openapi/openapi.yaml`](openapi/openapi.yaml)（OpenAPI 3.1；说明见 [`openapi/README.md`](openapi/README.md)）。
+- **改 API = 更新 OpenAPI + 双改代码 + 双跑测试**（Vitest 与 `cd fc && go test ./...`；契约测试 CI 尚未落地，后续 Phase 2）。
 - 网页 Settings 中的 **API Accelerate URL** 指向 FC Base URL；空则同源 Vercel。真实 FC URL **禁止进 git**。
 - 生产密钥刷新：`npm run secrets:refresh-prod`（细节见 [`fc/README.md`](fc/README.md)）。
 

@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
 import { parseRecordDraft } from '@/lib/record-draft'
+import { toApiRecord } from '@/lib/record-json'
 
 export async function PATCH(
   request: NextRequest,
@@ -39,7 +40,7 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      record: result[0],
+      record: toApiRecord(result[0]),
     })
   } catch (error) {
     console.error('Error patching record:', error)

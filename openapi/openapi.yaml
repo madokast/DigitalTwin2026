@@ -1,0 +1,722 @@
+openapi: 3.1.0
+info:
+  title: DigitalTwin2026 HTTP API
+  version: 0.1.0
+  summary: Dual-backend HTTP contract (Next.js on Vercel + Go on Alibaba Cloud FC)
+  description: |
+    Source of truth for paths, methods, auth, request/response shapes shared by:
+
+    - Next.js Route Handlers (`src/app/api/**`) on Vercel
+    - Go HTTP server (`fc/internal/**`) on Alibaba Cloud Function Compute
+
+    Success responses use `{ "success": true, ... }`.
+    Errors use `{ "error": "<English message>" }`.
+
+    Request JSON fields are **snake_case**. Stored/returned `Record` objects use
+    **camelCase** (Drizzle / Go `record.Record` JSON tags).
+
+    `Record.tags` is a **JSON array encoded as a string** (e.g. `"[\"weight\"]"`),
+    not a JSON array value. `Record.valueNumber` is a decimal string or null.
+
+    Auth is enforced before handlers (Next `src/proxy.ts`; FC `httpx.withAuth`).
+  license:
+    name: UNLICENSED
+
+servers:
+  - url: /
+    description: Same-origin Next.js (Vercel) or local `next dev`
+  - url: '{accelerateBase}'
+    description: Optional API Accelerate base (FC). Set in web Settings; do not commit real FC URLs.
+    variables:
+      accelerateBase:
+        default: http://localhost:8080
+
+tags:
+  - name: log
+    description: Insert numeric or text life records (AI / client logging)
+  - name: query
+    description: List, summarize, and aggregate tags
+  - name: telegram
+    description: Telegram Bot connectivity probe
+  - name: admin
+    description: Admin-only corrections (AdminToken only)
+
+paths:
+  /api/log/number:
+    post:
+      operationId: logNumber
+      tags: [log]
+      summary: Create a numeric record
+      description: |
+        Inserts a record with `value_number` set and `value_text` null.
+        On success, Telegram notification is best-effort and does not change the 201 response.
+        Auth: ApiToken (AI token or Admin token).
+      security:
+        - ApiToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogNumberRequest'
+            example:
+              happened_at: '2026-07-30T08:00:00+08:00'
+              value_number: 75.5
+              tags: [weight]
+              objective_context: morning weigh-in
+              subjective_interpretation: a bit heavy
+      responses:
+        '201':
+          description: Record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordSuccess'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/log/text:
+    post:
+      operationId: logText
+      tags: [log]
+      summary: Create a text record
+      description: |
+        Inserts a record with `value_text` set and `value_number` null.
+        On success, Telegram notification is best-effort and does not change the 201 response.
+        Auth: ApiToken (AI token or Admin token).
+      security:
+        - ApiToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogTextRequest'
+            example:
+              happened_at: '2026-07-30T10:00:00+08:00'
+              value_text: studied 50 words
+              tags: [study, vocabulary]
+              objective_context: afternoon study
+      responses:
+        '201':
+          description: Record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordSuccess'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/telegram/probe:
+    post:
+      operationId: telegramProbe
+      tags: [telegram]
+      summary: Send a Telegram probe message
+      description: |
+        Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_USER_ID` on the server.
+        Empty / non-JSON body is allowed; default text is `DigitalTwin2026 probe`.
+        Auth: ApiToken.
+      security:
+        - ApiToken: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramProbeRequest'
+      responses:
+        '200':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessOnly'
+        '400':
+          description: Telegram env not configured (or other client error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          description: Telegram Bot API sendMessage failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/query:
+    get:
+      operationId: queryRecords
+      tags: [query]
+      summary: Query records with filters and pagination
+      description: |
+        Filters combine with AND. Multiple `tag` query params each require that
+        tag substring match in the stored tags JSON string (`LIKE %"<tag>"%`).
+        `q` searches `value_text`, `objective_context`, `subjective_interpretation`, and `tags` (LIKE).
+        When `id` is set, pagination is ignored; returns 0–1 rows with `page: 1`
+        and `pageSize` equal to the result length (or 1 if empty).
+        Results ordered by `happened_at` descending.
+        Auth: ApiToken.
+      security:
+        - ApiToken: []
+      parameters:
+        - $ref: '#/components/parameters/QueryId'
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QueryPageSize'
+        - $ref: '#/components/parameters/QueryFrom'
+        - $ref: '#/components/parameters/QueryTo'
+        - $ref: '#/components/parameters/QueryTag'
+        - $ref: '#/components/parameters/QueryQ'
+      responses:
+        '200':
+          description: Filtered page of records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuerySuccess'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/query/summary:
+    get:
+      operationId: querySummary
+      tags: [query]
+      summary: Total and today counts for an IANA time zone
+      description: |
+        `today` counts records whose `happened_at` falls in the calendar day of
+        "now" in the given IANA zone (`[start, end)`).
+        Auth: ApiToken.
+      security:
+        - ApiToken: []
+      parameters:
+        - name: tz
+          in: query
+          required: true
+          description: Valid IANA time zone (e.g. `UTC`, `Asia/Shanghai`)
+          schema:
+            type: string
+            examples:
+              - UTC
+              - Asia/Shanghai
+      responses:
+        '200':
+          description: Counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummarySuccess'
+        '400':
+          description: Missing or invalid `tz`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Query parameter tz must be a valid IANA time zone
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/query/tags:
+    get:
+      operationId: queryTags
+      tags: [query]
+      summary: Aggregate tag occurrence counts
+      description: |
+        Returns a map of tag name → number of records containing that tag,
+        sorted lexicographically by tag name. Empty DB → `{ }`.
+        Auth: ApiToken.
+      security:
+        - ApiToken: []
+      responses:
+        '200':
+          description: Tag counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagsSuccess'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/tags/rename:
+    post:
+      operationId: adminRenameTag
+      tags: [admin]
+      summary: Rename a tag across all records
+      description: |
+        Exact tag-name replace in each record's tags JSON. If `to` already exists
+        on a record, duplicates are removed (first-seen order kept).
+        `updated` is the number of records whose tags string changed.
+        Auth: **AdminToken only**.
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameTagsRequest'
+            example:
+              from: weight
+              to: body:weight
+      responses:
+        '200':
+          description: Rename applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenameTagsSuccess'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/records/{id}:
+    patch:
+      operationId: adminPatchRecord
+      tags: [admin]
+      summary: Replace editable fields of one record
+      description: |
+        Full editable snapshot replace via `parseRecordDraft` / `draft.ParseRecordDraft`
+        (`src/lib/record-draft.ts`, `fc/internal/draft`).
+        Unlike log endpoints, `happened_at` **must** include an explicit timezone
+        suffix (`Z` or `±HH:MM` / `±HHMM`), and at least one of `value_number` /
+        `value_text` must be non-null after normalization (empty strings → null).
+        Auth: **AdminToken only**.
+      security:
+        - AdminToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Record UUID (UUIDv7 as stored)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordDraftRequest'
+            example:
+              happened_at: '2026-07-30T08:00:00+08:00'
+              value_number: 76
+              value_text: null
+              tags: [weight]
+              objective_context: morning weigh-in
+              subjective_interpretation: corrected
+      responses:
+        '200':
+          description: Record updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordSuccess'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No row with this id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Record not found
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    ApiToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: |
+        `Authorization: Bearer <token>` where token equals
+        `DIGITAL_TWIN_TOKEN` (AI) **or** `DIGITAL_TWIN_ADMIN_TOKEN`.
+        Used for all non-`/api/admin/*` routes.
+    AdminToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: |
+        `Authorization: Bearer <token>` where token equals
+        `DIGITAL_TWIN_ADMIN_TOKEN` only.
+        Required for `/api/admin/*`. AI token alone → 401.
+
+  parameters:
+    QueryId:
+      name: id
+      in: query
+      required: false
+      description: Exact record id; when set, pagination params are ignored
+      schema:
+        type: string
+    QueryPage:
+      name: page
+      in: query
+      required: false
+      description: 1-based page index (default 1)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    QueryPageSize:
+      name: pageSize
+      in: query
+      required: false
+      description: Page size (default 20, max 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    QueryFrom:
+      name: from
+      in: query
+      required: false
+      description: |
+        Inclusive lower bound on `happened_at`. Must be ISO 8601 **with timezone**
+        (`Z` or `±HH:MM` / `±HHMM`). Error examples:
+        `from must be ISO 8601 with timezone (Z or ±HH:MM)`,
+        `Invalid from datetime`.
+      schema:
+        type: string
+        examples:
+          - '2026-07-01T00:00:00Z'
+          - '2026-07-01T00:00:00+08:00'
+    QueryTo:
+      name: to
+      in: query
+      required: false
+      description: |
+        Exclusive upper bound on `happened_at`. Same ISO+timezone rules as `from`.
+      schema:
+        type: string
+        examples:
+          - '2026-08-01T00:00:00Z'
+    QueryTag:
+      name: tag
+      in: query
+      required: false
+      description: |
+        Repeatable. Each value requires the tag to appear in the tags JSON string.
+        Example: `?tag=weight&tag=source:device`
+      schema:
+        type: string
+      style: form
+      explode: true
+    QueryQ:
+      name: q
+      in: query
+      required: false
+      description: Substring search across text fields and tags JSON
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Validation or malformed request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing/invalid Bearer token for this route class
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'Unauthorized: Invalid or missing token'
+    InternalError:
+      description: Unexpected server/database error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Internal server error
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+          description: English error message (user-visible)
+
+    SuccessOnly:
+      type: object
+      required: [success]
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          const: true
+
+    TagName:
+      type: string
+      description: |
+        Letters, digits, underscores; optional colon-separated segments
+        (e.g. `source:device`). Must not start with a digit; colon cannot be
+        leading, trailing, or doubled.
+      pattern: '^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$'
+      examples:
+        - weight
+        - source:device
+        - review:weekly
+
+    TagList:
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/components/schemas/TagName'
+      description: Non-empty array of valid tag names
+
+    HappenedAtInput:
+      type: string
+      description: |
+        Event timestamp. Log endpoints accept values parseable as timestamptz
+        (Next `new Date` / PG cast). Admin PATCH and query `from`/`to` require
+        an explicit timezone suffix matching `(Z|[+-]HH:?MM)`.
+      examples:
+        - '2026-07-30T08:00:00+08:00'
+        - '2026-07-30T00:00:00.000Z'
+
+    Record:
+      type: object
+      description: |
+        Persisted row as returned by both backends (camelCase JSON).
+        `tags` is a stringified JSON array. `valueNumber` is a decimal string.
+      required:
+        - id
+        - happenedAt
+        - valueNumber
+        - valueText
+        - tags
+        - objectiveContext
+        - subjectiveInterpretation
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: UUIDv7 primary key
+        happenedAt:
+          type: string
+          description: |
+            Instant as UTC ISO-8601 with millisecond precision and `Z`
+            (`YYYY-MM-DDTHH:mm:ss.sssZ`). Both backends normalize this way
+            (Go `record.FormatHappenedAt`; Next `toApiRecord` / `toISOString`).
+          examples:
+            - '2026-07-30T00:00:00.000Z'        valueNumber:
+          type: [string, 'null']
+          description: Decimal as string, or null for text-only records
+        valueText:
+          type: [string, 'null']
+        tags:
+          type: string
+          description: JSON array of strings, stored as text
+          examples:
+            - '["weight"]'
+            - '["study","vocabulary"]'
+        objectiveContext:
+          type: string
+        subjectiveInterpretation:
+          type: [string, 'null']
+
+    RecordSuccess:
+      type: object
+      required: [success, record]
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          const: true
+        record:
+          $ref: '#/components/schemas/Record'
+
+    QuerySuccess:
+      type: object
+      required: [success, count, page, pageSize, records]
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          const: true
+        count:
+          type: integer
+          minimum: 0
+          description: Total matching rows (not just this page)
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/Record'
+
+    SummarySuccess:
+      type: object
+      required: [success, total, today, tz]
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          const: true
+        total:
+          type: integer
+          minimum: 0
+          description: All-time record count
+        today:
+          type: integer
+          minimum: 0
+          description: Count for the current calendar day in `tz`
+        tz:
+          type: string
+          description: Echo of the requested IANA zone
+
+    TagsSuccess:
+      type: object
+      required: [success, tags]
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          const: true
+        tags:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+          description: Tag name → record count (keys sorted lexicographically)
+          examples:
+            - study: 2
+              weight: 1
+
+    RenameTagsRequest:
+      type: object
+      required: [from, to]
+      additionalProperties: false
+      properties:
+        from:
+          type: string
+          description: Existing tag name (trimmed; must be a valid TagName)
+        to:
+          type: string
+          description: New tag name (trimmed; must be a valid TagName and ≠ from)
+
+    RenameTagsSuccess:
+      type: object
+      required: [success, updated]
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          const: true
+        updated:
+          type: integer
+          minimum: 0
+          description: Number of records whose tags field was rewritten
+
+    LogNumberRequest:
+      type: object
+      required: [happened_at, value_number, tags, objective_context]
+      additionalProperties: true
+      properties:
+        happened_at:
+          $ref: '#/components/schemas/HappenedAtInput'
+        value_number:
+          type: number
+          description: Required finite number (stored as numeric / decimal string)
+        tags:
+          $ref: '#/components/schemas/TagList'
+        objective_context:
+          type: string
+          minLength: 1
+        subjective_interpretation:
+          type: string
+          description: Optional; empty / omitted → null
+
+    LogTextRequest:
+      type: object
+      required: [happened_at, value_text, tags, objective_context]
+      additionalProperties: true
+      properties:
+        happened_at:
+          $ref: '#/components/schemas/HappenedAtInput'
+        value_text:
+          type: string
+          minLength: 1
+        tags:
+          $ref: '#/components/schemas/TagList'
+        objective_context:
+          type: string
+          minLength: 1
+        subjective_interpretation:
+          type: string
+
+    RecordDraftRequest:
+      type: object
+      description: |
+        Editable snapshot for PATCH. Aligns with `parseRecordDraft`:
+        empty strings on nullable fields become null; `objective_context` must
+        be a non-empty string; `value_number` may be number or numeric string.
+      required: [happened_at, tags, objective_context]
+      additionalProperties: true
+      properties:
+        happened_at:
+          type: string
+          description: ISO 8601 with required timezone suffix
+          examples:
+            - '2026-07-30T08:00:00+08:00'
+        value_number:
+          description: Number, numeric string, null, or omit/empty → null
+          oneOf:
+            - type: number
+            - type: string
+            - type: 'null'
+        value_text:
+          type: [string, 'null']
+        tags:
+          $ref: '#/components/schemas/TagList'
+        objective_context:
+          type: string
+          minLength: 1
+        subjective_interpretation:
+          type: [string, 'null']
+
+    TelegramProbeRequest:
+      type: object
+      additionalProperties: true
+      properties:
+        text:
+          type: string
+          description: Optional message body; blank/omitted → default probe text

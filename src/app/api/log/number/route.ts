@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
+import { toApiRecord } from '@/lib/record-json'
 import { validateTags } from '@/lib/tags'
 import { notifyRecordInserted } from '@/lib/telegram'
 
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      record: result[0],
+      record: toApiRecord(result[0]),
     }, { status: 201 })
     
   } catch (error) {
