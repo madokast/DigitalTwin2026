@@ -24,7 +24,7 @@ cd "$ROOT"
 out="$(s info --env "$ENV_NAME" 2>/dev/null || s info --env "$ENV_NAME")"
 url="$(printf '%s\n' "$out" | grep -oE 'https://[^[:space:]]+\.fcapp\.run' | grep -v vpc | head -1 || true)"
 if [[ -z "$url" ]]; then
-  echo "未能解析 system_url。完整输出：" >&2
+  echo "Could not parse system_url. Full output:" >&2
   printf '%s\n' "$out" >&2
   exit 1
 fi

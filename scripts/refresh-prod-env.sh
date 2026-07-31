@@ -46,7 +46,7 @@ prompt_secret() {
   local key="$1"
   local val=""
   while true; do
-    echo -n "输入 ${key}: " >&2
+    echo -n "Enter ${key}: " >&2
     # DATABASE_URL 较长，回显关闭以免 scrollback；两端 trim
     IFS= read -r -s val
     echo >&2
@@ -57,25 +57,25 @@ prompt_secret() {
       val="${val:1:-1}"
     fi
     if [[ -z "$val" ]]; then
-      echo "不能为空，请重试。" >&2
+      echo "Cannot be empty, please try again." >&2
       continue
     fi
-    echo "  预览: $(mask_value "$val")" >&2
-    echo -n "确认？[y/N] " >&2
+    echo "  Preview: $(mask_value "$val")" >&2
+    echo -n "Confirm? [y/N] " >&2
     local ok
     IFS= read -r ok
     if [[ "$ok" == [yY] || "$ok" == [yY][eE][sS] ]]; then
       printf '%s' "$val"
       return
     fi
-    echo "重新输入。" >&2
+    echo "Try again." >&2
   done
 }
 
 # 真实连库：select 1 + 可选检查 public.records（仅提示，不强制）
 verify_database_url() {
   local url="$1"
-  echo "正在校验 DATABASE_URL 可达性…" >&2
+  echo "Verifying DATABASE_URL connectivity..." >&2
   local err_file
   err_file="$(mktemp)"
   if ! (
@@ -91,7 +91,7 @@ const sql = postgres(url, { max: 1, ssl: "require", connect_timeout: 15 });
     await sql`select 1 as ok`;
     const r = await sql`select to_regclass('\''public.records'\'')::text as t`;
     if (!r[0]?.t) {
-      console.error("warn: public.records 不存在，请确认已对生产库执行 npm run db:migrate");
+      console.error("warn: public.records does not exist; confirm you ran npm run db:migrate on production");
     } else {
       console.error("ok: connected, public.records exists");
     }
@@ -104,7 +104,7 @@ const sql = postgres(url, { max: 1, ssl: "require", connect_timeout: 15 });
 });
 ' 2>"$err_file"
   ); then
-    echo "DATABASE_URL 无法连接（错误摘要，不含连接串）：" >&2
+    echo "DATABASE_URL unreachable (error summary, connection string omitted):" >&2
     # 去掉可能回显 URL 的行
     grep -vE 'postgresql://|postgres://|DATABASE_URL=' "$err_file" | tail -8 >&2 || true
     rm -f "$err_file"
@@ -124,7 +124,7 @@ prompt_database_url() {
       printf '%s' "$val"
       return
     fi
-    echo "连库失败，请重新输入 DATABASE_URL。" >&2
+    echo "Connection failed, please re-enter DATABASE_URL." >&2
     echo >&2
   done
 }
@@ -158,39 +158,39 @@ upsert_vercel_prod() {
     return
   fi
 
-  echo "Vercel 写入 $key 失败：" >&2
+  echo "Failed to write Vercel $key:" >&2
   grep -vE 'postgresql://|postgres://|--value' "$err_file" | tail -20 >&2 || true
   rm -f "$err_file"
   return 1
 }
 
 preflight_vercel() {
-  echo "检查 Vercel CLI…"
+  echo "Checking Vercel CLI..."
   if ! command -v vercel >/dev/null 2>&1; then
-    echo "未找到 vercel 命令。请先: npm i -g vercel && vercel login" >&2
+    echo "vercel command not found. Run: npm i -g vercel && vercel login" >&2
     exit 1
   fi
   local who
   if ! who="$(vercel whoami --cwd "$ROOT" 2>&1)"; then
-    echo "Vercel 未登录或 token 无效：" >&2
+    echo "Vercel not logged in or token invalid:" >&2
     echo "$who" >&2
-    echo "请执行: vercel login" >&2
+    echo "Run: vercel login" >&2
     exit 1
   fi
-  echo "  已登录: $who"
+  echo "  Logged in as: $who"
   if [[ ! -f "$ROOT/.vercel/project.json" ]]; then
-    echo "本仓库尚未 link 到 Vercel 项目（缺少 .vercel/project.json）。" >&2
-    echo "请在仓库根目录执行: vercel link" >&2
-    echo "选中已有 DigitalTwin 生产项目后再重跑本脚本。" >&2
+    echo "This repo is not linked to a Vercel project (missing .vercel/project.json)." >&2
+    echo "Run vercel link from the repo root." >&2
+    echo "Select the existing DigitalTwin production project, then re-run this script." >&2
     exit 1
   fi
-  echo "  已 link: $ROOT/.vercel/project.json"
+  echo "  Linked: $ROOT/.vercel/project.json"
 }
 
 preflight_s() {
-  echo "检查 Serverless Devs (s / FC deploy)..."
+  echo "Checking Serverless Devs (s / FC deploy)..."
   if ! command -v s >/dev/null 2>&1; then
-    echo "未找到 s 命令。请安装: npm i -g @serverless-devs/s" >&2
+    echo "s command not found. Install: npm i -g @serverless-devs/s" >&2
     exit 1
   fi
   echo "  s: $(s -v 2>/dev/null | head -1 || echo ok)"
@@ -198,23 +198,23 @@ preflight_s() {
   local access
   access="$(awk '/^access:/{print $2; exit}' "$FC_DIR/s.yaml")"
   if [[ -z "$access" ]]; then
-    echo "无法从 fc/s.yaml 读取 access 别名。" >&2
+    echo "Cannot read access alias from fc/s.yaml." >&2
     exit 1
   fi
   echo "  s.yaml access: $access"
 
   local cfg
   if ! cfg="$(s config get -a "$access" 2>&1)"; then
-    echo "s config 别名不可用: $access" >&2
+    echo "s config alias unavailable: $access" >&2
     echo "$cfg" >&2
-    echo "请执行: s config add  (别名填 $access)" >&2
+    echo "Run: s config add (alias: $access)" >&2
     exit 1
   fi
   if ! printf '%s\n' "$cfg" | grep -q 'AccessKeyID'; then
-    echo "s config 缺少 AccessKeyID，请重新 s config add。" >&2
+    echo "s config missing AccessKeyID; re-run s config add." >&2
     exit 1
   fi
-  echo "  凭证: 已配置 ($access)"
+  echo "  Credentials: configured ($access)"
 
   # Probe auth with s info (prod function may not exist yet)
   local info_err
@@ -226,16 +226,16 @@ preflight_s() {
   ) >"$info_err" 2>&1 || true
 
   if grep -qiE 'invalid access key|AccessKeyId|403|Unauthorized|credential' "$info_err"; then
-    echo "s / 阿里云鉴权失败:" >&2
+    echo "s / Alibaba Cloud auth failed:" >&2
     grep -iE 'Error|invalid|403|Unauthorized|Message' "$info_err" | head -8 >&2 || tail -5 "$info_err" >&2
-    echo "请检查: s config get -a $access" >&2
+    echo "Check: s config get -a $access" >&2
     rm -f "$info_err"
     exit 1
   fi
   if grep -q 'digitaltwin-api-prod' "$info_err"; then
-    echo "  FC prod 已存在 (可更新部署)"
+    echo "  FC prod exists (can update deploy)"
   else
-    echo "  FC prod 尚未部署 (本脚本将首次创建 digitaltwin-api-prod)"
+    echo "  FC prod not deployed yet (this script will create digitaltwin-api-prod)"
   fi
   rm -f "$info_err"
 }
@@ -243,13 +243,13 @@ preflight_s() {
 cleanup_prod_env() {
   if [[ -f "$PROD_ENV_FILE" ]]; then
     rm -f "$PROD_ENV_FILE"
-    echo "已删除临时文件 $PROD_ENV_FILE"
+    echo "Deleted temp file $PROD_ENV_FILE"
   fi
 }
 
-echo "=== 生产环境密钥刷新 (Vercel production + FC prod) ==="
-echo "FC 若尚无 digitaltwin-api-prod，将临时写入 .env.fc.prod，部署后删除该文件。"
-echo "禁止把下列值写入 git / 聊天记录。"
+echo "=== Refresh production secrets (Vercel production + FC prod) ==="
+echo "If digitaltwin-api-prod does not exist, temporarily writes .env.fc.prod; deleted after deploy."
+echo "Do NOT commit these values to git or paste in chat logs."
 echo
 preflight_vercel
 echo
@@ -264,15 +264,15 @@ echo
 VALUES[DIGITAL_TWIN_ADMIN_TOKEN]="$(prompt_secret DIGITAL_TWIN_ADMIN_TOKEN)"
 echo
 
-echo "汇总（已掩码）："
+echo "Summary (masked):"
 for key in "${KEYS[@]}"; do
   echo "  $key: $(mask_value "${VALUES[$key]}")"
 done
 echo
-echo -n "将写入 Vercel production，并部署/更新 FC prod。继续？[y/N] "
+echo -n "Will write Vercel production and deploy/update FC prod. Continue? [y/N] "
 IFS= read -r go
 if [[ "$go" != [yY] && "$go" != [yY][eE][sS] ]]; then
-  echo "已取消。"
+  echo "Cancelled."
   exit 0
 fi
 
@@ -281,7 +281,7 @@ echo "--- Vercel ---"
 for key in "${KEYS[@]}"; do
   upsert_vercel_prod "$key" "${VALUES[$key]}"
 done
-echo "提示: 环境变量变更后将自动 vercel deploy --prod"
+echo "Note: will run vercel deploy --prod after env changes"
 echo
 
 echo "--- FC prod ---"
@@ -293,21 +293,21 @@ trap cleanup_prod_env EXIT
   printf "DIGITAL_TWIN_TOKEN='%s'\n" "${VALUES[DIGITAL_TWIN_TOKEN]}"
   printf "DIGITAL_TWIN_ADMIN_TOKEN='%s'\n" "${VALUES[DIGITAL_TWIN_ADMIN_TOKEN]}"
 } >"$PROD_ENV_FILE"
-echo "已临时写入 $PROD_ENV_FILE（部署后删除）"
+echo "Temporarily wrote $PROD_ENV_FILE (deleted after deploy)"
 
-echo "部署 FC prod（s deploy 输出丢弃）…"
+echo "Deploying FC prod (s deploy output discarded)..."
 "$FC_DIR/scripts/deploy.sh" prod
 
 echo
-echo "--- Vercel Production 重新部署（使新 env 生效）---"
+echo "--- Redeploy Vercel Production (apply new env) ---"
 if vercel deploy --prod --yes --cwd "$ROOT"; then
   echo "Vercel production deploy OK."
 else
-  echo "Vercel deploy --prod 失败。env 已写入，可稍后手动: vercel deploy --prod" >&2
+  echo "Vercel deploy --prod failed. Env was written; retry manually: vercel deploy --prod" >&2
   exit 1
 fi
 
 echo
-echo "完成。"
-echo "FC Base URL: $("$FC_DIR/scripts/info.sh" prod 2>/dev/null || echo '(见 ./fc/scripts/info.sh prod)')"
-echo "请在需要国内加速的浏览器设置里粘贴 FC URL；勿提交该 URL。"
+echo "Done."
+echo "FC Base URL: $("$FC_DIR/scripts/info.sh" prod 2>/dev/null || echo '(see ./fc/scripts/info.sh prod)')"
+echo "Paste FC URL into Settings → API Accelerate URL in browsers that need China acceleration; never commit it."

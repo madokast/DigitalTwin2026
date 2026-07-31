@@ -20,7 +20,7 @@ export default function TagsPage() {
         setTags(data)
       } catch (err) {
         if (cancelled) return
-        setError(err instanceof Error ? err.message : '加载失败')
+        setError(err instanceof Error ? err.message : 'Failed to load')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -35,13 +35,13 @@ export default function TagsPage() {
 
   return (
     <div className="max-w-md mx-auto p-4">
-      <h1 className="text-xl font-bold mb-6 text-foreground">标签</h1>
+      <h1 className="text-xl font-bold mb-6 text-foreground">Tags</h1>
 
-      {loading && <p className="text-sm text-muted-foreground">加载中…</p>}
+      {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {error && <p className="text-sm text-destructive mb-3">{error}</p>}
 
       {!loading && !error && entries.length === 0 && (
-        <p className="text-sm text-muted-foreground">暂无标签</p>
+        <p className="text-sm text-muted-foreground">No tags yet</p>
       )}
 
       <ul className="space-y-1">

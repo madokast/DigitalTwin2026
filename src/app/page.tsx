@@ -22,7 +22,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Summary 已在设置中关闭，不会请求数据。
+          Summary is disabled in Settings; no data will be fetched.
         </p>
       )}
     </div>

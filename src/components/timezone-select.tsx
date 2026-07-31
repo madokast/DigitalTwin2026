@@ -42,8 +42,8 @@ export function TimezoneSelect({ value, onChange }: Props) {
   }, [filtered, value, zones])
 
   const followLabel = browserTz
-    ? `跟随浏览器（${browserTz}）`
-    : '跟随浏览器'
+    ? `Follow browser (${browserTz})`
+    : 'Follow browser'
 
   return (
     <div className="space-y-2">
@@ -51,7 +51,7 @@ export function TimezoneSelect({ value, onChange }: Props) {
         type="search"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        placeholder="搜索时区，如 Shanghai"
+        placeholder="Search timezones, e.g. Shanghai"
         className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground placeholder:text-muted-foreground"
       />
       <select

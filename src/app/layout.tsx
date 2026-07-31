@@ -15,14 +15,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'DigitalTwin2026',
-  description: '个人数字孪生系统',
+  description: 'Personal digital twin system',
 }
 
 const nav = [
   { href: '/', label: 'Dashboard' },
-  { href: '/records', label: '记录' },
-  { href: '/tags', label: '标签' },
-  { href: '/settings', label: '设置' },
+  { href: '/records', label: 'Records' },
+  { href: '/tags', label: 'Tags' },
+  { href: '/settings', label: 'Settings' },
 ]
 
 export default function RootLayout({
@@ -32,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="zh-CN"
+      lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">

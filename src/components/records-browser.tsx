@@ -35,7 +35,7 @@ function RecordsPageInner({ lockedTag }: { lockedTag?: string }) {
         setPageSize(data.pageSize)
       } catch (err) {
         if (cancelled) return
-        setError(err instanceof Error ? err.message : '加载失败')
+        setError(err instanceof Error ? err.message : 'Failed to load')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -49,7 +49,7 @@ function RecordsPageInner({ lockedTag }: { lockedTag?: string }) {
   return (
     <div className="max-w-6xl mx-auto p-4">
       <h1 className="text-xl font-bold mb-4 text-foreground">
-        {lockedTag ? `标签：${lockedTag}` : '记录'}
+        {lockedTag ? `Tag: ${lockedTag}` : 'Records'}
       </h1>
 
       <RecordsFilters
@@ -61,7 +61,7 @@ function RecordsPageInner({ lockedTag }: { lockedTag?: string }) {
 
       {error && <p className="text-sm text-destructive mb-3">{error}</p>}
       {loading ? (
-        <p className="text-sm text-muted-foreground">加载中…</p>
+        <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
         <RecordsTable records={records} />
       )}
@@ -72,7 +72,7 @@ function RecordsPageInner({ lockedTag }: { lockedTag?: string }) {
 export function RecordsBrowser({ lockedTag }: { lockedTag?: string }) {
   return (
     <Suspense
-      fallback={<p className="p-4 text-sm text-muted-foreground">加载中…</p>}
+      fallback={<p className="p-4 text-sm text-muted-foreground">Loading…</p>}
     >
       <RecordsPageInner lockedTag={lockedTag} />
     </Suspense>

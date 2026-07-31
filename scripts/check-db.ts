@@ -11,7 +11,7 @@ async function checkDB() {
       FROM information_schema.tables 
       WHERE table_schema = 'public'
     `
-    console.log('表列表:', tables.map(t => t.table_name))
+    console.log('Tables:', tables.map(t => t.table_name))
     
     // 检查 records 表结构
     const columns = await client`
@@ -20,9 +20,9 @@ async function checkDB() {
       WHERE table_name = 'records'
       ORDER BY ordinal_position
     `
-    console.log('\nrecords 表结构:')
+    console.log('\nrecords schema:')
     columns.forEach(col => {
-      console.log(`  ${col.column_name}: ${col.data_type} ${col.is_nullable === 'YES' ? '(可空)' : '(必填)'}`)
+      console.log(`  ${col.column_name}: ${col.data_type} ${col.is_nullable === 'YES' ? '(nullable)' : '(required)'}`)
     })
     
     // 检查约束
@@ -31,10 +31,10 @@ async function checkDB() {
       FROM information_schema.table_constraints
       WHERE table_name = 'records'
     `
-    console.log('\n约束:', constraints.map(c => `${c.constraint_name} (${c.constraint_type})`))
+    console.log('\nConstraints:', constraints.map(c => `${c.constraint_name} (${c.constraint_type})`))
     
   } catch (error) {
-    console.error('检查失败:', error)
+    console.error('Check failed:', error)
   } finally {
     await client.end()
   }

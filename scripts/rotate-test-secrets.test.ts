@@ -31,6 +31,6 @@ describe('replaceEnvLine', () => {
   })
 
   it('throws when key missing', () => {
-    expect(() => replaceEnvLine('FOO=1\n', 'DATABASE_URL', 'x')).toThrow(/缺少行/)
+    expect(() => replaceEnvLine('FOO=1\n', 'DATABASE_URL', 'x')).toThrow(/Missing line/)
   })
 })

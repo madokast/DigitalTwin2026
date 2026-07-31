@@ -69,7 +69,7 @@ export function replaceEnvLine(
   const re = new RegExp(`^(${key})=(.*)$`, 'm')
   const m = content.match(re)
   if (!m) {
-    throw new Error(`缺少行 ${key}=...`)
+    throw new Error(`Missing line ${key}=...`)
   }
   const oldRaw = m[2]
   const oldValue = unquote(oldRaw)
@@ -85,7 +85,7 @@ function readEnvFile(path: string): string {
   try {
     return readFileSync(path, 'utf8')
   } catch {
-    throw new Error(`无法读取 ${path}`)
+    throw new Error(`Cannot read ${path}`)
   }
 }
 
@@ -93,7 +93,7 @@ function parseDatabaseUrl(url: string): URL {
   try {
     return new URL(url)
   } catch {
-    throw new Error('DATABASE_URL 不是合法 URL')
+    throw new Error('DATABASE_URL is not a valid URL')
   }
 }
 
@@ -122,16 +122,16 @@ async function main() {
   const primary = readEnvFile(ENV_FILES[0])
   const dbUrlMatch = primary.match(/^DATABASE_URL=(.*)$/m)
   if (!dbUrlMatch) {
-    throw new Error('.env 缺少 DATABASE_URL')
+    throw new Error('.env missing DATABASE_URL')
   }
   const currentDbUrl = unquote(dbUrlMatch[1])
   const parsed = parseDatabaseUrl(currentDbUrl)
   const role = decodeURIComponent(parsed.username)
   if (!role) {
-    throw new Error('DATABASE_URL 缺少用户名')
+    throw new Error('DATABASE_URL missing username')
   }
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(role)) {
-    throw new Error(`角色名不安全，拒绝 ALTER: ${role}`)
+    throw new Error(`Unsafe role name, refusing ALTER: ${role}`)
   }
 
   const newDbPassword = genDbPassword()
@@ -145,7 +145,7 @@ async function main() {
     DIGITAL_TWIN_ADMIN_TOKEN: newAdminToken,
   }
 
-  console.log(`连接测试库并 ALTER ROLE ${role} ...`)
+  console.log(`Connecting to test DB and ALTER ROLE ${role} ...`)
   const sql = postgres(currentDbUrl, { max: 1, ssl: 'require' })
   try {
     const escaped = newDbPassword.replace(/'/g, "''")
@@ -154,7 +154,7 @@ async function main() {
     await sql.end({ timeout: 5 })
   }
 
-  console.log('用新密码校验连接 ...')
+  console.log('Verifying connection with new password ...')
   const verify = postgres(newDbUrl, { max: 1, ssl: 'require' })
   try {
     await verify`select 1 as ok`
@@ -172,21 +172,21 @@ async function main() {
       if (!(key in collectedOld)) {
         collectedOld[key] = result.oldValue
       } else if (collectedOld[key] !== result.oldValue) {
-        console.warn(`警告: ${file} 的 ${key} 与 .env 不一致（仍已替换）`)
+        console.warn(`Warning: ${key} in ${file} differs from .env (replaced anyway)`)
       }
     }
     writeFileSync(file, content, 'utf8')
-    console.log(`已写入 ${file}`)
+    console.log(`Wrote ${file}`)
   }
 
   console.log('')
-  console.log('已轮换（中间已掩码）：')
+  console.log('Rotated (middle masked):')
   for (const key of KEYS) {
     printChange(key, collectedOld[key]!, nextValues[key])
   }
   console.log('')
-  console.log('下一步: cd fc && ./scripts/deploy.sh test')
-  console.log('禁止: s deploy（会明文打印密钥）')
+  console.log('Next: cd fc && ./scripts/deploy.sh test')
+  console.log('Do NOT: s deploy (prints secrets in plaintext)')
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

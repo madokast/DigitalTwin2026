@@ -43,7 +43,7 @@ echo "deploy OK."
 url="$("$ROOT/scripts/info.sh" "$ENV_NAME" 2>/dev/null || true)"
 if [[ -n "${url:-}" ]]; then
   echo "HTTP Base URL: $url"
-  echo "Paste into Settings → API 加速地址 (never commit)."
+  echo "Paste into Settings → API Accelerate URL (never commit)."
 else
   echo "Get HTTP URL with: ./scripts/info.sh $ENV_NAME"
 fi

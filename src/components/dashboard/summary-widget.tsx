@@ -23,7 +23,7 @@ export function SummaryWidget() {
         setToday(data.today)
       } catch (err) {
         if (cancelled) return
-        setError(err instanceof Error ? err.message : '加载失败')
+        setError(err instanceof Error ? err.message : 'Failed to load')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -41,16 +41,16 @@ export function SummaryWidget() {
   return (
     <div className="flex items-baseline gap-4 overflow-x-auto whitespace-nowrap text-sm">
       <h2 className="text-lg font-semibold text-card-foreground shrink-0">
-        {loading ? '加载中' : '概览'}
+        {loading ? 'Loading' : 'Overview'}
       </h2>
-      <span className="text-subtle shrink-0">时区：{tz}</span>
+      <span className="text-subtle shrink-0">Timezone: {tz}</span>
       <span className="tabular-nums text-card-foreground shrink-0">
         <span className="text-lg font-bold">{total}</span>
-        <span className="ml-1 text-muted-foreground">全部记录</span>
+        <span className="ml-1 text-muted-foreground">Total records</span>
       </span>
       <span className="tabular-nums text-card-foreground shrink-0">
         <span className="text-lg font-bold">{today}</span>
-        <span className="ml-1 text-muted-foreground">今日新增</span>
+        <span className="ml-1 text-muted-foreground">Added today</span>
       </span>
     </div>
   )

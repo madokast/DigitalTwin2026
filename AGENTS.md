@@ -4,6 +4,12 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# 语言原则
+
+- **用户可见文案一律英文**：前端展示、错误信息、日志、脚本 stdout/stderr、API `error` 字段、aria-label、placeholder 等。
+- **仅代码注释与文档用中文**（含 `*.md`、代码 `//` / `/* */` / `#` 注释）。
+- 测试数据里故意使用的非 ASCII（如非法 tag 样例）除外；断言文案须与英文运行时消息一致。
+
 # Neon / 数据库
 
 - **生产代码**：只用标准 PostgreSQL，不依赖 Neon 特色（branching、serverless driver 等），便于日后切国内云数据库。
@@ -21,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | 详情 | 根 [`README.md`](README.md) | **[`fc/README.md`](fc/README.md)**（测试、部署、安全一条龙） |
 
 - **改 API = 双改代码 + 双跑测试**（Vitest 与 `cd fc && go test ./...`）。
-- 网页「API 加速地址」指向 FC Base URL；空则同源 Vercel。真实 FC URL **禁止进 git**。
+- 网页 Settings 中的 **API Accelerate URL** 指向 FC Base URL；空则同源 Vercel。真实 FC URL **禁止进 git**。
 - 生产密钥刷新：`npm run secrets:refresh-prod`（细节见 [`fc/README.md`](fc/README.md)）。
 
 # 部署原则（摘要）

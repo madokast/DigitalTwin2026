@@ -34,7 +34,7 @@ export function TagMultiSelect({ selected, lockedTag, onChange }: Props) {
         setLoadError('')
       } catch (err) {
         if (cancelled) return
-        setLoadError(err instanceof Error ? err.message : '加载标签失败')
+        setLoadError(err instanceof Error ? err.message : 'Failed to load tags')
       }
     })()
     return () => {
@@ -89,7 +89,7 @@ export function TagMultiSelect({ selected, lockedTag, onChange }: Props) {
 
   return (
     <div ref={rootRef} className="relative min-w-[14rem]">
-      <label className="block text-xs text-muted-foreground mb-1">标签</label>
+      <label className="block text-xs text-muted-foreground mb-1">Tags</label>
       <div
         className="flex flex-wrap gap-1.5 items-center px-2 py-1.5 border border-border rounded-lg bg-input text-foreground min-h-[2.5rem] focus-within:ring-1 focus-within:ring-ring"
         onClick={() => setOpen(true)}
@@ -107,7 +107,7 @@ export function TagMultiSelect({ selected, lockedTag, onChange }: Props) {
             {tag}
             <button
               type="button"
-              aria-label={`移除 ${tag}`}
+              aria-label={`Remove ${tag}`}
               className="text-link hover:text-accent-foreground leading-none"
               onClick={(e) => {
                 e.stopPropagation()
@@ -131,7 +131,7 @@ export function TagMultiSelect({ selected, lockedTag, onChange }: Props) {
           aria-expanded={open}
           aria-controls={listId}
           aria-autocomplete="list"
-          placeholder={selected.length || lockedTag ? '继续添加…' : '搜索标签…'}
+          placeholder={selected.length || lockedTag ? 'Continue adding…' : 'Search tags…'}
           className="flex-1 min-w-[6rem] outline-none text-sm py-0.5 bg-transparent text-foreground placeholder:text-muted-foreground"
         />
       </div>
@@ -145,7 +145,7 @@ export function TagMultiSelect({ selected, lockedTag, onChange }: Props) {
           {loadError ? (
             <li className="px-3 py-2 text-destructive">{loadError}</li>
           ) : options.length === 0 ? (
-            <li className="px-3 py-2 text-muted-foreground">无匹配标签</li>
+            <li className="px-3 py-2 text-muted-foreground">No matching tags</li>
           ) : (
             options.map((tag) => (
               <li key={tag} role="option">

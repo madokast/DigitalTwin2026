@@ -50,7 +50,7 @@ export function RecordTagChips({
         setLoadError('')
       } catch (err) {
         if (cancelled) return
-        setLoadError(err instanceof Error ? err.message : '加载标签失败')
+        setLoadError(err instanceof Error ? err.message : 'Failed to load tags')
       }
     })()
     return () => {
@@ -124,7 +124,7 @@ export function RecordTagChips({
             type="button"
             tabIndex={editing ? 0 : -1}
             aria-hidden={!editing}
-            aria-label={editing ? `移除 ${tag}` : undefined}
+            aria-label={editing ? `Remove ${tag}` : undefined}
             className={`text-[10px] leading-none w-3 shrink-0 text-center ${
               editing
                 ? 'text-link hover:text-accent-foreground'
@@ -145,7 +145,7 @@ export function RecordTagChips({
         type="button"
         tabIndex={editing ? 0 : -1}
         aria-hidden={!editing}
-        aria-label={editing ? '添加标签' : undefined}
+        aria-label={editing ? 'Add tag' : undefined}
         className={`text-xs font-mono leading-none px-1 py-0.5 rounded-md border border-transparent ${
           editing
             ? 'text-link hover:bg-accent'
@@ -172,7 +172,7 @@ export function RecordTagChips({
             role="combobox"
             aria-expanded
             aria-controls={listId}
-            placeholder="搜索或回车新建…"
+            placeholder="Search or press Enter to create…"
             className="w-full px-2 py-1.5 text-xs font-mono outline-none border-b border-border bg-transparent"
           />
           <ul id={listId} role="listbox" className="max-h-40 overflow-auto text-xs">
@@ -181,8 +181,8 @@ export function RecordTagChips({
             ) : options.length === 0 ? (
               <li className="px-2 py-1.5 text-muted-foreground">
                 {filter.trim() && isValidTag(filter.trim())
-                  ? `回车新建「${filter.trim()}」`
-                  : '无匹配标签'}
+                  ? `Press Enter to create "${filter.trim()}"`
+                  : 'No matching tags'}
               </li>
             ) : (
               options.map((tag) => (

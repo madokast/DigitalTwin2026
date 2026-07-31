@@ -22,10 +22,10 @@ export default function TagDetailPage() {
     setMessage('')
     try {
       const updated = await renameTag(tag, to.trim())
-      setMessage(`已更新 ${updated} 条记录`)
+      setMessage(`Updated ${updated} record(s)`)
       router.replace(`/tags/${encodeURIComponent(to.trim())}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '替换失败')
+      setError(err instanceof Error ? err.message : 'Rename failed')
     } finally {
       setLoading(false)
     }
@@ -35,21 +35,21 @@ export default function TagDetailPage() {
     <div className="space-y-6">
       <div className="max-w-6xl mx-auto px-4 pt-4">
         <Link href="/tags" className="text-sm text-link hover:underline">
-          ← 返回标签列表
+          ← Back to Tags
         </Link>
 
         <form
           onSubmit={onRename}
           className="mt-4 bg-card text-card-foreground border border-border rounded-lg p-4 shadow-sm space-y-3 max-w-md"
         >
-          <h2 className="font-medium">全局改名（需 Admin Token）</h2>
+          <h2 className="font-medium">Rename globally (Admin Token required)</h2>
           <p className="text-sm text-subtle">
-            将 <span className="font-mono">{tag}</span> 替换为：
+            Replace <span className="font-mono">{tag}</span> with:
           </p>
           <input
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            placeholder="新标签名"
+            placeholder="New tag name"
             className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-input text-foreground placeholder:text-muted-foreground"
           />
           <button
@@ -57,7 +57,7 @@ export default function TagDetailPage() {
             disabled={loading || !to.trim()}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary-hover disabled:bg-disabled disabled:text-primary-foreground"
           >
-            {loading ? '处理中…' : '替换'}
+            {loading ? 'Processing…' : 'Replace'}
           </button>
           {message && <p className="text-sm text-success">{message}</p>}
           {error && <p className="text-sm text-destructive">{error}</p>}

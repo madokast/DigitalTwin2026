@@ -27,12 +27,12 @@ export function RecordsTable({ records }: Props) {
       <table className="w-full min-w-[720px]">
         <thead className="bg-muted text-foreground">
           <tr>
-            <th className="px-3 py-2 text-left text-sm">时间</th>
-            <th className="px-3 py-2 text-left text-sm">数值</th>
-            <th className="px-3 py-2 text-left text-sm">文本</th>
-            <th className="px-3 py-2 text-left text-sm">标签</th>
-            <th className="px-3 py-2 text-left text-sm">客观背景</th>
-            <th className="px-3 py-2 text-left text-sm">主观解读</th>
+            <th className="px-3 py-2 text-left text-sm">Time</th>
+            <th className="px-3 py-2 text-left text-sm">Value</th>
+            <th className="px-3 py-2 text-left text-sm">Text</th>
+            <th className="px-3 py-2 text-left text-sm">Tags</th>
+            <th className="px-3 py-2 text-left text-sm">Objective Context</th>
+            <th className="px-3 py-2 text-left text-sm">Subjective Interpretation</th>
           </tr>
         </thead>
         <tbody>
@@ -68,7 +68,7 @@ export function RecordsTable({ records }: Props) {
                 colSpan={6}
                 className="px-3 py-6 text-center text-sm text-muted-foreground"
               >
-                暂无记录
+                No records yet
               </td>
             </tr>
           )}

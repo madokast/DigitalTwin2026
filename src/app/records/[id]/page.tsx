@@ -225,7 +225,7 @@ export default function RecordDetailPage() {
     try {
       const row = await fetchRecordById(id)
       if (!row) {
-        setError('记录不存在')
+        setError('Record not found')
         setRecord(null)
         setDraft(null)
         setBaseline(null)
@@ -238,7 +238,7 @@ export default function RecordDetailPage() {
       setEditing({})
       setSubmitError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : '加载失败')
+      setError(err instanceof Error ? err.message : 'Failed to load')
     } finally {
       setLoading(false)
     }
@@ -257,7 +257,7 @@ export default function RecordDetailPage() {
 
   const requestEdit = (field: FieldKey) => {
     if (!getAdminToken()) {
-      setPermHint('无编辑权限')
+      setPermHint('No edit permission')
       return
     }
     setPermHint('')
@@ -277,7 +277,7 @@ export default function RecordDetailPage() {
       try {
         happenedAt = wallDateTimeToOffsetIso(draft.happenedLocal, resolveTimezone())
       } catch {
-        setSubmitError('时间格式无效')
+        setSubmitError('Invalid datetime format')
         return
       }
 
@@ -298,7 +298,7 @@ export default function RecordDetailPage() {
       await patchRecord(id, body)
       await load()
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : '提交失败')
+      setSubmitError(err instanceof Error ? err.message : 'Submit failed')
     } finally {
       setSubmitting(false)
     }
@@ -326,12 +326,12 @@ export default function RecordDetailPage() {
     <div className="max-w-2xl mx-auto p-4">
       <div className="mb-4">
         <Link href="/records" className="text-sm text-link hover:underline">
-          ← 返回记录
+          ← Back to Records
         </Link>
       </div>
-      <h1 className="text-xl font-bold mb-4 text-foreground">记录详情</h1>
+      <h1 className="text-xl font-bold mb-4 text-foreground">Record Details</h1>
 
-      {loading && <p className="text-sm text-muted-foreground">加载中…</p>}
+      {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {permHint && (
         <p className="text-sm text-destructive mb-2" role="status">
@@ -348,7 +348,7 @@ export default function RecordDetailPage() {
             </div>
 
             <div>
-              <dt className="text-xs text-muted-foreground">时间</dt>
+              <dt className="text-xs text-muted-foreground">Time</dt>
               <dd className="relative text-sm min-h-[1.25rem]">
                 <span
                   className={
@@ -384,14 +384,14 @@ export default function RecordDetailPage() {
                       )
                     }
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    aria-label="选择时间"
+                    aria-label="Select time"
                   />
                 )}
               </dd>
             </div>
 
             <div>
-              <dt className="text-xs text-muted-foreground">数值</dt>
+              <dt className="text-xs text-muted-foreground">Value</dt>
               <dd className="text-sm min-h-[1.25rem]">
                 {editing.valueNumber ? (
                   <input
@@ -425,7 +425,7 @@ export default function RecordDetailPage() {
             </div>
 
             <div>
-              <dt className="text-xs text-muted-foreground">文本</dt>
+              <dt className="text-xs text-muted-foreground">Text</dt>
               <dd>
                 <NullableText
                   value={draft.valueText}
@@ -440,7 +440,7 @@ export default function RecordDetailPage() {
             </div>
 
             <div>
-              <dt className="text-xs text-muted-foreground">标签</dt>
+              <dt className="text-xs text-muted-foreground">Tags</dt>
               <dd>
                 <RecordTagChips
                   tags={draft.tags}
@@ -454,7 +454,7 @@ export default function RecordDetailPage() {
             </div>
 
             <div>
-              <dt className="text-xs text-muted-foreground">客观背景</dt>
+              <dt className="text-xs text-muted-foreground">Objective Context</dt>
               <dd>
                 <RequiredText
                   value={draft.objectiveContext}
@@ -471,7 +471,7 @@ export default function RecordDetailPage() {
             </div>
 
             <div>
-              <dt className="text-xs text-muted-foreground">主观解读</dt>
+              <dt className="text-xs text-muted-foreground">Subjective Interpretation</dt>
               <dd>
                 <NullableText
                   value={draft.subjectiveInterpretation}
@@ -501,7 +501,7 @@ export default function RecordDetailPage() {
                 disabled={submitting}
                 className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
-                {submitting ? '提交中…' : '提交'}
+                {submitting ? 'Submitting…' : 'Submit'}
               </button>
             </div>
           )}

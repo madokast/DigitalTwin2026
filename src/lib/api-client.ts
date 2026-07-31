@@ -29,7 +29,7 @@ export function apiUrl(path: string): string {
 function authHeader(json = false): HeadersInit {
   const token = getAdminToken()
   if (!token) {
-    throw new Error('请先在设置中填写 Admin Token')
+    throw new Error('Please set Admin Token in Settings')
   }
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
@@ -42,7 +42,7 @@ async function parseJson<T>(res: Response): Promise<T> {
   const data = await res.json()
   if (!res.ok) {
     throw new Error(
-      typeof data?.error === 'string' ? data.error : `请求失败（${res.status}）`,
+      typeof data?.error === 'string' ? data.error : `Request failed (${res.status})`,
     )
   }
   return data as T

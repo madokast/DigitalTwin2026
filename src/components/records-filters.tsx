@@ -69,7 +69,7 @@ export function RecordsFilters({
     <div className="space-y-3 mb-4">
       <form onSubmit={apply} className="flex flex-wrap gap-2 items-end">
         <div>
-          <label className="block text-xs text-muted-foreground mb-1">搜索</label>
+          <label className="block text-xs text-muted-foreground mb-1">Search</label>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -84,7 +84,7 @@ export function RecordsFilters({
         />
         <div>
           <label className="block text-xs text-muted-foreground mb-1">
-            日期（按时区展开）
+            Date (expanded in timezone)
           </label>
           <input
             type="date"
@@ -97,13 +97,13 @@ export function RecordsFilters({
           type="submit"
           className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary-hover"
         >
-          筛选
+          Filter
         </button>
       </form>
 
       <div className="flex items-center justify-between text-sm text-subtle">
         <span>
-          共 {totalCount} 条 · 第 {page}/{totalPages} 页
+          {totalCount} total · Page {page}/{totalPages}
         </span>
         <div className="flex gap-2">
           <button
@@ -112,7 +112,7 @@ export function RecordsFilters({
             onClick={() => goPage(page - 1)}
             className="px-3 py-1 border border-border rounded bg-card text-foreground disabled:opacity-40"
           >
-            上一页
+            Previous
           </button>
           <button
             type="button"
@@ -120,7 +120,7 @@ export function RecordsFilters({
             onClick={() => goPage(page + 1)}
             className="px-3 py-1 border border-border rounded bg-card text-foreground disabled:opacity-40"
           >
-            下一页
+            Next
           </button>
         </div>
       </div>
