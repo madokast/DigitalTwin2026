@@ -1,0 +1,7 @@
+# Vercel 只跑 Next；勿上传阿里云 FC / Go 产物与无关大文件
+fc
+docs
+.git
+.next
+coverage
+*.tsbuildinfo

@@ -22,6 +22,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - **改 API = 双改代码 + 双跑测试**（Vitest 与 `cd fc && go test ./...`）。
 - 网页「API 加速地址」指向 FC Base URL；空则同源 Vercel。真实 FC URL **禁止进 git**。
+- 生产密钥刷新：`npm run secrets:refresh-prod`（细节见 [`fc/README.md`](fc/README.md)）。
 
 # 部署原则（摘要）
 

@@ -41,12 +41,39 @@ go run ./cmd/api          # :8080，可用 PORT 覆盖
 | 密钥 | 存放 |
 |------|------|
 | 阿里云 AK | `s config add`，别名见 `s.yaml` 的 `access`（当前为 `dt`）→ `~/.s/`，**不进 git** |
-| `DATABASE_URL` / Token | `fc/.env.fc.test`、`fc/.env.fc.prod`（gitignore）；模板 `env.fc.example` |
+| `DATABASE_URL` / Token | 测试：`fc/.env.fc.test`；生产：优先用 `npm run secrets:refresh-prod`（部署时临时写 `.env.fc.prod`，结束后删除）。模板 `env.fc.example` |
 
 - **禁止**裸跑 `s deploy`：会明文打印 `environmentVariables`。
 - 部署只用 [`scripts/deploy.sh`](scripts/deploy.sh)（内部 `s deploy … >/dev/null`）。
 - 真实 `*.fcapp.run` **禁止进 git**；只粘到浏览器「API 加速地址」。
-- 轮换测试库密码 + Token：`npm run secrets:rotate-test`（根目录），然后必须再 `./scripts/deploy.sh test`。
+- 轮换**测试**库密码 + Token：`npm run secrets:rotate-test`（根目录），然后必须再 `cd fc && ./scripts/deploy.sh test`。
+- 刷新**生产**密钥（Vercel + FC）：见下文「生产密钥刷新」。
+
+## 生产密钥刷新（Vercel + FC prod）
+
+交互脚本会依次询问 `DATABASE_URL`、`DIGITAL_TWIN_TOKEN`、`DIGITAL_TWIN_ADMIN_TOKEN`（输入后掩码确认；`DATABASE_URL` 会真实连库校验），然后：
+
+1. 写入 Vercel **production**（`vercel env update` / `add --force` / 必要时先删后加）
+2. **临时**写入 `fc/.env.fc.prod` → `./scripts/deploy.sh prod`（若尚无则首次创建 `digitaltwin-api-prod`）
+3. **删除** `fc/.env.fc.prod`（不在磁盘长期留生产密钥；以后再部署可重跑本脚本，或手动建该文件）
+
+```bash
+# 仓库根目录
+vercel login          # 若未登录
+vercel link           # 若无 .vercel/project.json
+s config get -a dt    # 确认 FC 部署用的 AK 别名（见 fc/s.yaml access）
+npm run secrets:refresh-prod
+# 等价: ./scripts/refresh-prod-env.sh
+```
+
+脚本开头会预检：Vercel login/link、以及 `s` CLI + `s.yaml` 的 access 凭证（再 `s info --env prod` 探活）。
+
+之后：
+
+- 脚本会自动 **`vercel deploy --prod`**，使新 env 进入运行中的函数。
+- FC：用 `cd fc && ./scripts/info.sh prod` 取 Base URL，粘到需要加速的浏览器「API 加速地址」（勿进 git）。
+
+前置：`s config`（`s.yaml` 的 `access`，当前 `dt`）可用；生产库建议已 `DATABASE_URL=… npm run db:migrate`。
 
 ## 测试 → 部署一条龙（test）
 
@@ -79,7 +106,7 @@ curl -s -H "Authorization: Bearer $DIGITAL_TWIN_TOKEN" \
 1. 在 `fc/` 实现路由 + `go test`
 2. `./scripts/deploy.sh test`（覆盖同一函数，URL 通常不变）
 3. curl / 网页加速地址验证  
-生产：准备 `.env.fc.prod`（与 Vercel **同一生产库**）→ test 通过后再 `./scripts/deploy.sh prod`（函数名 `digitaltwin-api-prod`）。
+生产密钥与首次 FC prod：根目录 **`npm run secrets:refresh-prod`**（详见上文「生产密钥刷新」）；或手动 `.env.fc.prod` + `./scripts/deploy.sh prod`。
 
 ## 目录速览
 

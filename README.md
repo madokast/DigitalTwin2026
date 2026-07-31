@@ -61,7 +61,10 @@ npm run dev
 
 操作、双后端约定、部署与安全：**见 [`fc/README.md`](fc/README.md)**。
 
-摘要：`cd fc && ./scripts/deploy.sh test`，`./scripts/info.sh test` 取 Base URL 填到设置「API 加速地址」。禁止裸跑 `s deploy`。密钥轮换：`npm run secrets:rotate-test` 后须再 deploy。
+摘要：`cd fc && ./scripts/deploy.sh test`，`./scripts/info.sh test` 取 Base URL 填到设置「API 加速地址」。禁止裸跑 `s deploy`。
+
+- 测试密钥轮换：`npm run secrets:rotate-test` → 再 `cd fc && ./scripts/deploy.sh test`
+- **生产**密钥（Vercel production + FC prod，交互）：`npm run secrets:refresh-prod`（见 [`fc/README.md`](fc/README.md)#生产密钥刷新vercel--fc-prod）；脚本内会 `vercel deploy --prod`
 
 
 主题：语义色 token（`globals.css`），跟随系统 `prefers-color-scheme` 明暗切换。
