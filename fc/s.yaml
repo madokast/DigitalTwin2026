@@ -1,0 +1,49 @@
+# Serverless Devs + FC3：Go custom runtime（标准 HTTP，与本地 go run 同一入口）
+# 密钥勿写入本文件；用 ${env(...)} + scripts/deploy.sh 注入。
+edition: 3.0.0
+name: digitaltwin-api
+access: default
+
+resources:
+  api:
+    component: fc3
+    actions:
+      pre-deploy:
+        - run: mkdir -p .s-build && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o .s-build/bootstrap ./cmd/api
+          path: ./
+    props:
+      region: cn-hangzhou
+      functionName: digitaltwin-api-test
+      description: DigitalTwin2026 HTTP API (Go)
+      runtime: custom.debian10
+      handler: bootstrap
+      memorySize: 128
+      cpu: 0.05
+      diskSize: 512
+      timeout: 60
+      internetAccess: true
+      code: ./.s-build
+      customRuntimeConfig:
+        port: 9000
+        command:
+          - ./bootstrap
+      environmentVariables:
+        PORT: "9000"
+        DATABASE_URL: ${env('DATABASE_URL')}
+        DIGITAL_TWIN_TOKEN: ${env('DIGITAL_TWIN_TOKEN')}
+        DIGITAL_TWIN_ADMIN_TOKEN: ${env('DIGITAL_TWIN_ADMIN_TOKEN')}
+      triggers:
+        - triggerName: httpTrigger
+          triggerType: http
+          qualifier: LATEST
+          triggerConfig:
+            authType: anonymous
+            disableURLInternet: false
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - HEAD
+              - OPTIONS

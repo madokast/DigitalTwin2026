@@ -15,9 +15,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **阿里云函数计算**：国内备用（Vercel 可能被墙）
 - **API 保持标准**：便于移植到不同 serverless 平台
 
+# 阿里云 FC / Serverless Devs
+
+- 业务密钥：`fc/.env.fc.test` / `fc/.env.fc.prod`（gitignore）；AK 仅 `s config` → `~/.s/`
+- **禁止**直接运行 `s deploy`：其输出会明文打印 `environmentVariables`（含 `DATABASE_URL` / Token）
+- 部署必须用 [`fc/scripts/deploy.sh`](fc/scripts/deploy.sh)，脚本内将 `s deploy` **整段重定向到 `/dev/null`**
+- 真实 FC HTTP URL（`*.fcapp.run`）禁止进 git；只粘到本机设置页「API 加速地址」
+
 # 本地 Go API（`fc/`）
 
 - 与 Next 7 条 `/api/*` 语义对齐；`cd fc && go run ./cmd/api`（`:8080` / `PORT`）
 - 环境变量仅后端：`DATABASE_URL`、`DIGITAL_TWIN_TOKEN`、`DIGITAL_TWIN_ADMIN_TOKEN`
 - 设置页「API 加速地址」存本机 prefs；空=同源 Vercel；**禁止** `NEXT_PUBLIC_*` 下发；**禁止**真实 FC URL 进 git
-- 本期未做：Serverless Devs / `s.yaml` / 控制台部署

@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:check": "tsx scripts/check-db.ts"
+    "db:check": "tsx scripts/check-db.ts",
+    "secrets:rotate-test": "tsx scripts/rotate-test-secrets.ts"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

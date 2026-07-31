@@ -34,6 +34,13 @@ yarn-error.log*
 .env*
 !.env.example
 
+# FC local secrets + Serverless Devs build output
+fc/.env.fc.*
+fc/.s-build/
+fc/.s/
+fc/.env.fc.test
+fc/.env.fc.prod
+
 # vercel
 .vercel
 

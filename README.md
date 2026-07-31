@@ -56,6 +56,30 @@ npm run dev
 
 访问 http://localhost:3000 — 在「设置」中填入 Token；可选配置 IANA 时区、Dashboard summary，以及 **API 加速地址**（空=同源 Vercel `/api/...`）。
 
+### 阿里云 FC（Serverless Devs）
+
+1. 本机已 `s config add`（AK 在 `~/.s/`，勿进仓库）且开通函数计算 + `AliyunFCFullAccess`
+2. 在 `fc/` 准备密钥文件（gitignore）：
+
+```bash
+cd fc
+cp env.fc.example .env.fc.test
+# 编辑填入测试库 DATABASE_URL 与两个 Token
+./scripts/deploy.sh test   # 内部 s deploy >/dev/null；禁止裸跑 s deploy（会明文打出密钥）
+```
+
+轮换本地测试库密码与 Token（只改 `.env` / `fc/.env.fc.test` 匹配行；打印旧→新掩码）：
+
+```bash
+npm run secrets:rotate-test
+# 然后务必再 ./scripts/deploy.sh test 把新密钥注入 FC
+```
+
+3. 用 `s info --env test` 查看 `*.fcapp.run`，**只粘到浏览器设置 → API 加速地址**，不要写进 git  
+4. 生产：复制为 `.env.fc.prod`（生产库与 Vercel 相同），确认 test 无误后再 `./scripts/deploy.sh prod`
+
+区域默认 `cn-hangzhou`（见 `fc/s.yaml`）。
+
 主题：语义色 token（`globals.css`），跟随系统 `prefers-color-scheme` 明暗切换。
 
 ### 5. 本地 Go API（国内备用镜像，可选）
@@ -69,9 +93,9 @@ export $(grep -v '^#' ../.env | xargs)   # 或自行 export
 go run ./cmd/api                         # 默认 :8080；可用 PORT=9090
 ```
 
-网页「设置 → API 加速地址」填 `http://localhost:8080`（仅本机 prefs；**不要**用 `NEXT_PUBLIC_*`，**不要**把真实 FC 域名写进仓库）。空则仍走同源 Vercel。
+网页「设置 → API 加速地址」填本地 `http://localhost:8080` 或部署后的 FC HTTP 域名（仅本机 prefs；**不要**把真实 FC 域名写进仓库）。空则仍走同源 Vercel。
 
-本期**未做**：Serverless Devs / `s.yaml` / 阿里云控制台部署。
+部署骨架：`fc/s.yaml` + `fc/scripts/deploy.sh`（custom.debian10）。**未默认替你执行**云上 deploy，需本地准备 `.env.fc.test` 后自行跑脚本。
 
 ## Web 路由
 

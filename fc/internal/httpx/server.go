@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -86,6 +87,14 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
+func writeInternalError(w http.ResponseWriter, err error) {
+	msg := "Internal server error"
+	if os.Getenv("EXPOSE_ERRORS") == "1" && err != nil {
+		msg = err.Error()
+	}
+	writeError(w, 500, msg)
+}
+
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
@@ -105,7 +114,7 @@ func (s *Server) handleLogNumber(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if status >= 500 {
 			log.Printf("Error creating number record: %v", err)
-			writeError(w, 500, "Internal server error")
+			writeInternalError(w, err)
 			return
 		}
 		writeError(w, status, err.Error())
@@ -124,7 +133,7 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if status >= 500 {
 			log.Printf("Error creating text record: %v", err)
-			writeError(w, 500, "Internal server error")
+			writeInternalError(w, err)
 			return
 		}
 		writeError(w, status, err.Error())
@@ -142,7 +151,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 	result, err := query.FetchFilteredRecords(r.Context(), s.Pool, parsed)
 	if err != nil {
 		log.Printf("Error querying records: %v", err)
-		writeError(w, 500, "Internal server error")
+		writeInternalError(w, err)
 		return
 	}
 	writeJSON(w, 200, map[string]any{
@@ -163,7 +172,7 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		log.Printf("Error querying summary: %v", err)
-		writeError(w, 500, "Internal server error")
+		writeInternalError(w, err)
 		return
 	}
 	writeJSON(w, 200, map[string]any{
@@ -178,7 +187,7 @@ func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
 	counts, err := query.FetchTagCounts(r.Context(), s.Pool)
 	if err != nil {
 		log.Printf("Error aggregating tags: %v", err)
-		writeError(w, 500, "Internal server error")
+		writeInternalError(w, err)
 		return
 	}
 	if counts == nil {
@@ -219,7 +228,7 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 	updated, err := renameTags(r.Context(), s.Pool, from, to)
 	if err != nil {
 		log.Printf("Error renaming tags: %v", err)
-		writeError(w, 500, "Internal server error")
+		writeInternalError(w, err)
 		return
 	}
 	writeJSON(w, 200, map[string]any{"success": true, "updated": updated})
@@ -311,7 +320,7 @@ RETURNING id, happened_at, value_number::text, value_text, tags, objective_conte
 			return
 		}
 		log.Printf("Error patching record: %v", err)
-		writeError(w, 500, "Internal server error")
+		writeInternalError(w, err)
 		return
 	}
 	rec := record.FromDB(outID, outHappened, outNum, outText, outTags, outObj, outSubj)
