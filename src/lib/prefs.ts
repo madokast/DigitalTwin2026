@@ -1,5 +1,4 @@
 const KEYS = {
-  token: 'digitaltwin_token',
   adminToken: 'digitaltwin_admin_token',
   dashboardSummary: 'digitaltwin_dashboard_summary',
   timezone: 'digitaltwin_timezone',
@@ -14,14 +13,6 @@ function read(key: string): string | null {
 function write(key: string, value: string): void {
   if (typeof localStorage === 'undefined') return
   localStorage.setItem(key, value)
-}
-
-export function getToken(): string {
-  return read(KEYS.token) ?? ''
-}
-
-export function setToken(value: string): void {
-  write(KEYS.token, value)
 }
 
 export function getAdminToken(): string {

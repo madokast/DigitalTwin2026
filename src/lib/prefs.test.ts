@@ -35,20 +35,17 @@ describe('prefs', () => {
     vi.restoreAllMocks()
   })
 
-  it('defaults: empty tokens, summary on, empty timezone, empty api accelerate base', async () => {
+  it('defaults: empty admin token, summary on, empty timezone, empty api accelerate base', async () => {
     const prefs = await import('./prefs')
-    expect(prefs.getToken()).toBe('')
     expect(prefs.getAdminToken()).toBe('')
     expect(prefs.getDashboardSummary()).toBe(true)
     expect(prefs.getTimezone()).toBe('')
     expect(prefs.getApiAccelerateBase()).toBe('')
   })
 
-  it('persists token and adminToken via get/set', async () => {
+  it('persists adminToken via get/set', async () => {
     const prefs = await import('./prefs')
-    prefs.setToken('ai-token')
     prefs.setAdminToken('admin-token')
-    expect(prefs.getToken()).toBe('ai-token')
     expect(prefs.getAdminToken()).toBe('admin-token')
   })
 

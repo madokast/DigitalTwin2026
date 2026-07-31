@@ -1,8 +1,4 @@
-import {
-  getAdminToken,
-  getApiAccelerateBase,
-  getToken,
-} from '@/lib/prefs'
+import { getAdminToken, getApiAccelerateBase } from '@/lib/prefs'
 
 export type TwinRecord = {
   id: string
@@ -30,23 +26,16 @@ export function apiUrl(path: string): string {
   return `${base}${normalizedPath}`
 }
 
-function authHeader(): HeadersInit {
-  const token = getToken() || getAdminToken()
-  if (!token) {
-    throw new Error('请先在设置中填写 Token 或 Admin Token')
-  }
-  return { Authorization: `Bearer ${token}` }
-}
-
-function adminAuthHeader(): HeadersInit {
+function authHeader(json = false): HeadersInit {
   const token = getAdminToken()
   if (!token) {
-    throw new Error('需要 Admin Token（勿把 Admin Token 交给 AI）')
+    throw new Error('请先在设置中填写 Admin Token')
   }
-  return {
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
   }
+  if (json) headers['Content-Type'] = 'application/json'
+  return headers
 }
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -103,7 +92,7 @@ export async function fetchTags(): Promise<Record<string, number>> {
 export async function renameTag(from: string, to: string): Promise<number> {
   const res = await fetch(apiUrl('/api/admin/tags/rename'), {
     method: 'POST',
-    headers: adminAuthHeader(),
+    headers: authHeader(true),
     body: JSON.stringify({ from, to }),
   })
   const data = await parseJson<{ success: boolean; updated: number }>(res)
@@ -125,7 +114,7 @@ export async function patchRecord(
 ): Promise<TwinRecord> {
   const res = await fetch(apiUrl(`/api/admin/records/${id}`), {
     method: 'PATCH',
-    headers: adminAuthHeader(),
+    headers: authHeader(true),
     body: JSON.stringify(body),
   })
   const data = await parseJson<{ success: boolean; record: TwinRecord }>(res)

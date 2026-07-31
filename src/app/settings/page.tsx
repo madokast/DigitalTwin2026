@@ -42,7 +42,7 @@ export default function SettingsPage() {
       <div className="bg-card text-card-foreground p-4 rounded-lg shadow space-y-4 border border-border">
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">
-            Token
+            Admin Token
           </label>
           <input
             type="password"
@@ -51,6 +51,9 @@ export default function SettingsPage() {
             placeholder="DIGITAL_TWIN_ADMIN_TOKEN"
             className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground placeholder:text-muted-foreground"
           />
+          <p className="mt-1 text-xs text-muted-foreground">
+            仅保存在本机浏览器。
+          </p>
         </div>
 
         <div className="flex items-center justify-between gap-4">
