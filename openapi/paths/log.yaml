@@ -1,0 +1,72 @@
+/api/log/number:
+  post:
+    operationId: logNumber
+    tags: [log]
+    summary: Create a numeric record
+    description: |
+      Inserts a record with `value_number` set and `value_text` null.
+      On success, Telegram notification is best-effort and does not change the 201 response.
+      Auth: ApiToken (AI token or Admin token).
+    security:
+      - ApiToken: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/LogNumberRequest'
+          example:
+            happened_at: '2026-07-30T08:00:00+08:00'
+            value_number: '75.5'
+            tags: [weight]
+            objective_context: morning weigh-in
+            subjective_interpretation: a bit heavy
+    responses:
+      '201':
+        description: Record created
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/RecordSuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+/api/log/text:
+  post:
+    operationId: logText
+    tags: [log]
+    summary: Create a text record
+    description: |
+      Inserts a record with `value_text` set and `value_number` null.
+      On success, Telegram notification is best-effort and does not change the 201 response.
+      Auth: ApiToken (AI token or Admin token).
+    security:
+      - ApiToken: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/LogTextRequest'
+          example:
+            happened_at: '2026-07-30T10:00:00+08:00'
+            value_text: studied 50 words
+            tags: [study, vocabulary]
+            objective_context: afternoon study
+    responses:
+      '201':
+        description: Record created
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/RecordSuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

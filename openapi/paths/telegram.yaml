@@ -1,0 +1,38 @@
+/api/telegram/probe:
+  post:
+    operationId: telegramProbe
+    tags: [telegram]
+    summary: Send a Telegram probe message
+    description: |
+      Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_USER_ID` on the server.
+      Empty / non-JSON body is allowed; default text is `DigitalTwin2026 probe`.
+      Auth: ApiToken.
+    security:
+      - ApiToken: []
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/TelegramProbeRequest'
+    responses:
+      '200':
+        description: Message sent
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/SuccessOnly'
+      '400':
+        description: Telegram env not configured (or other client error)
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Error'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '502':
+        description: Telegram Bot API sendMessage failed
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Error'

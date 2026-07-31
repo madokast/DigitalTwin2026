@@ -1,0 +1,22 @@
+BadRequest:
+  description: Validation or malformed request
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/Error'
+Unauthorized:
+  description: Missing/invalid Bearer token for this route class
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/Error'
+      example:
+        error: 'Unauthorized: Invalid or missing token'
+InternalError:
+  description: Unexpected server/database error
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/Error'
+      example:
+        error: Internal server error

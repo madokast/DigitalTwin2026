@@ -1,0 +1,100 @@
+/api/query:
+  get:
+    operationId: queryRecords
+    tags: [query]
+    summary: Query records with filters and pagination
+    description: |
+      Filters combine with AND. Multiple `tag` query params each require that
+      tag substring match in the stored tags JSON string (`LIKE %"<tag>"%`).
+      `q` searches `value_text`, `objective_context`, `subjective_interpretation`, and `tags` (LIKE).
+      When `id` is set, pagination is ignored; returns 0–1 rows with `page: 1`
+      and `pageSize` equal to the result length (or 1 if empty).
+      Results ordered by `happened_at` descending.
+      Auth: ApiToken.
+    security:
+      - ApiToken: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/QueryId'
+      - $ref: '../components/parameters.yaml#/QueryPage'
+      - $ref: '../components/parameters.yaml#/QueryPageSize'
+      - $ref: '../components/parameters.yaml#/QueryFrom'
+      - $ref: '../components/parameters.yaml#/QueryTo'
+      - $ref: '../components/parameters.yaml#/QueryTag'
+      - $ref: '../components/parameters.yaml#/QueryQ'
+    responses:
+      '200':
+        description: Filtered page of records
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/QuerySuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+/api/query/summary:
+  get:
+    operationId: querySummary
+    tags: [query]
+    summary: Total and today counts for an IANA time zone
+    description: |
+      `today` counts records whose `happened_at` falls in the calendar day of
+      "now" in the given IANA zone (`[start, end)`).
+      Auth: ApiToken.
+    security:
+      - ApiToken: []
+    parameters:
+      - name: tz
+        in: query
+        required: true
+        description: Valid IANA time zone (e.g. `UTC`, `Asia/Shanghai`)
+        schema:
+          type: string
+          examples:
+            - UTC
+            - Asia/Shanghai
+    responses:
+      '200':
+        description: Counts
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/SummarySuccess'
+      '400':
+        description: Missing or invalid `tz`
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Error'
+            example:
+              error: Query parameter tz must be a valid IANA time zone
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+/api/query/tags:
+  get:
+    operationId: queryTags
+    tags: [query]
+    summary: Aggregate tag occurrence counts
+    description: |
+      Returns a map of tag name → number of records containing that tag,
+      sorted lexicographically by tag name. Empty DB → `{ }`.
+      Auth: ApiToken.
+    security:
+      - ApiToken: []
+    responses:
+      '200':
+        description: Tag counts
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/TagsSuccess'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

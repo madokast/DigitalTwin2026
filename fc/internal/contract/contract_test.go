@@ -28,6 +28,7 @@ func repoRoot(t *testing.T) string {
 func loadDoc(t *testing.T) *openapi3.T {
 	t.Helper()
 	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true // openapi/ 多文件 $ref
 	doc, err := loader.LoadFromFile(filepath.Join(repoRoot(t), "openapi", "openapi.yaml"))
 	if err != nil {
 		t.Fatalf("load openapi: %v", err)

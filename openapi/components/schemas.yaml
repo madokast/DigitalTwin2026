@@ -1,0 +1,281 @@
+Error:
+  type: object
+  required: [error]
+  additionalProperties: false
+  properties:
+    error:
+      type: string
+      description: English error message (user-visible)
+
+SuccessOnly:
+  type: object
+  required: [success]
+  additionalProperties: false
+  properties:
+    success:
+      type: boolean
+      const: true
+
+TagName:
+  type: string
+  description: |
+    Letters, digits, underscores; optional colon-separated segments
+    (e.g. `source:device`). Must not start with a digit; colon cannot be
+    leading, trailing, or doubled.
+  pattern: '^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$'
+  examples:
+    - weight
+    - source:device
+    - review:weekly
+
+TagList:
+  type: array
+  minItems: 1
+  items:
+    $ref: '#/TagName'
+  description: Non-empty array of valid tag names
+
+DecimalString:
+  type: string
+  description: |
+    Strict decimal literal (no scientific notation, no leading `+`, no
+    leading/trailing dots, no leading zeros like `01`). Additional caps
+    enforced in code: ≤28 integer digits, ≤10 fraction digits.
+  pattern: '^-?(?:0|[1-9]\d*)(?:\.\d+)?$'
+  maxLength: 40
+  examples:
+    - '75.5'
+    - '1'
+    - '1.0'
+    - '-0.01'
+
+HappenedAtInput:
+  type: string
+  description: |
+    Event timestamp as ISO 8601 **with required timezone** suffix
+    `(Z|[+-]HH:?MM)` — same rule for log insert, Admin PATCH `happened_at`,
+    and query `from`/`to`. Bare dates or offset-less local datetimes → 400
+    (`happened_at must be ISO 8601 with timezone (Z or ±HH:MM)`).
+  pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})$'
+  examples:
+    - '2026-07-30T08:00:00+08:00'
+    - '2026-07-30T00:00:00.000Z'
+
+HappenedAtUtcZ:
+  type: string
+  description: |
+    Instant as UTC ISO-8601 with millisecond precision and `Z`
+    (`YYYY-MM-DDTHH:mm:ss.sssZ`). Both backends normalize this way
+    (Go `record.FormatHappenedAt`; Next `toApiRecord` / `toISOString`).
+  pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$'
+  examples:
+    - '2026-07-30T00:00:00.000Z'
+
+Record:
+  type: object
+  description: |
+    Persisted row as returned by both backends (camelCase JSON).
+    `tags` is a stringified JSON array. `valueNumber` is a decimal string.
+  required:
+    - id
+    - happenedAt
+    - valueNumber
+    - valueText
+    - tags
+    - objectiveContext
+    - subjectiveInterpretation
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: UUIDv7 primary key
+    happenedAt:
+      $ref: '#/HappenedAtUtcZ'
+    valueNumber:
+      description: |
+        Decimal as string, or null for text-only records.
+        On write (log/number and PATCH), JSON **number is rejected** (400:
+        `value_number must be a decimal string`). Validated literal stored
+        as TEXT (no Number round-trip; trailing zeros preserved).
+      oneOf:
+        - $ref: '#/DecimalString'
+        - type: 'null'
+    valueText:
+      type: [string, 'null']
+    tags:
+      type: string
+      description: JSON array of strings, stored as text
+      examples:
+        - '["weight"]'
+        - '["study","vocabulary"]'
+    objectiveContext:
+      type: string
+    subjectiveInterpretation:
+      type: [string, 'null']
+
+RecordSuccess:
+  type: object
+  required: [success, record]
+  additionalProperties: false
+  properties:
+    success:
+      type: boolean
+      const: true
+    record:
+      $ref: '#/Record'
+
+QuerySuccess:
+  type: object
+  required: [success, count, page, pageSize, records]
+  additionalProperties: false
+  properties:
+    success:
+      type: boolean
+      const: true
+    count:
+      type: integer
+      minimum: 0
+      description: Total matching rows (not just this page)
+    page:
+      type: integer
+      minimum: 1
+    pageSize:
+      type: integer
+      minimum: 1
+    records:
+      type: array
+      items:
+        $ref: '#/Record'
+
+SummarySuccess:
+  type: object
+  required: [success, total, today, tz]
+  additionalProperties: false
+  properties:
+    success:
+      type: boolean
+      const: true
+    total:
+      type: integer
+      minimum: 0
+      description: All-time record count
+    today:
+      type: integer
+      minimum: 0
+      description: Count for the current calendar day in `tz`
+    tz:
+      type: string
+      description: Echo of the requested IANA zone
+
+TagsSuccess:
+  type: object
+  required: [success, tags]
+  additionalProperties: false
+  properties:
+    success:
+      type: boolean
+      const: true
+    tags:
+      type: object
+      additionalProperties:
+        type: integer
+        minimum: 0
+      description: Tag name → record count (keys sorted lexicographically)
+      examples:
+        - study: 2
+          weight: 1
+
+RenameTagsRequest:
+  type: object
+  required: [from, to]
+  additionalProperties: false
+  properties:
+    from:
+      $ref: '#/TagName'
+    to:
+      $ref: '#/TagName'
+
+RenameTagsSuccess:
+  type: object
+  required: [success, updated]
+  additionalProperties: false
+  properties:
+    success:
+      type: boolean
+      const: true
+    updated:
+      type: integer
+      minimum: 0
+      description: Number of records whose tags field was rewritten
+
+LogNumberRequest:
+  type: object
+  required: [happened_at, value_number, tags, objective_context]
+  additionalProperties: true
+  properties:
+    happened_at:
+      $ref: '#/HappenedAtInput'
+    value_number:
+      $ref: '#/DecimalString'
+    tags:
+      $ref: '#/TagList'
+    objective_context:
+      type: string
+      minLength: 1
+    subjective_interpretation:
+      type: string
+      description: Optional; empty / omitted → null
+
+LogTextRequest:
+  type: object
+  required: [happened_at, value_text, tags, objective_context]
+  additionalProperties: true
+  properties:
+    happened_at:
+      $ref: '#/HappenedAtInput'
+    value_text:
+      type: string
+      minLength: 1
+    tags:
+      $ref: '#/TagList'
+    objective_context:
+      type: string
+      minLength: 1
+    subjective_interpretation:
+      type: string
+
+RecordDraftRequest:
+  type: object
+  description: |
+    Editable snapshot for PATCH. Aligns with `parseRecordDraft`:
+    empty strings on nullable fields become null; `objective_context` must
+    be a non-empty string; `value_number` is string | null only (JSON number → 400).
+  required: [happened_at, tags, objective_context]
+  additionalProperties: true
+  properties:
+    happened_at:
+      $ref: '#/HappenedAtInput'
+    value_number:
+      description: |
+        Decimal string, null, or omit/empty → null. JSON number → 400
+        (`value_number must be a decimal string`).
+      oneOf:
+        - $ref: '#/DecimalString'
+        - type: 'null'
+    value_text:
+      type: [string, 'null']
+    tags:
+      $ref: '#/TagList'
+    objective_context:
+      type: string
+      minLength: 1
+    subjective_interpretation:
+      type: [string, 'null']
+
+TelegramProbeRequest:
+  type: object
+  additionalProperties: true
+  properties:
+    text:
+      type: string
+      description: Optional message body; blank/omitted → default probe text

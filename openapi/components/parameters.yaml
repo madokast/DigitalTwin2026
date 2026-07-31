@@ -1,0 +1,68 @@
+QueryId:
+  name: id
+  in: query
+  required: false
+  description: Exact record id; when set, pagination params are ignored
+  schema:
+    type: string
+QueryPage:
+  name: page
+  in: query
+  required: false
+  description: 1-based page index (default 1)
+  schema:
+    type: integer
+    minimum: 1
+    default: 1
+QueryPageSize:
+  name: pageSize
+  in: query
+  required: false
+  description: Page size (default 20, max 100)
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 100
+    default: 20
+QueryFrom:
+  name: from
+  in: query
+  required: false
+  description: |
+    Inclusive lower bound on `happened_at`. Must be ISO 8601 **with timezone**
+    (`Z` or `±HH:MM` / `±HHMM`). Error examples:
+    `from must be ISO 8601 with timezone (Z or ±HH:MM)`,
+    `Invalid from datetime`.
+  schema:
+    type: string
+    examples:
+      - '2026-07-01T00:00:00Z'
+      - '2026-07-01T00:00:00+08:00'
+QueryTo:
+  name: to
+  in: query
+  required: false
+  description: |
+    Exclusive upper bound on `happened_at`. Same ISO+timezone rules as `from`.
+  schema:
+    type: string
+    examples:
+      - '2026-08-01T00:00:00Z'
+QueryTag:
+  name: tag
+  in: query
+  required: false
+  description: |
+    Repeatable. Each value requires the tag to appear in the tags JSON string.
+    Example: `?tag=weight&tag=source:device`
+  schema:
+    type: string
+  style: form
+  explode: true
+QueryQ:
+  name: q
+  in: query
+  required: false
+  description: Substring search across text fields and tags JSON
+  schema:
+    type: string

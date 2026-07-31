@@ -1,0 +1,16 @@
+ApiToken:
+  type: http
+  scheme: bearer
+  bearerFormat: opaque
+  description: |
+    `Authorization: Bearer <token>` where token equals
+    `DIGITAL_TWIN_TOKEN` (AI) **or** `DIGITAL_TWIN_ADMIN_TOKEN`.
+    Used for all non-`/api/admin/*` routes.
+AdminToken:
+  type: http
+  scheme: bearer
+  bearerFormat: opaque
+  description: |
+    `Authorization: Bearer <token>` where token equals
+    `DIGITAL_TWIN_ADMIN_TOKEN` only.
+    Required for `/api/admin/*`. AI token alone → 401.

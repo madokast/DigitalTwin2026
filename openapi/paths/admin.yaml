@@ -1,0 +1,92 @@
+/api/admin/tags/rename:
+  post:
+    operationId: adminRenameTag
+    tags: [admin]
+    summary: Rename a tag across all records
+    description: |
+      Exact tag-name replace in each record's tags JSON. If `to` already exists
+      on a record, duplicates are removed (first-seen order kept).
+      `updated` is the number of records whose tags string changed.
+      Auth: **AdminToken only**.
+    security:
+      - AdminToken: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/RenameTagsRequest'
+          example:
+            from: weight
+            to: body:weight
+    responses:
+      '200':
+        description: Rename applied
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/RenameTagsSuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+/api/admin/records/{id}:
+  patch:
+    operationId: adminPatchRecord
+    tags: [admin]
+    summary: Replace editable fields of one record
+    description: |
+      Full editable snapshot replace via `parseRecordDraft` / `draft.ParseRecordDraft`
+      (`src/lib/record-draft.ts`, `fc/internal/draft`).
+      `happened_at` **must** include an explicit timezone suffix
+      (`Z` or `±HH:MM` / `±HHMM`) — same rule as log endpoints — and at least
+      one of `value_number` / `value_text` must be non-null after normalization
+      (empty strings → null).
+      Auth: **AdminToken only**.
+    security:
+      - AdminToken: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Record UUID (UUIDv7 as stored)
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/RecordDraftRequest'
+          example:
+            happened_at: '2026-07-30T08:00:00+08:00'
+            value_number: '76'
+            value_text: null
+            tags: [weight]
+            objective_context: morning weigh-in
+            subjective_interpretation: corrected
+    responses:
+      '200':
+        description: Record updated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/RecordSuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        description: No row with this id
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Error'
+            example:
+              error: Record not found
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
