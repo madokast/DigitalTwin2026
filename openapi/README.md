@@ -1,6 +1,6 @@
-# OpenAPI 契约（Phase 2）
+# OpenAPI 契约（已收口）
 
-本目录是双后端 HTTP API 的**契约源**（Design-first，**无** TypeScript / Go codegen）。
+本目录是双后端 HTTP API 的**契约源**（Design-first）。OpenAPI 相关基建 **已完成并收口**：后续只随 API 变更维护本目录与契约测，**不再**加 codegen、Schemathesis、新 Phase 或其它 OpenAPI 工具链。边界见下「开发边界」。
 
 入口始终是 [`openapi.yaml`](./openapi.yaml)；正文已按 `$ref` 拆成多文件，语义与原先单体 YAML 一致。
 
@@ -69,14 +69,39 @@ npm run openapi:preview
 
 鉴权：`Authorization: Bearer …`；普通路由接受 AI Token 或 Admin Token；`/api/admin/*` 仅 Admin Token。
 
-## 阶段状态
+## 开发边界（定死）
 
-- **Phase 1**：契约文档已落地；**无** codegen。
-- **Phase 2**：Redocly lint + fixture 契约测（Node Ajv / Go kin-openapi）+ GitHub Actions CI（不含需 DB 的集成测）。
-- **浏览**：`npm run openapi:preview`。
-- **明确不做（暂）**：对真实 HTTP 跑 [Schemathesis](https://schemathesis.readthedocs.io/)（或同类）全路径模糊测试。当前靠静态 fixtures + 双端行为测；若日后要端到端契约轰炸再开，不在本仓库默认流程里。
+### 已完成（到此为止）
 
-改 API = 更新 YAML（入口 + 模块）+ fixtures（如有）+ 两套实现 + 双跑测试 / 契约测。
+| 项 | 说明 |
+|----|------|
+| 契约文档 | OpenAPI 3.1，多文件 `$ref`，入口 `openapi.yaml` |
+| Lint / 预览 | Redocly（`openapi:lint`）、Redoc 静态页（`openapi:preview`） |
+| 契约测 | `fixtures/` + Vitest Ajv + Go `internal/contract`（kin-openapi） |
+| CI | `.github/workflows/ci.yml`：lint + 双端契约测（**不含**需 DB 的集成测） |
+
+历史上称 Phase 1（文档）/ Phase 2（lint + 契约测 + CI）。**不设 Phase 3，不再开 OpenAPI「下一阶段」。**
+
+### 后续开发只做这些
+
+改 API 时（且仅在此时）碰本目录：
+
+1. 更新 YAML 模块 + 根 `$ref`（见「如何编辑」）。
+2. 必要时增改 `fixtures/`。
+3. 手写对齐 Next（`src/app/api/**`、`src/lib/**`）与 Go（`fc/internal/**`）。
+4. 跑：`openapi:lint`、`test:openapi`、`go test ./internal/contract/`，以及行为测 `npm test` / `cd fc && go test ./...`。
+
+契约测继续锁**请求/响应形状**；**业务语义**靠双端手写 + 行为/集成测，不靠生成或模糊轰炸。
+
+### 明确不做（不要再提案）
+
+| 不做 | 原因（摘要） |
+|------|----------------|
+| **Codegen**（TS types / Go structs / server stub / 客户端 SDK） | 形状已由契约测覆盖；codegen 锁不住双端语义；与 App Router + 手写 FC 不合，只增生成流水线税 |
+| **Schemathesis**（及同类：对真实 HTTP 按 spec 全路径模糊 / 属性测试） | 需起服务 + 测试库 + Token；CI 更重；与现有 fixtures + 行为测叠床架屋；个人小 API 面税大于收益 |
+| 新 OpenAPI Phase / 额外契约工具链（Spectral 主链路、其它生成器、契约「平台化」等） | 基建已够用；避免夜长梦多 |
+
+若某次改 API 只需补 fixture 或收紧 `pattern`，那是**维护**，不是新阶段。
 
 ## Schema 硬约束（pattern）
 

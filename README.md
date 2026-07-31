@@ -95,7 +95,7 @@ HTTP API 由 **Next（Vercel）** 与 **Go（FC）** 双端实现，路径 / 鉴
 
 鉴权：`Authorization: Bearer <token>`（`src/proxy.ts` / FC 同等逻辑）。普通 API：AI Token 或 Admin Token；`/api/admin/*`：仅 Admin Token。
 
-**接口契约**以 OpenAPI 3.1 为准：[`openapi/openapi.yaml`](openapi/openapi.yaml)（说明见 [`openapi/README.md`](openapi/README.md)）。根 README 不再维护接口表。Phase 2：`npm run openapi:lint` + `npm run test:openapi` + `cd fc && go test ./internal/contract/`（CI 已接；无 codegen）。本地 Redoc：`npm run openapi:preview`。
+**接口契约**以 OpenAPI 3.1 为准：[`openapi/openapi.yaml`](openapi/openapi.yaml)（说明见 [`openapi/README.md`](openapi/README.md)）。根 README 不再维护接口表。契约基建已收口：`npm run openapi:lint` + `npm run test:openapi` + `cd fc && go test ./internal/contract/`（CI 已接）。**不做** codegen / Schemathesis / 新 OpenAPI Phase。本地 Redoc：`npm run openapi:preview`。
 
 ## 数据库管理
 
