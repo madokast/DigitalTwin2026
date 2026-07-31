@@ -1,11 +1,11 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-07-31
-> 状态：记录详情 Admin 双击编辑（PATCH）收尾
+> 状态：详情 Admin 编辑收尾 + 本地 Go API / 设置页加速地址（FC 部署未做）
 
 ## 0. 今日做成了什么（总览）
 
-在已有查询 / 列表 / 详情只读之上，补齐 **Admin 就地改记录**：一次草稿、一次提交，双击进出编辑尽量零重排。
+在已有查询 / 列表 / 详情只读之上，补齐 **Admin 就地改记录**：一次草稿、一次提交，双击进出编辑尽量零重排。另：落地阿里云 FC 计划的**第一期子集**（前端加速地址 + 本地可跑 Go HTTP API）。
 
 | 类别 | 已完成 |
 |------|--------|
@@ -15,6 +15,8 @@
 | Null | `NullBadge`：斜体淡色、不可选中；真实 `'-'` / `''` 原样 |
 | 标签 | 无逗号独立 chip；编辑仅显隐 `×` / `+`；修复占位塌缩导致的文字跳动 |
 | 文档 | README / 本日志；0730 待办勾选「详情双击编辑」 |
+| Go API（本地） | `fc/`：`go run ./cmd/api`，7 路由 + CORS + 鉴权对齐；`go test ./...` |
+| 设置页加速 | prefs `apiAccelerateBase`；`api-client` 拼 base；空=同源 |
 
 ## 1. Admin PATCH
 
@@ -59,11 +61,27 @@
 f117da6 添加 Admin PATCH 更新记录接口与草稿校验。
 ```
 
-## 5. 仍待办（摘自 0730 §10）
+## 5. 本地 Go API + API 加速地址（FC 第一期子集）
+
+- 目录：`fc/`（标准 `net/http`，不依赖阿里云 SDK 即可本地跑）
+- 路由与鉴权对齐现有 Next：`/api/log/*`、`/api/query*`、`/api/admin/*`
+- 设置页「API 加速地址」：本机 prefs；**不用** `NEXT_PUBLIC_*`；真实 FC URL **不进 git**
+- **未做**：Serverless Devs / `s.yaml` / 控制台部署 / 实际上线
+
+本地验证：
+
+```bash
+cd fc && export $(grep -v '^#' ../.env | xargs) && go run ./cmd/api
+# 设置页填 http://localhost:8080
+cd fc && go test ./...
+```
+
+## 6. 仍待办（摘自 0730 §10）
 
 - 专用录入接口（账单、体重、复盘等）
 - 账单汇总 `GET /query/bill/summary`
 - Dashboard 其它组件（体重/支出等）
 - AI 侧 CLI 包装
-- 数据库 COMMENT、数据导出、阿里云函数计算
+- 数据库 COMMENT、数据导出
+- **阿里云函数计算部署**（CLI / s.yaml / test→prod；前端+本地 Go 已就绪，0730 该项仍不勾）
 - 前端：记录删除 / 图表 / 列表行内编辑

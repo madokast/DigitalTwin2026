@@ -35,12 +35,13 @@ describe('prefs', () => {
     vi.restoreAllMocks()
   })
 
-  it('defaults: empty tokens, summary on, empty timezone', async () => {
+  it('defaults: empty tokens, summary on, empty timezone, empty api accelerate base', async () => {
     const prefs = await import('./prefs')
     expect(prefs.getToken()).toBe('')
     expect(prefs.getAdminToken()).toBe('')
     expect(prefs.getDashboardSummary()).toBe(true)
     expect(prefs.getTimezone()).toBe('')
+    expect(prefs.getApiAccelerateBase()).toBe('')
   })
 
   it('persists token and adminToken via get/set', async () => {
@@ -78,5 +79,13 @@ describe('prefs', () => {
     prefs.setTimezone('Asia/Shanghai')
     expect(prefs.getTimezone()).toBe('Asia/Shanghai')
     expect(prefs.resolveTimezone()).toBe('Asia/Shanghai')
+  })
+
+  it('persists apiAccelerateBase and trims on write', async () => {
+    const prefs = await import('./prefs')
+    prefs.setApiAccelerateBase('  https://example.fcapp.run/  ')
+    expect(prefs.getApiAccelerateBase()).toBe('https://example.fcapp.run/')
+    prefs.setApiAccelerateBase('')
+    expect(prefs.getApiAccelerateBase()).toBe('')
   })
 })

@@ -1,5 +1,6 @@
 import {
   getAdminToken,
+  getApiAccelerateBase,
   getToken,
 } from '@/lib/prefs'
 
@@ -11,6 +12,22 @@ export type TwinRecord = {
   tags: string
   objectiveContext: string
   subjectiveInterpretation: string | null
+}
+
+/** 规范化加速 base：去尾 `/`；空则返回 ""（同源相对路径）。 */
+export function normalizeApiBase(raw: string): string {
+  return raw.trim().replace(/\/+$/, '')
+}
+
+/**
+ * 拼 API URL：prefs 加速地址为空 → `/api/...`；
+ * 非空 → `${base}/api/...`（base 已去尾 `/`）。
+ */
+export function apiUrl(path: string): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const base = normalizeApiBase(getApiAccelerateBase())
+  if (!base) return normalizedPath
+  return `${base}${normalizedPath}`
 }
 
 function authHeader(): HeadersInit {
@@ -49,7 +66,7 @@ export async function fetchSummary(tz: string): Promise<{
   tz: string
 }> {
   const params = new URLSearchParams({ tz })
-  const res = await fetch(`/api/query/summary?${params}`, {
+  const res = await fetch(apiUrl(`/api/query/summary?${params}`), {
     headers: authHeader(),
   })
   return parseJson(res)
@@ -63,7 +80,7 @@ export async function fetchRecords(search: string): Promise<{
   records: TwinRecord[]
 }> {
   const qs = search.startsWith('?') ? search : search ? `?${search}` : ''
-  const res = await fetch(`/api/query${qs}`, {
+  const res = await fetch(apiUrl(`/api/query${qs}`), {
     headers: authHeader(),
   })
   return parseJson(res)
@@ -76,7 +93,7 @@ export async function fetchRecordById(id: string): Promise<TwinRecord | null> {
 }
 
 export async function fetchTags(): Promise<Record<string, number>> {
-  const res = await fetch('/api/query/tags', {
+  const res = await fetch(apiUrl('/api/query/tags'), {
     headers: authHeader(),
   })
   const data = await parseJson<{ success: boolean; tags: Record<string, number> }>(res)
@@ -84,7 +101,7 @@ export async function fetchTags(): Promise<Record<string, number>> {
 }
 
 export async function renameTag(from: string, to: string): Promise<number> {
-  const res = await fetch('/api/admin/tags/rename', {
+  const res = await fetch(apiUrl('/api/admin/tags/rename'), {
     method: 'POST',
     headers: adminAuthHeader(),
     body: JSON.stringify({ from, to }),
@@ -106,7 +123,7 @@ export async function patchRecord(
   id: string,
   body: PatchRecordBody,
 ): Promise<TwinRecord> {
-  const res = await fetch(`/api/admin/records/${id}`, {
+  const res = await fetch(apiUrl(`/api/admin/records/${id}`), {
     method: 'PATCH',
     headers: adminAuthHeader(),
     body: JSON.stringify(body),

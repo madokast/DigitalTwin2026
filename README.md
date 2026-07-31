@@ -12,7 +12,7 @@
 - **数据库**: PostgreSQL（Neon）
 - **ORM**: Drizzle ORM
 - **测试**: Vitest（真实测试库）
-- **部署**: Vercel（主）+ 阿里云函数计算（规划中备用）
+- **部署**: Vercel（主）+ 阿里云函数计算（规划中；本期仅本地 Go API）
 
 ## 快速开始
 
@@ -54,9 +54,24 @@ DATABASE_URL='生产连接串' npm run db:migrate
 npm run dev
 ```
 
-访问 http://localhost:3000 — 在「设置」中填入 Token；可选配置 IANA 时区与 Dashboard summary 开关。
+访问 http://localhost:3000 — 在「设置」中填入 Token；可选配置 IANA 时区、Dashboard summary，以及 **API 加速地址**（空=同源 Vercel `/api/...`）。
 
 主题：语义色 token（`globals.css`），跟随系统 `prefers-color-scheme` 明暗切换。
+
+### 5. 本地 Go API（国内备用镜像，可选）
+
+语义对齐现有 7 条 Next API，标准 PostgreSQL，不依赖阿里云 SDK 即可本地跑：
+
+```bash
+cd fc
+# 需 DATABASE_URL、DIGITAL_TWIN_TOKEN、DIGITAL_TWIN_ADMIN_TOKEN（与根目录 .env 一致）
+export $(grep -v '^#' ../.env | xargs)   # 或自行 export
+go run ./cmd/api                         # 默认 :8080；可用 PORT=9090
+```
+
+网页「设置 → API 加速地址」填 `http://localhost:8080`（仅本机 prefs；**不要**用 `NEXT_PUBLIC_*`，**不要**把真实 FC 域名写进仓库）。空则仍走同源 Vercel。
+
+本期**未做**：Serverless Devs / `s.yaml` / 阿里云控制台部署。
 
 ## Web 路由
 
@@ -67,9 +82,9 @@ npm run dev
 | `/records/[id]` | 记录详情（含 UUID）；Admin 双击字段就地编辑，脏数据才显示提交 |
 | `/tags` | 标签列表 |
 | `/tags/[tag]` | 标签详情：Admin 改名 + 同款记录表 |
-| `/settings` | Token / Admin / summary 开关；时区单行下拉（「跟随浏览器（IANA）」） |
+| `/settings` | Token / Admin / summary 开关；时区；**API 加速地址**（空=同源） |
 
-客户端 prefs（`src/lib/prefs.ts`）封装 localStorage：禁止业务直接读写。时区默认空=跟随浏览器。Summary：单行布局；标题加载中/概览；时区用 `resolveTimezone()` 首屏即显；请求带 `tz=<IANA>`。
+客户端 prefs（`src/lib/prefs.ts`）封装 localStorage：禁止业务直接读写。时区默认空=跟随浏览器。Summary：单行布局；标题加载中/概览；时区用 `resolveTimezone()` 首屏即显；请求带 `tz=<IANA>`。`api-client` 按 prefs 的加速 origin 拼 URL（规范化去尾 `/`）。
 
 ## API 一览
 
@@ -104,6 +119,13 @@ npm run test:watch
 
 单元测 `src/lib`、`src/proxy`；集成测连真实 PG（migrate → TRUNCATE → 测 → DROP）。
 
+Go API：
+
+```bash
+cd fc && go test ./...
+# 有 DATABASE_URL 时会跑 httptest 集成冒烟；否则自动 Skip
+```
+
 ## 项目结构
 
 ```
@@ -111,8 +133,11 @@ npm run test:watch
 │   ├── app/           # 页面与 API Route Handlers
 │   ├── components/    # 表格、过滤器、Dashboard widget 等
 │   ├── db/            # Drizzle schema / 连接
-│   ├── lib/           # prefs、鉴权、query、时区工具
+│   ├── lib/           # prefs、鉴权、query、时区、api-client
 │   └── proxy.ts       # Next.js 16：/api/* 鉴权入口
+├── fc/                # Go HTTP API（本地 go run；FC 部署后续）
+│   ├── cmd/api/       # 入口 :8080 / PORT
+│   └── internal/      # auth / db / tags / timeutil / draft / query / logapi / httpx
 ├── tests/             # API 集成测试与 helpers
 ├── drizzle/           # migration
 ├── docs/              # 设计与开发日志
@@ -141,4 +166,4 @@ npm run test:watch
 - `20260728-fuzzy-time.md` — 模糊时间
 - `20260729-schema-v1.md` — 表与接口定稿
 - `20260730-development-log.md` — 当日开发日志与已完成项
-- `20260731-development-log.md` — 详情双击编辑（Admin PATCH）
+- `20260731-development-log.md` — 详情双击编辑；本地 Go API + 设置页加速地址（FC 部署仍待办）
