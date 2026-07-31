@@ -113,41 +113,33 @@ export function RecordTagChips({
         onRequestEdit()
       }}
     >
-      {        tags.map((tag) => (
-          <span
-            key={tag}
-            className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent text-accent-foreground text-xs font-mono leading-none"
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="inline-flex items-center gap-0.5 pl-2 pr-1 py-0.5 rounded-md bg-accent text-accent-foreground text-xs font-mono leading-none"
+        >
+          <span className="min-w-0">{tag}</span>
+          {/* 右侧 × 始终 w-3 占位：只读 invisible，编辑可见；勿用 hidden */}
+          <button
+            type="button"
+            tabIndex={editing ? 0 : -1}
+            aria-hidden={!editing}
+            aria-label={editing ? `移除 ${tag}` : undefined}
+            className={`text-[10px] leading-none w-3 shrink-0 text-center ${
+              editing
+                ? 'text-link hover:text-accent-foreground'
+                : 'invisible pointer-events-none'
+            }`}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!editing) return
+              onChange(tags.filter((t) => t !== tag))
+            }}
           >
-            {/* 只读时左右对称占位，使文字视觉居中；编辑态只保留右侧 × */}
-            <span
-              aria-hidden
-              className={`text-[10px] leading-none w-3 shrink-0 text-center ${
-                editing ? 'hidden' : 'invisible'
-              }`}
-            >
-              ×
-            </span>
-            <span className="min-w-0">{tag}</span>
-            <button
-              type="button"
-              tabIndex={editing ? 0 : -1}
-              aria-hidden={!editing}
-              aria-label={editing ? `移除 ${tag}` : undefined}
-              className={`text-[10px] leading-none w-3 shrink-0 text-center ${
-                editing
-                  ? 'text-link hover:text-accent-foreground'
-                  : 'invisible pointer-events-none'
-              }`}
-              onClick={(e) => {
-                e.stopPropagation()
-                if (!editing) return
-                onChange(tags.filter((t) => t !== tag))
-              }}
-            >
-              ×
-            </button>
-          </span>
-        ))}
+            ×
+          </button>
+        </span>
+      ))}
 
       <button
         type="button"
