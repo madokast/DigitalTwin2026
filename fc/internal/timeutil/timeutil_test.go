@@ -1,10 +1,43 @@
 package timeutil
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
+
+type dayBoundCase struct {
+	Name     string `json:"name"`
+	TZ       string `json:"tz"`
+	Year     int    `json:"year"`
+	Month    int    `json:"month"`
+	Day      int    `json:"day"`
+	StartUTC string `json:"startUtc"`
+	EndUTC   string `json:"endUtc"`
+}
+
+func loadDayBoundCases(t *testing.T) []dayBoundCase {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
+	b, err := os.ReadFile(filepath.Join(root, "testdata", "zoned-day-bounds-cases.json"))
+	if err != nil {
+		t.Fatalf("read zoned-day-bounds-cases: %v", err)
+	}
+	var payload struct {
+		Cases []dayBoundCase `json:"cases"`
+	}
+	if err := json.Unmarshal(b, &payload); err != nil {
+		t.Fatalf("parse zoned-day-bounds-cases: %v", err)
+	}
+	return payload.Cases
+}
 
 func TestExpandCompactOffset(t *testing.T) {
 	cases := map[string]string{
@@ -56,7 +89,25 @@ func TestIsValidTimeZone(t *testing.T) {
 	}
 }
 
+func TestCalendarDayBoundsSharedFixtures(t *testing.T) {
+	for _, c := range loadDayBoundCases(t) {
+		start, end, err := CalendarDayBounds(c.Year, c.Month, c.Day, c.TZ)
+		if err != nil {
+			t.Fatalf("%s: %v", c.Name, err)
+		}
+		gotStart := start.UTC().Format("2006-01-02T15:04:05.000Z07:00")
+		gotEnd := end.UTC().Format("2006-01-02T15:04:05.000Z07:00")
+		if gotStart != c.StartUTC {
+			t.Fatalf("%s start: got %s want %s", c.Name, gotStart, c.StartUTC)
+		}
+		if gotEnd != c.EndUTC {
+			t.Fatalf("%s end: got %s want %s", c.Name, gotEnd, c.EndUTC)
+		}
+	}
+}
+
 func TestGetZonedDayBounds(t *testing.T) {
+	// 2026-07-30 16:30 UTC = 上海 7/31 00:30 → 日历日 7/31
 	now := time.Date(2026, 7, 30, 16, 30, 0, 0, time.UTC)
 
 	start, end, err := GetZonedDayBounds(now, "Asia/Shanghai")

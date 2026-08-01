@@ -1,0 +1,41 @@
+{
+  "comment": "Shared calendarDayBounds / CalendarDayBounds cases. Both Next (src/lib/timeutil.test.ts) and Go (fc/internal/timeutil) load this file. end = next wall-clock midnight in tz (Go AddDate(0,0,1) / TS calendar day+1).",
+  "cases": [
+    {
+      "name": "asia-shanghai",
+      "tz": "Asia/Shanghai",
+      "year": 2026,
+      "month": 7,
+      "day": 30,
+      "startUtc": "2026-07-29T16:00:00.000Z",
+      "endUtc": "2026-07-30T16:00:00.000Z"
+    },
+    {
+      "name": "utc",
+      "tz": "UTC",
+      "year": 2026,
+      "month": 7,
+      "day": 30,
+      "startUtc": "2026-07-30T00:00:00.000Z",
+      "endUtc": "2026-07-31T00:00:00.000Z"
+    },
+    {
+      "name": "us-eastern-spring-forward-23h",
+      "tz": "America/New_York",
+      "year": 2024,
+      "month": 3,
+      "day": 10,
+      "startUtc": "2024-03-10T05:00:00.000Z",
+      "endUtc": "2024-03-11T04:00:00.000Z"
+    },
+    {
+      "name": "us-eastern-fall-back-25h",
+      "tz": "America/New_York",
+      "year": 2024,
+      "month": 11,
+      "day": 3,
+      "startUtc": "2024-11-03T04:00:00.000Z",
+      "endUtc": "2024-11-04T05:00:00.000Z"
+    }
+  ]
+}

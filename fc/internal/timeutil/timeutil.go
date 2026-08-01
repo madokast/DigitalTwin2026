@@ -58,6 +58,8 @@ func GetZonedDayBounds(now time.Time, tz string) (start, end time.Time, err erro
 }
 
 // CalendarDayBounds returns [start, end) for the wall-clock calendar day in tz.
+// end = start.AddDate(0, 0, 1)（与 Next calendarDayBounds 墙钟日+1 对齐；DST 23h/25h 日由 tzdata 处理）。
+// 边界样例见仓库根 testdata/zoned-day-bounds-cases.json（双端单测同读）。
 func CalendarDayBounds(year, month, day int, tz string) (start, end time.Time, err error) {
 	loc, err := time.LoadLocation(tz)
 	if err != nil {

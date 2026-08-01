@@ -88,17 +88,17 @@ export function calendarDayBounds(
   }
 
   const start = zonedLocalToUtc(year, month, day, 0, 0, 0, timeZone)
-
-  // 次日 00:00：用 start + 25h 再取该区日历日，避免夏令时少一小时踩坑
-  const probe = new Date(start.getTime() + 25 * 60 * 60 * 1000)
-  const next = zonedParts(probe, timeZone)
-  let endDay = { year: next.year, month: next.month, day: next.day }
-  if (endDay.year === year && endDay.month === month && endDay.day === day) {
-    const later = new Date(start.getTime() + 36 * 60 * 60 * 1000)
-    const p2 = zonedParts(later, timeZone)
-    endDay = { year: p2.year, month: p2.month, day: p2.day }
-  }
-  const end = zonedLocalToUtc(endDay.year, endDay.month, endDay.day, 0, 0, 0, timeZone)
+  // 与 Go time.Time.AddDate(0,0,1) 同语义：墙钟日历日 +1 的次日 00:00（自然处理 DST 23h/25h 日）
+  const next = new Date(Date.UTC(year, month - 1, day + 1))
+  const end = zonedLocalToUtc(
+    next.getUTCFullYear(),
+    next.getUTCMonth() + 1,
+    next.getUTCDate(),
+    0,
+    0,
+    0,
+    timeZone,
+  )
 
   return { start, end }
 }
