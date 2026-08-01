@@ -4,9 +4,11 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 
 function requireDatabaseUrl(): string {
-  const url = process.env.DATABASE_URL
+  const url = process.env.DATABASE_URL?.trim()
   if (!url) {
-    throw new Error('DATABASE_URL is required for API integration tests (use the dedicated test Neon DB in .env)')
+    throw new Error(
+      'DATABASE_URL is required for API integration tests (use the dedicated test Neon DB in .env; CI skips this suite when unset)',
+    )
   }
   return url
 }

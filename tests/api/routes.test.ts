@@ -12,7 +12,10 @@ import { dropTestSchema, migrateTestDatabase, truncateRecords } from '../helpers
 import { jsonGet, jsonPatch, jsonPost } from '../helpers/http'
 import { reservedTagError } from '@/lib/tags'
 
-describe('API integration', () => {
+/** 与 Go httpx integration 一致：无 DATABASE_URL 时 Skip，便于 CI 跑单元测 */
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim())
+
+describe.skipIf(!hasDatabaseUrl)('API integration', () => {
   beforeAll(async () => {
     await migrateTestDatabase()
   }, 60_000)

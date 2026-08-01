@@ -28,7 +28,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - **分层与同构**：共享后端域须双端模块 / 函数 stem 对齐；规范见 [`docs/20260801-api-layering.md`](docs/20260801-api-layering.md)。
 - **API 契约**：入口 [`openapi/openapi.yaml`](openapi/openapi.yaml)（OpenAPI 3.1，`$ref` 拆至 `openapi/paths/`、`openapi/components/`；说明见 [`openapi/README.md`](openapi/README.md)）。基建已收口；**不做** codegen / Schemathesis / 新 OpenAPI Phase。本地浏览：`npm run openapi:preview`（Redoc 静态 HTML）。
-- **改 API = 更新 OpenAPI（+ fixtures）+ 双改代码 + 双跑测试**：`npm run openapi:lint`（Redocly）、`npm run test:openapi`、`cd fc && go test ./internal/contract/`，以及 `npm test` / `cd fc && go test ./...`。CI：[`.github/workflows/ci.yml`](.github/workflows/ci.yml)（lint + 契约测；不含需 DB 的集成测）。
+- **改 API = 更新 OpenAPI（+ fixtures）+ 双改代码 + 双跑测试**：`npm run openapi:lint`（Redocly）、`npm run test:openapi`、`cd fc && go test ./internal/contract/`，以及 `npm test` / `cd fc && go test ./...`。CI：[`.github/workflows/ci.yml`](.github/workflows/ci.yml)（lint + 契约 + 无 DB 单元测；`tests/api` / Go httptest 集成在无 `DATABASE_URL` 时 Skip。可选 secrets `TEST_DATABASE_URL` 等启用 Node 集成测 job）。
 - 网页 Settings 中的 **API Accelerate URL** 指向 FC Base URL；空则同源 Vercel。真实 FC URL **禁止进 git**。
 - 生产密钥刷新：`npm run secrets:refresh-prod`（细节见 [`fc/README.md`](fc/README.md)）。
 

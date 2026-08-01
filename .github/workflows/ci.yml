@@ -17,8 +17,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run openapi:lint
-      # 契约测无 DB；勿跑完整 npm test（集成测需 DATABASE_URL）
       - run: npm run test:openapi
+
+  unit-node:
+    name: Unit tests (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      # 无 DATABASE_URL：tests/api 会 skip（与 Go integration Skip 对齐）；仍跑 src/lib 等单元测
+      - run: npm test
 
   go-contract:
     name: OpenAPI contract (Go)
@@ -31,3 +43,38 @@ jobs:
           cache-dependency-path: fc/go.sum
       - working-directory: fc
         run: go test ./internal/contract/ -count=1
+
+  unit-go:
+    name: Unit tests (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: fc/go.mod
+          cache-dependency-path: fc/go.sum
+      - working-directory: fc
+        # httpx integration 在无 DATABASE_URL 时 Skip
+        run: go test ./... -count=1
+
+  api-integration:
+    name: API integration (Node, optional)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Run API integration tests
+        env:
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          DIGITAL_TWIN_TOKEN: ${{ secrets.TEST_DIGITAL_TWIN_TOKEN }}
+          DIGITAL_TWIN_ADMIN_TOKEN: ${{ secrets.TEST_DIGITAL_TWIN_ADMIN_TOKEN }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "TEST_DATABASE_URL secret not set; skipping API integration"
+            exit 0
+          fi
+          npx vitest run tests/api

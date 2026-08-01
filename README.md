@@ -117,7 +117,7 @@ cd fc && go test ./internal/contract/   # Go 契约（无 DB）
 cd fc && go test ./...
 ```
 
-单元测 `src/lib`、`src/proxy`；集成测连真实 PG（migrate → TRUNCATE → 测 → DROP）。Go：有 `DATABASE_URL` 时跑 httptest 冒烟，否则 Skip。契约测与 DB 无关，见 `openapi/README.md`。
+单元测 `src/lib`、`src/proxy`；集成测连真实 PG（migrate → TRUNCATE → 测 → DROP）。无 `DATABASE_URL` 时 Next `tests/api` 与 Go httptest 冒烟均 **Skip**（CI 默认可跑单元测）。配置 GitHub secrets `TEST_DATABASE_URL`（及可选 Token）可启用 CI 集成测 job。契约测与 DB 无关，见 `openapi/README.md`。
 
 ## 项目结构
 
