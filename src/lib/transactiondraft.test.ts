@@ -131,4 +131,21 @@ describe('parseTransactionBatch', () => {
       error: `entries must contain at most ${MAX_TRANSACTION_ENTRIES} items`,
     })
   })
+
+  it('rejects wrong JSON field types with field-level messages', () => {
+    expect(
+      parseTransactionBatch({
+        ...base,
+        type: 123,
+      }),
+    ).toEqual({ error: 'type must be "income" or "expense"' })
+    expect(
+      parseTransactionBatch({
+        ...base,
+        entries: 'x' as unknown as typeof base.entries,
+      }),
+    ).toEqual({
+      error: 'Missing required field: entries (non-empty array)',
+    })
+  })
 })

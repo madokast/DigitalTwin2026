@@ -15,20 +15,22 @@ import (
 	"github.com/mdk/digitaltwin2026/fc/internal/tags"
 )
 
+// 字段均为 any：与 Next 一样先 JSON 解成动态值再字段级校验，
+// 避免 Go 强类型 decode 把类型错误一律变成 Invalid JSON body。
 type NumberBody struct {
-	HappenedAt               string   `json:"happened_at"`
-	ValueNumber              any      `json:"value_number"`
-	Tags                     []string `json:"tags"`
-	ObjectiveContext         string   `json:"objective_context"`
-	SubjectiveInterpretation any      `json:"subjective_interpretation"`
+	HappenedAt               any `json:"happened_at"`
+	ValueNumber              any `json:"value_number"`
+	Tags                     any `json:"tags"`
+	ObjectiveContext         any `json:"objective_context"`
+	SubjectiveInterpretation any `json:"subjective_interpretation"`
 }
 
 type TextBody struct {
-	HappenedAt               string   `json:"happened_at"`
-	ValueText                string   `json:"value_text"`
-	Tags                     []string `json:"tags"`
-	ObjectiveContext         string   `json:"objective_context"`
-	SubjectiveInterpretation any      `json:"subjective_interpretation"`
+	HappenedAt               any `json:"happened_at"`
+	ValueText                any `json:"value_text"`
+	Tags                     any `json:"tags"`
+	ObjectiveContext         any `json:"objective_context"`
+	SubjectiveInterpretation any `json:"subjective_interpretation"`
 }
 
 // optionalSubjective 与 draft / PATCH 对齐：非 string → 错误；空串 / null / omit → nil
@@ -44,6 +46,47 @@ func optionalSubjective(raw any) (any, error) {
 		return nil, nil
 	}
 	return s, nil
+}
+
+func happenedAtString(raw any) string {
+	s, _ := raw.(string)
+	return s
+}
+
+func requireNonEmptyString(raw any, missingMsg string) (string, error) {
+	s, ok := raw.(string)
+	if !ok || s == "" {
+		return "", fmt.Errorf("%s", missingMsg)
+	}
+	return s, nil
+}
+
+// tagsStringSlice 与 Next createNumber/createText：非数组或空 → Missing tags；
+// 元素非 string → tags must be an array of strings（与 PATCH draft 一致）。
+func tagsStringSlice(raw any) ([]string, error) {
+	tagList, ok := raw.([]any)
+	if !ok {
+		if sl, ok2 := raw.([]string); ok2 {
+			tagList = make([]any, len(sl))
+			for i, t := range sl {
+				tagList[i] = t
+			}
+		} else {
+			return nil, fmt.Errorf("Missing required field: tags (non-empty array)")
+		}
+	}
+	if len(tagList) == 0 {
+		return nil, fmt.Errorf("Missing required field: tags (non-empty array)")
+	}
+	out := make([]string, 0, len(tagList))
+	for _, item := range tagList {
+		s, ok := item.(string)
+		if !ok {
+			return nil, fmt.Errorf("tags must be an array of strings")
+		}
+		out = append(out, s)
+	}
+	return out, nil
 }
 
 // rowQuerier：pgxpool.Pool 与 pgx.Tx 均实现
@@ -80,22 +123,21 @@ RETURNING id, happened_at, value_number, value_text, tags, objective_context, su
 	return record.FromDB(outID, outHappened, outNum, outText, outTags, outObj, outSubj), nil
 }
 
-func decodeNumberBody(raw []byte) (NumberBody, error) {
+func decodeJSONBody(raw []byte, dest any) error {
 	dec := json.NewDecoder(strings.NewReader(string(raw)))
 	dec.UseNumber()
-	var body NumberBody
-	if err := dec.Decode(&body); err != nil {
-		return NumberBody{}, fmt.Errorf("Invalid JSON body")
+	if err := dec.Decode(dest); err != nil {
+		return fmt.Errorf("Invalid JSON body")
 	}
-	return body, nil
+	return nil
 }
 
 func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {
-	body, err := decodeNumberBody(raw)
-	if err != nil {
+	var body NumberBody
+	if err := decodeJSONBody(raw, &body); err != nil {
 		return record.Record{}, 400, err
 	}
-	happenedAt, err := draft.ParseHappenedAt(body.HappenedAt)
+	happenedAt, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
 	if err != nil {
 		return record.Record{}, 400, err
 	}
@@ -109,25 +151,27 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	if numStr == nil {
 		return record.Record{}, 400, fmt.Errorf("Missing required field: value_number")
 	}
-	if len(body.Tags) == 0 {
-		return record.Record{}, 400, fmt.Errorf("Missing required field: tags (non-empty array)")
+	tagList, err := tagsStringSlice(body.Tags)
+	if err != nil {
+		return record.Record{}, 400, err
 	}
-	tv := tags.ValidateTags(body.Tags)
+	tv := tags.ValidateTags(tagList)
 	if !tv.Valid {
 		return record.Record{}, 400, fmt.Errorf("%s", tv.Error)
 	}
-	if rv := tags.AssertNoReservedTags(body.Tags); !rv.Valid {
+	if rv := tags.AssertNoReservedTags(tagList); !rv.Valid {
 		return record.Record{}, 400, fmt.Errorf("%s", rv.Error)
 	}
-	if body.ObjectiveContext == "" {
-		return record.Record{}, 400, fmt.Errorf("Missing required field: objective_context")
+	objCtx, err := requireNonEmptyString(body.ObjectiveContext, "Missing required field: objective_context")
+	if err != nil {
+		return record.Record{}, 400, err
 	}
 	subj, err := optionalSubjective(body.SubjectiveInterpretation)
 	if err != nil {
 		return record.Record{}, 400, err
 	}
 
-	tagsJSON, err := record.TagsJSON(body.Tags)
+	tagsJSON, err := record.TagsJSON(tagList)
 	if err != nil {
 		return record.Record{}, 500, err
 	}
@@ -138,7 +182,7 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 
 	rec, err := insertReturning(
 		ctx, pool, id.String(), happenedAt, numStr, nil,
-		tagsJSON, body.ObjectiveContext, subj,
+		tagsJSON, objCtx, subj,
 	)
 	if err != nil {
 		return record.Record{}, 500, err
@@ -148,35 +192,38 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 
 func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {
 	var body TextBody
-	if err := json.Unmarshal(raw, &body); err != nil {
-		return record.Record{}, 400, fmt.Errorf("Invalid JSON body")
+	if err := decodeJSONBody(raw, &body); err != nil {
+		return record.Record{}, 400, err
 	}
-	happenedAt, err := draft.ParseHappenedAt(body.HappenedAt)
+	happenedAt, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
 	if err != nil {
 		return record.Record{}, 400, err
 	}
-	if body.ValueText == "" {
-		return record.Record{}, 400, fmt.Errorf("Missing required field: value_text")
+	valueText, err := requireNonEmptyString(body.ValueText, "Missing required field: value_text")
+	if err != nil {
+		return record.Record{}, 400, err
 	}
-	if len(body.Tags) == 0 {
-		return record.Record{}, 400, fmt.Errorf("Missing required field: tags (non-empty array)")
+	tagList, err := tagsStringSlice(body.Tags)
+	if err != nil {
+		return record.Record{}, 400, err
 	}
-	tv := tags.ValidateTags(body.Tags)
+	tv := tags.ValidateTags(tagList)
 	if !tv.Valid {
 		return record.Record{}, 400, fmt.Errorf("%s", tv.Error)
 	}
-	if rv := tags.AssertNoReservedTags(body.Tags); !rv.Valid {
+	if rv := tags.AssertNoReservedTags(tagList); !rv.Valid {
 		return record.Record{}, 400, fmt.Errorf("%s", rv.Error)
 	}
-	if body.ObjectiveContext == "" {
-		return record.Record{}, 400, fmt.Errorf("Missing required field: objective_context")
+	objCtx, err := requireNonEmptyString(body.ObjectiveContext, "Missing required field: objective_context")
+	if err != nil {
+		return record.Record{}, 400, err
 	}
 	subj, err := optionalSubjective(body.SubjectiveInterpretation)
 	if err != nil {
 		return record.Record{}, 400, err
 	}
 
-	tagsJSON, err := record.TagsJSON(body.Tags)
+	tagsJSON, err := record.TagsJSON(tagList)
 	if err != nil {
 		return record.Record{}, 500, err
 	}
@@ -184,11 +231,10 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	if err != nil {
 		return record.Record{}, 500, err
 	}
-	vt := body.ValueText
 
 	rec, err := insertReturning(
-		ctx, pool, id.String(), happenedAt, nil, &vt,
-		tagsJSON, body.ObjectiveContext, subj,
+		ctx, pool, id.String(), happenedAt, nil, &valueText,
+		tagsJSON, objCtx, subj,
 	)
 	if err != nil {
 		return record.Record{}, 500, err

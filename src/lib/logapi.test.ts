@@ -86,6 +86,39 @@ describe('createNumber', () => {
       })
     }
   })
+
+  it('rejects wrong JSON field types with field-level messages', async () => {
+    expect(
+      await createNumber({
+        happened_at: 123,
+        value_number: '1',
+        tags: ['weight'],
+        objective_context: 'x',
+      }),
+    ).toEqual({ error: 'Missing required field: happened_at', status: 400 })
+    expect(
+      await createNumber({
+        happened_at: '2026-07-30T08:00:00Z',
+        value_number: '1',
+        tags: 'x',
+        objective_context: 'x',
+      }),
+    ).toEqual({
+      error: 'Missing required field: tags (non-empty array)',
+      status: 400,
+    })
+    expect(
+      await createNumber({
+        happened_at: '2026-07-30T08:00:00Z',
+        value_number: '1',
+        tags: ['weight'],
+        objective_context: 123,
+      }),
+    ).toEqual({
+      error: 'Missing required field: objective_context',
+      status: 400,
+    })
+  })
 })
 
 describe('createText', () => {
@@ -127,6 +160,17 @@ describe('createText', () => {
       error: 'Invalid subjective_interpretation',
       status: 400,
     })
+  })
+
+  it('rejects non-string value_text', async () => {
+    expect(
+      await createText({
+        happened_at: '2026-07-30T08:00:00Z',
+        value_text: 123,
+        tags: ['study'],
+        objective_context: 'x',
+      }),
+    ).toEqual({ error: 'Missing required field: value_text', status: 400 })
   })
 })
 

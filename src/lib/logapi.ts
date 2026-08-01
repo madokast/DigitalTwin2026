@@ -99,6 +99,9 @@ export async function createNumber(
       status: 400,
     }
   }
+  if (!body.tags.every((t) => typeof t === 'string')) {
+    return { error: 'tags must be an array of strings', status: 400 }
+  }
   const tagsValidation = validateTags(body.tags)
   if (!tagsValidation.valid) {
     return { error: tagsValidation.error!, status: 400 }
@@ -150,6 +153,9 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
       error: 'Missing required field: tags (non-empty array)',
       status: 400,
     }
+  }
+  if (!body.tags.every((t) => typeof t === 'string')) {
+    return { error: 'tags must be an array of strings', status: 400 }
   }
   const tagsValidation = validateTags(body.tags)
   if (!tagsValidation.valid) {
