@@ -37,11 +37,27 @@ func TestAssertNoReservedTags(t *testing.T) {
 	if !IsReservedTag("transaction_entry") {
 		t.Fatal("expected reserved")
 	}
+	if !IsReservedTag("transaction_entry:income") {
+		t.Fatal("expected reserved prefix")
+	}
+	if !IsReservedTag("transaction_entry:a:b") {
+		t.Fatal("expected reserved nested prefix")
+	}
+	if IsReservedTag("transaction_entrypoint") {
+		t.Fatal("colon boundary: transaction_entrypoint must not be reserved")
+	}
 	r := AssertNoReservedTags([]string{"weight", "transaction_entry"})
 	if r.Valid || r.Error != ReservedTagError("transaction_entry") {
 		t.Fatalf("%+v", r)
 	}
+	r = AssertNoReservedTags([]string{"transaction_entry:expense"})
+	if r.Valid || r.Error != ReservedTagError("transaction_entry:expense") {
+		t.Fatalf("%+v", r)
+	}
 	if r := AssertNoReservedTags([]string{"weight"}); !r.Valid {
+		t.Fatalf("%+v", r)
+	}
+	if r := AssertNoReservedTags([]string{"transaction_entrypoint"}); !r.Valid {
 		t.Fatalf("%+v", r)
 	}
 }

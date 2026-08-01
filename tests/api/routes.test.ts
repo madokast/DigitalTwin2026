@@ -199,6 +199,7 @@ describe('API integration', () => {
     it('rejects empty entries', async () => {
       const res = await postTransaction(jsonPost('http://localhost/api/log/transaction', {
         happened_at: '2026-08-01T12:30:00+08:00',
+        type: 'expense',
         entries: [],
       }))
       expect(res.status).toBe(400)
@@ -208,6 +209,7 @@ describe('API integration', () => {
     it('inserts multiple rows and returns inserted count only', async () => {
       const res = await postTransaction(jsonPost('http://localhost/api/log/transaction', {
         happened_at: '2026-08-01T12:30:00+08:00',
+        type: 'expense',
         entries: [
           {
             amount: '25.00',
@@ -229,14 +231,31 @@ describe('API integration', () => {
       expect(body.records).toBeUndefined()
 
       const q = await queryRecords(jsonGet(
-        'http://localhost/api/query?tag=transaction_entry&pageSize=10',
+        'http://localhost/api/query?tag=transaction_entry:expense&pageSize=10',
       ))
       expect(q.status).toBe(200)
       const qBody = await q.json()
       expect(qBody.count).toBe(2)
       expect(qBody.records.every((r: { tags: string }) =>
-        r.tags.includes('transaction_entry'),
+        r.tags.includes('transaction_entry:expense'),
       )).toBe(true)
+    })
+
+    it('rejects zero amount', async () => {
+      const res = await postTransaction(jsonPost('http://localhost/api/log/transaction', {
+        happened_at: '2026-08-01T12:30:00+08:00',
+        type: 'income',
+        entries: [
+          {
+            amount: '0.00',
+            memo: 'noop',
+            category: 'food',
+            subcategory: 'other',
+          },
+        ],
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('entries[0]: amount must not be zero')
     })
 
     it('rejects reserved tag on log/number', async () => {
@@ -248,6 +267,17 @@ describe('API integration', () => {
       }))
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(reservedTagError('transaction_entry'))
+    })
+
+    it('rejects reserved prefixed tag on log/number', async () => {
+      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-08-01T12:30:00+08:00',
+        value_number: '1',
+        tags: ['transaction_entry:income'],
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(reservedTagError('transaction_entry:income'))
     })
   })
 
@@ -591,6 +621,15 @@ describe('API integration', () => {
       }))
       expect(toRes.status).toBe(400)
       expect((await toRes.json()).error).toBe(reservedTagError('transaction_entry'))
+
+      const prefixed = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
+        from: 'transaction_entry:income',
+        to: 'legacy_tx',
+      }))
+      expect(prefixed.status).toBe(400)
+      expect((await prefixed.json()).error).toBe(
+        reservedTagError('transaction_entry:income'),
+      )
     })
   })
 
@@ -680,6 +719,25 @@ describe('API integration', () => {
       )
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(reservedTagError('transaction_entry'))
+    })
+
+    it('rejects reserved prefixed tag in tags', async () => {
+      const record = await createNumber()
+      const res = await patchRecord(
+        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          value_number: '1',
+          value_text: null,
+          tags: ['weight', 'transaction_entry:expense'],
+          objective_context: 'x',
+          subjective_interpretation: null,
+        }),
+        { params: Promise.resolve({ id: record.id }) },
+      )
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        reservedTagError('transaction_entry:expense'),
+      )
     })
 
     it('returns 404 for unknown id', async () => {

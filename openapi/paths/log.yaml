@@ -7,7 +7,8 @@
       Inserts a record with `value_number` set and `value_text` null.
       On success, Telegram notification is best-effort and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
-      Reserved tags such as `transaction_entry` are rejected (use POST /api/log/transaction).
+      Reserved tag prefixes (e.g. `transaction_entry` and `transaction_entry:*`)
+      are rejected (use POST /api/log/transaction).
     security:
       - ApiToken: []
     requestBody:
@@ -45,7 +46,8 @@
       Inserts a record with `value_text` set and `value_number` null.
       On success, Telegram notification is best-effort and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
-      Reserved tags such as `transaction_entry` are rejected (use POST /api/log/transaction).
+      Reserved tag prefixes (e.g. `transaction_entry` and `transaction_entry:*`)
+      are rejected (use POST /api/log/transaction).
     security:
       - ApiToken: []
     requestBody:
@@ -79,10 +81,15 @@
     tags: [log]
     summary: Log one spend/income event with one or more line entries
     description: |
-      Records an already-occurred money event. Body is always a batch via `entries`
-      (length 1 for a single line). Shared `happened_at` for all lines.
-      Each line becomes one DB row with reserved tag `transaction_entry` plus
-      `{category}:{subcategory}`. Response is only `{ success, inserted }` (no full records).
+      Records an already-occurred money event. Required top-level `type`
+      (`income` | `expense`) applies to the whole request; mixed directions
+      need two calls. Body is always a batch via `entries` (length 1 for a
+      single line). Shared `happened_at` for all lines.
+      Each line becomes one DB row with tags
+      `transaction_entry:{type}` plus `{category}:{subcategory}`.
+      Amount zero after decimal validation → 400. Sign: positive = normal
+      for that type; negative = reversal of that type.
+      Response is only `{ success, inserted }` (no full records).
       Opinions/feelings about the spend → separate POST /api/log/text.
       Auth: ApiToken.
     security:
@@ -95,6 +102,7 @@
             $ref: '../components/schemas.yaml#/LogTransactionRequest'
           example:
             happened_at: '2026-08-01T12:30:00+08:00'
+            type: expense
             entries:
               - amount: '25.00'
                 memo: beef noodle lunch

@@ -162,23 +162,26 @@ func TestLogTextRejectsReservedTag(t *testing.T) {
 
 func TestRenameTagsRejectsReservedTag(t *testing.T) {
 	h := testServer().Handler()
-	for _, payload := range []string{
-		`{"from":"transaction_entry","to":"legacy_tx"}`,
-		`{"from":"food","to":"transaction_entry"}`,
+	for _, tc := range []struct {
+		payload string
+		want    string
+	}{
+		{`{"from":"transaction_entry","to":"legacy_tx"}`, `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`},
+		{`{"from":"food","to":"transaction_entry"}`, `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`},
+		{`{"from":"transaction_entry:income","to":"legacy_tx"}`, `tag "transaction_entry:income" is reserved; use POST /api/log/transaction for transaction line entries`},
 	} {
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/rename", strings.NewReader(payload))
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/rename", strings.NewReader(tc.payload))
 		req.Header.Set("Authorization", "Bearer admin-tok")
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)
 		if rr.Code != 400 {
-			t.Fatalf("%s status %d body %s", payload, rr.Code, rr.Body.String())
+			t.Fatalf("%s status %d body %s", tc.payload, rr.Code, rr.Body.String())
 		}
 		var body map[string]string
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		want := `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`
-		if body["error"] != want {
-			t.Fatalf("%s error: %v", payload, body)
+		if body["error"] != tc.want {
+			t.Fatalf("%s error: %v", tc.payload, body)
 		}
 	}
 }

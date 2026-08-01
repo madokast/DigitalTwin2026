@@ -5,22 +5,36 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 )
 
 var tagPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$`)
 
-// ReservedTags 仅专用 API 可写入；通用 log / Admin 草稿 / rename 拒绝。
-var ReservedTags = []string{"transaction_entry"}
+// ReservedTagPrefixes 保留 tag **前缀**列表（非仅精确匹配）。
+// 某 tag 视为保留当且仅当：tag == P 或 strings.HasPrefix(tag, P+":")
+// （冒号边界，避免误伤 transaction_entrypoint）。
+// 当前 P：transaction_entry → 同时禁止 transaction_entry:income 等。
+// 仅专用 API（POST /api/log/transaction）可写入带此前缀的 tag；
+// 通用 log / Admin 草稿 / rename 的 from/to 均拒绝。
+var ReservedTagPrefixes = []string{"transaction_entry"}
+
+// ReservedTags 历史别名；语义同 ReservedTagPrefixes。
+var ReservedTags = ReservedTagPrefixes
 
 const ReservedTagTransactionEntry = "transaction_entry"
+
+// TransactionEntryTypeTag 组装落库用类型 tag。
+func TransactionEntryTypeTag(typ string) string {
+	return ReservedTagTransactionEntry + ":" + typ
+}
 
 func IsValidTag(tag string) bool {
 	return tagPattern.MatchString(tag)
 }
 
 func IsReservedTag(tag string) bool {
-	for _, r := range ReservedTags {
-		if tag == r {
+	for _, p := range ReservedTagPrefixes {
+		if tag == p || strings.HasPrefix(tag, p+":") {
 			return true
 		}
 	}

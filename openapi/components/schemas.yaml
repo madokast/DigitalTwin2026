@@ -293,13 +293,29 @@ TransactionCategorySegment:
     - housing
     - rent
 
+TransactionType:
+  type: string
+  description: |
+    Whole-request money direction (not per entry). Mixed income+expense
+    requires two API calls.
+    Sign of `amount` is independent: positive = normal; negative = reversal
+    (冲销) of that same type — e.g. `income` + negative = income reversal;
+    `expense` + negative = expense reversal.
+  enum: [income, expense]
+
 TransactionEntry:
   type: object
   required: [amount, memo, category, subcategory]
   additionalProperties: true
   properties:
     amount:
-      $ref: '#/DecimalString'
+      allOf:
+        - $ref: '#/DecimalString'
+      description: |
+        Decimal string (not JSON number). After trim/validate, literal zero
+        (`0`, `0.0`, `-0`, …) is rejected at runtime with 400
+        (`amount must not be zero` / `entries[i]: amount must not be zero`).
+        Sign semantics depend on top-level `type` (see TransactionType).
     memo:
       type: string
       minLength: 1
@@ -312,17 +328,25 @@ TransactionEntry:
 LogTransactionRequest:
   type: object
   description: |
-    One already-occurred spend/income event with one or more line entries.
+    One already-occurred money event with one or more line entries sharing
+    the same `type` (`income` | `expense`).
     Server stores each entry as a row with tags
-    `["transaction_entry","{category}:{subcategory}"]`.
+    `["transaction_entry:{type}","{category}:{subcategory}"]`
+    (e.g. `transaction_entry:expense`).
     Feelings/reviews belong in POST /api/log/text, not here.
-    Tag `transaction_entry` is reserved and must not appear on /api/log/number or /api/log/text.
-  required: [happened_at, entries]
+    Reserved tag **prefix** `transaction_entry`: a tag is reserved iff
+    `tag === "transaction_entry"` OR `tag.startsWith("transaction_entry:")`
+    (colon boundary — `transaction_entrypoint` is not reserved).
+    Clients must not send reserved tags on /api/log/number, /api/log/text,
+    Admin draft, or Admin tag rename from/to.
+  required: [happened_at, type, entries]
   additionalProperties: true
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
       description: Shared event time for all entries
+    type:
+      $ref: '#/TransactionType'
     entries:
       type: array
       minItems: 1

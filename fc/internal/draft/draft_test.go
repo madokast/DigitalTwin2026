@@ -87,6 +87,19 @@ func TestParseRecordDraftRejectsReservedTag(t *testing.T) {
 	}
 }
 
+func TestParseRecordDraftRejectsReservedPrefixedTag(t *testing.T) {
+	_, err := ParseRecordDraft(RecordDraftBody{
+		HappenedAt:       "2026-07-30T08:00:00+08:00",
+		ValueNumber:      "1",
+		Tags:             []string{"transaction_entry:income"},
+		ObjectiveContext: "x",
+	})
+	want := tags.ReservedTagError("transaction_entry:income")
+	if err == nil || err.Error() != want {
+		t.Fatalf("err=%v", err)
+	}
+}
+
 func TestParseRecordDraftRejectsNoTZ(t *testing.T) {
 	_, err := ParseRecordDraft(RecordDraftBody{
 		HappenedAt:       "2026-07-30T08:00:00",

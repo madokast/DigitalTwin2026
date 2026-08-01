@@ -175,6 +175,15 @@ describe('parseRecordDraft', () => {
     ).toEqual({ error: reservedTagError('transaction_entry') })
   })
 
+  it('rejects reserved prefix transaction_entry:income', () => {
+    expect(
+      parseRecordDraft({
+        ...validBase,
+        tags: ['transaction_entry:income'],
+      }),
+    ).toEqual({ error: reservedTagError('transaction_entry:income') })
+  })
+
   it('accepts empty value_number with text-only records', () => {
     const parsed = parseRecordDraft({
       ...validBase,

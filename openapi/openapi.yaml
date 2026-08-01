@@ -130,6 +130,8 @@ components:
       $ref: './components/schemas.yaml#/TelegramProbeRequest'
     TransactionCategorySegment:
       $ref: './components/schemas.yaml#/TransactionCategorySegment'
+    TransactionType:
+      $ref: './components/schemas.yaml#/TransactionType'
     TransactionEntry:
       $ref: './components/schemas.yaml#/TransactionEntry'
     LogTransactionRequest:

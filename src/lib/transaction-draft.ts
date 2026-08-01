@@ -5,14 +5,19 @@ import {
   type DraftValidationError,
 } from '@/lib/record-draft'
 import {
-  RESERVED_TAG_TRANSACTION_ENTRY,
   isValidTag,
+  transactionEntryTypeTag,
 } from '@/lib/tags'
 
 const SEGMENT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 export const MAX_TRANSACTION_ENTRIES = 100
 
 export const AMOUNT_MUST_BE_STRING = 'amount must be a decimal string'
+export const AMOUNT_MUST_NOT_BE_ZERO = 'amount must not be zero'
+
+export type TransactionType = 'income' | 'expense'
+
+const TRANSACTION_TYPES = new Set<TransactionType>(['income', 'expense'])
 
 export type TransactionEntryInput = {
   amount?: unknown
@@ -23,6 +28,7 @@ export type TransactionEntryInput = {
 
 export type LogTransactionBody = {
   happened_at?: unknown
+  type?: unknown
   entries?: unknown
 }
 
@@ -34,7 +40,26 @@ export type NormalizedTransactionEntry = {
 
 export type NormalizedTransactionBatch = {
   happenedAt: Date
+  type: TransactionType
   entries: NormalizedTransactionEntry[]
+}
+
+/** 已通过 decimal 校验的字面量是否为零（含 -0 / 0.00） */
+export function isZeroDecimalLiteral(s: string): boolean {
+  const digits = s.replace(/^-/, '').replace('.', '')
+  return digits.length > 0 && /^0+$/.test(digits)
+}
+
+function parseType(
+  raw: unknown,
+): { ok: true; value: TransactionType } | DraftValidationError {
+  if (raw === undefined || raw === null || raw === '') {
+    return { error: 'Missing required field: type' }
+  }
+  if (typeof raw !== 'string' || !TRANSACTION_TYPES.has(raw as TransactionType)) {
+    return { error: 'type must be "income" or "expense"' }
+  }
+  return { ok: true, value: raw as TransactionType }
 }
 
 function parseAmount(
@@ -64,6 +89,9 @@ function parseAmount(
     }
     return { error: check.error }
   }
+  if (isZeroDecimalLiteral(trimmed)) {
+    return { error: AMOUNT_MUST_NOT_BE_ZERO }
+  }
   return { ok: true, value: trimmed }
 }
 
@@ -85,6 +113,7 @@ function parseSegment(
 function parseEntry(
   raw: unknown,
   index: number,
+  type: TransactionType,
 ): NormalizedTransactionEntry | DraftValidationError {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     return { error: `entries[${index}] must be an object` }
@@ -114,22 +143,29 @@ function parseEntry(
     return { error: `entries[${index}]: Invalid category/subcategory combination` }
   }
 
+  // 语义：type + 正 amount = 正常；type + 负 amount = 该类型冲销。
+  // 整单共用 type；落库 tags 含 transaction_entry:{type}。
   return {
     amount: amountResult.value,
     memo: entry.memo,
-    tags: [RESERVED_TAG_TRANSACTION_ENTRY, composite],
+    tags: [transactionEntryTypeTag(type), composite],
   }
 }
 
 /**
  * 解析 POST /api/log/transaction body。
- * entries 长度须在 1..MAX_TRANSACTION_ENTRIES；服务端组装保留 tag。
+ * 必填顶层 `type`（income|expense）整单共享；entries 长度 1..MAX；
+ * 服务端组装保留前缀 tag `transaction_entry:{type}`。
+ * amount 经 decimal 校验后为零 → 400。
  */
 export function parseTransactionBatch(
   body: LogTransactionBody,
 ): NormalizedTransactionBatch | DraftValidationError {
   const happenedResult = parseHappenedAt(body.happened_at)
   if ('error' in happenedResult) return happenedResult
+
+  const typeResult = parseType(body.type)
+  if ('error' in typeResult) return typeResult
 
   if (!Array.isArray(body.entries)) {
     return { error: 'Missing required field: entries (non-empty array)' }
@@ -145,13 +181,14 @@ export function parseTransactionBatch(
 
   const entries: NormalizedTransactionEntry[] = []
   for (let i = 0; i < body.entries.length; i++) {
-    const parsed = parseEntry(body.entries[i], i)
+    const parsed = parseEntry(body.entries[i], i, typeResult.value)
     if ('error' in parsed) return parsed
     entries.push(parsed)
   }
 
   return {
     happenedAt: happenedResult.value,
+    type: typeResult.value,
     entries,
   }
 }

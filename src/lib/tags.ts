@@ -11,15 +11,39 @@ export function isValidTag(tag: string): boolean {
   return /^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$/.test(tag)
 }
 
-/** 仅专用 API 可写入的 tag；通用 log / Admin 草稿 / rename 拒绝 */
-export const RESERVED_TAGS = ['transaction_entry'] as const
+/**
+ * 保留 tag **前缀**列表（非仅精确匹配）。
+ * 某 tag 视为保留当且仅当：`tag === P` 或 `tag.startsWith(P + ":")`
+ *（冒号边界，避免误伤 `transaction_entrypoint`）。
+ * 当前 P：`transaction_entry` → 同时禁止 `transaction_entry:income` 等。
+ * 仅专用 API（POST /api/log/transaction）可写入带此前缀的 tag；
+ * 通用 log / Admin 草稿 / rename 的 from/to 均拒绝。
+ */
+export const RESERVED_TAG_PREFIXES = ['transaction_entry'] as const
 
-export type ReservedTag = (typeof RESERVED_TAGS)[number]
+export type ReservedTagPrefix = (typeof RESERVED_TAG_PREFIXES)[number]
 
-export const RESERVED_TAG_TRANSACTION_ENTRY: ReservedTag = 'transaction_entry'
+/** @deprecated 语义已改为前缀；保留别名以免旧引用断裂 */
+export const RESERVED_TAGS = RESERVED_TAG_PREFIXES
+
+export type ReservedTag = ReservedTagPrefix
+
+export const RESERVED_TAG_TRANSACTION_ENTRY: ReservedTagPrefix = 'transaction_entry'
+
+/** 组装落库用的类型 tag：`transaction_entry:income` / `transaction_entry:expense` */
+export function transactionEntryTypeTag(
+  type: 'income' | 'expense',
+): string {
+  return `${RESERVED_TAG_TRANSACTION_ENTRY}:${type}`
+}
 
 export function isReservedTag(tag: string): boolean {
-  return (RESERVED_TAGS as readonly string[]).includes(tag)
+  for (const p of RESERVED_TAG_PREFIXES) {
+    if (tag === p || tag.startsWith(`${p}:`)) {
+      return true
+    }
+  }
+  return false
 }
 
 /** 英文错误：指明保留 tag 与正确录入路径 */
@@ -28,7 +52,7 @@ export function reservedTagError(tag: string): string {
 }
 
 /**
- * 客户端传入的 tags 不得含保留名。
+ * 客户端传入的 tags 不得含保留前缀。
  * 服务端写入的 transaction 行可含保留 tag，不要对本函数传入那些组装结果来「拒绝」。
  */
 export function assertNoReservedTags(

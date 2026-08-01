@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mdk/digitaltwin2026/fc/internal/record"
+	"github.com/mdk/digitaltwin2026/fc/internal/tags"
 )
 
 // Config 为非空 token + user id 才算 configured。
@@ -226,17 +227,44 @@ func FormatTransactionBatchMessage(rows []record.Record) string {
 	}
 	firstMemo := ""
 	happened := ""
+	typeLabel := "(unknown)"
 	if n > 0 {
 		firstMemo = rows[0].ObjectiveContext
 		happened = rows[0].HappenedAt
+		if t := transactionTypeFromTags(rows[0].Tags); t != "" {
+			typeLabel = t
+		}
 	}
 	return strings.Join([]string{
 		"New transaction batch",
+		"type: " + typeLabel,
 		fmt.Sprintf("inserted: %d", n),
 		"happened_at: " + happened,
 		"amounts: " + sumLabel,
 		"first_memo: " + firstMemo,
 	}, "\n")
+}
+
+// transactionTypeFromTags 从 tags JSON 取 transaction_entry:{type}。
+func transactionTypeFromTags(tagsJSON string) string {
+	var parsed []any
+	if err := json.Unmarshal([]byte(tagsJSON), &parsed); err != nil {
+		return ""
+	}
+	prefix := tags.ReservedTagTransactionEntry + ":"
+	for _, item := range parsed {
+		s, ok := item.(string)
+		if !ok {
+			continue
+		}
+		if strings.HasPrefix(s, prefix) {
+			rest := s[len(prefix):]
+			if rest != "" {
+				return rest
+			}
+		}
+	}
+	return ""
 }
 
 // NotifyTransactionBatchInserted best-effort 一条摘要。

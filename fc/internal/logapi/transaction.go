@@ -19,6 +19,7 @@ const maxTransactionEntries = 100
 var segmentPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 const amountMustBeString = "amount must be a decimal string"
+const amountMustNotBeZero = "amount must not be zero"
 
 type transactionEntryRaw struct {
 	Amount      any    `json:"amount"`
@@ -29,6 +30,7 @@ type transactionEntryRaw struct {
 
 type transactionBody struct {
 	HappenedAt string                `json:"happened_at"`
+	Type       string                `json:"type"`
 	Entries    []transactionEntryRaw `json:"entries"`
 }
 
@@ -36,6 +38,31 @@ type normalizedEntry struct {
 	amount string
 	memo   string
 	tags   []string
+}
+
+// isZeroDecimalLiteral 已通过 decimal 校验的字面量是否为零（含 -0 / 0.00）。
+func isZeroDecimalLiteral(s string) bool {
+	digits := strings.TrimPrefix(s, "-")
+	digits = strings.ReplaceAll(digits, ".", "")
+	if digits == "" {
+		return false
+	}
+	for _, c := range digits {
+		if c != '0' {
+			return false
+		}
+	}
+	return true
+}
+
+func parseType(raw string) (string, error) {
+	if raw == "" {
+		return "", fmt.Errorf("Missing required field: type")
+	}
+	if raw != "income" && raw != "expense" {
+		return "", fmt.Errorf(`type must be "income" or "expense"`)
+	}
+	return raw, nil
 }
 
 func parseAmount(raw any) (string, error) {
@@ -55,6 +82,9 @@ func parseAmount(raw any) (string, error) {
 		if err := draft.ValidateDecimalString(trimmed); err != nil {
 			return "", fmt.Errorf("Invalid amount")
 		}
+		if isZeroDecimalLiteral(trimmed) {
+			return "", fmt.Errorf("%s", amountMustNotBeZero)
+		}
 		return trimmed, nil
 	default:
 		return "", fmt.Errorf("Invalid amount")
@@ -71,7 +101,7 @@ func parseSegment(raw, field string) (string, error) {
 	return raw, nil
 }
 
-func parseEntry(raw transactionEntryRaw, index int) (normalizedEntry, error) {
+func parseEntry(raw transactionEntryRaw, index int, typ string) (normalizedEntry, error) {
 	prefix := fmt.Sprintf("entries[%d]: ", index)
 	amount, err := parseAmount(raw.Amount)
 	if err != nil {
@@ -92,14 +122,17 @@ func parseEntry(raw transactionEntryRaw, index int) (normalizedEntry, error) {
 	if !tags.IsValidTag(composite) {
 		return normalizedEntry{}, fmt.Errorf("%sInvalid category/subcategory combination", prefix)
 	}
+	// 语义：type + 正 amount = 正常；type + 负 amount = 该类型冲销。
+	// 整单共用 type；落库 tags 含 transaction_entry:{type}。
 	return normalizedEntry{
 		amount: amount,
 		memo:   raw.Memo,
-		tags:   []string{tags.ReservedTagTransactionEntry, composite},
+		tags:   []string{tags.TransactionEntryTypeTag(typ), composite},
 	}, nil
 }
 
 // CreateTransactionBatch 整单事务写入；成功返回 inserted 与行（供 Telegram 摘要）。
+// Body 必填顶层 type（income|expense）；amount 为零 → 400。
 func CreateTransactionBatch(ctx context.Context, pool *pgxpool.Pool, raw []byte) (int, []record.Record, int, error) {
 	dec := json.NewDecoder(strings.NewReader(string(raw)))
 	dec.UseNumber()
@@ -108,6 +141,10 @@ func CreateTransactionBatch(ctx context.Context, pool *pgxpool.Pool, raw []byte)
 		return 0, nil, 400, fmt.Errorf("Invalid JSON body")
 	}
 	happenedAt, err := draft.ParseHappenedAt(body.HappenedAt)
+	if err != nil {
+		return 0, nil, 400, err
+	}
+	typ, err := parseType(body.Type)
 	if err != nil {
 		return 0, nil, 400, err
 	}
@@ -123,7 +160,7 @@ func CreateTransactionBatch(ctx context.Context, pool *pgxpool.Pool, raw []byte)
 
 	entries := make([]normalizedEntry, 0, len(body.Entries))
 	for i, e := range body.Entries {
-		ne, err := parseEntry(e, i)
+		ne, err := parseEntry(e, i, typ)
 		if err != nil {
 			return 0, nil, 400, err
 		}

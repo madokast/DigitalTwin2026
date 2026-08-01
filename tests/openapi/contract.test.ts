@@ -84,7 +84,7 @@ describe('OpenAPI contract (Phase 2)', () => {
     )
   })
 
-  it('rejects LogTransactionRequest empty entries / JSON number amount', async () => {
+  it('rejects LogTransactionRequest empty entries / JSON number amount / missing type', async () => {
     await assertInvalidSchema(
       'LogTransactionRequest',
       readFixture('log-transaction-request-empty-entries.json'),
@@ -92,6 +92,10 @@ describe('OpenAPI contract (Phase 2)', () => {
     await assertInvalidSchema(
       'LogTransactionRequest',
       readFixture('log-transaction-request-amount-number.json'),
+    )
+    await assertInvalidSchema(
+      'LogTransactionRequest',
+      readFixture('log-transaction-request-missing-type.json'),
     )
   })
 

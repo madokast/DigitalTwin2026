@@ -57,16 +57,24 @@ describe('validateTags', () => {
 })
 
 describe('reserved tags', () => {
-  it('detects transaction_entry', () => {
+  it('treats reserved list entries as prefixes with colon boundary', () => {
     expect(isReservedTag('transaction_entry')).toBe(true)
+    expect(isReservedTag('transaction_entry:income')).toBe(true)
+    expect(isReservedTag('transaction_entry:expense')).toBe(true)
+    expect(isReservedTag('transaction_entry:a:b')).toBe(true)
+    expect(isReservedTag('transaction_entrypoint')).toBe(false)
     expect(isReservedTag('weight')).toBe(false)
   })
 
-  it('assertNoReservedTags rejects reserved names', () => {
+  it('assertNoReservedTags rejects reserved names and prefixed tags', () => {
     expect(assertNoReservedTags(['weight', 'transaction_entry'])).toEqual({
       error: reservedTagError('transaction_entry'),
     })
+    expect(assertNoReservedTags(['transaction_entry:income'])).toEqual({
+      error: reservedTagError('transaction_entry:income'),
+    })
     expect(assertNoReservedTags(['weight'])).toEqual({ ok: true })
+    expect(assertNoReservedTags(['transaction_entrypoint'])).toEqual({ ok: true })
   })
 })
 

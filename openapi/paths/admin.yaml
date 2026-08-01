@@ -7,6 +7,8 @@
       Exact tag-name replace in each record's tags JSON. If `to` already exists
       on a record, duplicates are removed (first-seen order kept).
       `updated` is the number of records whose tags string changed.
+      Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`) are
+      rejected for both `from` and `to`.
       Auth: **AdminToken only**.
     security:
       - AdminToken: []

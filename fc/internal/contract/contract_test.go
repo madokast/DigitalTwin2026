@@ -109,6 +109,7 @@ func TestLogTransactionRequestRejectsEmptyAndNumberAmount(t *testing.T) {
 	for _, name := range []string{
 		"log-transaction-request-empty-entries.json",
 		"log-transaction-request-amount-number.json",
+		"log-transaction-request-missing-type.json",
 	} {
 		t.Run(name, func(t *testing.T) {
 			var data any

@@ -1,5 +1,7 @@
 /** Telegram Bot 通知：录入成功 best-effort 推送；probe 严格校验配置与发送结果 */
 
+import { RESERVED_TAG_TRANSACTION_ENTRY } from '@/lib/tags'
+
 export type EnvLike = {
   TELEGRAM_BOT_TOKEN?: string
   TELEGRAM_USER_ID?: string
@@ -151,13 +153,34 @@ export function formatTransactionBatchMessage(rows: NotifyRecord[]): string {
   }
   const firstMemo = rows[0]?.objectiveContext ?? ''
   const happened = rows[0] ? formatHappenedAt(rows[0].happenedAt) : ''
+  const typeLabel = transactionTypeFromTags(rows[0]?.tags) ?? '(unknown)'
   return [
     'New transaction batch',
+    `type: ${typeLabel}`,
     `inserted: ${n}`,
     `happened_at: ${happened}`,
     `amounts: ${sumLabel}`,
     `first_memo: ${firstMemo}`,
   ].join('\n')
+}
+
+/** 从 tags JSON 取 transaction_entry:{type} 中的 type */
+function transactionTypeFromTags(tagsJson: string | undefined): string | null {
+  if (!tagsJson) return null
+  try {
+    const parsed: unknown = JSON.parse(tagsJson)
+    if (!Array.isArray(parsed)) return null
+    const prefix = `${RESERVED_TAG_TRANSACTION_ENTRY}:`
+    for (const item of parsed) {
+      if (typeof item === 'string' && item.startsWith(prefix)) {
+        const rest = item.slice(prefix.length)
+        if (rest) return rest
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null
 }
 
 export async function sendTelegramMessage(
