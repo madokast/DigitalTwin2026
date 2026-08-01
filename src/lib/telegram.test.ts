@@ -23,6 +23,14 @@ describe('shouldSkipNotifyInTest', () => {
       }),
     ).toBe(false)
   })
+
+  it('falls back to process.env when injected flag is empty', () => {
+    // tests/setup.ts 设 DIGITAL_TWIN_TEST=1；空注入应回退到 process.env
+    expect(shouldSkipNotifyInTest({})).toBe(true)
+    expect(
+      shouldSkipNotifyInTest({ TELEGRAM_ALLOW_IN_TEST: '1' }),
+    ).toBe(false)
+  })
 })
 
 const sampleNumber = {

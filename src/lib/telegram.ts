@@ -7,36 +7,33 @@ export type EnvLike = {
   TELEGRAM_USER_ID?: string
   DIGITAL_TWIN_TEST?: string
   TELEGRAM_ALLOW_IN_TEST?: string
-  NODE_ENV?: string
-  VITEST?: string
 }
 
 function envFlagOn(value: string | undefined): boolean {
   return (value ?? '').trim() === '1'
 }
 
+/** 注入值非空优先；空则回退 process.env（与 Go ShouldSkipNotifyInTest 一致） */
+function envOrProcess(
+  env: EnvLike,
+  key: 'DIGITAL_TWIN_TEST' | 'TELEGRAM_ALLOW_IN_TEST',
+): string {
+  const injected = (env[key] ?? '').trim()
+  if (injected !== '') return injected
+  return (process.env[key] ?? '').trim()
+}
+
 /**
  * 测试态下跳过录入后自动通知。
  * TELEGRAM_ALLOW_IN_TEST=1 可放行（Telegram 单测注入 mock 时用）。
  * probe 走 sendTelegramMessage，不受此限制。
+ * 同时看注入 env 与 process.env（Vitest setup / TestMain 设的 DIGITAL_TWIN_TEST）。
  */
 export function shouldSkipNotifyInTest(env: EnvLike = process.env): boolean {
-  const proc = process.env
-  if (
-    envFlagOn(env.TELEGRAM_ALLOW_IN_TEST) ||
-    envFlagOn(proc.TELEGRAM_ALLOW_IN_TEST)
-  ) {
+  if (envFlagOn(envOrProcess(env, 'TELEGRAM_ALLOW_IN_TEST'))) {
     return false
   }
-  if (envFlagOn(env.DIGITAL_TWIN_TEST) || envFlagOn(proc.DIGITAL_TWIN_TEST)) {
-    return true
-  }
-  if ((env.NODE_ENV ?? proc.NODE_ENV) === 'test') {
-    return true
-  }
-  // Vitest 会设 VITEST（通常为 "true"）
-  const vitest = env.VITEST ?? proc.VITEST
-  return vitest != null && String(vitest).trim() !== ''
+  return envFlagOn(envOrProcess(env, 'DIGITAL_TWIN_TEST'))
 }
 
 export type TelegramConfig = {
