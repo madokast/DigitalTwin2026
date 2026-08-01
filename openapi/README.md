@@ -19,7 +19,7 @@
 openapi/
   openapi.yaml                 # 入口（短）
   paths/
-    log.yaml                   # /api/log/number, /text, /transaction
+    log.yaml                   # /api/log/number, /body/weight, /text, /transaction
     query.yaml                 # /api/query, /summary, /tags, /transaction/summary
     telegram.yaml              # /api/telegram/probe
     qqbot.yaml                 # /api/qqbot/probe
@@ -112,6 +112,7 @@ npm run openapi:preview
 | `HappenedAtUtcZ` | 输出专用：`…sssZ` |
 | `DecimalString` | `^-?(?:0\|[1-9]\d*)(?:\.\d+)?$`，`maxLength` 40 |
 | `MoneyAmountString` | `^-?(?:0\|[1-9]\d{0,11})(?:\.\d{1,2})?$`；运行时拒零；绝对值 ≤ `999999999999.99`；禁 trim / `+`；通过后规范为两位小数入库；交易 `entries[].amount` |
+| `WeightAmountString` | `^(?:0\|[1-9]\d{0,2})(?:\.\d{1,2})?$`；运行时限 **1.00–500.00**（kg）；禁 trim / `+` / 负号；JSON number → 400；通过后规范为两位小数；`LogBodyWeightRequest.value_number` |
 | `TagName` | 标识符 + 可选 `:` 分段 |
 
 `Record.valueNumber` / `LogNumberRequest.value_number` / PATCH draft 等均 `$ref` 上述组件（nullable 用 `oneOf`）。
@@ -126,8 +127,8 @@ npm run openapi:preview
 
 ## 契约测覆盖
 
-Fixtures 覆盖：RecordSuccess（number/text）、Error、Query/Summary/TagsSuccess、LogNumber/LogText 请求、Rename 请求/成功、RecordDraft、Telegram probe 请求/成功、LogTransaction（含 `type`）；非法：JSON number、`1e3`、无时区 `happened_at`、transaction 缺 `type` / 空 entries。
+Fixtures 覆盖：RecordSuccess（number/text）、Error、Query/Summary/TagsSuccess、LogNumber/LogBodyWeight/LogText 请求、Rename 请求/成功、RecordDraft、Telegram probe 请求/成功、LogTransaction（含 `type`）；非法：JSON number、`1e3`、无时区 `happened_at`、transaction 缺 `type` / 空 entries。
 
-存量：若库中仍有裸 tag `transaction_entry`（无 `:type` 后缀），测试/生产库需手工 truncate/清理；契约与测试已按前缀语义对齐。
+存量：若库中仍有裸 tag `transaction_entry`（无 `:type` 后缀），测试/生产库需手工 truncate/清理；契约与测试已按前缀语义对齐。保留前缀另含 `body:weight`（专用 `POST /api/log/body/weight`）。
 
 Telegram **实发**在测试模式（`DIGITAL_TWIN_TEST`）下由 notify 路径跳过；probe 单测用 mock。

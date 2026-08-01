@@ -29,7 +29,7 @@
 | Body | `happened_at` + `type`（`income`\|`expense`）+ `entries[]` |
 | entries | 1..100；`amount` 为 `MoneyAmountString`（≤2 位小数、禁零/+/空格、绝对值 ≤ `999999999999.99`）；通过后规范为两位小数入库；正=正常、负=该 type 冲销 |
 | 落库 tags | `["transaction_entry:{type}","{category}:{subcategory}"]` |
-| 保留 tag | 前缀语义 `P` 或 `P:…`（`P=transaction_entry`）；number/text/Admin/rename 拒绝 |
+| 保留 tag | 前缀语义 `P` 或 `P:…`（`P=transaction_entry` 等）；number/text/Admin/rename 拒绝 |
 | 感受/评价 | 另走 `POST /api/log/text` |
 
 若库中仍有裸 tag `transaction_entry`（无 `:type`），需手工清理。
@@ -37,6 +37,30 @@
 金额后续收紧（2026-08-02）：`entries[].amount` 绝对值上限 `999999999999.99`（整数部分 ≤12 位，正则 `[1-9]\d{0,11}`）；统一 `Invalid amount` 文案含 magnitude；共享 fixture `testdata/money-amount-cases.json`。
 
 相关：`src/lib/transactiondraft.ts`、`fc/internal/logapi/transaction.go`、OpenAPI `LogTransactionRequest`。
+
+---
+
+## 1b. Body weight 写入（2026-08-02）
+
+| 项 | 约定 |
+|----|------|
+| 路径 | `POST /api/log/body/weight`（ApiToken） |
+| Body | `happened_at` + `value_number`（kg，`WeightAmountString`）+ `objective_context`；可选 `subjective_interpretation` / `tags` / `suppress_notification` |
+| 数值 | 正数、≤2 位小数、**1.00–500.00**；规范为两位小数入库；JSON number → 400 |
+| 落库 tags | `["body:weight", ...可选客户端 tags]`（保留 tag 在前） |
+| 保留 tag | 前缀 `body:weight` / `body:weight:*`（与 `transaction_entry` 并列）；number/text/Admin/rename 拒绝，文案指向专用路径 |
+| 查询 | 无专用趋势 API；用 `GET /api/query?tag=body:weight` |
+
+示例：
+
+```bash
+curl -sS -X POST "$BASE/api/log/body/weight" \
+  -H "Authorization: Bearer $AI_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"happened_at":"2026-08-02T08:00:00+08:00","value_number":"75.5","objective_context":"morning weigh-in","subjective_interpretation":"a bit heavy","tags":["morning"]}'
+```
+
+相关：`src/lib/bodyweightdraft.ts`、`fc/internal/bodyweightdraft`、`logapi.CreateBodyWeight`、OpenAPI `LogBodyWeightRequest`。
 
 ---
 
@@ -119,7 +143,8 @@
 ## 7. 仍待办
 
 - [x] `GET /api/query/transaction/summary`（按 `transaction_entry:income|expense` + 符号聚合；半开 `[from,to)`；两位小数串）
+- [x] `POST /api/log/body/weight`（保留 tag `body:weight`；kg；无趋势 API）
 - [ ] Dashboard 支出组件 / 网页录入 UI
 - [ ] 记录删除 / 图表 / 列表行内编辑
-- [ ] 体重等其它专用 log、AI CLI、数据导出
+- [ ] 其它专用 log、AI CLI、数据导出
 - [ ] QQ 主动消息依赖用户端「允许主动发送」；生产密钥轮换仍建议 Neon 控制台 + `refresh-prod` 粘贴

@@ -76,6 +76,7 @@ flowchart LR
 - TS：`src/app/api/log/*`、rename/patch、query summary/tags 的业务 Drizzle 已抽到 `src/lib`（`logapi` / `tags` / `record` / `query`），与 Go 同构。
 - Go：`server.go` 业务 SQL 已抽到 `tags` / `record` / `query` / `logapi`。
 - 交易纯解析在 `transactiondraft`（两端独立模块）。
+- 体重纯解析在 `bodyweightdraft`（两端独立模块）。
 
 ---
 
@@ -99,8 +100,9 @@ flowchart LR
 | `tags` | `fc/internal/tags` | `src/lib/tags.ts` | 已有；含 `RenameAcrossRecords` |
 | `draft` | `fc/internal/draft` | `src/lib/draft.ts` | TS 已由 `record-draft.ts` 改名 |
 | `transactiondraft` | `fc/internal/transactiondraft` | `src/lib/transactiondraft.ts` | **独立成包**（已落地）；TS 已由 `transaction-draft.ts` 改名；Go 已从 `logapi` 抽出纯解析 |
+| `bodyweightdraft` | `fc/internal/bodyweightdraft` | `src/lib/bodyweightdraft.ts` | **独立成包**；体重 `value_number` 解析/规范化；落库 tags 组装含 `body:weight` |
 | `query` | `fc/internal/query` | `src/lib/query.ts` | TS 已由 `query-records.ts` 改名 |
-| `logapi` | `fc/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` |
+| `logapi` | `fc/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` / `bodyweightdraft` |
 | `record` | `fc/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `Update` / `FromDB` / `TagsJSON` / type `Record` |
 | `telegram` | `fc/internal/telegram` | `src/lib/telegram.ts` | 渠道：配置 / 排版 / 发送；probe 直调；录入路径经 `notify` |
 | `qqbot` | `fc/internal/qqbot` | `src/lib/qqbot.ts` | 渠道：配置 / token / 发送；probe 直调；录入路径经 `notify`（函数 stem 见 §5.2） |
@@ -114,6 +116,8 @@ flowchart LR
 
 **`transactiondraft` 独立**：不得把交易 batch 纯解析长期留在 `logapi`；`logapi` 只做 create + SQL，调用 `transactiondraft.ParseTransactionBatch` / `parseTransactionBatch`。
 
+**`bodyweightdraft` 独立**：体重纯解析不得长期留在 `logapi`；`logapi.CreateBodyWeight` / `createBodyWeight` 只做校验结果落库。
+
 ---
 
 ## 5. 关键函数 / 类型对照
@@ -122,8 +126,9 @@ flowchart LR
 
 | Stem | Go | TS |
 |------|----|----|
-| logapi | `CreateNumber` / `CreateText` / `CreateTransactionBatch` | `createNumber` / `createText` / `createTransactionBatch` |
+| logapi | `CreateNumber` / `CreateText` / `CreateTransactionBatch` / `CreateBodyWeight` | `createNumber` / `createText` / `createTransactionBatch` / `createBodyWeight` |
 | transactiondraft | `ParseTransactionBatch`（及同包输入 / 归一化类型） | `parseTransactionBatch` |
+| bodyweightdraft | `ParseBodyWeight` / `ParseWeightAmount` | `parseBodyWeight` / `parseWeightAmount` |
 | tags | `RenameAcrossRecords` / `ValidateRename` | `renameAcrossRecords`（`tagsdb`）/ `validateRename`（`tags`） |
 | record | `Update` | `update` |
 | record | `FromDB` / `TagsJSON` / type `Record` | `fromDB` / `tagsJSON` / type `Record`（已取代 `toApiRecord` / `ApiRecord`，或薄包装同名） |
