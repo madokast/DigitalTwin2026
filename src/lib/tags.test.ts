@@ -69,6 +69,9 @@ describe('reserved tags', () => {
     expect(isReservedTag('transaction_entry:expense')).toBe(true)
     expect(isReservedTag('transaction_entry:a:b')).toBe(true)
     expect(isReservedTag('transaction_entrypoint')).toBe(false)
+    expect(isReservedTag('body:weight')).toBe(true)
+    expect(isReservedTag('body:weight:x')).toBe(true)
+    expect(isReservedTag('body:weightx')).toBe(false)
     expect(isReservedTag('weight')).toBe(false)
   })
 
@@ -81,10 +84,30 @@ describe('reserved tags', () => {
       valid: false,
       error: reservedTagError('transaction_entry:income'),
     })
+    expect(assertNoReservedTags(['body:weight'])).toEqual({
+      valid: false,
+      error: reservedTagError('body:weight'),
+    })
+    expect(assertNoReservedTags(['body:weight:x'])).toEqual({
+      valid: false,
+      error: reservedTagError('body:weight:x'),
+    })
     expect(assertNoReservedTags(['weight'])).toEqual({ valid: true })
     expect(assertNoReservedTags(['transaction_entrypoint'])).toEqual({
       valid: true,
     })
+  })
+
+  it('reservedTagError picks path by matched prefix', () => {
+    expect(reservedTagError('transaction_entry')).toBe(
+      'tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries',
+    )
+    expect(reservedTagError('body:weight')).toBe(
+      'tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries',
+    )
+    expect(reservedTagError('body:weight:morning')).toBe(
+      'tag "body:weight:morning" is reserved; use POST /api/log/body/weight for body weight entries',
+    )
   })
 })
 

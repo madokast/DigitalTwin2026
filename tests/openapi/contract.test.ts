@@ -97,6 +97,17 @@ describe('OpenAPI contract (Phase 2)', () => {
     )
   })
 
+  it('accepts valid LogBodyWeightRequest and rejects JSON number value_number', async () => {
+    await assertValidSchema(
+      'LogBodyWeightRequest',
+      readFixture('log-body-weight-request-valid.json'),
+    )
+    await assertInvalidSchema(
+      'LogBodyWeightRequest',
+      readFixture('log-body-weight-request-json-number.json'),
+    )
+  })
+
   it('rejects LogTransactionRequest empty entries / JSON number amount / missing type', async () => {
     await assertInvalidSchema(
       'LogTransactionRequest',

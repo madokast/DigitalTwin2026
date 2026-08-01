@@ -8,8 +8,9 @@
       On success, notification via notify_user is best-effort and does not change the 201 response.
       Optional `suppress_notification: true` skips notify after insert (default false).
       Auth: ApiToken (AI token or Admin token).
-      Reserved tag prefixes (e.g. `transaction_entry` and `transaction_entry:*`)
-      are rejected (use POST /api/log/transaction).
+      Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`,
+      `body:weight` / `body:weight:*`) are rejected (use the dedicated
+      log endpoints).
     security:
       - ApiToken: []
     requestBody:
@@ -20,10 +21,58 @@
             $ref: '../components/schemas.yaml#/LogNumberRequest'
           example:
             happened_at: '2026-07-30T08:00:00+08:00'
+            value_number: '8000'
+            tags: [steps]
+            objective_context: daily step count
+            subjective_interpretation: good pace
+    responses:
+      '201':
+        description: Record created
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/RecordSuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+/api/log/body/weight:
+  post:
+    operationId: logBodyWeight
+    tags: [log]
+    summary: Create a body-weight record (kg)
+    description: |
+      Inserts a numeric record with `value_number` as kg (no unit field)
+      and `value_text` null. Server always prepends reserved tag
+      `body:weight` (optional client `tags` follow). Reserved prefixes
+      `body:weight` / `body:weight:*` and `transaction_entry` /
+      `transaction_entry:*` are rejected on client tags.
+      On success, notification via notify_user is best-effort and does
+      not change the 201 response. Optional `suppress_notification: true`
+      skips notify after insert (default false).
+      Auth: ApiToken (AI token or Admin token).
+      Query later with `GET /api/query?tag=body:weight` (no dedicated
+      trend/summary endpoint).
+    security:
+      - ApiToken: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/LogBodyWeightRequest'
+          example:
+            happened_at: '2026-08-02T08:00:00+08:00'
             value_number: '75.5'
-            tags: [weight]
             objective_context: morning weigh-in
             subjective_interpretation: a bit heavy
+            tags: [morning]
+            suppress_notification: false
     responses:
       '201':
         description: Record created
@@ -50,8 +99,9 @@
       On success, notification via notify_user is best-effort and does not change the 201 response.
       Optional `suppress_notification: true` skips notify after insert (default false).
       Auth: ApiToken (AI token or Admin token).
-      Reserved tag prefixes (e.g. `transaction_entry` and `transaction_entry:*`)
-      are rejected (use POST /api/log/transaction).
+      Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`,
+      `body:weight` / `body:weight:*`) are rejected (use the dedicated
+      log endpoints).
     security:
       - ApiToken: []
     requestBody:

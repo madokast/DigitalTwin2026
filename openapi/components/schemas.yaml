@@ -73,6 +73,28 @@ MoneyAmountString:
     - '10.55'
     - '999999999999.99'
 
+WeightAmountString:
+  type: string
+  description: |
+    Body weight in **kg** (no unit field): positive decimal string, at most
+    2 fractional digits, inclusive range **1.00–500.00**, no spaces (no
+    trim), no leading `+` or minus. JSON number → 400
+    (`value_number must be a decimal string`). Shape / range / spaces →
+    400 with unified message (`Invalid weight: positive decimal string
+    from 1.00 to 500.00 inclusive, at most 2 fractional digits, no
+    spaces; e.g. 75, 75.5, 75.50`). Accepted then normalized to 2
+    fractional digits for storage (string pad, no float): `75` →
+    `75.00`, `75.5` → `75.50`. Pattern allows 0–999 with ≤2 fraction
+    digits; runtime enforces the 1.00–500.00 band.
+  pattern: '^(?:0|[1-9]\d{0,2})(?:\.\d{1,2})?$'
+  maxLength: 40
+  examples:
+    - '75'
+    - '75.5'
+    - '75.50'
+    - '1.00'
+    - '500.00'
+
 HappenedAtInput:
   type: string
   description: |
@@ -369,6 +391,45 @@ LogNumberRequest:
         Omitted / null → false. Non-boolean → 400
         (`Invalid suppress_notification`). Not stored on the record.
 
+LogBodyWeightRequest:
+  type: object
+  required: [happened_at, value_number, objective_context]
+  additionalProperties: false
+  description: |
+    Log one body-weight reading in kg. Server always stores tags with
+    reserved prefix tag `body:weight` first, then any optional client
+    `tags`. Clients must not send reserved tags
+    (`transaction_entry` / `transaction_entry:*`, `body:weight` /
+    `body:weight:*`). Unknown JSON keys -> 400 (Unknown JSON key: <name>).
+  properties:
+    happened_at:
+      $ref: '#/HappenedAtInput'
+    value_number:
+      $ref: '#/WeightAmountString'
+    objective_context:
+      type: string
+      minLength: 1
+    subjective_interpretation:
+      type: string
+      description: |
+        Optional; empty / omitted / null → null. Non-string JSON → 400
+        (`Invalid subjective_interpretation`).
+    tags:
+      type: array
+      items:
+        $ref: '#/TagName'
+      description: |
+        Optional extra tags (e.g. `morning`). Omitted or `[]` → only
+        `body:weight` is stored. Non-empty values must be valid tag
+        names and must not use reserved prefixes.
+    suppress_notification:
+      type: [boolean, 'null']
+      default: false
+      description: |
+        When true, skip notify_user after a successful insert.
+        Omitted / null → false. Non-boolean → 400
+        (`Invalid suppress_notification`). Not stored on the record.
+
 LogTextRequest:
   type: object
   required: [happened_at, value_text, tags, objective_context]
@@ -496,11 +557,13 @@ LogTransactionRequest:
     `["transaction_entry:{type}","{category}:{subcategory}"]`
     (e.g. `transaction_entry:expense`).
     Feelings/reviews belong in POST /api/log/text, not here.
-    Reserved tag **prefix** `transaction_entry`: a tag is reserved iff
-    `tag === "transaction_entry"` OR `tag.startsWith("transaction_entry:")`
-    (colon boundary — `transaction_entrypoint` is not reserved).
-    Clients must not send reserved tags on /api/log/number, /api/log/text,
-    Admin draft, or Admin tag rename from/to.
+    Reserved tag **prefixes** (colon boundary): `transaction_entry` and
+    `body:weight` — a tag is reserved iff `tag === P` OR
+    `tag.startsWith(P + ":")` (e.g. `transaction_entrypoint` is not
+    reserved). Clients must not send reserved tags on /api/log/number,
+    /api/log/text, optional body-weight `tags`, Admin draft, or Admin
+    tag rename from/to. Use the dedicated log endpoints to write those
+    prefixes.
     Unknown JSON keys on the request or entries -> 400 (Unknown JSON key: <name>).
   required: [happened_at, type, entries]
   additionalProperties: false

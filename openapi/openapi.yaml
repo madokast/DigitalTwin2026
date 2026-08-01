@@ -47,6 +47,8 @@ tags:
 paths:
   /api/log/number:
     $ref: './paths/log.yaml#/~1api~1log~1number'
+  /api/log/body/weight:
+    $ref: './paths/log.yaml#/~1api~1log~1body~1weight'
   /api/log/text:
     $ref: './paths/log.yaml#/~1api~1log~1text'
   /api/log/transaction:
@@ -112,6 +114,8 @@ components:
       $ref: './components/schemas.yaml#/DecimalString'
     MoneyAmountString:
       $ref: './components/schemas.yaml#/MoneyAmountString'
+    WeightAmountString:
+      $ref: './components/schemas.yaml#/WeightAmountString'
     HappenedAtInput:
       $ref: './components/schemas.yaml#/HappenedAtInput'
     HappenedAtUtcZ:
@@ -142,6 +146,8 @@ components:
       $ref: './components/schemas.yaml#/RenameTagsSuccess'
     LogNumberRequest:
       $ref: './components/schemas.yaml#/LogNumberRequest'
+    LogBodyWeightRequest:
+      $ref: './components/schemas.yaml#/LogBodyWeightRequest'
     LogTextRequest:
       $ref: './components/schemas.yaml#/LogTextRequest'
     RecordDraftRequest:

@@ -47,6 +47,15 @@ func TestAssertNoReservedTags(t *testing.T) {
 	if IsReservedTag("transaction_entrypoint") {
 		t.Fatal("colon boundary: transaction_entrypoint must not be reserved")
 	}
+	if !IsReservedTag("body:weight") {
+		t.Fatal("expected body:weight reserved")
+	}
+	if !IsReservedTag("body:weight:x") {
+		t.Fatal("expected body:weight:x reserved")
+	}
+	if IsReservedTag("body:weightx") {
+		t.Fatal("colon boundary: body:weightx must not be reserved")
+	}
 	r := AssertNoReservedTags([]string{"weight", "transaction_entry"})
 	if r.Valid || r.Error != ReservedTagError("transaction_entry") {
 		t.Fatalf("%+v", r)
@@ -55,11 +64,24 @@ func TestAssertNoReservedTags(t *testing.T) {
 	if r.Valid || r.Error != ReservedTagError("transaction_entry:expense") {
 		t.Fatalf("%+v", r)
 	}
+	r = AssertNoReservedTags([]string{"body:weight"})
+	if r.Valid || r.Error != ReservedTagError("body:weight") {
+		t.Fatalf("%+v", r)
+	}
 	if r := AssertNoReservedTags([]string{"weight"}); !r.Valid {
 		t.Fatalf("%+v", r)
 	}
 	if r := AssertNoReservedTags([]string{"transaction_entrypoint"}); !r.Valid {
 		t.Fatalf("%+v", r)
+	}
+
+	wantTx := `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`
+	if ReservedTagError("transaction_entry") != wantTx {
+		t.Fatalf("tx hint: %q", ReservedTagError("transaction_entry"))
+	}
+	wantWt := `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`
+	if ReservedTagError("body:weight") != wantWt {
+		t.Fatalf("weight hint: %q", ReservedTagError("body:weight"))
 	}
 }
 

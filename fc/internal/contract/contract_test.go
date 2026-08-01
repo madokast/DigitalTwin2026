@@ -84,6 +84,7 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"summary-success.json", "SummarySuccess"},
 		{"transaction-summary-success.json", "TransactionSummarySuccess"},
 		{"log-number-request-valid.json", "LogNumberRequest"},
+		{"log-body-weight-request-valid.json", "LogBodyWeightRequest"},
 		{"log-text-request-valid.json", "LogTextRequest"},
 		{"tags-success.json", "TagsSuccess"},
 		{"rename-tags-request-valid.json", "RenameTagsRequest"},
@@ -131,6 +132,15 @@ func TestLogNumberRequestRejectsJSONNumber(t *testing.T) {
 		t.Fatal(err)
 	}
 	visitJSONExpectFail(t, schema(t, doc, "LogNumberRequest"), data)
+}
+
+func TestLogBodyWeightRequestRejectsJSONNumber(t *testing.T) {
+	doc := loadDoc(t)
+	var data any
+	if err := json.Unmarshal(readFixture(t, "log-body-weight-request-json-number.json"), &data); err != nil {
+		t.Fatal(err)
+	}
+	visitJSONExpectFail(t, schema(t, doc, "LogBodyWeightRequest"), data)
 }
 
 func TestLogNumberRequestRejectsNoTzAndScientific(t *testing.T) {

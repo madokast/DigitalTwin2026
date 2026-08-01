@@ -1,4 +1,4 @@
 {
   "from": "weight",
-  "to": "body:weight"
+  "to": "mass"
 }
