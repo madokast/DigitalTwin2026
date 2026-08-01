@@ -95,7 +95,7 @@ HTTP API 由 **Next（Vercel）** 与 **Go（FC）** 双端实现，路径 / 鉴
 
 鉴权：`Authorization: Bearer <token>`（`src/proxy.ts` / FC 同等逻辑）。普通 API：AI Token 或 Admin Token；`/api/admin/*`：仅 Admin Token。
 
-**接口契约**以 OpenAPI 3.1 为准：[`openapi/openapi.yaml`](openapi/openapi.yaml)（说明见 [`openapi/README.md`](openapi/README.md)）。根 README 不再维护接口表。契约基建已收口：`npm run openapi:lint` + `npm run test:openapi` + `cd fc && go test ./internal/contract/`（CI 已接）。**不做** codegen / Schemathesis / 新 OpenAPI Phase。本地 Redoc：`npm run openapi:preview`。
+**接口契约**以 OpenAPI 3.1 为准：[`openapi/openapi.yaml`](openapi/openapi.yaml)（说明见 [`openapi/README.md`](openapi/README.md)）。根 README 不再维护接口表。契约基建已收口：`npm run openapi:lint` + `npm run test:openapi` + `cd fc && go test ./internal/contract/`。CI 另跑无 DB 单元测；集成测无库 Skip（可选 secrets 启用）。**不做** codegen / Schemathesis / 新 OpenAPI Phase。本地 Redoc：`npm run openapi:preview`。
 
 ## 数据库管理
 
@@ -126,7 +126,8 @@ cd fc && go test ./...
 ├── fc/                # Go HTTP API + 阿里云 FC（见 fc/README.md）
 ├── openapi/           # OpenAPI 3.1 契约（双端共用源）
 ├── scripts/           # migrate 辅助、密钥轮换/生产刷新、共享 lib
-├── tests/             # API 集成测试
+├── tests/             # API 集成测试（无 DATABASE_URL 时 Skip）
+├── testdata/          # 双端共享校验样例（decimal、日历日边界等）
 ├── drizzle/           # migration
 ├── docs/              # 设计与开发日志
 └── .env.example       # 环境变量说明（复制为 .env）
@@ -155,3 +156,5 @@ cd fc && go test ./...
 - `20260729-schema-v1.md` — 表与接口定稿
 - `20260730-development-log.md` — 开发日志
 - `20260731-development-log.md` — 详情编辑、FC、Telegram、语言原则等
+- `20260801-development-log.md` — transaction type、保留 tag 前缀
+- `20260801-api-layering.md` — 双端 API 分层同构规范

@@ -18,7 +18,7 @@
 
 当前应对齐的路由：
 
-- `POST /api/log/number`、`POST /api/log/text`
+- `POST /api/log/number`、`POST /api/log/text`、`POST /api/log/transaction`
 - `POST /api/telegram/probe`（普通 API Token；校验 Telegram 配置并试发消息）
 - `GET /api/query`、`/api/query/summary`、`/api/query/tags`
 - `POST /api/admin/tags/rename`、`PATCH /api/admin/records/{id}`
@@ -28,12 +28,13 @@
 ### Telegram 录入通知（可选）
 
 - 环境变量：`TELEGRAM_BOT_TOKEN`、`TELEGRAM_USER_ID`（**两者皆非空**才启用；任一为空则运行时跳过通知）。
-- 触发：仅 `POST /api/log/number|text` **INSERT 成功之后** best-effort 推送纯文本；Telegram 失败不影响 `201`。
+- 触发：`POST /api/log/number|text` INSERT 成功后推单条；`POST /api/log/transaction` 整单成功后推一条 batch 摘要；均为 best-effort，Telegram 失败不影响 `201`。
 - 测试：`POST /api/telegram/probe`（未配置 / 发送失败返回明确英文 `error`；成功 `{ success: true }`）。
 - 模板：根 `.env.example`、`fc/env.fc.example`、`fc/s.yaml` 的 `environmentVariables`。
 - **部署**：`npx tsx fc/scripts/deploy.ts`（或 `./scripts/deploy.sh`）在 `s deploy` 前会询问是否使用仓库根 `.env` 的 `TELEGRAM_*`；手填允许皆空（关闭通知）；若任一非空则两者必须齐全，并真实 `sendMessage` 文案 `DigitalTwin2026 deploying`，失败则 `exit 1`。选用值会写回当前 `.env.fc.<env>`。`secrets:refresh-prod` 调用部署时会跳过二次询问。
 - `secrets:rotate-test` **不**轮换 Telegram；生产刷新走 `deploy.sh prod` 时同样走上述交互（可从根 `.env` 选用）。
 - **禁止**把真实 Bot Token / User ID 提交进 git。
+- **时区**：二进制嵌入 `time/tzdata`，FC 精简运行时无系统 zoneinfo 时 `Asia/Shanghai` 等仍可用。
 
 ## 本地开发
 
