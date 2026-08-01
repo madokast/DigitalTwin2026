@@ -7,6 +7,21 @@ import {
   isValidTag,
   transactionEntryTypeTag,
 } from '@/lib/tags'
+import { rejectUnknownKeys } from '@/lib/unknown-keys'
+
+export const LOG_TRANSACTION_KEYS = [
+  'happened_at',
+  'type',
+  'entries',
+  'suppress_notification',
+] as const
+
+export const TRANSACTION_ENTRY_KEYS = [
+  'amount',
+  'memo',
+  'category',
+  'subcategory',
+] as const
 
 const SEGMENT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 export const MAX_TRANSACTION_ENTRIES = 100
@@ -29,6 +44,7 @@ export type LogTransactionBody = {
   happened_at?: unknown
   type?: unknown
   entries?: unknown
+  suppress_notification?: unknown
 }
 
 export type NormalizedTransactionEntry = {
@@ -111,6 +127,10 @@ function parseEntry(
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     return { error: `entries[${index}] must be an object` }
   }
+  const unknown = rejectUnknownKeys(raw, TRANSACTION_ENTRY_KEYS)
+  if (unknown) {
+    return { error: `entries[${index}]: ${unknown.error}` }
+  }
   const entry = raw as TransactionEntryInput
 
   const amountResult = parseAmount(entry.amount)
@@ -154,6 +174,9 @@ function parseEntry(
 export function parseTransactionBatch(
   body: LogTransactionBody,
 ): NormalizedTransactionBatch | DraftValidationError {
+  const unknown = rejectUnknownKeys(body, LOG_TRANSACTION_KEYS)
+  if (unknown) return unknown
+
   const happenedResult = parseHappenedAt(body.happened_at)
   if ('error' in happenedResult) return happenedResult
 

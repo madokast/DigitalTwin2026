@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readJsonBody } from '@/lib/httpjson'
 import { validateRename } from '@/lib/tags'
 import { renameAcrossRecords } from '@/lib/tagsdb'
+import { rejectUnknownKeys } from '@/lib/unknown-keys'
 
-interface RenameTagsRequest {
-  from?: string
-  to?: string
-}
+const RENAME_KEYS = ['from', 'to'] as const
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,9 +13,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: parsed.status })
     }
 
-    const body = parsed.value as RenameTagsRequest
-    const from =
-      typeof body.from === 'string' ? body.from.trim() : ''
+    const unknown = rejectUnknownKeys(parsed.value, RENAME_KEYS)
+    if (unknown) {
+      return NextResponse.json({ error: unknown.error }, { status: 400 })
+    }
+
+    const body = parsed.value as { from?: unknown; to?: unknown }
+    const from = typeof body.from === 'string' ? body.from.trim() : ''
     const to = typeof body.to === 'string' ? body.to.trim() : ''
 
     const validation = validateRename(from, to)

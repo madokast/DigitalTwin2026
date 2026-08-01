@@ -1,41 +1,26 @@
-package jsonutil
+package jsonutil_test
 
 import (
-	"encoding/json"
+	"strings"
 	"testing"
+
+	"github.com/mdk/digitaltwin2026/fc/internal/jsonutil"
 )
 
-func TestDecodeUseNumberRejectsTrailingGarbage(t *testing.T) {
-	t.Parallel()
-	var dest map[string]any
-	if err := DecodeUseNumber([]byte(`{"a":1} xyz`), &dest); err != ErrInvalidJSONBody {
-		t.Fatalf("got %v want ErrInvalidJSONBody", err)
-	}
-}
-
-func TestDecodeUseNumberRejectsSecondJSONValue(t *testing.T) {
-	t.Parallel()
-	var dest map[string]any
-	if err := DecodeUseNumber([]byte(`{"a":1}{"b":2}`), &dest); err != ErrInvalidJSONBody {
-		t.Fatalf("got %v want ErrInvalidJSONBody", err)
-	}
-}
-
-func TestDecodeUseNumberAllowsTrailingWhitespace(t *testing.T) {
-	t.Parallel()
-	var dest map[string]any
-	if err := DecodeUseNumber([]byte("{\"a\":1}\n\t "), &dest); err != nil {
+func TestRejectUnknownObjectKeys(t *testing.T) {
+	allowed := []string{"a", "b"}
+	if err := jsonutil.RejectUnknownObjectKeys([]byte(`{"a":1}`), allowed); err != nil {
 		t.Fatal(err)
 	}
-	if dest["a"] != json.Number("1") {
-		t.Fatalf("a=%v (%T)", dest["a"], dest["a"])
+	err := jsonutil.RejectUnknownObjectKeys([]byte(`{"a":1,"z":9}`), allowed)
+	if err == nil || !strings.HasPrefix(err.Error(), jsonutil.UnknownJSONKeyPrefix) {
+		t.Fatalf("got %v", err)
 	}
-}
-
-func TestDecodeUseNumberRejectsMalformed(t *testing.T) {
-	t.Parallel()
-	var dest map[string]any
-	if err := DecodeUseNumber([]byte(`{`), &dest); err != ErrInvalidJSONBody {
+	if err.Error() != jsonutil.UnknownJSONKeyPrefix+"z" {
+		t.Fatalf("got %q", err.Error())
+	}
+	err = jsonutil.RejectUnknownObjectKeys([]byte(`[]`), allowed)
+	if err != jsonutil.ErrBodyMustBeObject {
 		t.Fatalf("got %v", err)
 	}
 }

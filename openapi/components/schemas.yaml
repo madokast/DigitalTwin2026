@@ -216,7 +216,8 @@ RenameTagsSuccess:
 LogNumberRequest:
   type: object
   required: [happened_at, value_number, tags, objective_context]
-  additionalProperties: true
+  additionalProperties: false
+  description: "Unknown JSON keys -> 400 (Unknown JSON key: <name>)."
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
@@ -243,7 +244,7 @@ LogNumberRequest:
 LogTextRequest:
   type: object
   required: [happened_at, value_text, tags, objective_context]
-  additionalProperties: true
+  additionalProperties: false
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
@@ -274,8 +275,9 @@ RecordDraftRequest:
     Editable snapshot for PATCH. Aligns with `parseRecordDraft`:
     empty strings on nullable fields become null; `objective_context` must
     be a non-empty string; `value_number` is string | null only (JSON number → 400).
+    Unknown JSON keys -> 400 (Unknown JSON key: <name>).
   required: [happened_at, tags, objective_context]
-  additionalProperties: true
+  additionalProperties: false
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
@@ -299,7 +301,7 @@ RecordDraftRequest:
 
 TelegramProbeRequest:
   type: object
-  additionalProperties: true
+  additionalProperties: false
   properties:
     text:
       type: string
@@ -307,7 +309,7 @@ TelegramProbeRequest:
 
 QqbotProbeRequest:
   type: object
-  additionalProperties: true
+  additionalProperties: false
   properties:
     text:
       type: string
@@ -339,7 +341,7 @@ TransactionType:
 TransactionEntry:
   type: object
   required: [amount, memo, category, subcategory]
-  additionalProperties: true
+  additionalProperties: false
   properties:
     amount:
       allOf:
@@ -372,8 +374,9 @@ LogTransactionRequest:
     (colon boundary — `transaction_entrypoint` is not reserved).
     Clients must not send reserved tags on /api/log/number, /api/log/text,
     Admin draft, or Admin tag rename from/to.
+    Unknown JSON keys on the request or entries -> 400 (Unknown JSON key: <name>).
   required: [happened_at, type, entries]
-  additionalProperties: true
+  additionalProperties: false
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'

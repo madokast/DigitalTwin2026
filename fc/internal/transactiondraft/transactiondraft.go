@@ -30,9 +30,18 @@ type TransactionEntryInput struct {
 
 // LogTransactionBody POST /api/log/transaction 请求体。
 type LogTransactionBody struct {
-	HappenedAt any `json:"happened_at"`
-	Type       any `json:"type"`
-	Entries    any `json:"entries"`
+	HappenedAt           any `json:"happened_at"`
+	Type                 any `json:"type"`
+	Entries              any `json:"entries"`
+	SuppressNotification any `json:"suppress_notification"`
+}
+
+var logTransactionKeys = []string{
+	"happened_at", "type", "entries", "suppress_notification",
+}
+
+var transactionEntryKeys = []string{
+	"amount", "memo", "category", "subcategory",
 }
 
 // NormalizedTransactionEntry 校验后的单条 entry。
@@ -120,6 +129,9 @@ func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, err
 	if !ok {
 		return NormalizedTransactionEntry{}, fmt.Errorf("entries[%d] must be an object", index)
 	}
+	if err := jsonutil.RejectUnknownMapKeys(m, transactionEntryKeys, prefix); err != nil {
+		return NormalizedTransactionEntry{}, err
+	}
 	entry := TransactionEntryInput{
 		Amount:      m["amount"],
 		Memo:        m["memo"],
@@ -158,6 +170,9 @@ func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, err
 // ParseTransactionBatch 解析 POST /api/log/transaction body（含 UseNumber JSON 解码）。
 // 必填顶层 type（income|expense）；entries 长度 1..Max；amount 为零 → 错误。
 func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, error) {
+	if err := jsonutil.RejectUnknownObjectKeys(raw, logTransactionKeys); err != nil {
+		return NormalizedTransactionBatch{}, err
+	}
 	var body LogTransactionBody
 	if err := jsonutil.DecodeUseNumber(raw, &body); err != nil {
 		return NormalizedTransactionBatch{}, err

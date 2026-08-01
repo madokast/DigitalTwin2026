@@ -29,6 +29,20 @@ func TestCreateNumberRejectsMissingTimezone(t *testing.T) {
 	}
 }
 
+func TestCreateNumberRejectsUnknownKey(t *testing.T) {
+	raw := []byte(`{
+		"happened_at":"2024-01-01T00:00:00Z",
+		"value_number":"1",
+		"tags":["a"],
+		"objective_context":"o",
+		"extra":true
+	}`)
+	_, status, err := CreateNumber(context.Background(), nil, raw)
+	if status != 400 || err == nil || err.Error() != "Unknown JSON key: extra" {
+		t.Fatalf("status=%d err=%v", status, err)
+	}
+}
+
 func TestCreateNumberRejectsJSONNumber(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-07-30T08:00:00+08:00",

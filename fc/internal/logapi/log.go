@@ -22,6 +22,7 @@ type NumberBody struct {
 	Tags                     any `json:"tags"`
 	ObjectiveContext         any `json:"objective_context"`
 	SubjectiveInterpretation any `json:"subjective_interpretation"`
+	SuppressNotification     any `json:"suppress_notification"`
 }
 
 type TextBody struct {
@@ -30,6 +31,17 @@ type TextBody struct {
 	Tags                     any `json:"tags"`
 	ObjectiveContext         any `json:"objective_context"`
 	SubjectiveInterpretation any `json:"subjective_interpretation"`
+	SuppressNotification     any `json:"suppress_notification"`
+}
+
+var logNumberKeys = []string{
+	"happened_at", "value_number", "tags", "objective_context",
+	"subjective_interpretation", "suppress_notification",
+}
+
+var logTextKeys = []string{
+	"happened_at", "value_text", "tags", "objective_context",
+	"subjective_interpretation", "suppress_notification",
 }
 
 // optionalSubjective 与 draft / PATCH 对齐：非 string → 错误；空串 / null / omit → nil
@@ -127,6 +139,9 @@ func decodeJSONBody(raw []byte, dest any) error {
 }
 
 func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {
+	if err := jsonutil.RejectUnknownObjectKeys(raw, logNumberKeys); err != nil {
+		return record.Record{}, 400, err
+	}
 	var body NumberBody
 	if err := decodeJSONBody(raw, &body); err != nil {
 		return record.Record{}, 400, err
@@ -185,6 +200,9 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 }
 
 func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {
+	if err := jsonutil.RejectUnknownObjectKeys(raw, logTextKeys); err != nil {
+		return record.Record{}, 400, err
+	}
 	var body TextBody
 	if err := decodeJSONBody(raw, &body); err != nil {
 		return record.Record{}, 400, err

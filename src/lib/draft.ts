@@ -1,5 +1,15 @@
 import { assertNoReservedTags, validateTags } from '@/lib/tags'
 import { parseRFC3339Flexible } from '@/lib/timeutil'
+import { rejectUnknownKeys } from '@/lib/unknown-keys'
+
+export const RECORD_DRAFT_KEYS = [
+  'happened_at',
+  'value_number',
+  'value_text',
+  'tags',
+  'objective_context',
+  'subjective_interpretation',
+] as const
 
 /** ISO 8601 末尾时区：Z / ±HH:MM / ±HHMM（与 query `from`/`to`、Go draft 一致） */
 const ISO_TZ_SUFFIX = /(Z|[+-]\d{2}:?\d{2})$/i
@@ -117,6 +127,9 @@ export function parseValueNumber(
 export function parseRecordDraft(
   body: RecordDraftBody,
 ): NormalizedRecordDraft | DraftValidationError {
+  const unknown = rejectUnknownKeys(body, RECORD_DRAFT_KEYS)
+  if (unknown) return unknown
+
   const happenedResult = parseHappenedAt(body.happened_at)
   if ('error' in happenedResult) return happenedResult
   const happenedAt = happenedResult.value

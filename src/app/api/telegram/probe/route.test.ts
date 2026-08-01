@@ -82,4 +82,15 @@ describe('POST /api/telegram/probe', () => {
       }),
     )
   })
+
+  it('returns 400 on unknown JSON key', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'tok')
+    vi.stubEnv('TELEGRAM_USER_ID', '1')
+    const { POST } = await import('./route')
+    const res = await POST(probeRequest({ text: 'x', extra: 1 }))
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error: 'Unknown JSON key: extra',
+    })
+  })
 })

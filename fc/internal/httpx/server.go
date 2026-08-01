@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/fc/internal/auth"
 	"github.com/mdk/digitaltwin2026/fc/internal/draft"
+	"github.com/mdk/digitaltwin2026/fc/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/fc/internal/logapi"
 	"github.com/mdk/digitaltwin2026/fc/internal/notify"
 	"github.com/mdk/digitaltwin2026/fc/internal/qqbot"
@@ -297,6 +298,10 @@ func (s *Server) handleTelegramProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err == nil && len(raw) > 0 {
+		if err := jsonutil.RejectUnknownObjectKeys(raw, []string{"text"}); err != nil {
+			writeError(w, 400, err.Error())
+			return
+		}
 		var body struct {
 			Text string `json:"text"`
 		}
@@ -328,6 +333,10 @@ func (s *Server) handleQqbotProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err == nil && len(raw) > 0 {
+		if err := jsonutil.RejectUnknownObjectKeys(raw, []string{"text"}); err != nil {
+			writeError(w, 400, err.Error())
+			return
+		}
 		var body struct {
 			Text string `json:"text"`
 		}
@@ -426,6 +435,10 @@ func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 	raw, ok := readBodyOrError(w, r)
 	if !ok {
+		return
+	}
+	if err := jsonutil.RejectUnknownObjectKeys(raw, []string{"from", "to"}); err != nil {
+		writeError(w, 400, err.Error())
 		return
 	}
 	// any 字段：与 Next 对齐，非 string from/to 走 validateRename，而非 Invalid JSON body

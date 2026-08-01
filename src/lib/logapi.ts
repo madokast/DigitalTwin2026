@@ -9,6 +9,25 @@ import { parseHappenedAt, parseValueNumber } from '@/lib/draft'
 import { fromDB, tagsJSON, type Record } from '@/lib/record'
 import { assertNoReservedTags, validateTags } from '@/lib/tags'
 import { parseTransactionBatch } from '@/lib/transactiondraft'
+import { rejectUnknownKeys } from '@/lib/unknown-keys'
+
+export const LOG_NUMBER_KEYS = [
+  'happened_at',
+  'value_number',
+  'tags',
+  'objective_context',
+  'subjective_interpretation',
+  'suppress_notification',
+] as const
+
+export const LOG_TEXT_KEYS = [
+  'happened_at',
+  'value_text',
+  'tags',
+  'objective_context',
+  'subjective_interpretation',
+  'suppress_notification',
+] as const
 
 export type NumberBody = {
   happened_at?: unknown
@@ -16,6 +35,7 @@ export type NumberBody = {
   tags?: unknown
   objective_context?: unknown
   subjective_interpretation?: unknown
+  suppress_notification?: unknown
 }
 
 export type TextBody = {
@@ -24,6 +44,7 @@ export type TextBody = {
   tags?: unknown
   objective_context?: unknown
   subjective_interpretation?: unknown
+  suppress_notification?: unknown
 }
 
 export type LogApiError = { error: string; status: number }
@@ -77,6 +98,11 @@ async function insertReturning(
 export async function createNumber(
   body: NumberBody,
 ): Promise<CreateRecordResult> {
+  const unknown = rejectUnknownKeys(body, LOG_NUMBER_KEYS)
+  if (unknown) {
+    return { error: unknown.error, status: 400 }
+  }
+
   const happenedResult = parseHappenedAt(body.happened_at)
   if ('error' in happenedResult) {
     return { error: happenedResult.error, status: 400 }
@@ -139,6 +165,11 @@ export async function createNumber(
 
 /** 与 Go `logapi.CreateText` 对齐：校验 + INSERT */
 export async function createText(body: TextBody): Promise<CreateRecordResult> {
+  const unknown = rejectUnknownKeys(body, LOG_TEXT_KEYS)
+  if (unknown) {
+    return { error: unknown.error, status: 400 }
+  }
+
   const happenedResult = parseHappenedAt(body.happened_at)
   if ('error' in happenedResult) {
     return { error: happenedResult.error, status: 400 }

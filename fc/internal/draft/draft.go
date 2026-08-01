@@ -208,6 +208,13 @@ func ParseRecordDraft(body RecordDraftBody) (*NormalizedRecordDraft, error) {
 
 // ParseRecordDraftJSON unmarshals JSON with UseNumber and parses.
 func ParseRecordDraftJSON(data []byte) (*NormalizedRecordDraft, error) {
+	allowed := []string{
+		"happened_at", "value_number", "value_text", "tags",
+		"objective_context", "subjective_interpretation",
+	}
+	if err := jsonutil.RejectUnknownObjectKeys(data, allowed); err != nil {
+		return nil, err
+	}
 	var raw map[string]any
 	if err := jsonutil.DecodeUseNumber(data, &raw); err != nil {
 		return nil, err

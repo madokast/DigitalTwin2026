@@ -7,10 +7,9 @@ import {
   configError,
   sendTelegramMessage,
 } from '@/lib/telegram'
+import { rejectUnknownKeys } from '@/lib/unknown-keys'
 
-interface ProbeBody {
-  text?: string
-}
+const PROBE_KEYS = ['text'] as const
 
 export async function POST(request: NextRequest) {
   const err = configError()
@@ -28,9 +27,16 @@ export async function POST(request: NextRequest) {
       )
     }
     if (buf.byteLength > 0) {
-      const body = JSON.parse(new TextDecoder('utf-8').decode(buf)) as ProbeBody
-      if (typeof body?.text === 'string' && body.text.trim() !== '') {
-        text = body.text.trim()
+      const body: unknown = JSON.parse(
+        new TextDecoder('utf-8').decode(buf),
+      )
+      const unknown = rejectUnknownKeys(body, PROBE_KEYS)
+      if (unknown) {
+        return NextResponse.json({ error: unknown.error }, { status: 400 })
+      }
+      const textRaw = (body as { text?: unknown }).text
+      if (typeof textRaw === 'string' && textRaw.trim() !== '') {
+        text = textRaw.trim()
       }
     }
   } catch {
