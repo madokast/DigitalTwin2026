@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   emptyStringToNull,
@@ -8,6 +11,16 @@ import {
   VALUE_NUMBER_MUST_BE_STRING,
 } from './draft'
 import { reservedTagError } from './tags'
+
+const decimalCases = JSON.parse(
+  readFileSync(
+    path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../testdata/decimal-string-cases.json',
+    ),
+    'utf8',
+  ),
+) as { accept: string[]; reject: string[] }
 
 const validBase = {
   happened_at: '2026-07-30T08:00:00+08:00',
@@ -53,10 +66,25 @@ describe('parseHappenedAt', () => {
 })
 
 describe('validateDecimalString / parseValueNumber', () => {
-  it('accepts valid literals and preserves trailing zeros', () => {
-    expect(validateDecimalString('1')).toEqual({ ok: true })
-    expect(validateDecimalString('75.5')).toEqual({ ok: true })
-    expect(validateDecimalString('1.0')).toEqual({ ok: true })
+  it('accepts shared decimal-string fixtures', () => {
+    for (const s of decimalCases.accept) {
+      expect(validateDecimalString(s), s).toEqual({ ok: true })
+      expect(parseValueNumber(s), s).toEqual({ ok: true, value: s })
+    }
+  })
+
+  it('rejects shared decimal-string fixtures', () => {
+    for (const bad of decimalCases.reject) {
+      expect(validateDecimalString(bad), bad).toEqual({
+        error: 'Invalid value_number',
+      })
+      expect(parseValueNumber(bad), bad).toEqual({
+        error: 'Invalid value_number',
+      })
+    }
+  })
+
+  it('trims and maps blank / null; preserves trailing zeros', () => {
     expect(parseValueNumber('  1.0  ')).toEqual({ ok: true, value: '1.0' })
     expect(parseValueNumber('')).toEqual({ ok: true, value: null })
     expect(parseValueNumber(null)).toEqual({ ok: true, value: null })
@@ -69,12 +97,6 @@ describe('validateDecimalString / parseValueNumber', () => {
     expect(parseValueNumber(1)).toEqual({
       error: VALUE_NUMBER_MUST_BE_STRING,
     })
-  })
-
-  it('rejects scientific notation, +sign, incomplete decimals, leading zeros', () => {
-    for (const bad of ['1e3', '1E3', '+1', '1.', '.5', '01', '00.5', '1,000']) {
-      expect(parseValueNumber(bad)).toEqual({ error: 'Invalid value_number' })
-    }
   })
 })
 

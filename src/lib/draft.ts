@@ -65,7 +65,7 @@ export function parseHappenedAt(
 
 /**
  * 校验已 trim 的十进制字符串字面量（不经 Number 往返）。
- * 与 Go draft.ValidateDecimalString 规则一致。
+ * 与 Go draft.ValidateDecimalString 规则一致；边界样例见 testdata/decimal-string-cases.json。
  */
 export function validateDecimalString(
   s: string,

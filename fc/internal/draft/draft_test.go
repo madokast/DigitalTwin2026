@@ -1,10 +1,37 @@
 package draft
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/mdk/digitaltwin2026/fc/internal/tags"
 )
+
+type decimalStringCases struct {
+	Accept []string `json:"accept"`
+	Reject []string `json:"reject"`
+}
+
+func loadDecimalStringCases(t *testing.T) decimalStringCases {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
+	b, err := os.ReadFile(filepath.Join(root, "testdata", "decimal-string-cases.json"))
+	if err != nil {
+		t.Fatalf("read decimal-string-cases: %v", err)
+	}
+	var cases decimalStringCases
+	if err := json.Unmarshal(b, &cases); err != nil {
+		t.Fatalf("parse decimal-string-cases: %v", err)
+	}
+	return cases
+}
 
 func TestEmptyStringToNull(t *testing.T) {
 	empty := ""
@@ -55,10 +82,31 @@ func TestParseHappenedAt(t *testing.T) {
 	}
 }
 
-func TestParseValueNumber(t *testing.T) {
-	got, err := ParseValueNumber("1.0")
+func TestValidateDecimalStringSharedFixtures(t *testing.T) {
+	cases := loadDecimalStringCases(t)
+	for _, s := range cases.Accept {
+		if err := ValidateDecimalString(s); err != nil {
+			t.Fatalf("accept %q: %v", s, err)
+		}
+		got, err := ParseValueNumber(s)
+		if err != nil || got == nil || *got != s {
+			t.Fatalf("ParseValueNumber accept %q: %#v %v", s, got, err)
+		}
+	}
+	for _, bad := range cases.Reject {
+		if err := ValidateDecimalString(bad); err == nil || err.Error() != "Invalid value_number" {
+			t.Fatalf("reject ValidateDecimalString %q: %v", bad, err)
+		}
+		if _, err := ParseValueNumber(bad); err == nil || err.Error() != "Invalid value_number" {
+			t.Fatalf("reject ParseValueNumber %q: %v", bad, err)
+		}
+	}
+}
+
+func TestParseValueNumberBlankAndJSONNumber(t *testing.T) {
+	got, err := ParseValueNumber("  1.0  ")
 	if err != nil || got == nil || *got != "1.0" {
-		t.Fatalf("literal: %#v %v", got, err)
+		t.Fatalf("trim: %#v %v", got, err)
 	}
 	got, err = ParseValueNumber("  ")
 	if err != nil || got != nil {
@@ -66,11 +114,6 @@ func TestParseValueNumber(t *testing.T) {
 	}
 	if _, err := ParseValueNumber(float64(75.5)); err == nil || err.Error() != ValueNumberMustBeString {
 		t.Fatalf("float64: %v", err)
-	}
-	for _, bad := range []string{"1e3", "1.", "+1", ".5", "01", "00.5"} {
-		if _, err := ParseValueNumber(bad); err == nil || err.Error() != "Invalid value_number" {
-			t.Fatalf("%q: %v", bad, err)
-		}
 	}
 }
 
