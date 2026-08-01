@@ -27,11 +27,6 @@ export const RESERVED_TAG_PREFIXES = ['transaction_entry'] as const
 
 export type ReservedTagPrefix = (typeof RESERVED_TAG_PREFIXES)[number]
 
-/** @deprecated 语义已改为前缀；保留别名以免旧引用断裂 */
-export const RESERVED_TAGS = RESERVED_TAG_PREFIXES
-
-export type ReservedTag = ReservedTagPrefix
-
 export const RESERVED_TAG_TRANSACTION_ENTRY: ReservedTagPrefix = 'transaction_entry'
 
 /** 组装落库用的类型 tag：`transaction_entry:income` / `transaction_entry:expense` */

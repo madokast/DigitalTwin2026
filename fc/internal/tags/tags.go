@@ -22,9 +22,6 @@ var tagPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$
 // 通用 log / Admin 草稿 / rename 的 from/to 均拒绝。
 var ReservedTagPrefixes = []string{"transaction_entry"}
 
-// ReservedTags 历史别名；语义同 ReservedTagPrefixes。
-var ReservedTags = ReservedTagPrefixes
-
 const ReservedTagTransactionEntry = "transaction_entry"
 
 // ErrTagsNotJSONArray 与 TS TAGS_NOT_JSON_ARRAY 同文案：根不是 JSON 数组。
