@@ -1,76 +1,123 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-08-01
-> 状态：已落地并推送 — `POST /api/log/transaction`（整单 `type` + 命名空间前缀保留 tag）；summary 延期
+> 状态：transaction 录入落地；双端 API 大规模对齐；统一 `notify_user` + QQ Bot；契约收紧（未知键 / `suppress_notification`）
 
 ## 0. 今日做成了什么（总览）
 
 | 类别 | 已完成 |
 |------|--------|
-| Transaction 写入 | `POST /api/log/transaction`：batch `entries`、共用 `happened_at`、响应仅 `{ success, inserted }` |
-| type | 顶层必填 `income` \| `expense`（整单共享；混用则调两次 API） |
-| 落库 tags | `["transaction_entry:{type}","{category}:{subcategory}"]` |
-| amount | 十进制字符串；**零 → 400**；正=正常、负=该 type 冲销 |
-| 保留 tag | 前缀语义：`P` 或 `P:…`（首批 `P=transaction_entry`）；number/text/Admin draft/rename 拒绝 |
-| 双端 | Next + Go FC；OpenAPI + fixtures + 契约测 / 路由测 |
-| 文档 | 本日志；`openapi/README` 注明存量裸 tag 需清库 |
-| 明确不做 / 延期 | transaction **summary**、Dashboard、网页录入 UI |
+| Transaction | `POST /api/log/transaction`：顶层 `type` + `entries`；落库 `transaction_entry:{type}` 前缀 tag；summary **延期** |
+| 双端对齐 | 大量 Next ↔ Go 契约/语义对齐（JSON、时区、UUID、鉴权路径、Telegram、query 等）；见 §2 |
+| 分层文档 | [`docs/20260801-api-layering.md`](20260801-api-layering.md)：模块同构、§1.1 允许差异、§7 通知 |
+| 通知统一 | `notify_user` / `NotifyUser`：Telegram + QQ 并行 timed await；`NOTIFY_ALLOW_IN_TEST` |
+| QQ Bot | `POST /api/qqbot/probe`；运行时 C2C 主动发；本地 `npm run qqbot:listen-openid` |
+| 部署 UX | `secrets:refresh-prod` / FC deploy：先问是否开启 TG/QQ，否→空串，是→填齐并探测 |
+| 录入开关 | 三 log API 可选 `suppress_notification`（默认 false；true 跳过 notify） |
+| 契约收紧 | 请求体未知 JSON 键 → 400 `Unknown JSON key: …`（`additionalProperties: false`） |
+| 构建 | FC `go build -trimpath -ldflags="-s -w"`；tags→`tagsdb` 修 Vercel Client 打进 postgres |
 
-另：同日早先完成的 OpenAPI 收口（codegen/Schemathesis 不做）已在 `c862052` 合入。
+**明确不做 / 延期**：transaction summary、Dashboard、网页录入 UI；OpenAPI **不做** codegen / Schemathesis（此前已收口）。
 
-## 1. 契约摘要
+---
+
+## 1. Transaction 写入（上半日）
 
 | 项 | 约定 |
 |----|------|
 | 路径 | `POST /api/log/transaction`（ApiToken） |
-| Body | `happened_at` + `type` + `entries[]`（`amount` / `memo` / `category` / `subcategory`） |
-| entries | 长度 1..100；空数组 400 |
-| amount | DecimalString；`0` / `0.0` / `-0` → 400（`entries[i]: amount must not be zero`） |
-| 落库 | `value_number`←amount；`objective_context`←memo；`value_text` / `subjective_interpretation` = null |
-| 保留 tag | `tag === P \|\| tag.startsWith(P + ":")`；**不是**无冒号边界的裸 `startsWith(P)`（避免误伤 `transaction_entrypoint`） |
+| Body | `happened_at` + `type`（`income`\|`expense`）+ `entries[]` |
+| entries | 1..100；`amount` 十进制字符串；零 → 400；正=正常、负=该 type 冲销 |
+| 落库 tags | `["transaction_entry:{type}","{category}:{subcategory}"]` |
+| 保留 tag | 前缀语义 `P` 或 `P:…`（`P=transaction_entry`）；number/text/Admin/rename 拒绝 |
 | 感受/评价 | 另走 `POST /api/log/text` |
-| 破坏性 | 相对首版裸 `transaction_entry` 为破坏性变更；预生产，无 API 版本号 |
 
-符号语义：
+若库中仍有裸 tag `transaction_entry`（无 `:type`），需手工清理。
 
-| type | amount | 含义 |
-|------|--------|------|
-| income | `> 0` | 收入 |
-| income | `< 0` | 收入冲销 |
-| expense | `> 0` | 支出 |
-| expense | `< 0` | 支出冲销 |
+相关：`src/lib/transactiondraft.ts`、`fc/internal/logapi/transaction.go`、OpenAPI `LogTransactionRequest`。
 
-## 2. 实现落点
+---
 
-- Next：`src/lib/transaction-draft.ts`、`src/app/api/log/transaction/route.ts`；`src/lib/tags.ts`；Telegram 整单摘要含 `type`
-- Go：`fc/internal/logapi/transaction.go`；httpx 注册；tags / draft / rename 护栏；telegram 摘要
-- OpenAPI：`TransactionType`、`LogTransactionRequest`、`TransactionBatchSuccess`；fixtures（含 missing-type / zero 相关）
-- 测：契约、单元、路由级 reserved（number/text/rename/PATCH）、Go 对等测
+## 2. 双端 API 对齐与分层（中后段）
 
-## 3. 验证
+对照 OpenAPI / 集成期望，逐项收口 Next 与 Go FC，并写入分层规范：
 
-- `npm run openapi:lint` — pass
-- `npm run test:openapi` — pass
-- vitest：tags / transaction-draft / record-draft / routes — pass
-- `cd fc && go test ./internal/{tags,logapi,contract,draft,httpx,telegram}` — pass
+- **分层**：HTTP 只 bind + 调 lib；业务在 `src/lib/*` ↔ `fc/internal/*` stem 对齐（[`20260801-api-layering.md`](20260801-api-layering.md)）
+- **§1.1 允许差异**（刻意保留并注释）：404/405 框架默认 vs Go JSON；CORS 仅 FC；小数长度 `string.length` vs rune；notify 调度 `after()` vs `go`；`notify_user` snake_case；QQ token 缓存包级 vs per-Sender
+- **代表性对齐修复**（节选）：畸形 JSON 400、RFC3339/`happened_at`、字段类型文案、rename、page 上限、时区 deny-list、LIKE 转义、UUID、`query?id=` 空数组、Telegram 失败文案、admin 鉴权前缀、`writeJSON` 关 HTML escape、body 256KiB→413、JSON 尾部垃圾、tags 字节序、`q` OR 括号等
 
-## 4. 存量清库
+验证习惯：`npm run openapi:lint`、`npm run test:openapi`、相关 vitest、`cd fc && go test ./...`（无 `DATABASE_URL` 时集成 Skip）。
 
-若测试/生产库仍有**裸** tag `transaction_entry`（无 `:income` / `:expense`）的行，请手工 truncate/清理。本变更不附带自动 wipe（集成测本身会 truncate 测试表）。
+---
 
-## 5. 今日提交（节选）
+## 3. 统一通知：`notify_user` + QQ Bot
+
+### 3.1 运行时
+
+- Next：`src/lib/notify.ts`、`src/lib/qqbot.ts`；Go：`fc/internal/notify`、`fc/internal/qqbot`
+- 录入成功（number/text/transaction）→ format（仍在 telegram 包）→ **`notify_user`**：已配置渠道并行 + ~15s timed await；失败只打英文日志
+- 测试跳过：`DIGITAL_TWIN_TEST=1`；放行统一为 **`NOTIFY_ALLOW_IN_TEST=1`**（废弃 `TELEGRAM_ALLOW_IN_TEST`）
+- Probe **不**经 `notify_user`：`POST /api/telegram/probe`、`POST /api/qqbot/probe` 各测单通道
+
+### 3.2 QQ 配置与本地工具
+
+- Env：`QQBOT_APP_ID` / `QQBOT_APP_SECRET` / `QQBOT_USER_OPENID`（三者齐全才启用）
+- 主动 C2C（无 `msg_id`）；双 API base；access_token 缓存
+- `npm run qqbot:listen-openid`：监听私聊拿 openid，并可回发确认（运维用，不进运行时扇出）
+
+### 3.3 部署 / 刷新脚本
+
+- `secrets:refresh-prod`：前三项 DB/Token **必填**（Sensitive `env pull` 常为空）；Telegram / QQ 改为 **Enable? [y/N]** → 否写空 upsert，是则填齐并实发验证
+- FC `deploy.ts` 同逻辑；`DT_SKIP_NOTIFY_PROMPT`（兼容旧 `DT_SKIP_TELEGRAM_PROMPT`）
+- `fc/s.yaml` 注入 `QQBOT_*`
+
+### 3.4 `suppress_notification`
+
+三 log 请求体可选布尔：省略/null → false；`true` → 写入逻辑不变但跳过 notify；非 boolean → 写入前 400 `Invalid suppress_notification`。
+
+---
+
+## 4. 未知 JSON 键
+
+此前 struct / 字段挑选会**静默忽略**多余键。现改为：
+
+- OpenAPI 相关 request schema：`additionalProperties: false`
+- 运行时：`rejectUnknownKeys` / `jsonutil.RejectUnknownObjectKeys`
+- 400 文案：`Unknown JSON key: <name>`（多键按名字排序取第一个）
+- 覆盖：log number/text/transaction（含 entry）、Admin draft、rename、两 probe
+
+---
+
+## 5. 验证（当日相关）
+
+- `npm run openapi:lint` / `npm run test:openapi` — pass
+- 定向 vitest（notify / qqbot / suppress / unknown-keys / probes / transaction 等）— pass
+- `cd fc && go test ./...` — pass（无 DB 时集成 Skip）
+- 全量 `npm test` 若本机 Neon 不可达，含 DB 的集成会挂起；CI 无 DB 时 Skip
+
+---
+
+## 6. 今日提交（主题块，自新到旧节选）
 
 ```
-2f3850b 为 transaction 增加 type，并将保留 tag 改为命名空间前缀语义。
-27d20f4 添加 POST /api/log/transaction 批量收支录入，并引入保留 tag。
-c862052 收口 OpenAPI：定死开发边界，明确不做 codegen 与 Schemathesis。
+22a9c8e 拒绝请求体未知 JSON 键，返回 Unknown JSON key。
+5eda328 录入 API 支持 suppress_notification 跳过 notify。
+42e510a 文档与注释标明 notify 双端刻意差异，并补齐 qqbot/notify 分层表。
+8e58ea9 部署脚本改为先询问是否开启 Telegram/QQ 通知。
+466ce68 / 64bd8d1 / 5795653  QQ Bot probe + notify_user 双端同构 + OpenAPI
+179222c refresh-prod 前三项必填 + qqbot:listen-openid
+…（大量双端对齐 / transaction / CI / layering）
+2f3850b / 27d20f4  transaction type + 保留 tag 前缀
 ```
 
-（本日志补记提交见后续 commit。）
+完整列表以 `git log --since=2026-08-01 --until=2026-08-02` 为准。
 
-## 6. 仍待办
+---
 
-- [ ] `GET /api/query/transaction/summary`（按 `transaction_entry:income|expense` + 符号聚合；**已延期**，勿用「正=支出」旧草案）
-- [ ] Dashboard 支出组件
+## 7. 仍待办
+
+- [ ] `GET /api/query/transaction/summary`（按 `transaction_entry:income|expense` + 符号聚合；**已延期**）
+- [ ] Dashboard 支出组件 / 网页录入 UI
 - [ ] 记录删除 / 图表 / 列表行内编辑
 - [ ] 体重等其它专用 log、AI CLI、数据导出
+- [ ] QQ 主动消息依赖用户端「允许主动发送」；生产密钥轮换仍建议 Neon 控制台 + `refresh-prod` 粘贴
