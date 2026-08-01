@@ -44,6 +44,11 @@ SELECT EXISTS (
 	h := srv.Handler()
 
 	marker := "go-fc-integration-" + time.Now().UTC().Format("150405.000")
+	// 须在断言之前注册：t.Fatalf 会跳过函数末尾 cleanup，残留测试行
+	t.Cleanup(func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM records WHERE objective_context = $1`, marker)
+	})
+
 	body := `{
 		"happened_at":"2026-07-30T08:00:00+08:00",
 		"value_number": "42.5",
@@ -62,8 +67,10 @@ SELECT EXISTS (
 	if err := json.Unmarshal(rr.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
-	rec := created["record"].(map[string]any)
-	id := rec["id"].(string)
+	rec, _ := created["record"].(map[string]any)
+	if rec == nil || rec["id"] == nil || rec["id"] == "" {
+		t.Fatalf("missing record.id in %s", rr.Body.String())
+	}
 
 	q := httptest.NewRequest(http.MethodGet, "/api/query?q="+marker, nil)
 	q.Header.Set("Authorization", "Bearer ai-tok")
@@ -72,7 +79,4 @@ SELECT EXISTS (
 	if qr.Code != 200 {
 		t.Fatalf("query status %d", qr.Code)
 	}
-
-	// cleanup
-	_, _ = pool.Exec(ctx, `DELETE FROM records WHERE id = $1`, id)
 }
