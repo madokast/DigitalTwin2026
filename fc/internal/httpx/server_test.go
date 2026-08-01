@@ -93,6 +93,21 @@ func TestJSONNotFoundAndMethodNotAllowed(t *testing.T) {
 	}
 }
 
+func TestAdminPathPrefixDoesNotMatchAdministration(t *testing.T) {
+	h := testServer().Handler()
+	// /api/administration 不是 admin 路由：AI token 应能过鉴权（再 404）
+	req := httptest.NewRequest(http.MethodGet, "/api/administration", nil)
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code == 401 {
+		t.Fatal("AI token must not be rejected as admin-only for /api/administration")
+	}
+	if rr.Code != 404 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestAdminRejectsAIToken(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/rename", strings.NewReader(`{"from":"a","to":"b"}`))

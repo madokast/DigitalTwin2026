@@ -58,4 +58,9 @@ describe('proxy API auth', () => {
     const res = proxy(apiRequest('/api/admin/tags/rename', `Bearer ${admin}`))
     expect(res.status).toBe(200)
   })
+
+  it('does not treat /api/administration as admin route', () => {
+    const res = proxy(apiRequest('/api/administration', `Bearer ${ai}`))
+    expect(res.status).toBe(200)
+  })
 })

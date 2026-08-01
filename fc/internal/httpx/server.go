@@ -133,7 +133,7 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		isAdmin := strings.HasPrefix(r.URL.Path, "/api/admin/")
+		isAdmin := r.URL.Path == "/api/admin" || strings.HasPrefix(r.URL.Path, "/api/admin/")
 		ok := false
 		if isAdmin {
 			ok = s.Tokens.VerifyAdminAccess(r)
