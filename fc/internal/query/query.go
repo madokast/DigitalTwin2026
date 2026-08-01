@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -16,9 +17,12 @@ import (
 	"github.com/mdk/digitaltwin2026/fc/internal/timeutil"
 )
 
+// ErrInvalidTZ 与 Next fetchSummary 文案一致；httpx 用 errors.Is 映射 400。
+var ErrInvalidTZ = errors.New("Query parameter tz must be a valid IANA time zone")
+
 var (
-	isoTZSuffix  = regexp.MustCompile(`(?i)(Z|[+-]\d{2}:?\d{2})$`)
-	digitsOnly   = regexp.MustCompile(`^\d+$`)
+	isoTZSuffix = regexp.MustCompile(`(?i)(Z|[+-]\d{2}:?\d{2})$`)
+	digitsOnly  = regexp.MustCompile(`^\d+$`)
 )
 
 type ParsedQuery struct {
@@ -232,11 +236,11 @@ type SummaryResult struct {
 
 func FetchSummary(ctx context.Context, pool *pgxpool.Pool, tz string, now time.Time) (*SummaryResult, error) {
 	if !timeutil.IsValidTimeZone(tz) {
-		return nil, fmt.Errorf("Query parameter tz must be a valid IANA time zone")
+		return nil, ErrInvalidTZ
 	}
 	start, end, err := timeutil.GetZonedDayBounds(now, tz)
 	if err != nil {
-		return nil, fmt.Errorf("Query parameter tz must be a valid IANA time zone")
+		return nil, ErrInvalidTZ
 	}
 
 	var total, today int

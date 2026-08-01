@@ -50,6 +50,12 @@ func IsValidTimeZone(tz string) bool {
 	if tz == "" {
 		return false
 	}
+	// Go time/tzdata 会 LoadLocation 成功、但非 Intl IANA 名的特殊条目；
+	// 与 Next isValidTimeZone（Intl）求交，避免 summary?tz= 一端 200 一端 400。
+	switch tz {
+	case "Factory", "localtime", "posixrules":
+		return false
+	}
 	_, err := time.LoadLocation(tz)
 	return err == nil
 }

@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mdk/digitaltwin2026/fc/internal/auth"
+	"github.com/mdk/digitaltwin2026/fc/internal/query"
 	"github.com/mdk/digitaltwin2026/fc/internal/telegram"
 )
 
@@ -188,12 +190,38 @@ func TestRenameTagsRejectsReservedTag(t *testing.T) {
 
 func TestSummaryInvalidTZWithoutDB(t *testing.T) {
 	h := testServer().Handler()
-	req := httptest.NewRequest(http.MethodGet, "/api/query/summary?tz=Not%2FAZone", nil)
-	req.Header.Set("Authorization", "Bearer ai-tok")
-	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, req)
-	if rr.Code != 400 {
-		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	for _, tz := range []string{"Not%2FAZone", "Factory", "localtime"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/query/summary?tz="+tz, nil)
+		req.Header.Set("Authorization", "Bearer ai-tok")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if rr.Code != 400 {
+			t.Fatalf("tz=%s status %d body %s", tz, rr.Code, rr.Body.String())
+		}
+		var body map[string]string
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		if body["error"] != "Query parameter tz must be a valid IANA time zone" {
+			t.Fatalf("tz=%s error=%v", tz, body)
+		}
+	}
+}
+
+func TestSummaryErrorClassification(t *testing.T) {
+	// 与 handleSummary 相同判定：errors.Is(ErrInvalidTZ)；禁止再靠文案含 "tz"
+	classify := func(err error) int {
+		if errors.Is(err, query.ErrInvalidTZ) {
+			return 400
+		}
+		return 500
+	}
+	if classify(query.ErrInvalidTZ) != 400 {
+		t.Fatal("ErrInvalidTZ → 400")
+	}
+	if classify(fmt.Errorf("%w", query.ErrInvalidTZ)) != 400 {
+		t.Fatal("wrapped ErrInvalidTZ → 400")
+	}
+	if classify(fmt.Errorf("connection failed near timezone column tz")) != 500 {
+		t.Fatal("DB error containing tz must stay 500")
 	}
 }
 

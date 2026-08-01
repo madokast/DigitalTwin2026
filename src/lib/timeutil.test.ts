@@ -38,6 +38,10 @@ describe('time helpers', () => {
     expect(isValidTimeZone('UTC')).toBe(true)
     expect(isValidTimeZone('Not/AZone')).toBe(false)
     expect(isValidTimeZone('')).toBe(false)
+    // Go LoadLocation 会收下的非 IANA 名；Intl 与 API 均须拒绝
+    expect(isValidTimeZone('Factory')).toBe(false)
+    expect(isValidTimeZone('localtime')).toBe(false)
+    expect(isValidTimeZone('posixrules')).toBe(false)
   })
 
   it('expandCompactOffset / parseRFC3339Flexible match Go', () => {

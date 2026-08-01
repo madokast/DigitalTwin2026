@@ -97,6 +97,12 @@ func TestIsValidTimeZone(t *testing.T) {
 	if IsValidTimeZone("Not/AZone") || IsValidTimeZone("") {
 		t.Fatal("expected invalid zones")
 	}
+	// Go LoadLocation 会收下、Intl 拒绝的非 IANA 名 → API 层须拒绝，避免双端分叉
+	for _, tz := range []string{"Factory", "localtime", "posixrules"} {
+		if IsValidTimeZone(tz) {
+			t.Fatalf("want reject Go-only zone %q", tz)
+		}
+	}
 }
 
 func TestCalendarDayBoundsSharedFixtures(t *testing.T) {

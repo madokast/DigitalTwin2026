@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -227,7 +228,7 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 	tz := r.URL.Query().Get("tz")
 	result, err := query.FetchSummary(r.Context(), s.Pool, tz, s.Now())
 	if err != nil {
-		if strings.Contains(err.Error(), "tz") {
+		if errors.Is(err, query.ErrInvalidTZ) {
 			writeError(w, 400, err.Error())
 			return
 		}

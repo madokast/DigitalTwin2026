@@ -50,7 +50,10 @@
       - name: tz
         in: query
         required: true
-        description: Valid IANA time zone (e.g. `UTC`, `Asia/Shanghai`)
+        description: |
+          Valid IANA time zone accepted by both backends (Intl ∩ Go tzdata),
+          e.g. `UTC`, `Asia/Shanghai`. Go-only names like `Factory` /
+          `localtime` / `posixrules` → 400.
         schema:
           type: string
           examples:
