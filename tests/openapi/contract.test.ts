@@ -77,6 +77,10 @@ describe('OpenAPI contract (Phase 2)', () => {
       'LogNumberRequest',
       readFixture('log-number-request-valid.json'),
     )
+    await assertValidSchema(
+      'LogNumberRequest',
+      readFixture('log-number-request-offset-hhmm.json'),
+    )
     // 契约：value_number 必须是 string；JSON number 在 schema 层即非法
     await assertInvalidSchema(
       'LogNumberRequest',

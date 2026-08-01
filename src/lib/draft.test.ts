@@ -48,11 +48,16 @@ describe('emptyStringToNull', () => {
 })
 
 describe('parseHappenedAt', () => {
-  it('accepts Z and ±HH:MM offsets', () => {
+  it('accepts Z and ±HH:MM / ±HHMM offsets', () => {
     const z = parseHappenedAt('2026-07-30T00:00:00.000Z')
     expect('error' in z).toBe(false)
     const offset = parseHappenedAt('2026-07-30T08:00:00+08:00')
     expect('error' in offset).toBe(false)
+    const compact = parseHappenedAt('2026-07-30T08:00:00+0800')
+    expect('error' in compact).toBe(false)
+    if (!('error' in offset) && !('error' in compact)) {
+      expect(compact.value.getTime()).toBe(offset.value.getTime())
+    }
   })
 
   it('rejects bare date and missing offset', () => {

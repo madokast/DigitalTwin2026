@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/mdk/digitaltwin2026/fc/internal/tags"
 )
@@ -73,6 +74,15 @@ func TestParseHappenedAt(t *testing.T) {
 	}
 	if _, err := ParseHappenedAt("2026-07-30T08:00:00+08:00"); err != nil {
 		t.Fatal(err)
+	}
+	// 契约 / Next 允许 ±HHMM（无冒号）；须与 ±HH:MM 等价，不能 400
+	got, err := ParseHappenedAt("2026-07-30T08:00:00+0800")
+	if err != nil {
+		t.Fatalf("+0800: %v", err)
+	}
+	want, _ := time.Parse(time.RFC3339, "2026-07-30T08:00:00+08:00")
+	if !got.Equal(want) {
+		t.Fatalf("+0800 instant: got %v want %v", got, want)
 	}
 	for _, raw := range []string{"2026-07-30", "2026-07-30T08:00:00"} {
 		_, err := ParseHappenedAt(raw)

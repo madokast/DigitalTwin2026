@@ -52,12 +52,9 @@ func parseIsoDate(raw, label string) (*time.Time, error) {
 	if !isoTZSuffix.MatchString(raw) {
 		return nil, fmt.Errorf("%s must be ISO 8601 with timezone (Z or ±HH:MM)", label)
 	}
-	t, err := time.Parse(time.RFC3339Nano, raw)
+	t, err := timeutil.ParseRFC3339Flexible(raw)
 	if err != nil {
-		t, err = time.Parse(time.RFC3339, raw)
-		if err != nil {
-			return nil, fmt.Errorf("Invalid %s datetime", label)
-		}
+		return nil, fmt.Errorf("Invalid %s datetime", label)
 	}
 	return &t, nil
 }

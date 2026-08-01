@@ -49,3 +49,22 @@ func TestParseRecordQueryParamsFilters(t *testing.T) {
 		t.Fatalf("filters: %+v", p)
 	}
 }
+
+func TestParseRecordQueryParamsCompactOffset(t *testing.T) {
+	// 与 Next query.test「+0800」及 OpenAPI HappenedAtInput 一致
+	q := url.Values{}
+	q.Set("from", "2026-07-30T00:00:00+0800")
+	q.Set("to", "2026-07-31T00:00:00+0800")
+	p, err := ParseRecordQueryParams(q)
+	if err != nil {
+		t.Fatalf("compact offset: %v", err)
+	}
+	wantFrom, _ := time.Parse(time.RFC3339, "2026-07-30T00:00:00+08:00")
+	wantTo, _ := time.Parse(time.RFC3339, "2026-07-31T00:00:00+08:00")
+	if p.From == nil || !p.From.Equal(wantFrom) {
+		t.Fatalf("from: got %v want %v", p.From, wantFrom)
+	}
+	if p.To == nil || !p.To.Equal(wantTo) {
+		t.Fatalf("to: got %v want %v", p.To, wantTo)
+	}
+}

@@ -1,0 +1,6 @@
+{
+  "happened_at": "2026-07-30T08:00:00+0800",
+  "value_number": "75.5",
+  "tags": ["weight"],
+  "objective_context": "compact offset without colon"
+}

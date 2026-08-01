@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mdk/digitaltwin2026/fc/internal/tags"
+	"github.com/mdk/digitaltwin2026/fc/internal/timeutil"
 )
 
 var isoTZSuffix = regexp.MustCompile(`(?i)(Z|[+-]\d{2}:?\d{2})$`)
@@ -58,12 +59,9 @@ func ParseHappenedAt(raw string) (time.Time, error) {
 	if !isoTZSuffix.MatchString(raw) {
 		return time.Time{}, fmt.Errorf("happened_at must be ISO 8601 with timezone (Z or ±HH:MM)")
 	}
-	happenedAt, err := time.Parse(time.RFC3339Nano, raw)
+	happenedAt, err := timeutil.ParseRFC3339Flexible(raw)
 	if err != nil {
-		happenedAt, err = time.Parse(time.RFC3339, raw)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("Invalid happened_at datetime")
-		}
+		return time.Time{}, fmt.Errorf("Invalid happened_at datetime")
 	}
 	return happenedAt, nil
 }
