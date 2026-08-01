@@ -262,16 +262,23 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "Invalid JSON body")
 		return
 	}
+	// any 字段：与 Next 对齐，非 string from/to 走 validateRename，而非 Invalid JSON body
 	var body struct {
-		From string `json:"from"`
-		To   string `json:"to"`
+		From any `json:"from"`
+		To   any `json:"to"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil {
 		writeError(w, 400, "Invalid JSON body")
 		return
 	}
-	from := strings.TrimSpace(body.From)
-	to := strings.TrimSpace(body.To)
+	from := ""
+	if s, ok := body.From.(string); ok {
+		from = strings.TrimSpace(s)
+	}
+	to := ""
+	if s, ok := body.To.(string); ok {
+		to = strings.TrimSpace(s)
+	}
 	if vr := tags.ValidateRename(from, to); !vr.Valid {
 		writeError(w, 400, vr.Error)
 		return
