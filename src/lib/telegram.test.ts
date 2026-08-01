@@ -4,36 +4,13 @@ import {
   formatRecordMessage,
   isTelegramConfigured,
   loadConfig,
-  notifyRecordInserted,
-  scheduleBestEffortNotify,
   sendTelegramMessage,
-  shouldSkipNotifyInTest,
   TELEGRAM_HTTP_TIMEOUT_MS,
   TELEGRAM_TRANSPORT_FAILED,
 } from './telegram'
 
 afterEach(() => {
   vi.restoreAllMocks()
-})
-
-describe('shouldSkipNotifyInTest', () => {
-  it('skips when DIGITAL_TWIN_TEST=1 unless allow flag', () => {
-    expect(shouldSkipNotifyInTest({ DIGITAL_TWIN_TEST: '1' })).toBe(true)
-    expect(
-      shouldSkipNotifyInTest({
-        DIGITAL_TWIN_TEST: '1',
-        TELEGRAM_ALLOW_IN_TEST: '1',
-      }),
-    ).toBe(false)
-  })
-
-  it('falls back to process.env when injected flag is empty', () => {
-    // tests/setup.ts 设 DIGITAL_TWIN_TEST=1；空注入应回退到 process.env
-    expect(shouldSkipNotifyInTest({})).toBe(true)
-    expect(
-      shouldSkipNotifyInTest({ TELEGRAM_ALLOW_IN_TEST: '1' }),
-    ).toBe(false)
-  })
 })
 
 const sampleNumber = {
@@ -217,59 +194,5 @@ describe('sendTelegramMessage', () => {
       ok: false,
       error: 'Telegram sendMessage failed: chat not found',
     })
-  })
-})
-
-describe('scheduleBestEffortNotify', () => {
-  it('runs task outside Next request scope (route unit tests / fallback)', async () => {
-    const task = vi.fn().mockResolvedValue(undefined)
-    scheduleBestEffortNotify(task)
-    await vi.waitFor(() => expect(task).toHaveBeenCalledTimes(1))
-  })
-})
-
-describe('notifyRecordInserted', () => {
-  it('skips when unconfigured and does not call fetch', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const fetchMock = vi.fn()
-    await notifyRecordInserted(sampleNumber, {
-      env: { TELEGRAM_ALLOW_IN_TEST: '1' },
-      fetch: fetchMock,
-    })
-    expect(fetchMock).not.toHaveBeenCalled()
-    expect(warn).toHaveBeenCalled()
-  })
-
-  it('skips in test mode even when Telegram is configured', async () => {
-    const fetchMock = vi.fn()
-    await notifyRecordInserted(sampleNumber, {
-      env: {
-        TELEGRAM_BOT_TOKEN: 't',
-        TELEGRAM_USER_ID: '1',
-        DIGITAL_TWIN_TEST: '1',
-      },
-      fetch: fetchMock,
-    })
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('logs error on send failure without throwing', async () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: async () => ({ ok: false, description: 'Unauthorized' }),
-    })
-    await expect(
-      notifyRecordInserted(sampleNumber, {
-        env: {
-          TELEGRAM_BOT_TOKEN: 't',
-          TELEGRAM_USER_ID: '1',
-          TELEGRAM_ALLOW_IN_TEST: '1',
-        },
-        fetch: fetchMock,
-      }),
-    ).resolves.toBeUndefined()
-    expect(error).toHaveBeenCalled()
   })
 })

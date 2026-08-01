@@ -1,6 +1,5 @@
-/** Telegram Bot 通知：录入成功 best-effort 推送；probe 严格校验配置与发送结果 */
+/** Telegram Bot 通知渠道：配置 / 格式化 / sendMessage；统一入口见 notify.ts */
 
-import { after } from 'next/server'
 import { RESERVED_TAG_TRANSACTION_ENTRY } from '@/lib/tags'
 
 /** 与 Go `http.Client{Timeout: 15 * time.Second}` 对齐 */
@@ -13,39 +12,10 @@ export const TELEGRAM_TRANSPORT_FAILED =
 export type EnvLike = {
   TELEGRAM_BOT_TOKEN?: string
   TELEGRAM_USER_ID?: string
-  DIGITAL_TWIN_TEST?: string
-  TELEGRAM_ALLOW_IN_TEST?: string
 }
 
 /** process.env 键比 EnvLike 宽；作默认参数时收窄 */
 const processEnvLike = (): EnvLike => process.env as EnvLike
-
-function envFlagOn(value: string | undefined): boolean {
-  return (value ?? '').trim() === '1'
-}
-
-/** 注入值非空优先；空则回退 process.env（与 Go ShouldSkipNotifyInTest 一致） */
-function envOrProcess(
-  env: EnvLike,
-  key: 'DIGITAL_TWIN_TEST' | 'TELEGRAM_ALLOW_IN_TEST',
-): string {
-  const injected = (env[key] ?? '').trim()
-  if (injected !== '') return injected
-  return (process.env[key] ?? '').trim()
-}
-
-/**
- * 测试态下跳过录入后自动通知。
- * TELEGRAM_ALLOW_IN_TEST=1 可放行（Telegram 单测注入 mock 时用）。
- * probe 走 sendTelegramMessage，不受此限制。
- * 同时看注入 env 与 process.env（Vitest setup / TestMain 设的 DIGITAL_TWIN_TEST）。
- */
-export function shouldSkipNotifyInTest(env: EnvLike = processEnvLike()): boolean {
-  if (envFlagOn(envOrProcess(env, 'TELEGRAM_ALLOW_IN_TEST'))) {
-    return false
-  }
-  return envFlagOn(envOrProcess(env, 'DIGITAL_TWIN_TEST'))
-}
 
 export type TelegramConfig = {
   configured: boolean
@@ -67,7 +37,7 @@ export type NotifyRecord = {
 
 export type SendResult = { ok: true } | { ok: false; error: string }
 
-type FetchLike = (
+export type FetchLike = (
   input: string,
   init?: {
     method?: string
@@ -240,68 +210,5 @@ export async function sendTelegramMessage(
     return { ok: false, error: `Telegram sendMessage failed: ${reason}` }
   } catch {
     return { ok: false, error: TELEGRAM_TRANSPORT_FAILED }
-  }
-}
-
-/**
- * 在 HTTP 成功响应写出之后再跑通知，避免 Telegram 慢/挂拖垮 201。
- * 有 Next request scope 时用 `after()`（平台会等到任务结束或超时）；
- * 单元测等无 scope 时退化为立即 fire-and-forget。
- */
-export function scheduleBestEffortNotify(task: () => Promise<void>): void {
-  const run = () => {
-    void task().catch(() => {
-      // notify* 已吞错；防未处理 rejection
-    })
-  }
-  try {
-    after(run)
-  } catch {
-    run()
-  }
-}
-
-/** 录入成功后 best-effort：测试态 / 未配置跳过；失败只打日志 */
-export async function notifyRecordInserted(
-  record: NotifyRecord,
-  options?: { env?: EnvLike; fetch?: FetchLike },
-): Promise<void> {
-  const env = options?.env ?? processEnvLike()
-  // 测试态静默跳过，避免每次 insert 打真实 Bot（dotenv 可能写回 TELEGRAM_*）
-  if (shouldSkipNotifyInTest(env)) {
-    return
-  }
-  if (!isTelegramConfigured(env)) {
-    console.warn('Telegram notify skipped: not configured')
-    return
-  }
-
-  const result = await sendTelegramMessage(formatRecordMessage(record), options)
-  if (!result.ok) {
-    console.error('Telegram notify failed:', result.error)
-  }
-}
-
-/** transaction batch 成功后 best-effort 一条摘要 */
-export async function notifyTransactionBatchInserted(
-  rows: NotifyRecord[],
-  options?: { env?: EnvLike; fetch?: FetchLike },
-): Promise<void> {
-  if (rows.length === 0) return
-  const env = options?.env ?? processEnvLike()
-  if (shouldSkipNotifyInTest(env)) {
-    return
-  }
-  if (!isTelegramConfigured(env)) {
-    console.warn('Telegram notify skipped: not configured')
-    return
-  }
-
-  const result = await sendTelegramMessage(
-    formatTransactionBatchMessage(rows),
-    options,
-  )
-  if (!result.ok) {
-    console.error('Telegram notify failed:', result.error)
   }
 }

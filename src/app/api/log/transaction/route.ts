@@ -4,7 +4,7 @@ import { createTransactionBatch } from '@/lib/logapi'
 import {
   notifyTransactionBatchInserted,
   scheduleBestEffortNotify,
-} from '@/lib/telegram'
+} from '@/lib/notify'
 import type { LogTransactionBody } from '@/lib/transactiondraft'
 
 export async function POST(request: NextRequest) {

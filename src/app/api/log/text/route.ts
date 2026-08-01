@@ -4,7 +4,7 @@ import { createText, type TextBody } from '@/lib/logapi'
 import {
   notifyRecordInserted,
   scheduleBestEffortNotify,
-} from '@/lib/telegram'
+} from '@/lib/notify'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: result.status })
     }
 
-    // 响应写出后再通知，避免 Telegram 阻塞 201；失败不影响已成功写入
+    // 响应写出后再通知，避免渠道阻塞 201；失败不影响已成功写入
     scheduleBestEffortNotify(() => notifyRecordInserted(result.record))
 
     return NextResponse.json(
