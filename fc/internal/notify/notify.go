@@ -109,6 +109,9 @@ func ShouldSkipNotifyInTest(getenv func(string) string) bool {
 }
 
 // NotifyUser 已配置渠道并行发送；总等待约 Timeout 后返回。失败只打英文日志，不含密钥。
+//
+// 刻意允许的双端差异（docs/20260801-api-layering.md §1.1）：
+// Go 导出 NotifyUser；TS 为 notify_user（snake_case）。同一 stem，语义对齐。
 func (n *Notifier) NotifyUser(text string) {
 	getenv := n.getenv()
 	if ShouldSkipNotifyInTest(getenv) {

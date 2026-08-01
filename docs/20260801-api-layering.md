@@ -25,6 +25,9 @@
 | **404 / 405 形态** | Go FC（`withJSONErrorPages`）统一 `{ "error": "…" }` JSON；Next 未导出的 method / 未知 `/api/*` 仍用 **框架默认**（常非业务 JSON）。业务路径的 4xx/5xx 仍两端 `{error}` 对齐 |
 | **CORS / OPTIONS** | 仅 Go `withCORS`：跨域 Accelerate 需要预检 204、不鉴权；Next 同源 Vercel **不加** CORS，OPTIONS 也走 proxy 鉴权 → 401。属部署拓扑差异，非业务契约 |
 | **小数长度计数** | Next `string.length`（UTF-16）；Go `utf8.RuneCountInString`。`DECIMAL_STRING` 仅 ASCII，合法字面量下二者相等；非法非 ASCII 会先被正则拒 |
+| **通知调度** | Next `after()`（无 request scope 时退化 fire-and-forget）；Go `go` 协程。语义同为「HTTP 成功后不阻塞写响应的 best-effort notify」（见 §7） |
+| **`notify_user` 大小写** | TS 导出 `notify_user`（snake_case，与契约/历史调用一致）；Go 导出 `NotifyUser`。同一 stem，属 §1.1 大小写惯用例外中的命名约定 |
+| **QQ token 缓存粒度** | TS `qqbot` 包级 `tokenCache`；Go 每 `qqbot.Sender` 自带缓存。对外发送语义对齐，缓存归属随语言惯用（模块单例 vs 可注入 Sender） |
 
 ### 1.2 刻意不做的单端高级特性
 
@@ -45,7 +48,7 @@ flowchart LR
   HTTP["httpx handler / app/api route"]
   Lib["internal/X / lib/X"]
   DB["Postgres"]
-  Side["Telegram"]
+  Side["notify（Telegram/QQ）"]
   HTTP -->|"bind only"| Lib
   Lib -->|"validate + DB"| DB
   Lib -->|"domain result"| HTTP
@@ -55,7 +58,7 @@ flowchart LR
 
 | 层 | 职责 | 禁止 |
 |----|------|------|
-| **HTTP**（`fc/internal/httpx`、`src/app/api/**/route.ts`） | 绑定请求、调用 lib、映射 HTTP status、写 JSON、成功后 Telegram | **业务 SQL** / 业务校验编排（保留鉴权、CORS、框架绑定） |
+| **HTTP**（`fc/internal/httpx`、`src/app/api/**/route.ts`） | 绑定请求、调用 lib、映射 HTTP status、写 JSON、成功后统一 notify 扇出 | **业务 SQL** / 业务校验编排（保留鉴权、CORS、框架绑定） |
 | **lib / internal**（`src/lib/X`、`fc/internal/X`） | 校验、纯变换、DB 编排 | 直接写 HTTP 响应；在纯逻辑里依赖具体 HTTP 类型（适配器边界除外） |
 | **db**（`fc/internal/db`、Drizzle schema） | 连接与表定义 | 业务规则 |
 
@@ -64,7 +67,7 @@ flowchart LR
 1. **禁止** `src/app/api/**/route.ts` 与 `fc/internal/httpx/server.go` 出现 **业务 SQL**（含内联 Drizzle `insert` / `update` / `select` 编排与 Go 裸 SQL）。例外：测试代码；`fc/internal/db` 连接辅助。
 2. **禁止** 只改一端：共享后端新能力必须同时加两端同名模块 / 函数，并先更新本文对照表。
 3. **禁止** 静默单端性能优化导致对称破缺（见 §8）。
-4. **Telegram 留在 HTTP 层**：INSERT / 批处理成功后由 handler best-effort 通知；不把 Telegram 调用塞进 `logapi` / `record` 的 DB 函数里。
+4. **notify 留在 HTTP 层**：INSERT / 批处理成功后由 handler 经统一 `notify` best-effort 扇出（Telegram/QQ）；不把渠道发送塞进 `logapi` / `record` 的 DB 函数里。
 
 ### 2.2 已消除的偏差
 
@@ -99,7 +102,9 @@ flowchart LR
 | `query` | `fc/internal/query` | `src/lib/query.ts` | TS 已由 `query-records.ts` 改名 |
 | `logapi` | `fc/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` |
 | `record` | `fc/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `Update` / `FromDB` / `TagsJSON` / type `Record` |
-| `telegram` | `fc/internal/telegram` | `src/lib/telegram.ts` | 导出名已对齐同 stem；由 HTTP 调用 |
+| `telegram` | `fc/internal/telegram` | `src/lib/telegram.ts` | 渠道：配置 / 排版 / 发送；probe 直调；录入路径经 `notify` |
+| `qqbot` | `fc/internal/qqbot` | `src/lib/qqbot.ts` | 渠道：配置 / token / 发送；probe 直调；录入路径经 `notify`（函数 stem 见 §5.2） |
+| `notify` | `fc/internal/notify` | `src/lib/notify.ts` | 统一扇出入口；HTTP 成功后调用（函数 stem 见 §5.2；调度差异见 §1.1 / §7） |
 | `timeutil` | `fc/internal/timeutil` | `src/lib/timeutil.ts` | TS 已由 `time.ts` 改名 |
 | `auth` | `fc/internal/auth` | `src/lib/auth.ts` | 已有 |
 | `httpx` | `fc/internal/httpx` | `src/app/api/**/route.ts` | 框架层，**不要求**文件同名 |
@@ -203,5 +208,5 @@ flowchart LR
 - [ ] 对照表已包含新符号（先改本文）
 - [ ] Go `fc/internal/<stem>` 与 TS `src/lib/<stem>.ts` 同时存在
 - [ ] 函数 stem / 字段名 / 错误文案对齐
-- [ ] HTTP 层无业务 SQL；Telegram 仅在成功后由 HTTP 调用
+- [ ] HTTP 层无业务 SQL；notify（Telegram/QQ）仅在成功后由 HTTP 经统一入口调用
 - [ ] 契约测与双端单测通过

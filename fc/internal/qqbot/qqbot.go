@@ -87,6 +87,8 @@ type Sender struct {
 	TokenURL   string   // 默认 bots.qq.com getAppAccessToken
 	APIBases   []string // 默认双 base；可注入便于测
 
+	// 刻意允许的双端差异（docs/20260801-api-layering.md §1.1）：
+	// Go 每 Sender 自带 token 缓存；TS 为包级 tokenCache。发送语义对齐。
 	tokenMu   sync.Mutex
 	token     string
 	expiresAt time.Time

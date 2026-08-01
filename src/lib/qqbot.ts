@@ -57,6 +57,7 @@ type TokenCache = {
   expiresAtMs: number
 }
 
+/** 刻意允许的双端差异（docs/20260801-api-layering.md §1.1）：TS 包级缓存；Go 为 per-Sender。发送语义对齐。 */
 let tokenCache: TokenCache | null = null
 
 /** 单测用：清空进程内 access_token 缓存 */

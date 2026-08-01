@@ -216,7 +216,9 @@ func (s *Server) handleLogNumber(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, err.Error())
 		return
 	}
-	// INSERT 成功后异步 best-effort 通知，不阻塞写响应（HTTP 客户端仍有 15s 超时）
+	// INSERT 成功后异步 best-effort notify，不阻塞写响应（渠道 HTTP 仍有 15s 超时）。
+	// 刻意允许的双端差异（docs/20260801-api-layering.md §1.1 / §7）：
+	// Go 用 go 协程；Next 用 after()（见 scheduleBestEffortNotify）。语义同为成功后不阻塞的扇出。
 	go s.notify().NotifyRecordInserted(rec)
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
 }

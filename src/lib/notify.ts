@@ -63,6 +63,9 @@ export function shouldSkipNotifyInTest(env: EnvLike = processEnvLike()): boolean
 /**
  * 在 HTTP 成功响应写出之后再跑通知，避免渠道慢/挂拖垮 201。
  * 有 Next request scope 时用 `after()`；单元测等无 scope 时退化为立即 fire-and-forget。
+ *
+ * 刻意允许的双端差异（docs/20260801-api-layering.md §1.1 / §7）：
+ * Next 用 `after()`，Go httpx 用 `go` 协程；语义同为「成功后不阻塞写响应的 best-effort notify」。
  */
 export function scheduleBestEffortNotify(task: () => Promise<void>): void {
   const run = () => {
@@ -80,6 +83,9 @@ export function scheduleBestEffortNotify(task: () => Promise<void>): void {
 /**
  * 统一发送：已配置渠道并行；总等待约 timeoutMs（默认 15s）后 allSettled/超时即返回。
  * 失败只打英文日志，不含密钥。
+ *
+ * 刻意允许的双端差异（docs/20260801-api-layering.md §1.1）：
+ * 导出名 `notify_user`（snake_case，历史/契约调用）；Go 为 `NotifyUser`。同一 stem，语义对齐。
  */
 export async function notify_user(
   text: string,
