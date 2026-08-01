@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { and } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
-import { parseRecordQueryParams } from './query'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { parseRecordQueryParams, RECORDS_LIST_ORDER_BY_SQL } from './query'
 
 const dialect = new PgDialect()
 
@@ -154,5 +156,18 @@ describe('parseRecordQueryParams q OR grouping', () => {
     expect(sql).toMatch(
       /and \("records"\."value_text" like .+ or "records"\."objective_context" like .+ or "records"\."subjective_interpretation" like .+ or "records"\."tags" like .+\)/i,
     )
+  })
+})
+
+describe('RECORDS_LIST_ORDER_BY_SQL (shared with Go)', () => {
+  it('matches testdata/query-records-list-order.json (happened_at ASC, id ASC)', () => {
+    const shared = JSON.parse(
+      readFileSync(
+        join(process.cwd(), 'testdata', 'query-records-list-order.json'),
+        'utf8',
+      ),
+    ) as { orderBy: string }
+    expect(RECORDS_LIST_ORDER_BY_SQL).toBe(shared.orderBy)
+    expect(RECORDS_LIST_ORDER_BY_SQL).toBe('happened_at ASC, id ASC')
   })
 })

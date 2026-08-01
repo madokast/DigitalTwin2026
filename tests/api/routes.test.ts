@@ -445,10 +445,10 @@ describe.skipIf(!hasDatabaseUrl)('API integration', () => {
       expect(body.count).toBe(2)
       expect(body.page).toBe(1)
       expect(body.pageSize).toBe(20)
-      // happenedAt desc
+      // happenedAt ASC, id ASC
       expect(body.records.map((r: { valueText: string | null }) => r.valueText)).toEqual([
-        'reviewed physics notes',
         null,
+        'reviewed physics notes',
       ])
     })
 
@@ -495,14 +495,16 @@ describe.skipIf(!hasDatabaseUrl)('API integration', () => {
       expect(body1.page).toBe(1)
       expect(body1.pageSize).toBe(20)
       expect(body1.records).toHaveLength(20)
-      expect(body1.records[0].valueText).toBe('row-24')
+      expect(body1.records[0].valueText).toBe('row-0')
+      expect(body1.records[19].valueText).toBe('row-19')
 
       const page2 = await queryRecords(jsonGet('http://localhost/api/query?page=2'))
       const body2 = await page2.json()
       expect(body2.count).toBe(25)
       expect(body2.page).toBe(2)
       expect(body2.records).toHaveLength(5)
-      expect(body2.records[0].valueText).toBe('row-4')
+      expect(body2.records[0].valueText).toBe('row-20')
+      expect(body2.records[4].valueText).toBe('row-24')
     }, 120_000)
 
     it('returns a single record by id and ignores pagination', async () => {

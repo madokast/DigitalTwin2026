@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, like, lt, or, type SQL } from 'drizzle-orm'
+import { and, count, eq, gte, like, lt, or, sql, type SQL } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
 import {
@@ -13,6 +13,12 @@ import {
   isValidTimeZone,
   parseRFC3339Flexible,
 } from '@/lib/timeutil'
+
+/**
+ * 列表查询固定排序（与 Go `RecordsListOrderBy`、`testdata/query-records-list-order.json` 对齐）。
+ * happened_at 升序；同时间戳用 id ASC（UUIDv7 写入序）保证确定性。无 order 查询参数。
+ */
+export const RECORDS_LIST_ORDER_BY_SQL = 'happened_at ASC, id ASC' as const
 
 export type ParsedQuery = {
   conditions: SQL[]
@@ -139,11 +145,13 @@ export async function fetchFilteredRecords(
 
   const total = Number(countRow?.value ?? 0)
 
+  const listOrder = sql.raw(RECORDS_LIST_ORDER_BY_SQL)
+
   // 有 id 时忽略分页，返回 0～1 条
   if (parsed.id) {
     const rows = where
-      ? await db.select().from(records).where(where).orderBy(desc(records.happenedAt))
-      : await db.select().from(records).orderBy(desc(records.happenedAt))
+      ? await db.select().from(records).where(where).orderBy(listOrder)
+      : await db.select().from(records).orderBy(listOrder)
     return {
       total,
       page: 1,
@@ -158,13 +166,13 @@ export async function fetchFilteredRecords(
         .select()
         .from(records)
         .where(where)
-        .orderBy(desc(records.happenedAt))
+        .orderBy(listOrder)
         .limit(parsed.pageSize)
         .offset(offset)
     : await db
         .select()
         .from(records)
-        .orderBy(desc(records.happenedAt))
+        .orderBy(listOrder)
         .limit(parsed.pageSize)
         .offset(offset)
 

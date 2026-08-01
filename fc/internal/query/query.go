@@ -38,6 +38,15 @@ type ParsedQuery struct {
 	Q        string
 }
 
+// RecordsListOrderBy 列表查询固定排序（与 Next RECORDS_LIST_ORDER_BY_SQL、
+// testdata/query-records-list-order.json 对齐）。
+// happened_at 升序；同时间戳用 id ASC（UUIDv7 写入序）保证确定性。无 order 查询参数。
+const RecordsListOrderBy = "happened_at ASC, id ASC"
+
+func orderByRecordsList() string {
+	return " ORDER BY " + RecordsListOrderBy
+}
+
 func parsePositiveInt(raw string, fallback int) (int, error) {
 	if raw == "" {
 		return fallback, nil
@@ -198,7 +207,7 @@ FROM records`
 	if where != "" {
 		selectSQL += " WHERE " + where
 	}
-	selectSQL += " ORDER BY happened_at DESC"
+	selectSQL += orderByRecordsList()
 
 	if p.ID != "" {
 		rows, err := pool.Query(ctx, selectSQL, args...)

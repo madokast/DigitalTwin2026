@@ -1,7 +1,12 @@
 package query
 
 import (
+	"encoding/json"
 	"net/url"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -81,7 +86,7 @@ func TestParseRecordQueryParamsCompactOffset(t *testing.T) {
 	q.Set("to", "2026-07-31T00:00:00+0800")
 	p, err := ParseRecordQueryParams(q)
 	if err != nil {
-		t.Fatalf("compact offset: %v", err)
+		t.Fatal(err)
 	}
 	wantFrom, _ := time.Parse(time.RFC3339, "2026-07-30T00:00:00+08:00")
 	wantTo, _ := time.Parse(time.RFC3339, "2026-07-31T00:00:00+08:00")
@@ -90,5 +95,38 @@ func TestParseRecordQueryParamsCompactOffset(t *testing.T) {
 	}
 	if p.To == nil || !p.To.Equal(wantTo) {
 		t.Fatalf("to: got %v want %v", p.To, wantTo)
+	}
+}
+
+func TestRecordsListOrderBySharedFixture(t *testing.T) {
+	t.Parallel()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
+	b, err := os.ReadFile(filepath.Join(root, "testdata", "query-records-list-order.json"))
+	if err != nil {
+		t.Fatalf("read shared order fixture: %v", err)
+	}
+	var shared struct {
+		OrderBy string `json:"orderBy"`
+	}
+	if err := json.Unmarshal(b, &shared); err != nil {
+		t.Fatalf("parse shared order fixture: %v", err)
+	}
+	if RecordsListOrderBy != shared.OrderBy {
+		t.Fatalf("RecordsListOrderBy=%q shared=%q", RecordsListOrderBy, shared.OrderBy)
+	}
+	if RecordsListOrderBy != "happened_at ASC, id ASC" {
+		t.Fatalf("RecordsListOrderBy=%q", RecordsListOrderBy)
+	}
+	// FetchFilteredRecords 经 orderByRecordsList 拼接（无 DESC / 无 order 参数）
+	got := orderByRecordsList()
+	if got != " ORDER BY happened_at ASC, id ASC" {
+		t.Fatalf("orderByRecordsList=%q", got)
+	}
+	if strings.Contains(got, "DESC") {
+		t.Fatalf("order must not use DESC: %q", got)
 	}
 }

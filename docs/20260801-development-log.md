@@ -18,6 +18,7 @@
 | 部署 UX | `secrets:refresh-prod` / FC deploy：先问是否开启 TG/QQ，否→空串，是→填齐并探测 |
 | 录入开关 | 四个 log 写入 API（number / text / transaction / body/weight）可选 `suppress_notification`（默认 false；true 跳过 notify） |
 | 契约收紧 | 请求体未知 JSON 键 → 400 `Unknown JSON key: …`（`additionalProperties: false`） |
+| Query 排序 | `GET /api/query` 固定 `happened_at ASC, id ASC`（无 `order` 参数；双端常量 + `testdata/query-records-list-order.json`） |
 | 构建 | FC `go build -trimpath -ldflags="-s -w"`；tags→`tagsdb` 修 Vercel Client 打进 postgres |
 
 **明确不做 / 延期**：Dashboard 支出组件、网页录入 UI；OpenAPI **不做** codegen / Schemathesis（此前已收口）。无专用 body-weight 趋势 API（用 `GET /api/query?tag=body:weight`）。

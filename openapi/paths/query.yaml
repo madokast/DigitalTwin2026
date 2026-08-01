@@ -10,7 +10,8 @@
       `q` searches `value_text`, `objective_context`, `subjective_interpretation`, and `tags` (LIKE, same escaping).
       When `id` is set, pagination is ignored; returns 0–1 rows with `page: 1`
       and `pageSize` equal to the result length (or 1 if empty).
-      Results ordered by `happened_at` descending.
+      Results ordered by `happened_at` ascending, then `id` ascending
+      (UUIDv7 write order) for stable ties. No `order` query parameter.
       Auth: ApiToken.
     security:
       - ApiToken: []

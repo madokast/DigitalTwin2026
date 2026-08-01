@@ -1,0 +1,4 @@
+{
+  "orderBy": "happened_at ASC, id ASC",
+  "description": "Fixed GET /api/query list order: happened_at ascending, then id ascending (UUIDv7 write order) for ties. No order query parameter."
+}
