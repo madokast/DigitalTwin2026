@@ -4,11 +4,24 @@ import {
   RECORD_NOT_FOUND,
   formatHappenedAt,
   fromDB,
+  isValidRecordId,
   tagsJSON,
   update,
   type UpdateDb,
 } from '@/lib/record'
 import type { NormalizedRecordDraft } from '@/lib/draft'
+
+describe('isValidRecordId', () => {
+  it('accepts UUIDv7 / nil UUID like npm uuid.validate', () => {
+    expect(isValidRecordId('01900000-0000-7000-8000-000000000001')).toBe(true)
+    expect(isValidRecordId('00000000-0000-0000-0000-000000000000')).toBe(true)
+  })
+
+  it('rejects illegal version/variant that google/uuid.Parse would accept', () => {
+    expect(isValidRecordId('a0eebc99-9c0b-4ef8-7000-6bb9bd380a11')).toBe(false)
+    expect(isValidRecordId('01234567-89ab-cdef-0123-456789abcdef')).toBe(false)
+  })
+})
 
 describe('formatHappenedAt', () => {
   it('formats Date as UTC ISO with Z (matches Go FormatHappenedAt)', () => {

@@ -48,7 +48,18 @@ func TestIsValidID(t *testing.T) {
 	if !IsValidID("01900000-0000-7000-8000-000000000001") {
 		t.Fatal("want valid UUID")
 	}
-	for _, bad := range []string{"", "not-a-uuid", "123", "01900000-0000-7000-8000"} {
+	if !IsValidID("00000000-0000-0000-0000-000000000000") {
+		t.Fatal("want nil UUID accepted (npm uuid)")
+	}
+	for _, bad := range []string{
+		"",
+		"not-a-uuid",
+		"123",
+		"01900000-0000-7000-8000",
+		// 结构像 UUID 但 variant/version 非法：google/uuid.Parse 会过，npm validate 拒
+		"a0eebc99-9c0b-4ef8-7000-6bb9bd380a11", // variant 7
+		"01234567-89ab-cdef-0123-456789abcdef", // version c
+	} {
 		if IsValidID(bad) {
 			t.Fatalf("want reject %q", bad)
 		}

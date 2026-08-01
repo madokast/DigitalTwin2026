@@ -115,6 +115,21 @@ describe('parseRecordQueryParams from/to timezone', () => {
       parseRecordQueryParams(new URLSearchParams({ id: '123' })),
     ).toEqual({ error: 'Invalid record id' })
   })
+
+  it('rejects UUID-shaped ids with illegal version/variant', () => {
+    expect(
+      parseRecordQueryParams(
+        new URLSearchParams({ id: 'a0eebc99-9c0b-4ef8-7000-6bb9bd380a11' }),
+      ),
+    ).toEqual({ error: 'Invalid record id' })
+    expect(
+      parseRecordQueryParams(
+        new URLSearchParams({
+          id: '01234567-89ab-cdef-0123-456789abcdef',
+        }),
+      ),
+    ).toEqual({ error: 'Invalid record id' })
+  })
 })
 
 describe('parseRecordQueryParams q OR grouping', () => {

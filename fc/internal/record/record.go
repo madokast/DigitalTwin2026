@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/mdk/digitaltwin2026/fc/internal/db"
 	"github.com/mdk/digitaltwin2026/fc/internal/draft"
@@ -62,10 +62,13 @@ var ErrNotFound = fmt.Errorf("Record not found")
 // InvalidID 与 TS INVALID_RECORD_ID 同文案：非 UUID → 400，避免 PG 类型错误变 500。
 var InvalidID = errors.New("Invalid record id")
 
-// IsValidID 与 Next isValidRecordId 对齐（google/uuid.Parse）。
+// 与 npm `uuid` validate 所用正则一致（version [1-8]、variant [89ab]，另允 nil / max UUID）。
+// 不用 google/uuid.Parse：它会接受非法 version/variant，导致与 Next 400 分歧。
+var uuidValidateRE = regexp.MustCompile(`(?i)^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$`)
+
+// IsValidID 与 Next isValidRecordId（uuid.validate）对齐。
 func IsValidID(id string) bool {
-	_, err := uuid.Parse(id)
-	return err == nil
+	return uuidValidateRE.MatchString(id)
 }
 
 // Update 按已归一化草稿更新一条记录；成功 (rec, 200, nil)；不存在 (空, 404, err)。

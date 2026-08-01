@@ -44,6 +44,15 @@ func TestParseRecordQueryParamsErrors(t *testing.T) {
 	if err == nil || err.Error() != "Invalid record id" {
 		t.Fatalf("bad id: %v", err)
 	}
+	for _, id := range []string{
+		"a0eebc99-9c0b-4ef8-7000-6bb9bd380a11",
+		"01234567-89ab-cdef-0123-456789abcdef",
+	} {
+		_, err = ParseRecordQueryParams(url.Values{"id": {id}})
+		if err == nil || err.Error() != "Invalid record id" {
+			t.Fatalf("id %q: got %v", id, err)
+		}
+	}
 }
 
 func TestParseRecordQueryParamsFilters(t *testing.T) {

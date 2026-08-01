@@ -69,7 +69,10 @@ export const RECORD_NOT_FOUND = 'Record not found'
 /** 与 Go `record.InvalidID` 同文案：非 UUID → 400，避免 PG 类型错误变 500 */
 export const INVALID_RECORD_ID = 'Invalid record id'
 
-/** 与 Go `record.IsValidID` 对齐 */
+/**
+ * 与 Go `record.IsValidID` 对齐：npm `uuid.validate`
+ *（version nibble [1-8]、variant [89ab]；另允 nil / max UUID）。
+ */
 export function isValidRecordId(id: string): boolean {
   return uuidValidate(id)
 }
