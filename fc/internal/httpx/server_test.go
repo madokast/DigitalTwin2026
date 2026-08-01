@@ -450,6 +450,18 @@ func TestTelegramProbeSendFailure(t *testing.T) {
 	}
 }
 
+func TestWriteJSONDoesNotHTMLEscape(t *testing.T) {
+	rr := httptest.NewRecorder()
+	writeError(rr, 400, "a < b & c > d")
+	raw := rr.Body.String()
+	if strings.Contains(raw, `\u003c`) || strings.Contains(raw, `\u003e`) || strings.Contains(raw, `\u0026`) {
+		t.Fatalf("HTML-escaped: %s", raw)
+	}
+	if !strings.Contains(raw, `a < b & c > d`) {
+		t.Fatalf("body: %s", raw)
+	}
+}
+
 func TestWriteInternalErrorNeverExposesDetails(t *testing.T) {
 	t.Setenv("EXPOSE_ERRORS", "1")
 	rr := httptest.NewRecorder()

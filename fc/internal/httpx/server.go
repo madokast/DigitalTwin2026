@@ -151,7 +151,9 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(body)
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false) // 与 Next JSON.stringify 对齐，不把 <> & 编成 \u003c 等
+	_ = enc.Encode(body)
 }
 
 func writeInternalError(w http.ResponseWriter, _ error) {
