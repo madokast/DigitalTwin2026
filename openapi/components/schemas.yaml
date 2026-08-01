@@ -49,6 +49,28 @@ DecimalString:
     - '1.0'
     - '-0.01'
 
+MoneyAmountString:
+  type: string
+  description: |
+    Transaction line amount: non-zero decimal string, optional leading
+    minus (no plus), at most 2 fractional digits, no spaces (no trim).
+    JSON number → 400 (`amount must be a decimal string`). Shape / zero /
+    spaces → 400 with unified message
+    (`Invalid amount: non-zero decimal string, optional leading minus
+    (no plus), at most 2 fractional digits, no spaces; e.g. 10, 10.5,
+    10.50, -1.5`). Literal zero (`0`, `0.0`, `-0`, …) rejected after the
+    pattern match. Accepted then normalized to 2 fractional digits for
+    storage (string pad, no float): `10` → `10.00`, `10.5` → `10.50`,
+    `-1.5` → `-1.50`.
+  pattern: '^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$'
+  maxLength: 40
+  examples:
+    - '10'
+    - '10.5'
+    - '10.50'
+    - '-1.5'
+    - '10.55'
+
 HappenedAtInput:
   type: string
   description: |
@@ -449,12 +471,11 @@ TransactionEntry:
   properties:
     amount:
       allOf:
-        - $ref: '#/DecimalString'
+        - $ref: '#/MoneyAmountString'
       description: |
-        Decimal string (not JSON number). After trim/validate, literal zero
-        (`0`, `0.0`, `-0`, …) is rejected at runtime with 400
-        (`amount must not be zero` / `entries[i]: amount must not be zero`).
-        Sign semantics depend on top-level `type` (see TransactionType).
+        Money amount string (not JSON number). See `MoneyAmountString`.
+        Batch errors are prefixed `entries[i]: …`. Sign semantics depend
+        on top-level `type` (see TransactionType).
     memo:
       type: string
       minLength: 1

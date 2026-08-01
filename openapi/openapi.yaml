@@ -110,6 +110,8 @@ components:
       $ref: './components/schemas.yaml#/TagList'
     DecimalString:
       $ref: './components/schemas.yaml#/DecimalString'
+    MoneyAmountString:
+      $ref: './components/schemas.yaml#/MoneyAmountString'
     HappenedAtInput:
       $ref: './components/schemas.yaml#/HappenedAtInput'
     HappenedAtUtcZ:
