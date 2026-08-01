@@ -2,15 +2,14 @@ package logapi
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/fc/internal/draft"
+	"github.com/mdk/digitaltwin2026/fc/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/fc/internal/record"
 	"github.com/mdk/digitaltwin2026/fc/internal/tags"
 )
@@ -124,12 +123,7 @@ RETURNING id, happened_at, value_number, value_text, tags, objective_context, su
 }
 
 func decodeJSONBody(raw []byte, dest any) error {
-	dec := json.NewDecoder(strings.NewReader(string(raw)))
-	dec.UseNumber()
-	if err := dec.Decode(dest); err != nil {
-		return fmt.Errorf("Invalid JSON body")
-	}
-	return nil
+	return jsonutil.DecodeUseNumber(raw, dest)
 }
 
 func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {

@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/mdk/digitaltwin2026/fc/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/fc/internal/tags"
 	"github.com/mdk/digitaltwin2026/fc/internal/timeutil"
 )
@@ -206,11 +207,9 @@ func ParseRecordDraft(body RecordDraftBody) (*NormalizedRecordDraft, error) {
 
 // ParseRecordDraftJSON unmarshals JSON with UseNumber and parses.
 func ParseRecordDraftJSON(data []byte) (*NormalizedRecordDraft, error) {
-	dec := json.NewDecoder(strings.NewReader(string(data)))
-	dec.UseNumber()
 	var raw map[string]any
-	if err := dec.Decode(&raw); err != nil {
-		return nil, fmt.Errorf("Invalid JSON body")
+	if err := jsonutil.DecodeUseNumber(data, &raw); err != nil {
+		return nil, err
 	}
 	body := RecordDraftBody{
 		HappenedAt:               raw["happened_at"],

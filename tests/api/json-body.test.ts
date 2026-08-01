@@ -73,5 +73,11 @@ describe('malformed / empty JSON body → 400', () => {
       expect(res.status).toBe(400)
       await expect(res.json()).resolves.toEqual({ error: 'Invalid JSON body' })
     })
+
+    it(`${c.name}: trailing garbage after valid JSON`, async () => {
+      const res = await c.run('{"from":"a","to":"b"} xyz')
+      expect(res.status).toBe(400)
+      await expect(res.json()).resolves.toEqual({ error: 'Invalid JSON body' })
+    })
   }
 })

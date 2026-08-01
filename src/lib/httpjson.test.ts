@@ -37,4 +37,12 @@ describe('readJsonBody', () => {
       })
     }
   })
+
+  it('rejects valid JSON followed by trailing garbage', async () => {
+    await expect(readJsonBody(req('{"a":1} xyz'))).resolves.toEqual({
+      ok: false,
+      error: INVALID_JSON_BODY,
+      status: 400,
+    })
+  })
 })

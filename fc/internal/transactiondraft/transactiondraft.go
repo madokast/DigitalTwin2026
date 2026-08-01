@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mdk/digitaltwin2026/fc/internal/draft"
+	"github.com/mdk/digitaltwin2026/fc/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/fc/internal/tags"
 )
 
@@ -157,11 +158,9 @@ func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, err
 // ParseTransactionBatch 解析 POST /api/log/transaction body（含 UseNumber JSON 解码）。
 // 必填顶层 type（income|expense）；entries 长度 1..Max；amount 为零 → 错误。
 func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, error) {
-	dec := json.NewDecoder(strings.NewReader(string(raw)))
-	dec.UseNumber()
 	var body LogTransactionBody
-	if err := dec.Decode(&body); err != nil {
-		return NormalizedTransactionBatch{}, fmt.Errorf("Invalid JSON body")
+	if err := jsonutil.DecodeUseNumber(raw, &body); err != nil {
+		return NormalizedTransactionBatch{}, err
 	}
 	happenedRaw, _ := body.HappenedAt.(string)
 	happenedAt, err := draft.ParseHappenedAt(happenedRaw)

@@ -90,6 +90,55 @@ func TestLogNumberValidationWithoutDB(t *testing.T) {
 	}
 }
 
+func TestWriteEndpointsRejectTrailingGarbageAfterJSON(t *testing.T) {
+	h := testServer().Handler()
+	// 合法 JSON 后跟垃圾：须 400（与 Next JSON.parse / Unmarshal 对齐；旧 Decoder 会静默忽略）
+	const garbage = " xyz"
+	cases := []struct {
+		method, path, payload string
+	}{
+		{
+			http.MethodPost, "/api/log/number",
+			`{"happened_at":"2026-08-01T12:00:00Z","value_number":"1","tags":["weight"],"objective_context":"x"}` + garbage,
+		},
+		{
+			http.MethodPost, "/api/log/text",
+			`{"happened_at":"2026-08-01T12:00:00Z","value_text":"hi","tags":["study"],"objective_context":"x"}` + garbage,
+		},
+		{
+			http.MethodPost, "/api/log/transaction",
+			`{"happened_at":"2026-08-01T12:00:00Z","type":"expense","entries":[{"amount":"1.00","memo":"m","tags":["food"]}]}` + garbage,
+		},
+		{
+			http.MethodPost, "/api/admin/tags/rename",
+			`{"from":"a","to":"b"}` + garbage,
+		},
+		{
+			http.MethodPatch, "/api/admin/records/01900000-0000-7000-8000-000000000001",
+			`{"happened_at":"2026-08-01T12:00:00Z","value_number":"1","tags":["weight"],"objective_context":"x"}` + garbage,
+		},
+	}
+	for _, tc := range cases {
+		req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.payload))
+		if strings.HasPrefix(tc.path, "/api/admin/") {
+			req.Header.Set("Authorization", "Bearer admin-tok")
+		} else {
+			req.Header.Set("Authorization", "Bearer ai-tok")
+		}
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if rr.Code != 400 {
+			t.Fatalf("%s %s: status %d body %s", tc.method, tc.path, rr.Code, rr.Body.String())
+		}
+		var body map[string]string
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		if body["error"] != "Invalid JSON body" {
+			t.Fatalf("%s %s: error %v", tc.method, tc.path, body)
+		}
+	}
+}
+
 func TestLogNumberRejectsMissingTimezone(t *testing.T) {
 	h := testServer().Handler()
 	for _, happened := range []string{"2026-07-30", "2026-07-30T08:00:00"} {
