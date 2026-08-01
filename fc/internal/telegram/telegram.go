@@ -1,4 +1,4 @@
-// Package telegram：Bot sendMessage 与录入成功通知（与 src/lib/telegram.ts 对齐）
+// Package telegram：Bot sendMessage 与消息排版（与 src/lib/telegram.ts 对齐）
 package telegram
 
 import (
@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -180,44 +179,6 @@ func (s *Sender) SendMessage(text string) error {
 	return fmt.Errorf("Telegram sendMessage failed: %s", reason)
 }
 
-// ShouldSkipNotifyInTest 测试态下跳过录入后自动通知。
-// TELEGRAM_ALLOW_IN_TEST=1 可放行；probe 走 SendMessage，不受此限制。
-// 同时看注入 getenv 与 os.Getenv（TestMain 设的 DIGITAL_TWIN_TEST）。
-func ShouldSkipNotifyInTest(getenv func(string) string) bool {
-	if getenv == nil {
-		getenv = os.Getenv
-	}
-	allow := strings.TrimSpace(getenv("TELEGRAM_ALLOW_IN_TEST"))
-	if allow == "" {
-		allow = strings.TrimSpace(os.Getenv("TELEGRAM_ALLOW_IN_TEST"))
-	}
-	if allow == "1" {
-		return false
-	}
-	flag := strings.TrimSpace(getenv("DIGITAL_TWIN_TEST"))
-	if flag == "" {
-		flag = strings.TrimSpace(os.Getenv("DIGITAL_TWIN_TEST"))
-	}
-	return flag == "1"
-}
-
-// NotifyRecordInserted best-effort：测试态 / 未配置跳过；失败只打日志。
-func (s *Sender) NotifyRecordInserted(rec record.Record) {
-	getenv := s.getenv()
-	// 测试态静默跳过，避免集成/插入路径打扰真实 Bot
-	if ShouldSkipNotifyInTest(getenv) {
-		return
-	}
-	cfg := LoadConfig(getenv)
-	if !cfg.Configured() {
-		log.Printf("Telegram notify skipped: not configured")
-		return
-	}
-	if err := s.SendMessage(FormatRecordMessage(rec)); err != nil {
-		log.Printf("Telegram notify failed: %v", err)
-	}
-}
-
 // FormatTransactionBatchMessage 整单摘要。
 func FormatTransactionBatchMessage(rows []record.Record) string {
 	n := len(rows)
@@ -271,25 +232,6 @@ func transactionTypeFromTags(tagsJSON string) string {
 		}
 	}
 	return ""
-}
-
-// NotifyTransactionBatchInserted best-effort 一条摘要。
-func (s *Sender) NotifyTransactionBatchInserted(rows []record.Record) {
-	if len(rows) == 0 {
-		return
-	}
-	getenv := s.getenv()
-	if ShouldSkipNotifyInTest(getenv) {
-		return
-	}
-	cfg := LoadConfig(getenv)
-	if !cfg.Configured() {
-		log.Printf("Telegram notify skipped: not configured")
-		return
-	}
-	if err := s.SendMessage(FormatTransactionBatchMessage(rows)); err != nil {
-		log.Printf("Telegram notify failed: %v", err)
-	}
 }
 
 // Default 进程级默认 Sender（生产路径）。

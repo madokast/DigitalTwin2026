@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mdk/digitaltwin2026/fc/internal/auth"
+	"github.com/mdk/digitaltwin2026/fc/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/fc/internal/query"
 	"github.com/mdk/digitaltwin2026/fc/internal/telegram"
 )
@@ -446,6 +447,111 @@ func TestTelegramProbeSendFailure(t *testing.T) {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
 	if !strings.Contains(rr.Body.String(), "chat not found") {
+		t.Fatalf("body: %s", rr.Body.String())
+	}
+}
+
+func TestQqbotProbeNotConfigured(t *testing.T) {
+	s := testServer()
+	s.Qqbot = &qqbot.Sender{
+		Getenv: func(string) string { return "" },
+	}
+	h := s.Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/qqbot/probe", nil)
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if !strings.Contains(body["error"], "QQBOT_APP_ID") {
+		t.Fatalf("error: %v", body)
+	}
+}
+
+func TestQqbotProbeSuccess(t *testing.T) {
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":7200}`))
+	}))
+	defer tokenSrv.Close()
+	sendSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer sendSrv.Close()
+
+	s := testServer()
+	s.Qqbot = &qqbot.Sender{
+		HTTPClient: sendSrv.Client(),
+		TokenURL:   tokenSrv.URL,
+		APIBases:   []string{sendSrv.URL},
+		Getenv: func(k string) string {
+			switch k {
+			case "QQBOT_APP_ID":
+				return "app"
+			case "QQBOT_APP_SECRET":
+				return "sec"
+			case "QQBOT_USER_OPENID":
+				return "openid"
+			}
+			return ""
+		},
+	}
+	h := s.Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/qqbot/probe", strings.NewReader(`{"text":"hi"}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["success"] != true {
+		t.Fatalf("body: %v", body)
+	}
+}
+
+func TestQqbotProbeSendFailure(t *testing.T) {
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":7200}`))
+	}))
+	defer tokenSrv.Close()
+	failSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"message":"invalid openid"}`))
+	}))
+	defer failSrv.Close()
+
+	s := testServer()
+	s.Qqbot = &qqbot.Sender{
+		HTTPClient: failSrv.Client(),
+		TokenURL:   tokenSrv.URL,
+		APIBases:   []string{failSrv.URL},
+		Getenv: func(k string) string {
+			switch k {
+			case "QQBOT_APP_ID":
+				return "app"
+			case "QQBOT_APP_SECRET":
+				return "sec"
+			case "QQBOT_USER_OPENID":
+				return "openid"
+			}
+			return ""
+		},
+	}
+	h := s.Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/qqbot/probe", nil)
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 502 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "invalid openid") {
 		t.Fatalf("body: %s", rr.Body.String())
 	}
 }

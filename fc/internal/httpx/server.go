@@ -14,6 +14,8 @@ import (
 	"github.com/mdk/digitaltwin2026/fc/internal/auth"
 	"github.com/mdk/digitaltwin2026/fc/internal/draft"
 	"github.com/mdk/digitaltwin2026/fc/internal/logapi"
+	"github.com/mdk/digitaltwin2026/fc/internal/notify"
+	"github.com/mdk/digitaltwin2026/fc/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/fc/internal/query"
 	"github.com/mdk/digitaltwin2026/fc/internal/record"
 	"github.com/mdk/digitaltwin2026/fc/internal/tags"
@@ -33,6 +35,8 @@ type Server struct {
 	Tokens   auth.Tokens
 	Now      func() time.Time
 	Telegram *telegram.Sender
+	Qqbot    *qqbot.Sender
+	Notify   *notify.Notifier
 }
 
 func NewServer(pool *pgxpool.Pool, tokens auth.Tokens) *Server {
@@ -41,6 +45,8 @@ func NewServer(pool *pgxpool.Pool, tokens auth.Tokens) *Server {
 		Tokens:   tokens,
 		Now:      time.Now,
 		Telegram: telegram.Default,
+		Qqbot:    qqbot.Default,
+		Notify:   notify.Default,
 	}
 }
 
@@ -50,6 +56,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/log/text", s.handleLogText)
 	mux.HandleFunc("POST /api/log/transaction", s.handleLogTransaction)
 	mux.HandleFunc("POST /api/telegram/probe", s.handleTelegramProbe)
+	mux.HandleFunc("POST /api/qqbot/probe", s.handleQqbotProbe)
 	mux.HandleFunc("GET /api/query", s.handleQuery)
 	mux.HandleFunc("GET /api/query/summary", s.handleSummary)
 	mux.HandleFunc("GET /api/query/tags", s.handleTags)
@@ -210,7 +217,7 @@ func (s *Server) handleLogNumber(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// INSERT 成功后异步 best-effort 通知，不阻塞写响应（HTTP 客户端仍有 15s 超时）
-	go s.telegram().NotifyRecordInserted(rec)
+	go s.notify().NotifyRecordInserted(rec)
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
 }
 
@@ -229,7 +236,7 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, err.Error())
 		return
 	}
-	go s.telegram().NotifyRecordInserted(rec)
+	go s.notify().NotifyRecordInserted(rec)
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
 }
 
@@ -248,7 +255,7 @@ func (s *Server) handleLogTransaction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, err.Error())
 		return
 	}
-	go s.telegram().NotifyTransactionBatchInserted(recs)
+	go s.notify().NotifyTransactionBatchInserted(recs)
 	writeJSON(w, status, map[string]any{"success": true, "inserted": inserted})
 }
 
@@ -283,11 +290,59 @@ func (s *Server) handleTelegramProbe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"success": true})
 }
 
+func (s *Server) handleQqbotProbe(w http.ResponseWriter, r *http.Request) {
+	cfg := qqbot.LoadConfig(s.qqbot().Getenv)
+	if !cfg.Configured() {
+		writeError(w, 400, qqbot.ConfigError(cfg))
+		return
+	}
+
+	text := "DigitalTwin2026 probe"
+	raw, err := readBody(r)
+	if errors.Is(err, ErrBodyTooLarge) {
+		writeError(w, 413, BodyTooLargeMessage)
+		return
+	}
+	if err == nil && len(raw) > 0 {
+		var body struct {
+			Text string `json:"text"`
+		}
+		if json.Unmarshal(raw, &body) == nil {
+			if t := strings.TrimSpace(body.Text); t != "" {
+				text = t
+			}
+		}
+	}
+
+	if err := s.qqbot().SendMessage(text); err != nil {
+		writeError(w, 502, err.Error())
+		return
+	}
+	writeJSON(w, 200, map[string]any{"success": true})
+}
+
 func (s *Server) telegram() *telegram.Sender {
 	if s.Telegram != nil {
 		return s.Telegram
 	}
 	return telegram.Default
+}
+
+func (s *Server) qqbot() *qqbot.Sender {
+	if s.Qqbot != nil {
+		return s.Qqbot
+	}
+	return qqbot.Default
+}
+
+func (s *Server) notify() *notify.Notifier {
+	if s.Notify != nil {
+		return s.Notify
+	}
+	return &notify.Notifier{
+		Telegram: s.telegram(),
+		Qqbot:    s.qqbot(),
+	}
 }
 
 func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {

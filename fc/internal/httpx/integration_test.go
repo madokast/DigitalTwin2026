@@ -13,6 +13,7 @@ import (
 	"github.com/mdk/digitaltwin2026/fc/internal/auth"
 	"github.com/mdk/digitaltwin2026/fc/internal/db"
 	"github.com/mdk/digitaltwin2026/fc/internal/httpx"
+	"github.com/mdk/digitaltwin2026/fc/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/fc/internal/telegram"
 )
 
@@ -39,8 +40,9 @@ SELECT EXISTS (
 	}
 
 	srv := httpx.NewServer(pool, auth.Tokens{AI: "ai-tok", Admin: "admin-tok"})
-	// 集成测不打扰真实 Telegram
+	// 集成测不打扰真实通知渠道（DIGITAL_TWIN_TEST 也会跳过；双保险）
 	srv.Telegram = &telegram.Sender{Getenv: func(string) string { return "" }}
+	srv.Qqbot = &qqbot.Sender{Getenv: func(string) string { return "" }}
 	h := srv.Handler()
 
 	marker := "go-fc-integration-" + time.Now().UTC().Format("150405.000")

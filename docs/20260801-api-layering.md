@@ -138,7 +138,9 @@ flowchart LR
 | query | `FetchFilteredRecords` 在 lib 内 `FromDB`，返回 `[]Record`（HTTP 不再 map） | `fetchFilteredRecords` 在 lib 内 `fromDB`，返回 `Record[]` |
 | timeutil | `IsValidTimeZone` / `GetZonedDayBounds` / `CalendarDayBounds` / `ExpandCompactOffset` / `ParseRFC3339Flexible` | `isValidTimeZone` / `getZonedDayBounds` / `calendarDayBounds` / `expandCompactOffset` / `parseRFC3339Flexible` |
 | auth | `VerifyAPIAccess` / `VerifyAdminAccess` / `BearerToken` | `verifyApiAccess` / `verifyAdminAccess`（Bearer 适配器可保留框架差异） |
-| telegram | `LoadConfig` / `ConfigError` / `FormatRecordMessage` / `FormatTransactionBatchMessage` / `ShouldSkipNotifyInTest` / `NotifyRecordInserted` / `NotifyTransactionBatchInserted` | 同 stem：`loadConfig`（已收敛 `getTelegramConfig`）、`configError`、`formatRecordMessage`、`formatTransactionBatchMessage`、`shouldSkipNotifyInTest`、`notifyRecordInserted`、`notifyTransactionBatchInserted` |
+| telegram | `LoadConfig` / `ConfigError` / `FormatRecordMessage` / `FormatTransactionBatchMessage` / `SendMessage` | 同 stem：`loadConfig`、`configError`、`formatRecordMessage`、`formatTransactionBatchMessage`、`sendTelegramMessage` |
+| qqbot | `LoadConfig` / `ConfigError` / `SendMessage` / `Configured` | 同 stem：`loadConfig`、`configError`、`sendQqMessage`、`isConfigured` |
+| notify | `ShouldSkipNotifyInTest` / `NotifyUser` / `NotifyRecordInserted` / `NotifyTransactionBatchInserted` | 同 stem：`shouldSkipNotifyInTest`、`notify_user`、`notifyRecordInserted`、`notifyTransactionBatchInserted` |
 
 后续若发现表内遗漏符号，**先改本文再改代码**。
 
@@ -162,10 +164,11 @@ flowchart LR
 
 ---
 
-## 7. Telegram 与 HTTP
+## 7. 通知与 HTTP
 
-- 通知触发点：**HTTP handler**，在 lib 返回成功之后。
-- `telegram` 模块两端同构（格式化、配置、发送）；**不**在 `CreateNumber` 等 DB 函数内部发送。
+- 通知触发点：**HTTP handler**，在 lib 返回成功之后，经统一入口 `notify`（`NotifyUser` / `notify_user`）。
+- `telegram` / `qqbot` 仅为渠道（配置、发送；TG 另含排版）；probe 走各渠道 `SendMessage`，**不**经 `notify`。
+- **不**在 `CreateNumber` 等 DB 函数内部发送。
 - 失败 best-effort：不影响已成功写入的 HTTP 状态码（与现行为一致）。
 - **不阻塞写响应**：Next 用 `after()`（无 request scope 时退化为 fire-and-forget）；Go 用 `go` 协程。客户端 HTTP 超时两端均为 **15s**（Next `AbortSignal.timeout` / Go `http.Client.Timeout`）。
 
