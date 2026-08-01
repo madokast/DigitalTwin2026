@@ -1,16 +1,17 @@
 package timeutil
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestExpandCompactOffset(t *testing.T) {
 	cases := map[string]string{
-		"2026-07-30T08:00:00+0800":       "2026-07-30T08:00:00+08:00",
-		"2026-07-30T08:00:00.123-0530":   "2026-07-30T08:00:00.123-05:30",
-		"2026-07-30T08:00:00+08:00":      "2026-07-30T08:00:00+08:00",
-		"2026-07-30T00:00:00.000Z":       "2026-07-30T00:00:00.000Z",
+		"2026-07-30T08:00:00+0800":     "2026-07-30T08:00:00+08:00",
+		"2026-07-30T08:00:00.123-0530": "2026-07-30T08:00:00.123-05:30",
+		"2026-07-30T08:00:00+08:00":    "2026-07-30T08:00:00+08:00",
+		"2026-07-30T00:00:00.000Z":     "2026-07-30T00:00:00.000Z",
 	}
 	for in, want := range cases {
 		if got := ExpandCompactOffset(in); got != want {
@@ -24,6 +25,25 @@ func TestExpandCompactOffset(t *testing.T) {
 	want, _ := time.Parse(time.RFC3339, "2026-07-30T08:00:00+08:00")
 	if !got.Equal(want) {
 		t.Fatalf("instant: got %v want %v", got, want)
+	}
+}
+
+func TestEmbeddedTzdataWithoutSystemZoneinfo(t *testing.T) {
+	// ZONEINFO 指向不存在路径时，须仍能靠 //go:embed 的 time/tzdata 加载
+	t.Setenv("ZONEINFO", filepath.Join(t.TempDir(), "no-such-zoneinfo"))
+	if !IsValidTimeZone("Asia/Shanghai") {
+		t.Fatal("Asia/Shanghai should load from embedded time/tzdata")
+	}
+	now := time.Date(2026, 7, 30, 16, 30, 0, 0, time.UTC)
+	start, end, err := GetZonedDayBounds(now, "Asia/Shanghai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if start.UTC().Format(time.RFC3339) != "2026-07-30T16:00:00Z" {
+		t.Fatalf("shanghai start: %s", start.UTC())
+	}
+	if end.UTC().Format(time.RFC3339) != "2026-07-31T16:00:00Z" {
+		t.Fatalf("shanghai end: %s", end.UTC())
 	}
 }
 

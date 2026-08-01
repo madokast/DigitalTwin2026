@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"regexp"
 	"time"
+
+	// 嵌入 IANA tzdata：FC 精简运行时若无系统 zoneinfo，LoadLocation("Asia/Shanghai") 仍可用。
+	// 与 Next Intl 行为对齐，避免 summary?tz= 在国内镜像上误 400。
+	_ "time/tzdata"
 )
 
 // compactOffsetSuffix 匹配末尾 ±HHMM（无冒号）；RFC3339 要求 ±HH:MM。
