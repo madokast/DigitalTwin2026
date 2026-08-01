@@ -1,8 +1,8 @@
 import { getAdminToken, getApiAccelerateBase } from '@/lib/prefs'
-import type { Record } from '@/lib/record'
+import type { Record as DomainRecord } from '@/lib/record'
 
 /** 前端别名：共享后端域类型为 `Record`（见 `src/lib/record.ts`） */
-export type TwinRecord = Record
+export type TwinRecord = DomainRecord
 
 /** 规范化加速 base：去尾 `/`；空则返回 ""（同源相对路径）。 */
 export function normalizeApiBase(raw: string): string {

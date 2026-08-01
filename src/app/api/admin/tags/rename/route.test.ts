@@ -1,13 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
-vi.mock('@/lib/tags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/tags')>()
-  return {
-    ...actual,
-    renameAcrossRecords: vi.fn(async () => 0),
-  }
-})
+vi.mock('@/lib/tagsdb', () => ({
+  renameAcrossRecords: vi.fn(async () => 0),
+}))
 
 import { POST } from '@/app/api/admin/tags/rename/route'
 

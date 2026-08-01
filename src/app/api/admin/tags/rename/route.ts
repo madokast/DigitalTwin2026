@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readJsonBody } from '@/lib/httpjson'
-import { renameAcrossRecords, validateRename } from '@/lib/tags'
+import { validateRename } from '@/lib/tags'
+import { renameAcrossRecords } from '@/lib/tagsdb'
 
 interface RenameTagsRequest {
   from?: string

@@ -1,14 +1,18 @@
 import { and, count, desc, eq, gte, like, lt, sql, type SQL } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
-import { fromDB, type Record } from '@/lib/record'
+import {
+  fromDB,
+  INVALID_RECORD_ID,
+  isValidRecordId,
+  type Record as DomainRecord,
+} from '@/lib/record'
 import { aggregateTagCounts } from '@/lib/tags'
 import {
   getZonedDayBounds,
   isValidTimeZone,
   parseRFC3339Flexible,
 } from '@/lib/timeutil'
-import { INVALID_RECORD_ID, isValidRecordId } from '@/lib/record'
 
 export type ParsedQuery = {
   conditions: SQL[]
@@ -114,7 +118,7 @@ export type FetchResult = {
   total: number
   page: number
   pageSize: number
-  records: Record[]
+  records: DomainRecord[]
 }
 
 export async function fetchFilteredRecords(

@@ -147,7 +147,7 @@ func AggregateTagCounts(tagFields []string) (map[string]int, error) {
 	return ordered, nil
 }
 
-// TagRenameAdvisoryLockKey 与 Next TAG_RENAME_ADVISORY_LOCK_KEY 一致。
+// TagRenameAdvisoryLockKey 与 Next tagsdb.TAG_RENAME_ADVISORY_LOCK_KEY 一致。
 // pg_advisory_xact_lock：串行化并发 rename；随事务结束自动释放（适合 Neon transaction pooler）。
 const TagRenameAdvisoryLockKey int64 = 726478478
 

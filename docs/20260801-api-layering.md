@@ -116,7 +116,7 @@ flowchart LR
 |------|----|----|
 | logapi | `CreateNumber` / `CreateText` / `CreateTransactionBatch` | `createNumber` / `createText` / `createTransactionBatch` |
 | transactiondraft | `ParseTransactionBatch`（及同包输入 / 归一化类型） | `parseTransactionBatch` |
-| tags | `RenameAcrossRecords` / `ValidateRename` | `renameAcrossRecords` / `validateRename` |
+| tags | `RenameAcrossRecords` / `ValidateRename` | `renameAcrossRecords`（`tagsdb`）/ `validateRename`（`tags`） |
 | record | `Update` | `update` |
 | record | `FromDB` / `TagsJSON` / type `Record` | `fromDB` / `tagsJSON` / type `Record`（已取代 `toApiRecord` / `ApiRecord`，或薄包装同名） |
 | record | `FormatHappenedAt` | `formatHappenedAt`（与现有 UTC Z 语义对齐；已收敛 `formatHappenedAtUtc`） |
@@ -128,7 +128,7 @@ flowchart LR
 |------|----|----|
 | draft | `ParseRecordDraft` / `ParseRecordDraftJSON` | `parseRecordDraft`（JSON 入口按需同名） |
 | draft | `EmptyStringToNull` / `ParseHappenedAt` / `ValidateDecimalString` / `ParseValueNumber` | `emptyStringToNull` / `parseHappenedAt` / `validateDecimalString` / `parseValueNumber` |
-| tags | `IsValidTag` / `IsReservedTag` / `ValidateTags` / `AssertNoReservedTags` / `ValidateRename` / `RenameTagInTagsJSON` / `AggregateTagCounts` / `RenameAcrossRecords` | `isValidTag` / `isReservedTag` / `validateTags` / `assertNoReservedTags` / `validateRename` / `renameTagInTagsJson` / `aggregateTagCounts` / `renameAcrossRecords` |
+| tags | `IsValidTag` / `IsReservedTag` / `ValidateTags` / `AssertNoReservedTags` / `ValidateRename` / `RenameTagInTagsJSON` / `AggregateTagCounts` / `RenameAcrossRecords` | `isValidTag` / … / `aggregateTagCounts`（`@/lib/tags`，可进 Client）；`renameAcrossRecords`（`@/lib/tagsdb`，仅服务端，避免 Client 打进 postgres） |
 | tags | `ValidationResult{Valid, Error}` | `ValidationResult{ valid, error? }`（`assertNoReservedTags` / `validateTags` / `validateRename` 共用） |
 | tags | 脏 `tags` JSON：`AggregateTagCounts` / `RenameTagInTagsJSON`（及 `RenameAcrossRecords`）解析失败或根非数组 → **error**（HTTP 500） | 同左：抛错 / 向上失败，**禁止**静默 skip |
 | query | `ParseRecordQueryParams` / `FetchFilteredRecords` / `FetchSummary` / `FetchTagCounts` / `EscapeLikePattern` | `parseRecordQueryParams` / `fetchFilteredRecords` / `fetchSummary` / `fetchTagCounts` / `escapeLikePattern` |

@@ -5,13 +5,15 @@ import {
   assertNoReservedTags,
   isReservedTag,
   isValidTag,
-  renameAcrossRecords,
   renameTagInTagsJson,
   reservedTagError,
   validateRename,
   validateTags,
-  type RenameAcrossRecordsDb,
 } from './tags'
+import {
+  renameAcrossRecords,
+  type RenameAcrossRecordsDb,
+} from './tagsdb'
 
 describe('isValidTag', () => {
   it.each(['weight', 'source:device', 'review:weekly', 'a', 'A1_b:c2'])(

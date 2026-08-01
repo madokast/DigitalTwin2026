@@ -13,6 +13,9 @@ export type EnvLike = {
   TELEGRAM_ALLOW_IN_TEST?: string
 }
 
+/** process.env 键比 EnvLike 宽；作默认参数时收窄 */
+const processEnvLike = (): EnvLike => process.env as EnvLike
+
 function envFlagOn(value: string | undefined): boolean {
   return (value ?? '').trim() === '1'
 }
@@ -33,7 +36,7 @@ function envOrProcess(
  * probe 走 sendTelegramMessage，不受此限制。
  * 同时看注入 env 与 process.env（Vitest setup / TestMain 设的 DIGITAL_TWIN_TEST）。
  */
-export function shouldSkipNotifyInTest(env: EnvLike = process.env): boolean {
+export function shouldSkipNotifyInTest(env: EnvLike = processEnvLike()): boolean {
   if (envFlagOn(envOrProcess(env, 'TELEGRAM_ALLOW_IN_TEST'))) {
     return false
   }
@@ -75,7 +78,7 @@ type FetchLike = (
 }>
 
 /** 与 Go `telegram.LoadConfig` 对齐 */
-export function loadConfig(env: EnvLike = process.env): TelegramConfig {
+export function loadConfig(env: EnvLike = processEnvLike()): TelegramConfig {
   const token = (env.TELEGRAM_BOT_TOKEN ?? '').trim()
   const userId = (env.TELEGRAM_USER_ID ?? '').trim()
   const missing: string[] = []
@@ -89,12 +92,12 @@ export function loadConfig(env: EnvLike = process.env): TelegramConfig {
   }
 }
 
-export function isTelegramConfigured(env: EnvLike = process.env): boolean {
+export function isTelegramConfigured(env: EnvLike = processEnvLike()): boolean {
   return loadConfig(env).configured
 }
 
 /** 与 Go `telegram.ConfigError` 对齐：未配置时的英文错误；已配置返回 null */
-export function configError(env: EnvLike = process.env): string | null {
+export function configError(env: EnvLike = processEnvLike()): string | null {
   const cfg = loadConfig(env)
   if (cfg.configured) return null
   if (cfg.missing.length === 2) {
@@ -194,7 +197,7 @@ export async function sendTelegramMessage(
   text: string,
   options?: { env?: EnvLike; fetch?: FetchLike },
 ): Promise<SendResult> {
-  const env = options?.env ?? process.env
+  const env = options?.env ?? processEnvLike()
   const cfg = loadConfig(env)
   if (!cfg.configured) {
     return { ok: false, error: configError(env)! }
@@ -260,7 +263,7 @@ export async function notifyRecordInserted(
   record: NotifyRecord,
   options?: { env?: EnvLike; fetch?: FetchLike },
 ): Promise<void> {
-  const env = options?.env ?? process.env
+  const env = options?.env ?? processEnvLike()
   // 测试态静默跳过，避免每次 insert 打真实 Bot（dotenv 可能写回 TELEGRAM_*）
   if (shouldSkipNotifyInTest(env)) {
     return
@@ -282,7 +285,7 @@ export async function notifyTransactionBatchInserted(
   options?: { env?: EnvLike; fetch?: FetchLike },
 ): Promise<void> {
   if (rows.length === 0) return
-  const env = options?.env ?? process.env
+  const env = options?.env ?? processEnvLike()
   if (shouldSkipNotifyInTest(env)) {
     return
   }
