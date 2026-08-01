@@ -42,6 +42,11 @@ func parsePositiveInt(raw string, fallback int) (int, error) {
 	if err != nil || n < 1 {
 		return 0, fmt.Errorf("invalid")
 	}
+	// 与 Next Number.MAX_SAFE_INTEGER 对齐，避免 JS Number 精度丢失造成双端分叉
+	const maxSafeInt = 9007199254740991
+	if n > maxSafeInt {
+		return 0, fmt.Errorf("invalid")
+	}
 	return n, nil
 }
 

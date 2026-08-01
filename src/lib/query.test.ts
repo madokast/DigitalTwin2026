@@ -78,4 +78,19 @@ describe('parseRecordQueryParams from/to timezone', () => {
       pageSize: 20,
     })
   })
+
+  it('rejects oversized page integers (float precision / overflow)', () => {
+    for (const page of [
+      '9007199254740992', // MAX_SAFE_INTEGER + 1
+      '9007199254740993', // Number() rounds
+      '999999999999999999999999',
+    ]) {
+      expect(
+        parseRecordQueryParams(new URLSearchParams({ page })),
+        page,
+      ).toEqual({
+        error: 'page must be a positive integer',
+      })
+    }
+  })
 })

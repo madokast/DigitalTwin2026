@@ -22,7 +22,8 @@ function parsePositiveInt(raw: string | null, fallback: number): number | null {
   if (raw === null || raw === '') return fallback
   if (!/^\d+$/.test(raw)) return null
   const n = Number(raw)
-  if (!Number.isInteger(n) || n < 1) return null
+  // 与 Go 对齐：须为安全整数（拒绝 float 精度丢失 / 超大字面量）
+  if (!Number.isSafeInteger(n) || n < 1) return null
   return n
 }
 

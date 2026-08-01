@@ -29,6 +29,17 @@ func TestParseRecordQueryParamsErrors(t *testing.T) {
 	if err == nil || err.Error() == "" {
 		t.Fatal("from without tz")
 	}
+	// 超大整数：拒绝 Number 精度丢失 / Atoi 溢出边界之上的值（与 Next MAX_SAFE_INTEGER 对齐）
+	for _, raw := range []string{
+		"9007199254740992",          // MAX_SAFE_INTEGER+1
+		"9007199254740993",          // Number 会舍入
+		"999999999999999999999999",  // 远超 int64
+	} {
+		_, err = ParseRecordQueryParams(url.Values{"page": {raw}})
+		if err == nil || err.Error() != "page must be a positive integer" {
+			t.Fatalf("page %q: got %v", raw, err)
+		}
+	}
 }
 
 func TestParseRecordQueryParamsFilters(t *testing.T) {
