@@ -3,7 +3,11 @@ import db from '@/db'
 import { records } from '@/db/schema'
 import { fromDB, type Record } from '@/lib/record'
 import { aggregateTagCounts } from '@/lib/tags'
-import { getZonedDayBounds, isValidTimeZone } from '@/lib/timeutil'
+import {
+  getZonedDayBounds,
+  isValidTimeZone,
+  parseRFC3339Flexible,
+} from '@/lib/timeutil'
 
 export type ParsedQuery = {
   conditions: SQL[]
@@ -32,8 +36,8 @@ function parseIsoDate(raw: string | null, label: string): Date | ParseError | nu
       error: `${label} must be ISO 8601 with timezone (Z or ±HH:MM)`,
     }
   }
-  const d = new Date(raw)
-  if (Number.isNaN(d.getTime())) {
+  const d = parseRFC3339Flexible(raw)
+  if (!d) {
     return { error: `Invalid ${label} datetime` }
   }
   return d

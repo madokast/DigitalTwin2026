@@ -13,8 +13,13 @@ import (
 // compactOffsetSuffix 匹配末尾 ±HHMM（无冒号）；RFC3339 要求 ±HH:MM。
 var compactOffsetSuffix = regexp.MustCompile(`([+-]\d{2})(\d{2})$`)
 
+// rfc3339Strict 为 expand 之后的形态（须大写 Z、T 分隔、各字段补零），
+// 与 OpenAPI HappenedAtInput / Next parseRFC3339Flexible 对齐；
+// 比裸 time.Parse(RFC3339) 更严（后者会收下单数字小时等）。
+var rfc3339Strict = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$`)
+
 // ExpandCompactOffset 将 ISO 8601 末尾 ±HHMM 扩成 ±HH:MM，便于 time.Parse(RFC3339*)。
-// 已是 Z / ±HH:MM 则原样返回。与 Next `new Date` / OpenAPI HappenedAtInput 对齐。
+// 已是 Z / ±HH:MM 则原样返回。与 Next expandCompactOffset / OpenAPI HappenedAtInput 对齐。
 func ExpandCompactOffset(s string) string {
 	if len(s) >= 1 && (s[len(s)-1] == 'Z' || s[len(s)-1] == 'z') {
 		return s
@@ -28,6 +33,9 @@ func ExpandCompactOffset(s string) string {
 // ParseRFC3339Flexible 解析带显式时区的 ISO 8601（含 ±HHMM）。
 func ParseRFC3339Flexible(raw string) (time.Time, error) {
 	normalized := ExpandCompactOffset(raw)
+	if !rfc3339Strict.MatchString(normalized) {
+		return time.Time{}, fmt.Errorf("invalid RFC3339 datetime")
+	}
 	t, err := time.Parse(time.RFC3339Nano, normalized)
 	if err != nil {
 		t, err = time.Parse(time.RFC3339, normalized)

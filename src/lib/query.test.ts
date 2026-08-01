@@ -38,6 +38,18 @@ describe('parseRecordQueryParams from/to timezone', () => {
     expect(result.conditions.length).toBeGreaterThan(0)
   })
 
+  it('rejects lowercase z / space / non-padded from', () => {
+    for (const from of [
+      '2026-07-30T00:00:00z',
+      '2026-07-30 00:00:00Z',
+      '2026-7-30T00:00:00Z',
+    ]) {
+      expect(parseRecordQueryParams(new URLSearchParams({ from }))).toEqual({
+        error: 'Invalid from datetime',
+      })
+    }
+  })
+
   it('accepts from/to with +08:00', () => {
     const result = parseRecordQueryParams(
       new URLSearchParams({

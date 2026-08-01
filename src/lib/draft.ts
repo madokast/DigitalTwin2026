@@ -1,4 +1,5 @@
 import { assertNoReservedTags, validateTags } from '@/lib/tags'
+import { parseRFC3339Flexible } from '@/lib/timeutil'
 
 /** ISO 8601 末尾时区：Z / ±HH:MM / ±HHMM（与 query `from`/`to`、Go draft 一致） */
 const ISO_TZ_SUFFIX = /(Z|[+-]\d{2}:?\d{2})$/i
@@ -56,8 +57,8 @@ export function parseHappenedAt(
       error: 'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
     }
   }
-  const happenedAt = new Date(raw)
-  if (Number.isNaN(happenedAt.getTime())) {
+  const happenedAt = parseRFC3339Flexible(raw)
+  if (!happenedAt) {
     return { error: 'Invalid happened_at datetime' }
   }
   return { ok: true, value: happenedAt }

@@ -59,6 +59,16 @@ func TestExpandCompactOffset(t *testing.T) {
 	if !got.Equal(want) {
 		t.Fatalf("instant: got %v want %v", got, want)
 	}
+	for _, bad := range []string{
+		"2026-07-30T08:00:00z",
+		"2026-07-30 08:00:00Z",
+		"2026-7-30T08:00:00Z",
+		"2026-07-30T8:00:00Z",
+	} {
+		if _, err := ParseRFC3339Flexible(bad); err == nil {
+			t.Fatalf("want reject %q", bad)
+		}
+	}
 }
 
 func TestEmbeddedTzdataWithoutSystemZoneinfo(t *testing.T) {

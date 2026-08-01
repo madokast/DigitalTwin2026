@@ -90,6 +90,18 @@ func TestParseHappenedAt(t *testing.T) {
 			t.Fatalf("%q: got %v", raw, err)
 		}
 	}
+	// Date/ECMA 会收下、Go RFC3339 拒绝的形态 → Invalid happened_at datetime
+	for _, raw := range []string{
+		"2026-07-30T08:00:00z",
+		"2026-07-30 08:00:00Z",
+		"2026-7-30T08:00:00Z",
+		"2026-07-30T8:00:00Z",
+	} {
+		_, err := ParseHappenedAt(raw)
+		if err == nil || err.Error() != "Invalid happened_at datetime" {
+			t.Fatalf("%q: got %v", raw, err)
+		}
+	}
 }
 
 func TestValidateDecimalStringSharedFixtures(t *testing.T) {

@@ -68,6 +68,20 @@ describe('parseHappenedAt', () => {
       error: 'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
     })
   })
+
+  it('rejects forms Date accepts but Go RFC3339 rejects', () => {
+    // 与 Go time.Parse(RFC3339*) / OpenAPI HappenedAtInput 对齐
+    for (const raw of [
+      '2026-07-30T08:00:00z', // 小写 z
+      '2026-07-30 08:00:00Z', // 空格分隔
+      '2026-7-30T08:00:00Z', // 月未补零
+      '2026-07-30T8:00:00Z', // 时未补零
+    ]) {
+      expect(parseHappenedAt(raw), raw).toEqual({
+        error: 'Invalid happened_at datetime',
+      })
+    }
+  })
 })
 
 describe('validateDecimalString / parseValueNumber', () => {

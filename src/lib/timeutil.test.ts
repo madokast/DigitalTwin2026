@@ -4,8 +4,10 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   calendarDayBounds,
+  expandCompactOffset,
   getZonedDayBounds,
   isValidTimeZone,
+  parseRFC3339Flexible,
 } from './timeutil'
 
 type DayBoundCase = {
@@ -36,6 +38,21 @@ describe('time helpers', () => {
     expect(isValidTimeZone('UTC')).toBe(true)
     expect(isValidTimeZone('Not/AZone')).toBe(false)
     expect(isValidTimeZone('')).toBe(false)
+  })
+
+  it('expandCompactOffset / parseRFC3339Flexible match Go', () => {
+    expect(expandCompactOffset('2026-07-30T08:00:00+0800')).toBe(
+      '2026-07-30T08:00:00+08:00',
+    )
+    expect(expandCompactOffset('2026-07-30T00:00:00.000Z')).toBe(
+      '2026-07-30T00:00:00.000Z',
+    )
+    const ok = parseRFC3339Flexible('2026-07-30T08:00:00+0800')
+    expect(ok?.toISOString()).toBe('2026-07-30T00:00:00.000Z')
+    expect(parseRFC3339Flexible('2026-07-30T08:00:00z')).toBeNull()
+    expect(parseRFC3339Flexible('2026-07-30 08:00:00Z')).toBeNull()
+    expect(parseRFC3339Flexible('2026-7-30T08:00:00Z')).toBeNull()
+    expect(parseRFC3339Flexible('2026-07-30T8:00:00Z')).toBeNull()
   })
 
   it('matches shared zoned-day-bounds fixtures (incl. DST)', () => {

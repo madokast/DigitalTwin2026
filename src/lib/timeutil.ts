@@ -9,6 +9,31 @@ export function isValidTimeZone(tz: string): boolean {
   }
 }
 
+/**
+ * 将末尾 ±HHMM 扩成 ±HH:MM；已是 Z/z / ±HH:MM 则原样返回。
+ * 与 Go `timeutil.ExpandCompactOffset` 对齐。
+ */
+export function expandCompactOffset(s: string): string {
+  if (s.endsWith('Z') || s.endsWith('z')) return s
+  if (/[+-]\d{2}:\d{2}$/.test(s)) return s
+  return s.replace(/([+-]\d{2})(\d{2})$/, '$1:$2')
+}
+
+/**
+ * 严格 RFC3339 / RFC3339Nano（大写 Z、T 分隔、补零字段）；先 expand ±HHMM。
+ * 与 Go `timeutil.ParseRFC3339Flexible` 对齐；失败返回 null。
+ */
+const RFC3339_STRICT =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
+
+export function parseRFC3339Flexible(raw: string): Date | null {
+  const normalized = expandCompactOffset(raw)
+  if (!RFC3339_STRICT.test(normalized)) return null
+  const d = new Date(normalized)
+  if (Number.isNaN(d.getTime())) return null
+  return d
+}
+
 function zonedParts(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,

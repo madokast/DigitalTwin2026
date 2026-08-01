@@ -56,6 +56,10 @@ HappenedAtInput:
     `(Z|[+-]HH:?MM)` — same rule for log insert, Admin PATCH `happened_at`,
     and query `from`/`to`. Bare dates or offset-less local datetimes → 400
     (`happened_at must be ISO 8601 with timezone (Z or ±HH:MM)`).
+    Both backends parse via strict RFC3339 / RFC3339Nano after expanding
+    compact `±HHMM` → `±HH:MM`: uppercase `Z`, `T` separator, zero-padded
+    fields. Lowercase `z`, space separator, or non-padded components → 400
+    (`Invalid happened_at datetime`).
   pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})$'
   examples:
     - '2026-07-30T08:00:00+08:00'
