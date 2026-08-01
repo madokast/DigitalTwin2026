@@ -1,6 +1,5 @@
 import {
   parseHappenedAt,
-  validateDecimalString,
   type DraftValidationError,
 } from '@/lib/draft'
 import {
@@ -24,10 +23,14 @@ export const TRANSACTION_ENTRY_KEYS = [
 ] as const
 
 const SEGMENT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+/** 金额形态：可选负号、整数或至多两位小数；禁 +、空格、残缺点、前导零 */
+const MONEY_AMOUNT = /^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$/
+
 export const MAX_TRANSACTION_ENTRIES = 100
 
 export const AMOUNT_MUST_BE_STRING = 'amount must be a decimal string'
-export const AMOUNT_MUST_NOT_BE_ZERO = 'amount must not be zero'
+export const INVALID_AMOUNT =
+  'Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, no spaces; e.g. 10, 10.5, 10.50, -1.5'
 
 export type TransactionType = 'income' | 'expense'
 
@@ -59,10 +62,23 @@ export type NormalizedTransactionBatch = {
   entries: NormalizedTransactionEntry[]
 }
 
-/** 已通过 decimal 校验的字面量是否为零（含 -0 / 0.00） */
+/** 已通过金额正则的字面量是否为零（含 -0 / 0.00） */
 export function isZeroDecimalLiteral(s: string): boolean {
   const digits = s.replace(/^-/, '').replace('.', '')
   return digits.length > 0 && /^0+$/.test(digits)
+}
+
+/**
+ * 将已通过金额校验的字面量规范为恰好两位小数（字符串补齐，禁止 float）。
+ * 例：`10` → `10.00`，`10.5` → `10.50`，`-1.5` → `-1.50`。
+ */
+export function normalizeMoneyAmount2(s: string): string {
+  const neg = s.startsWith('-')
+  const body = neg ? s.slice(1) : s
+  const dot = body.indexOf('.')
+  const intPart = dot === -1 ? body : body.slice(0, dot)
+  const fracPart = dot === -1 ? '' : body.slice(dot + 1)
+  return `${neg ? '-' : ''}${intPart}.${fracPart.padEnd(2, '0')}`
 }
 
 function parseType(
@@ -87,20 +103,16 @@ function parseAmount(
     return { error: AMOUNT_MUST_BE_STRING }
   }
   if (typeof raw !== 'string') {
-    return { error: 'Invalid amount' }
+    return { error: INVALID_AMOUNT }
   }
-  const trimmed = raw.trim()
-  if (trimmed === '') {
-    return { error: 'Missing required field: amount' }
+  // 禁止 trim：有空格 / 空串均走统一 Invalid amount
+  if (!MONEY_AMOUNT.test(raw)) {
+    return { error: INVALID_AMOUNT }
   }
-  // 复用 decimal 规则；领域文案用 amount（与 Go parseAmount 一致，不依赖 draft 错误原文）
-  if ('error' in validateDecimalString(trimmed)) {
-    return { error: 'Invalid amount' }
+  if (isZeroDecimalLiteral(raw)) {
+    return { error: INVALID_AMOUNT }
   }
-  if (isZeroDecimalLiteral(trimmed)) {
-    return { error: AMOUNT_MUST_NOT_BE_ZERO }
-  }
-  return { ok: true, value: trimmed }
+  return { ok: true, value: normalizeMoneyAmount2(raw) }
 }
 
 function parseSegment(
@@ -169,7 +181,7 @@ function parseEntry(
  * 解析 POST /api/log/transaction body。
  * 必填顶层 `type`（income|expense）整单共享；entries 长度 1..MAX；
  * 服务端组装保留前缀 tag `transaction_entry:{type}`。
- * amount 经 decimal 校验后为零 → 400。
+ * amount：MoneyAmount 正则 → 拒零 → 规范为两位小数入库。
  */
 export function parseTransactionBatch(
   body: LogTransactionBody,

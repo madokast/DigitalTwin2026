@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { VALUE_NUMBER_MUST_BE_STRING } from '@/lib/draft'
 import { createNumber, createText, createTransactionBatch } from '@/lib/logapi'
 import { reservedTagError } from '@/lib/tags'
-import { AMOUNT_MUST_BE_STRING, AMOUNT_MUST_NOT_BE_ZERO } from '@/lib/transactiondraft'
+import { AMOUNT_MUST_BE_STRING, INVALID_AMOUNT } from '@/lib/transactiondraft'
 
 describe('createNumber', () => {
   it('rejects happened_at without timezone', async () => {
@@ -236,7 +236,7 @@ describe('createTransactionBatch', () => {
       ],
     })
     expect(result).toEqual({
-      error: `entries[0]: ${AMOUNT_MUST_NOT_BE_ZERO}`,
+      error: `entries[0]: ${INVALID_AMOUNT}`,
       status: 400,
     })
   })

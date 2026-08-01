@@ -202,7 +202,7 @@ func TestCreateTransactionBatchRejectsZeroAmount(t *testing.T) {
 	if status != 400 {
 		t.Fatalf("status %d", status)
 	}
-	want := "entries[0]: " + transactiondraft.AmountMustNotBeZero
+	want := "entries[0]: " + transactiondraft.InvalidAmount
 	if err == nil || err.Error() != want {
 		t.Fatalf("err=%v", err)
 	}

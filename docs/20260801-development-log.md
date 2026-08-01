@@ -27,7 +27,7 @@
 |----|------|
 | 路径 | `POST /api/log/transaction`（ApiToken） |
 | Body | `happened_at` + `type`（`income`\|`expense`）+ `entries[]` |
-| entries | 1..100；`amount` 十进制字符串；零 → 400；正=正常、负=该 type 冲销 |
+| entries | 1..100；`amount` 为 `MoneyAmountString`（≤2 位小数、禁零/+/空格）；通过后规范为两位小数入库；正=正常、负=该 type 冲销 |
 | 落库 tags | `["transaction_entry:{type}","{category}:{subcategory}"]` |
 | 保留 tag | 前缀语义 `P` 或 `P:…`（`P=transaction_entry`）；number/text/Admin/rename 拒绝 |
 | 感受/评价 | 另走 `POST /api/log/text` |

@@ -17,8 +17,11 @@ const MaxTransactionEntries = 100
 
 var segmentPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
+// 金额形态：可选负号、整数或至多两位小数；禁 +、空格、残缺点、前导零
+var moneyAmountPattern = regexp.MustCompile(`^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$`)
+
 const AmountMustBeString = "amount must be a decimal string"
-const AmountMustNotBeZero = "amount must not be zero"
+const InvalidAmount = "Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, no spaces; e.g. 10, 10.5, 10.50, -1.5"
 
 // TransactionEntryInput 单条 entry 原始输入（any：字段级校验文案与 Next 对齐）。
 type TransactionEntryInput struct {
@@ -58,7 +61,7 @@ type NormalizedTransactionBatch struct {
 	Entries    []NormalizedTransactionEntry
 }
 
-// IsZeroDecimalLiteral 已通过 decimal 校验的字面量是否为零（含 -0 / 0.00）。
+// IsZeroDecimalLiteral 已通过金额正则的字面量是否为零（含 -0 / 0.00）。
 func IsZeroDecimalLiteral(s string) bool {
 	digits := strings.TrimPrefix(s, "-")
 	digits = strings.ReplaceAll(digits, ".", "")
@@ -71,6 +74,30 @@ func IsZeroDecimalLiteral(s string) bool {
 		}
 	}
 	return true
+}
+
+// NormalizeMoneyAmount2 将已通过金额校验的字面量规范为恰好两位小数（字符串补齐，禁止 float）。
+// 例：`10` → `10.00`，`10.5` → `10.50`，`-1.5` → `-1.50`。
+func NormalizeMoneyAmount2(s string) string {
+	neg := strings.HasPrefix(s, "-")
+	body := s
+	if neg {
+		body = s[1:]
+	}
+	dot := strings.IndexByte(body, '.')
+	intPart := body
+	fracPart := ""
+	if dot >= 0 {
+		intPart = body[:dot]
+		fracPart = body[dot+1:]
+	}
+	for len(fracPart) < 2 {
+		fracPart += "0"
+	}
+	if neg {
+		return "-" + intPart + "." + fracPart
+	}
+	return intPart + "." + fracPart
 }
 
 func parseType(raw any) (string, error) {
@@ -90,21 +117,18 @@ func parseAmount(raw any) (string, error) {
 	}
 	switch v := raw.(type) {
 	case string:
-		trimmed := strings.TrimSpace(v)
-		if trimmed == "" {
-			return "", fmt.Errorf("Missing required field: amount")
+		// 禁止 TrimSpace：有空格 / 空串均走统一 InvalidAmount
+		if !moneyAmountPattern.MatchString(v) {
+			return "", fmt.Errorf("%s", InvalidAmount)
 		}
-		if err := draft.ValidateDecimalString(trimmed); err != nil {
-			return "", fmt.Errorf("Invalid amount")
+		if IsZeroDecimalLiteral(v) {
+			return "", fmt.Errorf("%s", InvalidAmount)
 		}
-		if IsZeroDecimalLiteral(trimmed) {
-			return "", fmt.Errorf("%s", AmountMustNotBeZero)
-		}
-		return trimmed, nil
+		return NormalizeMoneyAmount2(v), nil
 	case float64, json.Number:
 		return "", fmt.Errorf("%s", AmountMustBeString)
 	default:
-		return "", fmt.Errorf("Invalid amount")
+		return "", fmt.Errorf("%s", InvalidAmount)
 	}
 }
 
@@ -168,7 +192,7 @@ func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, err
 }
 
 // ParseTransactionBatch 解析 POST /api/log/transaction body（含 UseNumber JSON 解码）。
-// 必填顶层 type（income|expense）；entries 长度 1..Max；amount 为零 → 错误。
+// 必填顶层 type（income|expense）；entries 长度 1..Max；amount 经 MoneyAmount 校验后规范为两位小数。
 func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, error) {
 	if err := jsonutil.RejectUnknownObjectKeys(raw, logTransactionKeys); err != nil {
 		return NormalizedTransactionBatch{}, err

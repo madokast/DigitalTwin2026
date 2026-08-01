@@ -1,10 +1,28 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   AMOUNT_MUST_BE_STRING,
-  AMOUNT_MUST_NOT_BE_ZERO,
+  INVALID_AMOUNT,
   MAX_TRANSACTION_ENTRIES,
+  normalizeMoneyAmount2,
   parseTransactionBatch,
 } from './transactiondraft'
+
+const moneyCases = JSON.parse(
+  readFileSync(
+    path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../testdata/money-amount-cases.json',
+    ),
+    'utf8',
+  ),
+) as {
+  invalidAmountError: string
+  accept: { input: string; stored: string }[]
+  reject: { input: string; error: string }[]
+}
 
 describe('parseTransactionBatch', () => {
   const base = {
@@ -65,16 +83,35 @@ describe('parseTransactionBatch', () => {
     ).toEqual({ error: 'type must be "income" or "expense"' })
   })
 
-  it('rejects zero amount after decimal validate', () => {
-    for (const amount of ['0', '0.0', '0.00', '-0', '-0.00']) {
+  it('shared money-amount accept fixtures (normalized stored)', () => {
+    expect(moneyCases.invalidAmountError).toBe(INVALID_AMOUNT)
+    for (const { input, stored } of moneyCases.accept) {
       const parsed = parseTransactionBatch({
         ...base,
-        entries: [{ ...base.entries[0], amount }],
+        entries: [{ ...base.entries[0], amount: input }],
       })
-      expect(parsed).toEqual({
-        error: `entries[0]: ${AMOUNT_MUST_NOT_BE_ZERO}`,
+      expect('error' in parsed, input).toBe(false)
+      if ('error' in parsed) return
+      expect(parsed.entries[0].amount, input).toBe(stored)
+    }
+  })
+
+  it('shared money-amount reject fixtures (byte-identical error)', () => {
+    for (const { input, error } of moneyCases.reject) {
+      const parsed = parseTransactionBatch({
+        ...base,
+        entries: [{ ...base.entries[0], amount: input }],
+      })
+      expect(parsed, JSON.stringify(input)).toEqual({
+        error: `entries[0]: ${error}`,
       })
     }
+  })
+
+  it('normalizeMoneyAmount2 pads to two fractional digits', () => {
+    expect(normalizeMoneyAmount2('10')).toBe('10.00')
+    expect(normalizeMoneyAmount2('10.5')).toBe('10.50')
+    expect(normalizeMoneyAmount2('-1.5')).toBe('-1.50')
   })
 
   it('rejects empty entries', () => {
@@ -94,6 +131,17 @@ describe('parseTransactionBatch', () => {
     })
     expect(parsed).toEqual({
       error: `entries[0]: ${AMOUNT_MUST_BE_STRING}`,
+    })
+  })
+
+  it('rejects missing amount field', () => {
+    const { amount: _omit, ...rest } = base.entries[0]
+    const parsed = parseTransactionBatch({
+      ...base,
+      entries: [rest],
+    })
+    expect(parsed).toEqual({
+      error: 'entries[0]: Missing required field: amount',
     })
   })
 
