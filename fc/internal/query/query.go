@@ -105,6 +105,15 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
 	}, nil
 }
 
+// EscapeLikePattern 转义 LIKE 通配符（PostgreSQL 默认 ESCAPE '\'）。
+// 与 Next escapeLikePattern 对齐：先 `\`，再 `%` / `_`。
+func EscapeLikePattern(raw string) string {
+	s := strings.ReplaceAll(raw, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
+}
+
 func buildWhere(p *ParsedQuery) (string, []any) {
 	var parts []string
 	var args []any
@@ -127,11 +136,11 @@ func buildWhere(p *ParsedQuery) (string, []any) {
 	}
 	for _, tag := range p.Tags {
 		parts = append(parts, fmt.Sprintf("tags LIKE $%d", n))
-		args = append(args, `%"`+tag+`"%`)
+		args = append(args, `%"`+EscapeLikePattern(tag)+`"%`)
 		n++
 	}
 	if p.Q != "" {
-		pattern := `%` + p.Q + `%`
+		pattern := `%` + EscapeLikePattern(p.Q) + `%`
 		parts = append(parts, fmt.Sprintf(
 			`(value_text LIKE $%d OR objective_context LIKE $%d OR subjective_interpretation LIKE $%d OR tags LIKE $%d)`,
 			n, n+1, n+2, n+3,

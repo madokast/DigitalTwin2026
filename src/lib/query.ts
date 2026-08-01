@@ -18,6 +18,17 @@ export type ParsedQuery = {
 
 export type ParseError = { error: string }
 
+/**
+ * 转义 LIKE 通配符，使字面量匹配（PostgreSQL 默认 ESCAPE '\'）。
+ * 与 Go `query.EscapeLikePattern` 对齐：先 `\`，再 `%` / `_`。
+ */
+export function escapeLikePattern(raw: string): string {
+  return raw
+    .replace(/\\/g, '\\\\')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_')
+}
+
 function parsePositiveInt(raw: string | null, fallback: number): number | null {
   if (raw === null || raw === '') return fallback
   if (!/^\d+$/.test(raw)) return null
@@ -79,13 +90,13 @@ export function parseRecordQueryParams(
 
   for (const tag of searchParams.getAll('tag')) {
     if (tag) {
-      conditions.push(like(records.tags, `%"${tag}"%`))
+      conditions.push(like(records.tags, `%"${escapeLikePattern(tag)}"%`))
     }
   }
 
   const q = searchParams.get('q')
   if (q) {
-    const searchPattern = `%${q}%`
+    const searchPattern = `%${escapeLikePattern(q)}%`
     conditions.push(
       sql`${records.valueText} LIKE ${searchPattern} OR ${records.objectiveContext} LIKE ${searchPattern} OR ${records.subjectiveInterpretation} LIKE ${searchPattern} OR ${records.tags} LIKE ${searchPattern}`,
     )
