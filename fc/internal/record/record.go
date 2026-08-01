@@ -3,9 +3,11 @@ package record
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/mdk/digitaltwin2026/fc/internal/db"
 	"github.com/mdk/digitaltwin2026/fc/internal/draft"
@@ -57,9 +59,21 @@ func TagsJSON(tags []string) (string, error) {
 // ErrNotFound 与 TS RECORD_NOT_FOUND 同文案；Update 在无行时返回。
 var ErrNotFound = fmt.Errorf("Record not found")
 
+// InvalidID 与 TS INVALID_RECORD_ID 同文案：非 UUID → 400，避免 PG 类型错误变 500。
+var InvalidID = errors.New("Invalid record id")
+
+// IsValidID 与 Next isValidRecordId 对齐（google/uuid.Parse）。
+func IsValidID(id string) bool {
+	_, err := uuid.Parse(id)
+	return err == nil
+}
+
 // Update 按已归一化草稿更新一条记录；成功 (rec, 200, nil)；不存在 (空, 404, err)。
 // q 为可注入 Querier（*pgxpool.Pool 或测试假实现）。
 func Update(ctx context.Context, q db.Querier, id string, d *draft.NormalizedRecordDraft) (Record, int, error) {
+	if !IsValidID(id) {
+		return Record{}, 400, InvalidID
+	}
 	tagsJSON, err := TagsJSON(d.Tags)
 	if err != nil {
 		return Record{}, 500, err

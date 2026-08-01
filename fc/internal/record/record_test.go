@@ -1,8 +1,11 @@
 package record
 
 import (
+	"context"
 	"testing"
 	"time"
+
+	"github.com/mdk/digitaltwin2026/fc/internal/draft"
 )
 
 func TestFormatHappenedAt(t *testing.T) {
@@ -38,6 +41,24 @@ func TestTagsJSON(t *testing.T) {
 	}
 	if got != `["weight","morning"]` {
 		t.Fatalf("got %s", got)
+	}
+}
+
+func TestIsValidID(t *testing.T) {
+	if !IsValidID("01900000-0000-7000-8000-000000000001") {
+		t.Fatal("want valid UUID")
+	}
+	for _, bad := range []string{"", "not-a-uuid", "123", "01900000-0000-7000-8000"} {
+		if IsValidID(bad) {
+			t.Fatalf("want reject %q", bad)
+		}
+	}
+}
+
+func TestUpdateRejectsInvalidID(t *testing.T) {
+	_, status, err := Update(context.Background(), nil, "not-a-uuid", &draft.NormalizedRecordDraft{})
+	if status != 400 || err == nil || err.Error() != InvalidID.Error() {
+		t.Fatalf("status=%d err=%v", status, err)
 	}
 }
 

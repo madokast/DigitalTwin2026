@@ -8,6 +8,7 @@ import {
   isValidTimeZone,
   parseRFC3339Flexible,
 } from '@/lib/timeutil'
+import { INVALID_RECORD_ID, isValidRecordId } from '@/lib/record'
 
 export type ParsedQuery = {
   conditions: SQL[]
@@ -78,6 +79,9 @@ export function parseRecordQueryParams(
   const id = searchParams.get('id')
 
   if (id) {
+    if (!isValidRecordId(id)) {
+      return { error: INVALID_RECORD_ID }
+    }
     conditions.push(eq(records.id, id))
   }
 

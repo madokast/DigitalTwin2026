@@ -120,6 +120,7 @@ flowchart LR
 | record | `Update` | `update` |
 | record | `FromDB` / `TagsJSON` / type `Record` | `fromDB` / `tagsJSON` / type `Record`（已取代 `toApiRecord` / `ApiRecord`，或薄包装同名） |
 | record | `FormatHappenedAt` | `formatHappenedAt`（与现有 UTC Z 语义对齐；已收敛 `formatHappenedAtUtc`） |
+| record | `IsValidID` / `InvalidID` | `isValidRecordId` / `INVALID_RECORD_ID` |
 
 ### 5.2 同构样板（保持 / 微调 stem）
 

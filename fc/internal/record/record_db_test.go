@@ -129,7 +129,7 @@ func TestUpdate_successMapsReturning(t *testing.T) {
 
 func TestUpdate_notFound(t *testing.T) {
 	q := &fakeUpdateQuerier{scanErr: pgx.ErrNoRows}
-	rec, status, err := Update(context.Background(), q, "missing-id", sampleDraft())
+	rec, status, err := Update(context.Background(), q, "01900000-0000-7000-8000-000000000099", sampleDraft())
 	if status != 404 {
 		t.Fatalf("status=%d want 404", status)
 	}

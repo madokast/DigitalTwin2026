@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm'
+import { validate as uuidValidate } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
 import type { NormalizedRecordDraft } from '@/lib/draft'
@@ -65,6 +66,14 @@ export type UpdateRecordResult =
 /** 与 Go `record.ErrNotFound` 同文案 */
 export const RECORD_NOT_FOUND = 'Record not found'
 
+/** 与 Go `record.InvalidID` 同文案：非 UUID → 400，避免 PG 类型错误变 500 */
+export const INVALID_RECORD_ID = 'Invalid record id'
+
+/** 与 Go `record.IsValidID` 对齐 */
+export function isValidRecordId(id: string): boolean {
+  return uuidValidate(id)
+}
+
 /**
  * update 可注入的写库边界（与 Go `db.Querier` 假实现对称）。
  * 返回更新后行；无匹配行返回 `undefined`（映射 404）。
@@ -104,6 +113,10 @@ export async function update(
   d: NormalizedRecordDraft,
   store: UpdateDb = defaultUpdateDb,
 ): Promise<UpdateRecordResult> {
+  if (!isValidRecordId(id)) {
+    return { error: INVALID_RECORD_ID, status: 400 }
+  }
+
   try {
     const row = await store.updateReturning(id, {
       happenedAt: d.happenedAt,

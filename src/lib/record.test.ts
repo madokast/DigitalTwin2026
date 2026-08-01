@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  INVALID_RECORD_ID,
   RECORD_NOT_FOUND,
   formatHappenedAt,
   fromDB,
@@ -107,8 +108,19 @@ describe('update (injected store)', () => {
 
   it('returns RECORD_NOT_FOUND 404 when no row', async () => {
     const updateReturning = vi.fn(async () => undefined)
-    const result = await update('missing-id', draft, { updateReturning })
+    const result = await update(
+      '01900000-0000-7000-8000-000000000099',
+      draft,
+      { updateReturning },
+    )
     expect(result).toEqual({ error: RECORD_NOT_FOUND, status: 404 })
     expect(updateReturning).toHaveBeenCalledOnce()
+  })
+
+  it('rejects non-UUID id with 400 before DB', async () => {
+    const updateReturning = vi.fn(async () => undefined)
+    const result = await update('not-a-uuid', draft, { updateReturning })
+    expect(result).toEqual({ error: INVALID_RECORD_ID, status: 400 })
+    expect(updateReturning).not.toHaveBeenCalled()
   })
 })

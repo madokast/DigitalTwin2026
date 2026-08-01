@@ -2,9 +2,12 @@ QueryId:
   name: id
   in: query
   required: false
-  description: Exact record id; when set, pagination params are ignored
+  description: |
+    Exact record UUID; when set, pagination params are ignored.
+    Non-UUID → 400 (`Invalid record id`).
   schema:
     type: string
+    format: uuid
 QueryPage:
   name: page
   in: query

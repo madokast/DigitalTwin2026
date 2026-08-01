@@ -54,7 +54,8 @@
       - name: id
         in: path
         required: true
-        description: Record UUID (UUIDv7 as stored)
+        description: |
+          Record UUID (UUIDv7 as stored). Non-UUID → 400 (`Invalid record id`).
         schema:
           type: string
           format: uuid

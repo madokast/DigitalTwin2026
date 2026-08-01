@@ -94,8 +94,13 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
 		}
 	}
 
+	id := q.Get("id")
+	if id != "" && !record.IsValidID(id) {
+		return nil, record.InvalidID
+	}
+
 	return &ParsedQuery{
-		ID:       q.Get("id"),
+		ID:       id,
 		Page:     page,
 		PageSize: pageSize,
 		From:     from,

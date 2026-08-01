@@ -93,4 +93,13 @@ describe('parseRecordQueryParams from/to timezone', () => {
       })
     }
   })
+
+  it('rejects non-UUID id', () => {
+    expect(
+      parseRecordQueryParams(new URLSearchParams({ id: 'not-a-uuid' })),
+    ).toEqual({ error: 'Invalid record id' })
+    expect(
+      parseRecordQueryParams(new URLSearchParams({ id: '123' })),
+    ).toEqual({ error: 'Invalid record id' })
+  })
 })
