@@ -11,6 +11,37 @@ export function isValidTag(tag: string): boolean {
   return /^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$/.test(tag)
 }
 
+/** 仅专用 API 可写入的 tag；通用 log / Admin 草稿 / rename 拒绝 */
+export const RESERVED_TAGS = ['transaction_entry'] as const
+
+export type ReservedTag = (typeof RESERVED_TAGS)[number]
+
+export const RESERVED_TAG_TRANSACTION_ENTRY: ReservedTag = 'transaction_entry'
+
+export function isReservedTag(tag: string): boolean {
+  return (RESERVED_TAGS as readonly string[]).includes(tag)
+}
+
+/** 英文错误：指明保留 tag 与正确录入路径 */
+export function reservedTagError(tag: string): string {
+  return `tag "${tag}" is reserved; use POST /api/log/transaction for transaction line entries`
+}
+
+/**
+ * 客户端传入的 tags 不得含保留名。
+ * 服务端写入的 transaction 行可含保留 tag，不要对本函数传入那些组装结果来「拒绝」。
+ */
+export function assertNoReservedTags(
+  tags: string[],
+): { ok: true } | { error: string } {
+  for (const tag of tags) {
+    if (isReservedTag(tag)) {
+      return { error: reservedTagError(tag) }
+    }
+  }
+  return { ok: true }
+}
+
 /**
  * 验证 tags 数组
  * - 非空数组
@@ -20,16 +51,16 @@ export function validateTags(tags: string[]): { valid: boolean; error?: string }
   if (!Array.isArray(tags) || tags.length === 0) {
     return { valid: false, error: 'tags must be a non-empty array' }
   }
-  
+
   for (const tag of tags) {
     if (!isValidTag(tag)) {
-      return { 
-        valid: false, 
-        error: `Invalid tag: "${tag}". Tags must contain only letters, numbers, underscores, and cannot start with a number.` 
+      return {
+        valid: false,
+        error: `Invalid tag: "${tag}". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
       }
     }
   }
-  
+
   return { valid: true }
 }
 

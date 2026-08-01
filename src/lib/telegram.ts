@@ -138,6 +138,28 @@ export function formatRecordMessage(record: NotifyRecord): string {
   return lines.join('\n')
 }
 
+/** 整单 transaction batch 摘要（不逐条刷屏） */
+export function formatTransactionBatchMessage(rows: NotifyRecord[]): string {
+  const n = rows.length
+  let sumLabel = '(mixed)'
+  const amounts = rows
+    .map((r) => r.valueNumber)
+    .filter((v): v is string => v != null && v !== '')
+  if (amounts.length === n) {
+    // 仅展示字符串拼接提示；不强制精确十进制求和（避免浮点）
+    sumLabel = amounts.join(' + ')
+  }
+  const firstMemo = rows[0]?.objectiveContext ?? ''
+  const happened = rows[0] ? formatHappenedAt(rows[0].happenedAt) : ''
+  return [
+    'New transaction batch',
+    `inserted: ${n}`,
+    `happened_at: ${happened}`,
+    `amounts: ${sumLabel}`,
+    `first_memo: ${firstMemo}`,
+  ].join('\n')
+}
+
 export async function sendTelegramMessage(
   text: string,
   options?: { env?: EnvLike; fetch?: FetchLike },
@@ -200,6 +222,30 @@ export async function notifyRecordInserted(
   }
 
   const result = await sendTelegramMessage(formatRecordMessage(record), options)
+  if (!result.ok) {
+    console.error('Telegram notify failed:', result.error)
+  }
+}
+
+/** transaction batch 成功后 best-effort 一条摘要 */
+export async function notifyTransactionBatchInserted(
+  rows: NotifyRecord[],
+  options?: { env?: EnvLike; fetch?: FetchLike },
+): Promise<void> {
+  if (rows.length === 0) return
+  const env = options?.env ?? process.env
+  if (shouldSkipNotifyInTest(env)) {
+    return
+  }
+  if (!isTelegramConfigured(env)) {
+    console.warn('Telegram notify skipped: not configured')
+    return
+  }
+
+  const result = await sendTelegramMessage(
+    formatTransactionBatchMessage(rows),
+    options,
+  )
   if (!result.ok) {
     console.error('Telegram notify failed:', result.error)
   }

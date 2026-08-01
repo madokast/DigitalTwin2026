@@ -177,6 +177,9 @@ func ParseRecordDraft(body RecordDraftBody) (*NormalizedRecordDraft, error) {
 	if !tv.Valid {
 		return nil, fmt.Errorf("%s", tv.Error)
 	}
+	if rv := tags.AssertNoReservedTags(tagsStr); !rv.Valid {
+		return nil, fmt.Errorf("%s", rv.Error)
+	}
 
 	objCtx, ok := body.ObjectiveContext.(string)
 	if !ok || objCtx == "" {

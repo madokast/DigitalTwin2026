@@ -90,6 +90,8 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"record-draft-request-valid.json", "RecordDraftRequest"},
 		{"telegram-probe-request.json", "TelegramProbeRequest"},
 		{"telegram-probe-success.json", "SuccessOnly"},
+		{"log-transaction-request-valid.json", "LogTransactionRequest"},
+		{"transaction-batch-success.json", "TransactionBatchSuccess"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.fixture, func(t *testing.T) {
@@ -98,6 +100,22 @@ func TestFixturesMatchSchemas(t *testing.T) {
 				t.Fatal(err)
 			}
 			visitJSON(t, schema(t, doc, tc.schema), data)
+		})
+	}
+}
+
+func TestLogTransactionRequestRejectsEmptyAndNumberAmount(t *testing.T) {
+	doc := loadDoc(t)
+	for _, name := range []string{
+		"log-transaction-request-empty-entries.json",
+		"log-transaction-request-amount-number.json",
+	} {
+		t.Run(name, func(t *testing.T) {
+			var data any
+			if err := json.Unmarshal(readFixture(t, name), &data); err != nil {
+				t.Fatal(err)
+			}
+			visitJSONExpectFail(t, schema(t, doc, "LogTransactionRequest"), data)
 		})
 	}
 }

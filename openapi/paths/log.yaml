@@ -7,6 +7,7 @@
       Inserts a record with `value_number` set and `value_text` null.
       On success, Telegram notification is best-effort and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
+      Reserved tags such as `transaction_entry` are rejected (use POST /api/log/transaction).
     security:
       - ApiToken: []
     requestBody:
@@ -44,6 +45,7 @@
       Inserts a record with `value_text` set and `value_number` null.
       On success, Telegram notification is best-effort and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
+      Reserved tags such as `transaction_entry` are rejected (use POST /api/log/transaction).
     security:
       - ApiToken: []
     requestBody:
@@ -64,6 +66,51 @@
           application/json:
             schema:
               $ref: '../components/schemas.yaml#/RecordSuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+/api/log/transaction:
+  post:
+    operationId: logTransaction
+    tags: [log]
+    summary: Log one spend/income event with one or more line entries
+    description: |
+      Records an already-occurred money event. Body is always a batch via `entries`
+      (length 1 for a single line). Shared `happened_at` for all lines.
+      Each line becomes one DB row with reserved tag `transaction_entry` plus
+      `{category}:{subcategory}`. Response is only `{ success, inserted }` (no full records).
+      Opinions/feelings about the spend → separate POST /api/log/text.
+      Auth: ApiToken.
+    security:
+      - ApiToken: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/LogTransactionRequest'
+          example:
+            happened_at: '2026-08-01T12:30:00+08:00'
+            entries:
+              - amount: '25.00'
+                memo: beef noodle lunch
+                category: food
+                subcategory: lunch
+              - amount: '12.50'
+                memo: box of tissues
+                category: food
+                subcategory: grocery
+    responses:
+      '201':
+        description: Entries inserted
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/TransactionBatchSuccess'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':

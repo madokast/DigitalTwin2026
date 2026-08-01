@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateTagCounts, isValidTag, renameTagInTagsJson, validateTags } from './tags'
+import {
+  aggregateTagCounts,
+  assertNoReservedTags,
+  isReservedTag,
+  isValidTag,
+  renameTagInTagsJson,
+  reservedTagError,
+  validateTags,
+} from './tags'
 
 describe('isValidTag', () => {
   it.each(['weight', 'source:device', 'review:weekly', 'a', 'A1_b:c2'])(
@@ -45,6 +53,20 @@ describe('validateTags', () => {
 
   it('accepts a non-empty array of valid tags', () => {
     expect(validateTags(['weight', 'source:device'])).toEqual({ valid: true })
+  })
+})
+
+describe('reserved tags', () => {
+  it('detects transaction_entry', () => {
+    expect(isReservedTag('transaction_entry')).toBe(true)
+    expect(isReservedTag('weight')).toBe(false)
+  })
+
+  it('assertNoReservedTags rejects reserved names', () => {
+    expect(assertNoReservedTags(['weight', 'transaction_entry'])).toEqual({
+      error: reservedTagError('transaction_entry'),
+    })
+    expect(assertNoReservedTags(['weight'])).toEqual({ ok: true })
   })
 })
 

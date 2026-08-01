@@ -7,6 +7,7 @@ import {
   validateDecimalString,
   VALUE_NUMBER_MUST_BE_STRING,
 } from './record-draft'
+import { reservedTagError } from './tags'
 
 const validBase = {
   happened_at: '2026-07-30T08:00:00+08:00',
@@ -163,6 +164,15 @@ describe('parseRecordDraft', () => {
     ).toEqual({
       error: 'Missing required field: tags (non-empty array)',
     })
+  })
+
+  it('rejects reserved tag transaction_entry', () => {
+    expect(
+      parseRecordDraft({
+        ...validBase,
+        tags: ['transaction_entry'],
+      }),
+    ).toEqual({ error: reservedTagError('transaction_entry') })
   })
 
   it('accepts empty value_number with text-only records', () => {

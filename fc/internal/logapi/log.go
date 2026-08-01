@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/fc/internal/draft"
 	"github.com/mdk/digitaltwin2026/fc/internal/record"
@@ -37,9 +38,14 @@ func optionalSubjective(s *string) any {
 	return *s
 }
 
+// rowQuerier：pgxpool.Pool 与 pgx.Tx 均实现
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 func insertReturning(
 	ctx context.Context,
-	pool *pgxpool.Pool,
+	q rowQuerier,
 	id string,
 	happenedAt time.Time,
 	valueNumber *string,
@@ -53,7 +59,7 @@ func insertReturning(
 		outHappened              time.Time
 		outNum, outText, outSubj *string
 	)
-	err := pool.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 INSERT INTO records (id, happened_at, value_number, value_text, tags, objective_context, subjective_interpretation)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7)
 RETURNING id, happened_at, value_number, value_text, tags, objective_context, subjective_interpretation
@@ -102,6 +108,9 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	if !tv.Valid {
 		return record.Record{}, 400, fmt.Errorf("%s", tv.Error)
 	}
+	if rv := tags.AssertNoReservedTags(body.Tags); !rv.Valid {
+		return record.Record{}, 400, fmt.Errorf("%s", rv.Error)
+	}
 	if body.ObjectiveContext == "" {
 		return record.Record{}, 400, fmt.Errorf("Missing required field: objective_context")
 	}
@@ -143,6 +152,9 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	tv := tags.ValidateTags(body.Tags)
 	if !tv.Valid {
 		return record.Record{}, 400, fmt.Errorf("%s", tv.Error)
+	}
+	if rv := tags.AssertNoReservedTags(body.Tags); !rv.Valid {
+		return record.Record{}, 400, fmt.Errorf("%s", rv.Error)
 	}
 	if body.ObjectiveContext == "" {
 		return record.Record{}, 400, fmt.Errorf("Missing required field: objective_context")

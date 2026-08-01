@@ -1,11 +1,12 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-07-31
-> 状态：详情 Admin 编辑收尾；FC Go API 可本地跑 + Serverless Devs 可部署；前端只认 Admin Token；用户可见文案英文化
+> 状态：Admin 编辑 + FC 部署收尾；Telegram 通知；OpenAPI 契约基建完成并**收口**（不做 codegen / Schemathesis）；仓库公开后 CI 全绿
 
 ## 0. 今日做成了什么（总览）
 
-在已有查询 / 列表 / 详情只读之上，补齐 **Admin 就地改记录**：一次草稿、一次提交，双击进出编辑尽量零重排。另：落地阿里云 FC（本地 Go HTTP + `s.yaml` 部署骨架、密钥脚本、文档真源），并收紧浏览器鉴权与语言原则。
+上半日：补齐 **Admin 就地改记录**、落地 **阿里云 FC**、收紧浏览器鉴权与语言原则。  
+下半日：录入 **Telegram 通知**、脚本迁 TypeScript、落地并收口 **OpenAPI 3.1 契约**（多文件 + lint + fixtures 契约测 + CI），并明确产品下一步不再扩 OpenAPI 工具链。
 
 | 类别 | 已完成 |
 |------|--------|
@@ -14,14 +15,17 @@
 | 详情 UI | 双击编辑草稿；脏数据才显示提交；成功 refetch；失败展示 error |
 | Null | `NullBadge`：斜体淡色、不可选中；真实 `'-'` / `''` 原样 |
 | 标签 | 无逗号独立 chip；编辑仅显隐 `×` / `+`；修复占位塌缩导致的文字跳动 |
-| Go API | `fc/`：`go run ./cmd/api`，7 路由 + CORS + 鉴权对齐；`go test ./...` |
-| FC 部署 | `s.yaml` / `env.yaml`；`scripts/deploy.sh`（禁裸 `s deploy`）；`info.sh`；省钱规格 |
+| Go API | `fc/`：`go run ./cmd/api`，路由 + CORS + 鉴权对齐；`go test ./...` |
+| FC 部署 | `s.yaml` / `env.yaml`；`scripts/deploy`（禁裸 `s deploy`）；`info.sh`；省钱规格 |
 | 设置加速 | prefs `apiAccelerateBase` → UI **API Accelerate URL**；空=同源 Vercel |
-| 密钥脚本 | `secrets:rotate-test`；`secrets:refresh-prod`（Vercel prod + FC prod） |
+| 密钥脚本 | `secrets:rotate-test`；`secrets:refresh-prod`（Vercel prod + FC prod；TS 实现） |
 | Vercel | `.vercelignore` 排除整个 `fc/`，避免 bootstrap 撑大上传 |
 | 浏览器 Token | 前端只认 Admin Token（`digitaltwin_admin_token`）；服务端仍双 Token |
 | 语言 | 用户可见英文；注释/文档中文；原则写入 `AGENTS.md` |
-| 文档 | `fc/README.md` 为 FC 操作真源；`AGENTS.md` 精简引用；本日志 |
+| Telegram | `POST /api/log/*` 成功后 best-effort 通知；`POST /api/telegram/probe`；测试模式可跳过实发 |
+| OpenAPI | 3.1 多文件 `$ref`；Redocly；fixtures + Vitest / Go contract；CI；**已收口** |
+| 契约对齐 | `value_number` 仅十进制字符串；`happened_at` / `from`/`to` 必带时区；输出 `…sssZ` |
+| 文档 | `fc/README.md`、`openapi/README.md` 真源；根 README / `AGENTS.md` 同步；本日志 |
 
 ## 1. Admin PATCH
 
@@ -76,7 +80,7 @@ cd fc && go test ./...
 ### 4.2 Serverless Devs
 
 - `fc/s.yaml` + `fc/env.yaml`（test / prod 函数名；overlay 写在 `overlays.resources.api` 下，勿再包 `props:`）
-- 部署：**必须** `./scripts/deploy.sh test|prod`（把 `s deploy` 整段重定向丢弃，防密钥进终端）
+- 部署：**必须** `./scripts/deploy` / `deploy.ts`（`test|prod`；禁裸 `s deploy`，防密钥进终端）
 - 取 URL：`./scripts/info.sh test|prod`
 - 省钱默认：128MB / 0.05 CPU / disk 512 / timeout 30 / `instanceConcurrency: 1` / `minInstances: 0` / `reservedConcurrency: 1`
 - 操作说明只维护在 **[`fc/README.md`](../fc/README.md)**；`AGENTS.md` 仅引用
@@ -104,9 +108,66 @@ cd fc && go test ./...
 - 仅代码注释与文档用中文
 - 测试里故意使用的非 ASCII 非法 tag 样例除外
 
-## 7. 今日提交（节选）
+## 7. Telegram 通知
+
+- `POST /api/log/number`、`POST /api/log/text` 入库成功后 **best-effort** 发 Telegram（失败不影响 201）
+- `POST /api/telegram/probe`：严格探测发送（env 未配 / Bot API 失败分别 400 / 502）
+- 测试：`DIGITAL_TWIN_TEST=1` 跳过 insert 路径实发（避免 dotenv 误带生产 Token）；单测可用 `TELEGRAM_ALLOW_IN_TEST=1` + mock
+- 密钥：`TELEGRAM_BOT_TOKEN` / `TELEGRAM_USER_ID`；test/prod 可共用同一 Bot
+
+相关：`src/lib/telegram.ts`、双端 log / probe 路由、OpenAPI `telegram` tag。
+
+## 8. 脚本迁 TypeScript
+
+- `scripts/refresh-prod-env.ts`、`fc/scripts/deploy.ts`；薄 `.sh` 包装
+- 交互：跳过 / 空值 UX；连通性检查仅在未 skip 时跑
+- 根 README：env 细节指向 `.env.example`；接口表让位给 OpenAPI
+
+## 9. OpenAPI 契约（已收口）
+
+### 9.1 落地内容
+
+| 项 | 说明 |
+|----|------|
+| 文档 | Design-first OpenAPI 3.1；入口 `openapi/openapi.yaml` |
+| 模块 | `paths/`（log / query / telegram / admin）+ `components/`；kin-openapi 需按名 `$ref` + `IsExternalRefsAllowed` |
+| Lint / 预览 | `npm run openapi:lint`（Redocly）；`npm run openapi:preview` → `redoc-static.html` |
+| 契约测 | `openapi/fixtures/`；Vitest Ajv；Go `fc/internal/contract` |
+| CI | `.github/workflows/ci.yml`（lint + 双端契约测；不含需 DB 集成测） |
+
+### 9.2 与实现对齐的硬约束
+
+- 请求 `happened_at`、query `from`/`to`：必须带时区（`Z` / `±HH:MM`）
+- `Record.happenedAt` 输出：UTC `YYYY-MM-DDTHH:mm:ss.sssZ`
+- `value_number` / `valueNumber`：仅十进制**字符串**或 null；JSON number → 400；DB 列为 TEXT（migration `0000`；可接受 drop/recreate）
+- schema `pattern`：`HappenedAtInput` / `HappenedAtUtcZ` / `DecimalString` / `TagName`
+
+### 9.3 定死边界（勿再提案）
+
+写入 [`openapi/README.md`](../openapi/README.md)「开发边界」：
+
+- **不做** codegen（类型 / stub / SDK）
+- **不做** Schemathesis（及同类实网模糊测）
+- **不设** Phase 3 / 额外 OpenAPI 工具链
+- 以后只在**改 API** 时维护 YAML + fixtures + 双端手写 + 现有测
+
+讨论过、**本仓不做**的旁路：前端纯静态 / GitHub Pages（另仓另议；继续 Vercel Next + Accelerate）。
+
+### 9.4 CI 插曲
+
+- 仓库公开后首次 Actions：Go 契约测绿；Node 死在 `npm ci`（lockfile 缺 vitest 树下 `esbuild@0.28.1`；本地 npm 11 宽松、CI npm 10 严格）
+- 修复：用 npm 10 + `registry.npmjs.org` 重生 `package-lock.json`
+- `320e4a5` 起 CI 全绿（Node lint/契约 + Go contract）
+
+## 10. 今日提交（节选）
 
 ```
+c862052 收口 OpenAPI：定死开发边界，明确不做 codegen 与 Schemathesis。
+320e4a5 拆分 OpenAPI 为多文件模块，并修复 package-lock 以兼容 CI npm 10。
+57ca449 完善 OpenAPI Phase 2：契约测、Redocly CI、pattern 与预览。
+6171831 对齐 value_number 十进制字符串与 happened_at 时区契约，并在测试模式跳过 Telegram。
+bb61cc5 落地 OpenAPI Phase 1 契约，并显式对齐 Record.happenedAt 为 UTC Z。
+3d1471f 添加录入 Telegram 通知，并将生产刷新/FC 部署脚本迁到 TypeScript。
 8c5cccc 用户可见文案统一为英文，并在 AGENTS 写入语言原则。
 c5f14cf 前端只认 Admin Token：去掉浏览器侧普通 Token 槽位。
 a09bdb9 添加生产密钥刷新脚本，并排除 FC 产物以免撑大 Vercel 上传。
@@ -119,12 +180,17 @@ a09bdb9 添加生产密钥刷新脚本，并排除 FC 产物以免撑大 Vercel 
 f117da6 添加 Admin PATCH 更新记录接口与草稿校验。
 ```
 
-## 8. 仍待办（摘自 0730 §10）
+## 11. 仍待办（产品向；OpenAPI 基建已结束）
 
-- 专用录入接口（账单、体重、复盘等）
-- 账单汇总 `GET /query/bill/summary`
-- Dashboard 其它组件（体重/支出等）
-- AI 侧 CLI 包装
-- 数据库 COMMENT、数据导出
-- ~~阿里云函数计算部署~~（骨架与 test/prod 流程已就绪；日常以 `fc/README.md` 为准）
-- 前端：记录删除 / 图表 / 列表行内编辑
+优先建议回到业务，而不是契约工具：
+
+- [ ] 专用录入接口（账单、体重、复盘等）
+- [ ] 账单汇总（transaction summary；路径待定）
+- [ ] Dashboard 其它组件（体重/支出等）
+- [ ] 前端：记录删除 / 图表 / 列表行内编辑
+- [ ] AI 侧 CLI 包装（只注入 AI Token）
+- [ ] 数据库 COMMENT、数据导出
+- [x] 阿里云函数计算部署（日常以 `fc/README.md` 为准）
+- [x] OpenAPI 契约基建（见 §9；维护即可）
+
+可选运维（非代码必做）：Vercel Hobby 防火墙限流 1 条；Token 轮换习惯；公开站主要风险是额度刷停而非自动扣费。

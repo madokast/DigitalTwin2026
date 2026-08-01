@@ -47,6 +47,8 @@ paths:
     $ref: './paths/log.yaml#/~1api~1log~1number'
   /api/log/text:
     $ref: './paths/log.yaml#/~1api~1log~1text'
+  /api/log/transaction:
+    $ref: './paths/log.yaml#/~1api~1log~1transaction'
   /api/telegram/probe:
     $ref: './paths/telegram.yaml#/~1api~1telegram~1probe'
   /api/query:
@@ -126,3 +128,11 @@ components:
       $ref: './components/schemas.yaml#/RecordDraftRequest'
     TelegramProbeRequest:
       $ref: './components/schemas.yaml#/TelegramProbeRequest'
+    TransactionCategorySegment:
+      $ref: './components/schemas.yaml#/TransactionCategorySegment'
+    TransactionEntry:
+      $ref: './components/schemas.yaml#/TransactionEntry'
+    LogTransactionRequest:
+      $ref: './components/schemas.yaml#/LogTransactionRequest'
+    TransactionBatchSuccess:
+      $ref: './components/schemas.yaml#/TransactionBatchSuccess'

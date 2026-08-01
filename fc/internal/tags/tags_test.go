@@ -33,6 +33,19 @@ func TestValidateTags(t *testing.T) {
 	}
 }
 
+func TestAssertNoReservedTags(t *testing.T) {
+	if !IsReservedTag("transaction_entry") {
+		t.Fatal("expected reserved")
+	}
+	r := AssertNoReservedTags([]string{"weight", "transaction_entry"})
+	if r.Valid || r.Error != ReservedTagError("transaction_entry") {
+		t.Fatalf("%+v", r)
+	}
+	if r := AssertNoReservedTags([]string{"weight"}); !r.Valid {
+		t.Fatalf("%+v", r)
+	}
+}
+
 func TestAggregateTagCounts(t *testing.T) {
 	got, err := AggregateTagCounts([]string{
 		`["weight","morning"]`,

@@ -9,8 +9,38 @@ import (
 
 var tagPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$`)
 
+// ReservedTags 仅专用 API 可写入；通用 log / Admin 草稿 / rename 拒绝。
+var ReservedTags = []string{"transaction_entry"}
+
+const ReservedTagTransactionEntry = "transaction_entry"
+
 func IsValidTag(tag string) bool {
 	return tagPattern.MatchString(tag)
+}
+
+func IsReservedTag(tag string) bool {
+	for _, r := range ReservedTags {
+		if tag == r {
+			return true
+		}
+	}
+	return false
+}
+
+func ReservedTagError(tag string) string {
+	return fmt.Sprintf(
+		`tag "%s" is reserved; use POST /api/log/transaction for transaction line entries`,
+		tag,
+	)
+}
+
+func AssertNoReservedTags(tagList []string) ValidationResult {
+	for _, tag := range tagList {
+		if IsReservedTag(tag) {
+			return ValidationResult{Valid: false, Error: ReservedTagError(tag)}
+		}
+	}
+	return ValidationResult{Valid: true}
 }
 
 type ValidationResult struct {

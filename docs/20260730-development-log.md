@@ -290,7 +290,7 @@ c3e2f25 初始化 Next.js 项目
 ## 10. 待办事项
 
 - [ ] 专用录入接口（账单、体重、复盘等，见 schema-v1 设计）
-- [ ] 账单汇总 `GET /query/bill/summary`
+- [ ] 账单汇总（transaction summary；路径待定）
 - [ ] Dashboard 其它组件（体重/支出等；prefs 已留扩展位）
 - [ ] AI 侧 CLI 包装（只注入 AI Token，永不接触 Admin）
 - [ ] 添加数据库注释（COMMENT ON）

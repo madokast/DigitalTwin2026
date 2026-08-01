@@ -211,5 +211,52 @@ func (s *Sender) NotifyRecordInserted(rec record.Record) {
 	}
 }
 
+// FormatTransactionBatchMessage 整单摘要。
+func FormatTransactionBatchMessage(rows []record.Record) string {
+	n := len(rows)
+	amounts := make([]string, 0, n)
+	for _, r := range rows {
+		if r.ValueNumber != nil && *r.ValueNumber != "" {
+			amounts = append(amounts, *r.ValueNumber)
+		}
+	}
+	sumLabel := "(mixed)"
+	if len(amounts) == n {
+		sumLabel = strings.Join(amounts, " + ")
+	}
+	firstMemo := ""
+	happened := ""
+	if n > 0 {
+		firstMemo = rows[0].ObjectiveContext
+		happened = rows[0].HappenedAt
+	}
+	return strings.Join([]string{
+		"New transaction batch",
+		fmt.Sprintf("inserted: %d", n),
+		"happened_at: " + happened,
+		"amounts: " + sumLabel,
+		"first_memo: " + firstMemo,
+	}, "\n")
+}
+
+// NotifyTransactionBatchInserted best-effort 一条摘要。
+func (s *Sender) NotifyTransactionBatchInserted(rows []record.Record) {
+	if len(rows) == 0 {
+		return
+	}
+	getenv := s.getenv()
+	if ShouldSkipNotifyInTest(getenv) {
+		return
+	}
+	cfg := LoadConfig(getenv)
+	if !cfg.Configured() {
+		log.Printf("Telegram notify skipped: not configured")
+		return
+	}
+	if err := s.SendMessage(FormatTransactionBatchMessage(rows)); err != nil {
+		log.Printf("Telegram notify failed: %v", err)
+	}
+}
+
 // Default 进程级默认 Sender（生产路径）。
 var Default = &Sender{}

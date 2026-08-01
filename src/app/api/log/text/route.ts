@@ -4,7 +4,7 @@ import db from '@/db'
 import { records } from '@/db/schema'
 import { parseHappenedAt } from '@/lib/record-draft'
 import { toApiRecord } from '@/lib/record-json'
-import { validateTags } from '@/lib/tags'
+import { assertNoReservedTags, validateTags } from '@/lib/tags'
 import { notifyRecordInserted } from '@/lib/telegram'
 
 interface LogTextRequest {
@@ -47,6 +47,10 @@ export async function POST(request: NextRequest) {
         { error: tagsValidation.error },
         { status: 400 },
       )
+    }
+    const reserved = assertNoReservedTags(body.tags)
+    if ('error' in reserved) {
+      return NextResponse.json({ error: reserved.error }, { status: 400 })
     }
 
     if (!body.objective_context) {

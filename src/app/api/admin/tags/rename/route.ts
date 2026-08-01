@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
-import { isValidTag, renameTagInTagsJson } from '@/lib/tags'
+import { isReservedTag, isValidTag, renameTagInTagsJson, reservedTagError } from '@/lib/tags'
 
 interface RenameTagsRequest {
   from?: string
@@ -27,6 +27,11 @@ export async function POST(request: NextRequest) {
         { error: 'from and to must be valid tag names' },
         { status: 400 },
       )
+    }
+
+    if (isReservedTag(from) || isReservedTag(to)) {
+      const bad = isReservedTag(from) ? from : to
+      return NextResponse.json({ error: reservedTagError(bad) }, { status: 400 })
     }
 
     if (from === to) {

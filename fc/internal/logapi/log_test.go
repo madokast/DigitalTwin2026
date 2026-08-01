@@ -2,9 +2,11 @@ package logapi
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/mdk/digitaltwin2026/fc/internal/draft"
+	"github.com/mdk/digitaltwin2026/fc/internal/tags"
 )
 
 func TestCreateNumberRejectsMissingTimezone(t *testing.T) {
@@ -86,6 +88,62 @@ func TestCreateTextRejectsMissingTimezone(t *testing.T) {
 	}
 	want := "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)"
 	if err == nil || err.Error() != want {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestCreateNumberRejectsReservedTag(t *testing.T) {
+	raw := []byte(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"value_number": "1",
+		"tags": ["transaction_entry"],
+		"objective_context": "x"
+	}`)
+	_, status, err := CreateNumber(context.Background(), nil, raw)
+	if status != 400 {
+		t.Fatalf("status %d", status)
+	}
+	want := tags.ReservedTagError("transaction_entry")
+	if err == nil || err.Error() != want {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestCreateTextRejectsReservedTag(t *testing.T) {
+	raw := []byte(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"value_text": "should fail",
+		"tags": ["transaction_entry"],
+		"objective_context": "x"
+	}`)
+	_, status, err := CreateText(context.Background(), nil, raw)
+	if status != 400 {
+		t.Fatalf("status %d", status)
+	}
+	want := tags.ReservedTagError("transaction_entry")
+	if err == nil || err.Error() != want {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestCreateTransactionBatchRejectsEmptyEntries(t *testing.T) {
+	raw := []byte(`{"happened_at":"2026-08-01T12:30:00+08:00","entries":[]}`)
+	_, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
+	if status != 400 || err == nil || err.Error() != "entries must be a non-empty array" {
+		t.Fatalf("status=%d err=%v", status, err)
+	}
+}
+
+func TestCreateTransactionBatchRejectsJSONNumberAmount(t *testing.T) {
+	raw := []byte(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"entries": [{"amount": 25, "memo": "x", "category": "food", "subcategory": "lunch"}]
+	}`)
+	_, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
+	if status != 400 {
+		t.Fatalf("status %d", status)
+	}
+	if err == nil || !strings.Contains(err.Error(), amountMustBeString) {
 		t.Fatalf("err=%v", err)
 	}
 }

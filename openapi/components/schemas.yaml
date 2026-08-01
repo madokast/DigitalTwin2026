@@ -279,3 +279,66 @@ TelegramProbeRequest:
     text:
       type: string
       description: Optional message body; blank/omitted → default probe text
+
+TransactionCategorySegment:
+  type: string
+  description: |
+    Single path segment for category or subcategory (no colon, no whitespace).
+    Recommended categories: food, housing, transport.
+    Recommended subcategories: breakfast, rent, taxi, other.
+  pattern: '^[a-zA-Z_][a-zA-Z0-9_]*$'
+  examples:
+    - food
+    - lunch
+    - housing
+    - rent
+
+TransactionEntry:
+  type: object
+  required: [amount, memo, category, subcategory]
+  additionalProperties: true
+  properties:
+    amount:
+      $ref: '#/DecimalString'
+    memo:
+      type: string
+      minLength: 1
+      description: What was purchased / line description (maps to objective_context)
+    category:
+      $ref: '#/TransactionCategorySegment'
+    subcategory:
+      $ref: '#/TransactionCategorySegment'
+
+LogTransactionRequest:
+  type: object
+  description: |
+    One already-occurred spend/income event with one or more line entries.
+    Server stores each entry as a row with tags
+    `["transaction_entry","{category}:{subcategory}"]`.
+    Feelings/reviews belong in POST /api/log/text, not here.
+    Tag `transaction_entry` is reserved and must not appear on /api/log/number or /api/log/text.
+  required: [happened_at, entries]
+  additionalProperties: true
+  properties:
+    happened_at:
+      $ref: '#/HappenedAtInput'
+      description: Shared event time for all entries
+    entries:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: '#/TransactionEntry'
+
+TransactionBatchSuccess:
+  type: object
+  required: [success, inserted]
+  additionalProperties: false
+  properties:
+    success:
+      type: boolean
+      const: true
+    inserted:
+      type: integer
+      minimum: 1
+      description: Number of rows written (equals entries.length on success)

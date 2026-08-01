@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST as postNumber } from '@/app/api/log/number/route'
 import { POST as postText } from '@/app/api/log/text/route'
+import { POST as postTransaction } from '@/app/api/log/transaction/route'
 import { GET as queryRecords } from '@/app/api/query/route'
 import { GET as querySummary } from '@/app/api/query/summary/route'
 import { GET as queryTags } from '@/app/api/query/tags/route'
@@ -9,6 +10,7 @@ import { PATCH as patchRecord } from '@/app/api/admin/records/[id]/route'
 import { closeDb } from '@/db'
 import { dropTestSchema, migrateTestDatabase, truncateRecords } from '../helpers/db'
 import { jsonGet, jsonPatch, jsonPost } from '../helpers/http'
+import { reservedTagError } from '@/lib/tags'
 
 describe('API integration', () => {
   beforeAll(async () => {
@@ -179,6 +181,73 @@ describe('API integration', () => {
       expect(body.record.valueText).toBe('studied 50 words')
       expect(body.record.valueNumber).toBeNull()
       expect(body.record.tags).toBe(JSON.stringify(['study', 'vocabulary']))
+    })
+
+    it('rejects reserved tag', async () => {
+      const res = await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-08-01T12:30:00+08:00',
+        value_text: 'should fail',
+        tags: ['transaction_entry'],
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(reservedTagError('transaction_entry'))
+    })
+  })
+
+  describe('POST /api/log/transaction', () => {
+    it('rejects empty entries', async () => {
+      const res = await postTransaction(jsonPost('http://localhost/api/log/transaction', {
+        happened_at: '2026-08-01T12:30:00+08:00',
+        entries: [],
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('entries must be a non-empty array')
+    })
+
+    it('inserts multiple rows and returns inserted count only', async () => {
+      const res = await postTransaction(jsonPost('http://localhost/api/log/transaction', {
+        happened_at: '2026-08-01T12:30:00+08:00',
+        entries: [
+          {
+            amount: '25.00',
+            memo: 'beef noodle',
+            category: 'food',
+            subcategory: 'lunch',
+          },
+          {
+            amount: '12.50',
+            memo: 'tissues',
+            category: 'food',
+            subcategory: 'grocery',
+          },
+        ],
+      }))
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body).toEqual({ success: true, inserted: 2 })
+      expect(body.records).toBeUndefined()
+
+      const q = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=transaction_entry&pageSize=10',
+      ))
+      expect(q.status).toBe(200)
+      const qBody = await q.json()
+      expect(qBody.count).toBe(2)
+      expect(qBody.records.every((r: { tags: string }) =>
+        r.tags.includes('transaction_entry'),
+      )).toBe(true)
+    })
+
+    it('rejects reserved tag on log/number', async () => {
+      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-08-01T12:30:00+08:00',
+        value_number: '1',
+        tags: ['transaction_entry'],
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(reservedTagError('transaction_entry'))
     })
   })
 
@@ -507,6 +576,22 @@ describe('API integration', () => {
       })
       expect(body.tags.exercise).toBeUndefined()
     })
+
+    it('rejects reserved tag as from or to', async () => {
+      const fromRes = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
+        from: 'transaction_entry',
+        to: 'legacy_tx',
+      }))
+      expect(fromRes.status).toBe(400)
+      expect((await fromRes.json()).error).toBe(reservedTagError('transaction_entry'))
+
+      const toRes = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
+        from: 'food',
+        to: 'transaction_entry',
+      }))
+      expect(toRes.status).toBe(400)
+      expect((await toRes.json()).error).toBe(reservedTagError('transaction_entry'))
+    })
   })
 
   describe('PATCH /api/admin/records/[id]', () => {
@@ -578,6 +663,23 @@ describe('API integration', () => {
       expect(res.status).toBe(400)
       const body = await res.json()
       expect(body.error).toContain('Invalid tag')
+    })
+
+    it('rejects reserved tag in tags', async () => {
+      const record = await createNumber()
+      const res = await patchRecord(
+        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          value_number: '1',
+          value_text: null,
+          tags: ['weight', 'transaction_entry'],
+          objective_context: 'x',
+          subjective_interpretation: null,
+        }),
+        { params: Promise.resolve({ id: record.id }) },
+      )
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(reservedTagError('transaction_entry'))
     })
 
     it('returns 404 for unknown id', async () => {

@@ -1,4 +1,4 @@
-import { validateTags } from '@/lib/tags'
+import { assertNoReservedTags, validateTags } from '@/lib/tags'
 
 /** ISO 8601 末尾时区：Z / ±HH:MM / ±HHMM（与 query `from`/`to`、Go draft 一致） */
 const ISO_TZ_SUFFIX = /(Z|[+-]\d{2}:?\d{2})$/i
@@ -143,6 +143,10 @@ export function parseRecordDraft(
   const tagsValidation = validateTags(body.tags)
   if (!tagsValidation.valid) {
     return { error: tagsValidation.error ?? 'Invalid tags' }
+  }
+  const reserved = assertNoReservedTags(body.tags)
+  if ('error' in reserved) {
+    return { error: reserved.error }
   }
 
   if (

@@ -2,6 +2,8 @@ package draft
 
 import (
 	"testing"
+
+	"github.com/mdk/digitaltwin2026/fc/internal/tags"
 )
 
 func TestEmptyStringToNull(t *testing.T) {
@@ -69,6 +71,19 @@ func TestParseValueNumber(t *testing.T) {
 		if _, err := ParseValueNumber(bad); err == nil || err.Error() != "Invalid value_number" {
 			t.Fatalf("%q: %v", bad, err)
 		}
+	}
+}
+
+func TestParseRecordDraftRejectsReservedTag(t *testing.T) {
+	_, err := ParseRecordDraft(RecordDraftBody{
+		HappenedAt:       "2026-07-30T08:00:00+08:00",
+		ValueNumber:      "1",
+		Tags:             []string{"transaction_entry"},
+		ObjectiveContext: "x",
+	})
+	want := tags.ReservedTagError("transaction_entry")
+	if err == nil || err.Error() != want {
+		t.Fatalf("err=%v", err)
 	}
 }
 

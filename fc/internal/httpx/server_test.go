@@ -137,6 +137,52 @@ func TestLogTextRejectsMissingTimezone(t *testing.T) {
 	}
 }
 
+func TestLogTextRejectsReservedTag(t *testing.T) {
+	h := testServer().Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/log/text", strings.NewReader(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"value_text": "should fail",
+		"tags": ["transaction_entry"],
+		"objective_context": "x"
+	}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	want := `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`
+	if body["error"] != want {
+		t.Fatalf("error: %v", body)
+	}
+}
+
+func TestRenameTagsRejectsReservedTag(t *testing.T) {
+	h := testServer().Handler()
+	for _, payload := range []string{
+		`{"from":"transaction_entry","to":"legacy_tx"}`,
+		`{"from":"food","to":"transaction_entry"}`,
+	} {
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/rename", strings.NewReader(payload))
+		req.Header.Set("Authorization", "Bearer admin-tok")
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if rr.Code != 400 {
+			t.Fatalf("%s status %d body %s", payload, rr.Code, rr.Body.String())
+		}
+		var body map[string]string
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		want := `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`
+		if body["error"] != want {
+			t.Fatalf("%s error: %v", payload, body)
+		}
+	}
+}
+
 func TestSummaryInvalidTZWithoutDB(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodGet, "/api/query/summary?tz=Not%2FAZone", nil)

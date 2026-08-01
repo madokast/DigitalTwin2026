@@ -62,6 +62,14 @@ describe('OpenAPI contract (Phase 2)', () => {
       readFixture('telegram-probe-request.json'),
     )
     await assertValidSchema('SuccessOnly', readFixture('telegram-probe-success.json'))
+    await assertValidSchema(
+      'LogTransactionRequest',
+      readFixture('log-transaction-request-valid.json'),
+    )
+    await assertValidSchema(
+      'TransactionBatchSuccess',
+      readFixture('transaction-batch-success.json'),
+    )
   })
 
   it('accepts valid LogNumberRequest and rejects JSON number value_number', async () => {
@@ -73,6 +81,17 @@ describe('OpenAPI contract (Phase 2)', () => {
     await assertInvalidSchema(
       'LogNumberRequest',
       readFixture('log-number-request-json-number.json'),
+    )
+  })
+
+  it('rejects LogTransactionRequest empty entries / JSON number amount', async () => {
+    await assertInvalidSchema(
+      'LogTransactionRequest',
+      readFixture('log-transaction-request-empty-entries.json'),
+    )
+    await assertInvalidSchema(
+      'LogTransactionRequest',
+      readFixture('log-transaction-request-amount-number.json'),
     )
   })
 

@@ -41,6 +41,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/log/number", s.handleLogNumber)
 	mux.HandleFunc("POST /api/log/text", s.handleLogText)
+	mux.HandleFunc("POST /api/log/transaction", s.handleLogTransaction)
 	mux.HandleFunc("POST /api/telegram/probe", s.handleTelegramProbe)
 	mux.HandleFunc("GET /api/query", s.handleQuery)
 	mux.HandleFunc("GET /api/query/summary", s.handleSummary)
@@ -147,6 +148,26 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 	}
 	s.telegram().NotifyRecordInserted(rec)
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
+}
+
+func (s *Server) handleLogTransaction(w http.ResponseWriter, r *http.Request) {
+	raw, err := readBody(r)
+	if err != nil {
+		writeError(w, 400, "Invalid JSON body")
+		return
+	}
+	inserted, recs, status, err := logapi.CreateTransactionBatch(r.Context(), s.Pool, raw)
+	if err != nil {
+		if status >= 500 {
+			log.Printf("Error creating transaction records: %v", err)
+			writeInternalError(w, err)
+			return
+		}
+		writeError(w, status, err.Error())
+		return
+	}
+	s.telegram().NotifyTransactionBatchInserted(recs)
+	writeJSON(w, status, map[string]any{"success": true, "inserted": inserted})
 }
 
 func (s *Server) handleTelegramProbe(w http.ResponseWriter, r *http.Request) {
@@ -259,6 +280,14 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 	}
 	if !tags.IsValidTag(from) || !tags.IsValidTag(to) {
 		writeError(w, 400, "from and to must be valid tag names")
+		return
+	}
+	if tags.IsReservedTag(from) || tags.IsReservedTag(to) {
+		bad := from
+		if tags.IsReservedTag(to) && !tags.IsReservedTag(from) {
+			bad = to
+		}
+		writeError(w, 400, tags.ReservedTagError(bad))
 		return
 	}
 	if from == to {
