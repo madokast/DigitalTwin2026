@@ -163,6 +163,7 @@ flowchart LR
 - 通知触发点：**HTTP handler**，在 lib 返回成功之后。
 - `telegram` 模块两端同构（格式化、配置、发送）；**不**在 `CreateNumber` 等 DB 函数内部发送。
 - 失败 best-effort：不影响已成功写入的 HTTP 状态码（与现行为一致）。
+- **不阻塞写响应**：Next 用 `after()`（无 request scope 时退化为 fire-and-forget）；Go 用 `go` 协程。客户端 HTTP 超时两端均为 **15s**（Next `AbortSignal.timeout` / Go `http.Client.Timeout`）。
 
 ---
 

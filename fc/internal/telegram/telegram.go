@@ -16,6 +16,9 @@ import (
 	"github.com/mdk/digitaltwin2026/fc/internal/tags"
 )
 
+// HTTPTimeout 与 Next TELEGRAM_HTTP_TIMEOUT_MS（15s）对齐。
+const HTTPTimeout = 15 * time.Second
+
 // Config 为非空 token + user id 才算 configured。
 type Config struct {
 	Token   string
@@ -104,7 +107,7 @@ func (s *Sender) client() *http.Client {
 	if s != nil && s.HTTPClient != nil {
 		return s.HTTPClient
 	}
-	return &http.Client{Timeout: 15 * time.Second}
+	return &http.Client{Timeout: HTTPTimeout}
 }
 
 func (s *Sender) getenv() func(string) string {

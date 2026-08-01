@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readJsonBody } from '@/lib/httpjson'
 import { createTransactionBatch } from '@/lib/logapi'
-import { notifyTransactionBatchInserted } from '@/lib/telegram'
+import {
+  notifyTransactionBatchInserted,
+  scheduleBestEffortNotify,
+} from '@/lib/telegram'
 import type { LogTransactionBody } from '@/lib/transactiondraft'
 
 export async function POST(request: NextRequest) {
@@ -18,7 +21,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: result.status })
     }
 
-    await notifyTransactionBatchInserted(result.records)
+    scheduleBestEffortNotify(() =>
+      notifyTransactionBatchInserted(result.records),
+    )
 
     return NextResponse.json(
       { success: true, inserted: result.inserted },

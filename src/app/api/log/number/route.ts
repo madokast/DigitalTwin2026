@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readJsonBody } from '@/lib/httpjson'
 import { createNumber, type NumberBody } from '@/lib/logapi'
-import { notifyRecordInserted } from '@/lib/telegram'
+import {
+  notifyRecordInserted,
+  scheduleBestEffortNotify,
+} from '@/lib/telegram'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,8 +18,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: result.status })
     }
 
-    // 仅 INSERT 成功后 best-effort 通知；失败不影响 201
-    await notifyRecordInserted(result.record)
+    // 响应写出后再通知，避免 Telegram 阻塞 201；失败不影响已成功写入
+    scheduleBestEffortNotify(() => notifyRecordInserted(result.record))
 
     return NextResponse.json(
       { success: true, record: result.record },

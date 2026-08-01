@@ -5,8 +5,10 @@ import {
   isTelegramConfigured,
   loadConfig,
   notifyRecordInserted,
+  scheduleBestEffortNotify,
   sendTelegramMessage,
   shouldSkipNotifyInTest,
+  TELEGRAM_HTTP_TIMEOUT_MS,
 } from './telegram'
 
 afterEach(() => {
@@ -179,6 +181,30 @@ describe('sendTelegramMessage', () => {
     )
   })
 
+  it('passes AbortSignal aligned with Go 15s HTTP client timeout', async () => {
+    expect(TELEGRAM_HTTP_TIMEOUT_MS).toBe(15_000)
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    })
+    await sendTelegramMessage('x', { env, fetch: fetchMock })
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    )
+  })
+
+  it('surfaces timeout as send failure without throwing', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error('The operation was aborted'))
+    await expect(sendTelegramMessage('x', { env, fetch: fetchMock })).resolves.toEqual({
+      ok: false,
+      error: 'Telegram sendMessage failed: The operation was aborted',
+    })
+  })
+
   it('surfaces Telegram description on failure', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
@@ -190,6 +216,14 @@ describe('sendTelegramMessage', () => {
       ok: false,
       error: 'Telegram sendMessage failed: chat not found',
     })
+  })
+})
+
+describe('scheduleBestEffortNotify', () => {
+  it('runs task outside Next request scope (route unit tests / fallback)', async () => {
+    const task = vi.fn().mockResolvedValue(undefined)
+    scheduleBestEffortNotify(task)
+    await vi.waitFor(() => expect(task).toHaveBeenCalledTimes(1))
   })
 })
 

@@ -1,6 +1,10 @@
 /** Telegram Bot 通知：录入成功 best-effort 推送；probe 严格校验配置与发送结果 */
 
+import { after } from 'next/server'
 import { RESERVED_TAG_TRANSACTION_ENTRY } from '@/lib/tags'
+
+/** 与 Go `http.Client{Timeout: 15 * time.Second}` 对齐 */
+export const TELEGRAM_HTTP_TIMEOUT_MS = 15_000
 
 export type EnvLike = {
   TELEGRAM_BOT_TOKEN?: string
@@ -58,7 +62,12 @@ export type SendResult = { ok: true } | { ok: false; error: string }
 
 type FetchLike = (
   input: string,
-  init?: { method?: string; headers?: Record<string, string>; body?: string },
+  init?: {
+    method?: string
+    headers?: Record<string, string>
+    body?: string
+    signal?: AbortSignal
+  },
 ) => Promise<{
   ok: boolean
   status: number
@@ -203,6 +212,7 @@ export async function sendTelegramMessage(
         text,
         disable_web_page_preview: true,
       }),
+      signal: AbortSignal.timeout(TELEGRAM_HTTP_TIMEOUT_MS),
     })
 
     let description: string | undefined
@@ -224,6 +234,24 @@ export async function sendTelegramMessage(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     return { ok: false, error: `Telegram sendMessage failed: ${msg}` }
+  }
+}
+
+/**
+ * 在 HTTP 成功响应写出之后再跑通知，避免 Telegram 慢/挂拖垮 201。
+ * 有 Next request scope 时用 `after()`（平台会等到任务结束或超时）；
+ * 单元测等无 scope 时退化为立即 fire-and-forget。
+ */
+export function scheduleBestEffortNotify(task: () => Promise<void>): void {
+  const run = () => {
+    void task().catch(() => {
+      // notify* 已吞错；防未处理 rejection
+    })
+  }
+  try {
+    after(run)
+  } catch {
+    run()
   }
 }
 

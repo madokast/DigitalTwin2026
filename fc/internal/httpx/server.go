@@ -124,8 +124,8 @@ func (s *Server) handleLogNumber(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, err.Error())
 		return
 	}
-	// 仅 INSERT 成功后 best-effort 通知
-	s.telegram().NotifyRecordInserted(rec)
+	// INSERT 成功后异步 best-effort 通知，不阻塞写响应（HTTP 客户端仍有 15s 超时）
+	go s.telegram().NotifyRecordInserted(rec)
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
 }
 
@@ -145,7 +145,7 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, err.Error())
 		return
 	}
-	s.telegram().NotifyRecordInserted(rec)
+	go s.telegram().NotifyRecordInserted(rec)
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
 }
 
@@ -165,7 +165,7 @@ func (s *Server) handleLogTransaction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, err.Error())
 		return
 	}
-	s.telegram().NotifyTransactionBatchInserted(recs)
+	go s.telegram().NotifyTransactionBatchInserted(recs)
 	writeJSON(w, status, map[string]any{"success": true, "inserted": inserted})
 }
 
