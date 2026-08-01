@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/fc/internal/db"
 )
 
@@ -146,11 +147,36 @@ func AggregateTagCounts(tagFields []string) (map[string]int, error) {
 	return ordered, nil
 }
 
-// RenameAcrossRecords 全表扫描 records，将 tags JSON 中 from 重命名为 to。
-// 对称「笨」实现：逐行读改写；性能优化须双端文档化后再破缺。
+// TagRenameAdvisoryLockKey 与 Next TAG_RENAME_ADVISORY_LOCK_KEY 一致。
+// pg_advisory_xact_lock：串行化并发 rename；随事务结束自动释放（适合 Neon transaction pooler）。
+const TagRenameAdvisoryLockKey int64 = 726478478
+
+// RenameAcrossRecords 在单事务内全表扫描并将 tags JSON 中 from 重命名为 to。
+// 先拿 advisory xact lock，再读改写，保证：中途失败全滚；并发 rename 互斥。
 // 脏 tags JSON 向上返回 error（HTTP 映射 500）。
-// q 为可注入 Querier（*pgxpool.Pool 或测试假实现）。
-func RenameAcrossRecords(ctx context.Context, q db.Querier, from, to string) (int, error) {
+func RenameAcrossRecords(ctx context.Context, pool *pgxpool.Pool, from, to string) (int, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, TagRenameAdvisoryLockKey); err != nil {
+		return 0, err
+	}
+
+	updated, err := renameAcrossQuerier(ctx, tx, from, to)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return updated, nil
+}
+
+// renameAcrossQuerier 事务内（或单测假 Querier）的读改写循环。
+func renameAcrossQuerier(ctx context.Context, q db.Querier, from, to string) (int, error) {
 	rows, err := q.Query(ctx, `SELECT id, tags FROM records`)
 	if err != nil {
 		return 0, err

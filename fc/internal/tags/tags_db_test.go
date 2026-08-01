@@ -42,7 +42,7 @@ func (f *fakeQuerier) Exec(_ context.Context, sql string, args ...any) (pgconn.C
 }
 
 func (f *fakeQuerier) QueryRow(context.Context, string, ...any) pgx.Row {
-	panic("QueryRow not used by RenameAcrossRecords")
+	panic("QueryRow not used by renameAcrossQuerier")
 }
 
 type fakeRows struct {
@@ -91,7 +91,7 @@ func TestRenameAcrossRecords_updatesMatchingRows(t *testing.T) {
 			{"id-3", `["other"]`},
 		},
 	}
-	updated, err := RenameAcrossRecords(context.Background(), q, "weight", "mass")
+	updated, err := renameAcrossQuerier(context.Background(), q, "weight", "mass")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestRenameAcrossRecords_noMatchSkipsExec(t *testing.T) {
 			{"id-2", `["beta"]`},
 		},
 	}
-	updated, err := RenameAcrossRecords(context.Background(), q, "weight", "mass")
+	updated, err := renameAcrossQuerier(context.Background(), q, "weight", "mass")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestRenameAcrossRecords_dirtyTagsJSONError(t *testing.T) {
 			{"id-1", `{"not":"array"}`},
 		},
 	}
-	updated, err := RenameAcrossRecords(context.Background(), q, "a", "b")
+	updated, err := renameAcrossQuerier(context.Background(), q, "a", "b")
 	if !errors.Is(err, ErrTagsNotJSONArray) {
 		t.Fatalf("err=%v want ErrTagsNotJSONArray", err)
 	}

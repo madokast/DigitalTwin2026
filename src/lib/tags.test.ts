@@ -184,7 +184,7 @@ describe('validateRename', () => {
 })
 
 /**
- * renameAcrossRecords 写库路径：注入 RenameAcrossRecordsDb（与 Go 假 Querier 对称）。
+ * renameAcrossRecords 写库路径：注入 RenameAcrossRecordsDb（与 Go renameAcrossQuerier 对称；无真实锁）。
  */
 describe('renameAcrossRecords (injected store)', () => {
   it('updates two matching rows and returns updated===2', async () => {

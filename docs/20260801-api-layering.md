@@ -76,7 +76,7 @@ flowchart LR
 ## 3. 同构规则
 
 1. **同 stem**：`CreateNumber` ↔ `createNumber`；`RenameAcrossRecords` ↔ `renameAcrossRecords`；`FetchFilteredRecords` ↔ `fetchFilteredRecords`。
-2. **同参数语义顺序**：Go 为 `(ctx, db, …)`；TS 用模块内默认 `db`，其余参数顺序与 Go 去掉 `ctx` / pool 后一致。写库路径（如 `RenameAcrossRecords` / `Update`）Go 接受 `db.Querier`（`*pgxpool.Pool` 可直接传入），TS 可选末参 `store` 注入同构边界，便于单测假实现、不依赖真实 Neon。
+2. **同参数语义顺序**：Go 为 `(ctx, db, …)`；TS 用模块内默认 `db`，其余参数顺序与 Go 去掉 `ctx` / pool 后一致。写库路径：`RenameAcrossRecords` 接受 `*pgxpool.Pool`（内开事务 + `pg_advisory_xact_lock`）；TS `renameAcrossRecords` 生产同语义，可选末参 `store` 注入同构边界供单测（无真实锁）。`Update` 等仍可用 `db.Querier`。
 3. **同结构体字段名**：JSON / API 已是 camelCase；内部 DTO 字段名两端相同（Go struct tag 与 TS type 对齐）。API 记录类型两端都叫 **`Record`**（TS 已收敛原 `ApiRecord` / `TwinRecord` 到共享后端域的 `Record`；前端 `api-client` 可再导出别名）。
 4. **同错误文案**：用户可见英文错误字符串必须字节级一致（契约测继续守）。
 5. **先表后码**：本轮新建 / 迁移的符号必须先写入本文对照表再实现；禁止「Go 叫 `Update`、TS 叫 `updateRecord`」这类不对齐命名。

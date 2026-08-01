@@ -156,7 +156,8 @@ func TestValidateRename(t *testing.T) {
 	}
 }
 
-// RenameAcrossRecords 写库路径见 tags_db_test.go（假 Querier）。
+// renameAcrossQuerier 写库路径见 tags_db_test.go（假 Querier）。
+// 生产 RenameAcrossRecords 另包事务 + advisory lock。
 // 此处保留纯逻辑契约：脏 JSON 与 RenameTagInTagsJSON 对齐。
 func TestRenameAcrossRecordsPureLogicContract(t *testing.T) {
 	_, _, err := RenameTagInTagsJSON(`{"not":"array"}`, "a", "b")
