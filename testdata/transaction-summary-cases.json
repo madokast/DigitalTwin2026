@@ -1,0 +1,325 @@
+{
+  "comment": "Shared aggregation cases for aggregateTransactionSummary / AggregateTransactionSummary. Both Next (src/lib/query.transaction-summary.test.ts) and Go (fc/internal/query) load this file. Rows are in-memory candidates (already range-filtered); amounts are decimal strings.",
+  "cases": [
+    {
+      "name": "empty-range",
+      "from": "2026-07-01T00:00:00+08:00",
+      "to": "2026-08-01T00:00:00+08:00",
+      "rows": [],
+      "expected": {
+        "success": true,
+        "from": "2026-07-01T00:00:00+08:00",
+        "to": "2026-08-01T00:00:00+08:00",
+        "income": { "sum": "0.00", "count": 0 },
+        "expense": { "sum": "0.00", "count": 0 },
+        "net": "0.00",
+        "income_categories": [],
+        "expense_categories": []
+      }
+    },
+    {
+      "name": "income-expense-reversal-and-net",
+      "from": "2026-07-01T00:00:00+08:00",
+      "to": "2026-08-01T00:00:00+08:00",
+      "rows": [
+        {
+          "tags": "[\"transaction_entry:income\",\"salary:payroll\"]",
+          "value_number": "1000.00"
+        },
+        {
+          "tags": "[\"transaction_entry:income\",\"salary:payroll\"]",
+          "value_number": "-200.50"
+        },
+        {
+          "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
+          "value_number": "300.00"
+        },
+        {
+          "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
+          "value_number": "-50.00"
+        }
+      ],
+      "expected": {
+        "success": true,
+        "from": "2026-07-01T00:00:00+08:00",
+        "to": "2026-08-01T00:00:00+08:00",
+        "income": { "sum": "799.50", "count": 2 },
+        "expense": { "sum": "250.00", "count": 2 },
+        "net": "549.50",
+        "income_categories": [
+          {
+            "category": "salary",
+            "sum": "799.50",
+            "count": 2,
+            "subcategories": [
+              { "subcategory": "payroll", "sum": "799.50", "count": 2 }
+            ]
+          }
+        ],
+        "expense_categories": [
+          {
+            "category": "food",
+            "sum": "250.00",
+            "count": 2,
+            "subcategories": [
+              { "subcategory": "lunch", "sum": "250.00", "count": 2 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "food-hierarchy-sort-sum-desc-name-asc",
+      "from": "2026-07-01T00:00:00+08:00",
+      "to": "2026-08-01T00:00:00+08:00",
+      "rows": [
+        {
+          "tags": "[\"transaction_entry:expense\",\"food:breakfast\"]",
+          "value_number": "800.00"
+        },
+        {
+          "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
+          "value_number": "2200.00"
+        },
+        {
+          "tags": "[\"transaction_entry:expense\",\"transport:taxi\"]",
+          "value_number": "500.00"
+        },
+        {
+          "tags": "[\"transaction_entry:income\",\"salary:payroll\"]",
+          "value_number": "15000.00"
+        },
+        {
+          "tags": "[\"transaction_entry:income\",\"bonus:annual\"]",
+          "value_number": "15000.00"
+        }
+      ],
+      "expected": {
+        "success": true,
+        "from": "2026-07-01T00:00:00+08:00",
+        "to": "2026-08-01T00:00:00+08:00",
+        "income": { "sum": "30000.00", "count": 2 },
+        "expense": { "sum": "3500.00", "count": 3 },
+        "net": "26500.00",
+        "income_categories": [
+          {
+            "category": "bonus",
+            "sum": "15000.00",
+            "count": 1,
+            "subcategories": [
+              { "subcategory": "annual", "sum": "15000.00", "count": 1 }
+            ]
+          },
+          {
+            "category": "salary",
+            "sum": "15000.00",
+            "count": 1,
+            "subcategories": [
+              { "subcategory": "payroll", "sum": "15000.00", "count": 1 }
+            ]
+          }
+        ],
+        "expense_categories": [
+          {
+            "category": "food",
+            "sum": "3000.00",
+            "count": 2,
+            "subcategories": [
+              { "subcategory": "lunch", "sum": "2200.00", "count": 1 },
+              { "subcategory": "breakfast", "sum": "800.00", "count": 1 }
+            ]
+          },
+          {
+            "category": "transport",
+            "sum": "500.00",
+            "count": 1,
+            "subcategories": [
+              { "subcategory": "taxi", "sum": "500.00", "count": 1 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "two-decimal-format-from-frac",
+      "from": "2026-07-01T00:00:00Z",
+      "to": "2026-08-01T00:00:00Z",
+      "rows": [
+        {
+          "tags": "[\"transaction_entry:income\",\"salary:payroll\"]",
+          "value_number": "1.005"
+        },
+        {
+          "tags": "[\"transaction_entry:income\",\"salary:payroll\"]",
+          "value_number": "1.005"
+        },
+        {
+          "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
+          "value_number": "0.1"
+        }
+      ],
+      "expected": {
+        "success": true,
+        "from": "2026-07-01T00:00:00Z",
+        "to": "2026-08-01T00:00:00Z",
+        "income": { "sum": "2.01", "count": 2 },
+        "expense": { "sum": "0.10", "count": 1 },
+        "net": "1.91",
+        "income_categories": [
+          {
+            "category": "salary",
+            "sum": "2.01",
+            "count": 2,
+            "subcategories": [
+              { "subcategory": "payroll", "sum": "2.01", "count": 2 }
+            ]
+          }
+        ],
+        "expense_categories": [
+          {
+            "category": "food",
+            "sum": "0.10",
+            "count": 1,
+            "subcategories": [
+              { "subcategory": "lunch", "sum": "0.10", "count": 1 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "dirty-tags-skipped",
+      "from": "2026-07-01T00:00:00+08:00",
+      "to": "2026-08-01T00:00:00+08:00",
+      "rows": [
+        {
+          "tags": "[\"transaction_entry:expense\"]",
+          "value_number": "99.00"
+        },
+        {
+          "tags": "[\"transaction_entry:expense\",\"not-a-pair\"]",
+          "value_number": "88.00"
+        },
+        {
+          "tags": "[\"transaction_entry:expense\",\"a:b:c\"]",
+          "value_number": "77.00"
+        },
+        {
+          "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
+          "value_number": null
+        },
+        {
+          "tags": "[\"weight\"]",
+          "value_number": "70.5"
+        },
+        {
+          "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
+          "value_number": "12.00"
+        }
+      ],
+      "expected": {
+        "success": true,
+        "from": "2026-07-01T00:00:00+08:00",
+        "to": "2026-08-01T00:00:00+08:00",
+        "income": { "sum": "0.00", "count": 0 },
+        "expense": { "sum": "12.00", "count": 1 },
+        "net": "-12.00",
+        "income_categories": [],
+        "expense_categories": [
+          {
+            "category": "food",
+            "sum": "12.00",
+            "count": 1,
+            "subcategories": [
+              { "subcategory": "lunch", "sum": "12.00", "count": 1 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "same-sum-subcategory-name-asc",
+      "from": "2026-07-01T00:00:00Z",
+      "to": "2026-08-01T00:00:00Z",
+      "rows": [
+        {
+          "tags": "[\"transaction_entry:expense\",\"food:zebra\"]",
+          "value_number": "10.00"
+        },
+        {
+          "tags": "[\"transaction_entry:expense\",\"food:apple\"]",
+          "value_number": "10.00"
+        }
+      ],
+      "expected": {
+        "success": true,
+        "from": "2026-07-01T00:00:00Z",
+        "to": "2026-08-01T00:00:00Z",
+        "income": { "sum": "0.00", "count": 0 },
+        "expense": { "sum": "20.00", "count": 2 },
+        "net": "-20.00",
+        "income_categories": [],
+        "expense_categories": [
+          {
+            "category": "food",
+            "sum": "20.00",
+            "count": 2,
+            "subcategories": [
+              { "subcategory": "apple", "sum": "10.00", "count": 1 },
+              { "subcategory": "zebra", "sum": "10.00", "count": 1 }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "parse_errors": [
+    {
+      "name": "missing-from",
+      "query": { "to": "2026-08-01T00:00:00Z" },
+      "error": "Missing required query parameter: from"
+    },
+    {
+      "name": "missing-to",
+      "query": { "from": "2026-07-01T00:00:00Z" },
+      "error": "Missing required query parameter: to"
+    },
+    {
+      "name": "empty-from",
+      "query": { "from": "", "to": "2026-08-01T00:00:00Z" },
+      "error": "Missing required query parameter: from"
+    },
+    {
+      "name": "from-without-tz",
+      "query": {
+        "from": "2026-07-01T00:00:00",
+        "to": "2026-08-01T00:00:00Z"
+      },
+      "error": "from must be ISO 8601 with timezone (Z or ±HH:MM)"
+    },
+    {
+      "name": "invalid-to",
+      "query": {
+        "from": "2026-07-01T00:00:00Z",
+        "to": "not-a-dateZ"
+      },
+      "error": "Invalid to datetime"
+    },
+    {
+      "name": "from-equals-to",
+      "query": {
+        "from": "2026-07-01T00:00:00Z",
+        "to": "2026-07-01T00:00:00Z"
+      },
+      "error": "from must be earlier than to"
+    },
+    {
+      "name": "from-after-to",
+      "query": {
+        "from": "2026-08-01T00:00:00Z",
+        "to": "2026-07-01T00:00:00Z"
+      },
+      "error": "from must be earlier than to"
+    }
+  ]
+}

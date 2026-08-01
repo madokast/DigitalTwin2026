@@ -378,6 +378,36 @@ func TestSummaryInvalidTZWithoutDB(t *testing.T) {
 	}
 }
 
+func TestTransactionSummaryMissingParamsWithoutDB(t *testing.T) {
+	h := testServer().Handler()
+	cases := []struct {
+		url  string
+		want string
+	}{
+		{"/api/query/transaction/summary", "Missing required query parameter: from"},
+		{"/api/query/transaction/summary?to=2026-08-01T00:00:00Z", "Missing required query parameter: from"},
+		{"/api/query/transaction/summary?from=2026-07-01T00:00:00Z", "Missing required query parameter: to"},
+		{
+			"/api/query/transaction/summary?from=2026-07-01T00:00:00Z&to=2026-07-01T00:00:00Z",
+			"from must be earlier than to",
+		},
+	}
+	for _, tc := range cases {
+		req := httptest.NewRequest(http.MethodGet, tc.url, nil)
+		req.Header.Set("Authorization", "Bearer ai-tok")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if rr.Code != 400 {
+			t.Fatalf("%s status %d body %s", tc.url, rr.Code, rr.Body.String())
+		}
+		var body map[string]string
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		if body["error"] != tc.want {
+			t.Fatalf("%s error=%v want %q", tc.url, body, tc.want)
+		}
+	}
+}
+
 func TestSummaryErrorClassification(t *testing.T) {
 	// 与 handleSummary 相同判定：errors.Is(ErrInvalidTZ)；禁止再靠文案含 "tz"
 	classify := func(err error) int {

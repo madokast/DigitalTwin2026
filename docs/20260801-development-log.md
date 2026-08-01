@@ -116,7 +116,7 @@
 
 ## 7. 仍待办
 
-- [ ] `GET /api/query/transaction/summary`（按 `transaction_entry:income|expense` + 符号聚合；**已延期**）
+- [x] `GET /api/query/transaction/summary`（按 `transaction_entry:income|expense` + 符号聚合；半开 `[from,to)`；两位小数串）
 - [ ] Dashboard 支出组件 / 网页录入 UI
 - [ ] 记录删除 / 图表 / 列表行内编辑
 - [ ] 体重等其它专用 log、AI CLI、数据导出

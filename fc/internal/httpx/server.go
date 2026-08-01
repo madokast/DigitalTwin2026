@@ -61,6 +61,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/query", s.handleQuery)
 	mux.HandleFunc("GET /api/query/summary", s.handleSummary)
 	mux.HandleFunc("GET /api/query/tags", s.handleTags)
+	mux.HandleFunc("GET /api/query/transaction/summary", s.handleTransactionSummary)
 	mux.HandleFunc("POST /api/admin/tags/rename", s.handleRenameTags)
 	mux.HandleFunc("PATCH /api/admin/records/{id}", s.handlePatchRecord)
 	// 404/405 → {error} JSON。Next 仍用框架默认（见 api-layering §1.1）；业务 4xx 两端已对齐。
@@ -430,6 +431,23 @@ func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
 		counts = map[string]int{}
 	}
 	writeJSON(w, 200, map[string]any{"success": true, "tags": counts})
+}
+
+func (s *Server) handleTransactionSummary(w http.ResponseWriter, r *http.Request) {
+	parsed, err := query.ParseTransactionSummaryParams(r.URL.Query())
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+	result, err := query.FetchTransactionSummary(
+		r.Context(), s.Pool, parsed.From, parsed.To, parsed.FromRaw, parsed.ToRaw,
+	)
+	if err != nil {
+		log.Printf("Error querying transaction summary: %v", err)
+		writeInternalError(w, err)
+		return
+	}
+	writeJSON(w, 200, result)
 }
 
 func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {

@@ -211,3 +211,300 @@ export async function fetchTagCounts(): Promise<Record<string, number>> {
   const rows = await db.select({ tags: records.tags }).from(records)
   return aggregateTagCounts(rows.map((row) => row.tags))
 }
+
+// --- GET /api/query/transaction/summary ---
+
+const TX_ENTRY_INCOME = 'transaction_entry:income'
+const TX_ENTRY_EXPENSE = 'transaction_entry:expense'
+/** 与 transactiondraft SEGMENT 一致：恰好一对 category:subcategory */
+const CATEGORY_PAIR =
+  /^([a-zA-Z_][a-zA-Z0-9_]*):([a-zA-Z_][a-zA-Z0-9_]*)$/
+/** 小数最多 10 位小数；聚合用定点数，避免 float */
+const DECIMAL_FRAC_SCALE = 10
+const DECIMAL_SCALE = 10n ** BigInt(DECIMAL_FRAC_SCALE)
+
+export type MoneyBucket = { sum: string; count: number }
+
+export type SubcategoryBucket = {
+  subcategory: string
+  sum: string
+  count: number
+}
+
+export type CategoryBucket = {
+  category: string
+  sum: string
+  count: number
+  subcategories: SubcategoryBucket[]
+}
+
+export type TransactionSummaryResult = {
+  success: true
+  from: string
+  to: string
+  income: MoneyBucket
+  expense: MoneyBucket
+  net: string
+  income_categories: CategoryBucket[]
+  expense_categories: CategoryBucket[]
+}
+
+export type TransactionSummaryRow = {
+  tags: string
+  value_number: string | null
+}
+
+export type ParsedTransactionSummaryRange = {
+  fromRaw: string
+  toRaw: string
+  from: Date
+  to: Date
+}
+
+/** 解析强制 from/to；半开区间要求 from < to（与 Go ParseTransactionSummaryParams 同文案） */
+export function parseTransactionSummaryParams(
+  searchParams: URLSearchParams,
+): ParsedTransactionSummaryRange | ParseError {
+  const fromRaw = searchParams.get('from')
+  if (fromRaw === null || fromRaw === '') {
+    return { error: 'Missing required query parameter: from' }
+  }
+  const toRaw = searchParams.get('to')
+  if (toRaw === null || toRaw === '') {
+    return { error: 'Missing required query parameter: to' }
+  }
+
+  const from = parseIsoDate(fromRaw, 'from')
+  if (from && 'error' in from) return from
+  if (!(from instanceof Date)) {
+    return { error: 'Missing required query parameter: from' }
+  }
+  const to = parseIsoDate(toRaw, 'to')
+  if (to && 'error' in to) return to
+  if (!(to instanceof Date)) {
+    return { error: 'Missing required query parameter: to' }
+  }
+
+  if (from.getTime() >= to.getTime()) {
+    return { error: 'from must be earlier than to' }
+  }
+
+  return { fromRaw, toRaw, from, to }
+}
+
+/** 解析十进制字面量为 scale=10 的定点 BigInt；非法 → null（跳过该行） */
+function parseDecimalScaled(s: string): bigint | null {
+  if (!/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(s)) return null
+  const neg = s.startsWith('-')
+  const body = neg ? s.slice(1) : s
+  const [intPart, fracPart = ''] = body.split('.')
+  if (fracPart.length > DECIMAL_FRAC_SCALE) return null
+  if (intPart.length > 28) return null
+  const padded = fracPart.padEnd(DECIMAL_FRAC_SCALE, '0')
+  try {
+    const n = BigInt(intPart + padded)
+    return neg ? -n : n
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 定点金额 → 恰好两位小数字符串。
+ * 舍入：half away from zero（与 Go big.Rat.FloatString(2) 一致）。
+ */
+function formatMoney2(scaled: bigint): string {
+  const div = 10n ** BigInt(DECIMAL_FRAC_SCALE - 2)
+  const half = div / 2n
+  const q = scaled >= 0n ? (scaled + half) / div : (scaled - half) / div
+  const neg = q < 0n
+  const abs = neg ? -q : q
+  const intPart = abs / 100n
+  const frac = abs % 100n
+  return `${neg ? '-' : ''}${intPart}.${frac.toString().padStart(2, '0')}`
+}
+
+type AccBucket = { sum: bigint; count: number }
+
+function emptyAcc(): AccBucket {
+  return { sum: 0n, count: 0 }
+}
+
+function classifyEntryType(
+  tags: string[],
+): 'income' | 'expense' | null {
+  let type: 'income' | 'expense' | null = null
+  for (const tag of tags) {
+    if (tag === TX_ENTRY_INCOME) {
+      if (type !== null) return null
+      type = 'income'
+    } else if (tag === TX_ENTRY_EXPENSE) {
+      if (type !== null) return null
+      type = 'expense'
+    }
+  }
+  return type
+}
+
+function findCategoryPair(
+  tags: string[],
+): { category: string; subcategory: string } | null {
+  for (const tag of tags) {
+    if (tag.startsWith('transaction_entry:') || tag === 'transaction_entry') {
+      continue
+    }
+    const m = CATEGORY_PAIR.exec(tag)
+    if (m) {
+      return { category: m[1], subcategory: m[2] }
+    }
+  }
+  return null
+}
+
+function sortBucketsBySumThenName<T extends { sum: bigint; name: string }>(
+  items: T[],
+): T[] {
+  return [...items].sort((a, b) => {
+    if (a.sum !== b.sum) return a.sum > b.sum ? -1 : 1
+    if (a.name < b.name) return -1
+    if (a.name > b.name) return 1
+    return 0
+  })
+}
+
+/**
+ * 内存聚合 transaction_entry 行（与 Go AggregateTransactionSummary 同构）。
+ * 脏行（无合法 category:subcategory / 无 value_number / 非法字面量）跳过。
+ * 非法 tags JSON / 非数组抛错（HTTP 500）。
+ */
+export function aggregateTransactionSummary(
+  rows: TransactionSummaryRow[],
+  fromRaw: string,
+  toRaw: string,
+): TransactionSummaryResult {
+  const income = emptyAcc()
+  const expense = emptyAcc()
+  const incomeCats = new Map<
+    string,
+    { sum: bigint; count: number; subs: Map<string, AccBucket> }
+  >()
+  const expenseCats = new Map<
+    string,
+    { sum: bigint; count: number; subs: Map<string, AccBucket> }
+  >()
+
+  const addTo = (
+    side: 'income' | 'expense',
+    category: string,
+    subcategory: string,
+    amount: bigint,
+  ) => {
+    const top = side === 'income' ? income : expense
+    top.sum += amount
+    top.count += 1
+    const cats = side === 'income' ? incomeCats : expenseCats
+    let cat = cats.get(category)
+    if (!cat) {
+      cat = { sum: 0n, count: 0, subs: new Map() }
+      cats.set(category, cat)
+    }
+    cat.sum += amount
+    cat.count += 1
+    let sub = cat.subs.get(subcategory)
+    if (!sub) {
+      sub = emptyAcc()
+      cat.subs.set(subcategory, sub)
+    }
+    sub.sum += amount
+    sub.count += 1
+  }
+
+  for (const row of rows) {
+    const parsed: unknown = JSON.parse(row.tags)
+    if (!Array.isArray(parsed)) {
+      throw new Error('tags field is not a JSON array')
+    }
+    const tags = parsed.filter((t): t is string => typeof t === 'string')
+    const entryType = classifyEntryType(tags)
+    if (!entryType) continue
+    const pair = findCategoryPair(tags)
+    if (!pair) continue
+    if (row.value_number === null || row.value_number === '') continue
+    const amount = parseDecimalScaled(row.value_number)
+    if (amount === null) continue
+    addTo(entryType, pair.category, pair.subcategory, amount)
+  }
+
+  const toCategories = (
+    cats: Map<string, { sum: bigint; count: number; subs: Map<string, AccBucket> }>,
+  ): CategoryBucket[] => {
+    const list = [...cats.entries()].map(([category, cat]) => ({
+      name: category,
+      sum: cat.sum,
+      count: cat.count,
+      subs: cat.subs,
+    }))
+    return sortBucketsBySumThenName(list).map((cat) => {
+      const subs = [...cat.subs.entries()].map(([subcategory, sub]) => ({
+        name: subcategory,
+        sum: sub.sum,
+        count: sub.count,
+      }))
+      return {
+        category: cat.name,
+        sum: formatMoney2(cat.sum),
+        count: cat.count,
+        subcategories: sortBucketsBySumThenName(subs).map((s) => ({
+          subcategory: s.name,
+          sum: formatMoney2(s.sum),
+          count: s.count,
+        })),
+      }
+    })
+  }
+
+  const netScaled = income.sum - expense.sum
+  return {
+    success: true,
+    from: fromRaw,
+    to: toRaw,
+    income: { sum: formatMoney2(income.sum), count: income.count },
+    expense: { sum: formatMoney2(expense.sum), count: expense.count },
+    net: formatMoney2(netScaled),
+    income_categories: toCategories(incomeCats),
+    expense_categories: toCategories(expenseCats),
+  }
+}
+
+/** 拉取区间内候选行并聚合（与 Go FetchTransactionSummary 同构） */
+export async function fetchTransactionSummary(
+  from: Date,
+  to: Date,
+  fromRaw: string,
+  toRaw: string,
+): Promise<TransactionSummaryResult> {
+  const incomeLike = `%"${escapeLikePattern(TX_ENTRY_INCOME)}"%`
+  const expenseLike = `%"${escapeLikePattern(TX_ENTRY_EXPENSE)}"%`
+  const rows = await db
+    .select({
+      tags: records.tags,
+      valueNumber: records.valueNumber,
+    })
+    .from(records)
+    .where(
+      and(
+        gte(records.happenedAt, from),
+        lt(records.happenedAt, to),
+        or(like(records.tags, incomeLike), like(records.tags, expenseLike)),
+      ),
+    )
+
+  return aggregateTransactionSummary(
+    rows.map((r) => ({
+      tags: r.tags,
+      value_number: r.valueNumber,
+    })),
+    fromRaw,
+    toRaw,
+  )
+}

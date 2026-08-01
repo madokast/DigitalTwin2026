@@ -20,7 +20,7 @@
 
 - `POST /api/log/number`、`POST /api/log/text`、`POST /api/log/transaction`
 - `POST /api/telegram/probe`（普通 API Token；校验 Telegram 配置并试发消息）
-- `GET /api/query`、`/api/query/summary`、`/api/query/tags`
+- `GET /api/query`、`/api/query/summary`、`/api/query/tags`、`/api/query/transaction/summary`
 - `POST /api/admin/tags/rename`、`PATCH /api/admin/records/{id}`
 
 鉴权：`Authorization: Bearer …`；`/api/admin/*` 仅 Admin Token；其余 AI 或 Admin。
