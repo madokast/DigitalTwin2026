@@ -5,6 +5,7 @@ import {
   notifyRecordInserted,
   scheduleBestEffortNotify,
 } from '@/lib/notify'
+import { readSuppressNotification } from '@/lib/suppress-notification'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,13 +14,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: parsed.status })
     }
 
+    // Create 前 peek：避免已写入却因字段类型 400
+    const suppress = readSuppressNotification(parsed.value)
+    if (!suppress.ok) {
+      return NextResponse.json({ error: suppress.error }, { status: 400 })
+    }
+
     const result = await createText(parsed.value as TextBody)
     if ('error' in result) {
       return NextResponse.json({ error: result.error }, { status: result.status })
     }
 
     // 响应写出后再通知，避免渠道阻塞 201；失败不影响已成功写入
-    scheduleBestEffortNotify(() => notifyRecordInserted(result.record))
+    if (!suppress.value) {
+      scheduleBestEffortNotify(() => notifyRecordInserted(result.record))
+    }
 
     return NextResponse.json(
       { success: true, record: result.record },

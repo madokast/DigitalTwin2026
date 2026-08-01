@@ -142,6 +142,43 @@ func TestLogNumberValidationWithoutDB(t *testing.T) {
 	}
 }
 
+func TestLogRejectsInvalidSuppressNotificationWithoutDB(t *testing.T) {
+	h := testServer().Handler()
+	cases := []struct {
+		path, payload string
+	}{
+		{
+			"/api/log/number",
+			`{"happened_at":"2026-08-01T12:00:00Z","value_number":"1","tags":["weight"],"objective_context":"x","suppress_notification":"true"}`,
+		},
+		{
+			"/api/log/text",
+			`{"happened_at":"2026-08-01T12:00:00Z","value_text":"hi","tags":["study"],"objective_context":"x","suppress_notification":1}`,
+		},
+		{
+			"/api/log/transaction",
+			`{"happened_at":"2026-08-01T12:00:00Z","type":"expense","entries":[{"amount":"1.00","memo":"m","category":"food","subcategory":"lunch"}],"suppress_notification":"yes"}`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.payload))
+			req.Header.Set("Authorization", "Bearer ai-tok")
+			req.Header.Set("Content-Type", "application/json")
+			rr := httptest.NewRecorder()
+			h.ServeHTTP(rr, req)
+			if rr.Code != 400 {
+				t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+			}
+			var body map[string]string
+			_ = json.Unmarshal(rr.Body.Bytes(), &body)
+			if body["error"] != "Invalid suppress_notification" {
+				t.Fatalf("error: %v", body)
+			}
+		})
+	}
+}
+
 func TestWriteEndpointsRejectBodyLargerThan256KiB(t *testing.T) {
 	h := testServer().Handler()
 	oversized := strings.Repeat("a", MaxBodyBytes+1)

@@ -232,6 +232,13 @@ LogNumberRequest:
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
         (`Invalid subjective_interpretation`).
+    suppress_notification:
+      type: [boolean, 'null']
+      default: false
+      description: |
+        When true, skip notify_user after a successful insert.
+        Omitted / null → false. Non-boolean → 400
+        (`Invalid suppress_notification`). Not stored on the record.
 
 LogTextRequest:
   type: object
@@ -253,6 +260,13 @@ LogTextRequest:
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
         (`Invalid subjective_interpretation`).
+    suppress_notification:
+      type: [boolean, 'null']
+      default: false
+      description: |
+        When true, skip notify_user after a successful insert.
+        Omitted / null → false. Non-boolean → 400
+        (`Invalid suppress_notification`). Not stored on the record.
 
 RecordDraftRequest:
   type: object
@@ -372,6 +386,13 @@ LogTransactionRequest:
       maxItems: 100
       items:
         $ref: '#/TransactionEntry'
+    suppress_notification:
+      type: [boolean, 'null']
+      default: false
+      description: |
+        When true, skip notify_user after a successful insert.
+        Omitted / null → false. Non-boolean → 400
+        (`Invalid suppress_notification`). Not stored on the record.
 
 TransactionBatchSuccess:
   type: object

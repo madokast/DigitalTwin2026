@@ -5,7 +5,8 @@
     summary: Create a numeric record
     description: |
       Inserts a record with `value_number` set and `value_text` null.
-      On success, Telegram notification is best-effort and does not change the 201 response.
+      On success, notification via notify_user is best-effort and does not change the 201 response.
+      Optional `suppress_notification: true` skips notify after insert (default false).
       Auth: ApiToken (AI token or Admin token).
       Reserved tag prefixes (e.g. `transaction_entry` and `transaction_entry:*`)
       are rejected (use POST /api/log/transaction).
@@ -46,7 +47,8 @@
     summary: Create a text record
     description: |
       Inserts a record with `value_text` set and `value_number` null.
-      On success, Telegram notification is best-effort and does not change the 201 response.
+      On success, notification via notify_user is best-effort and does not change the 201 response.
+      Optional `suppress_notification: true` skips notify after insert (default false).
       Auth: ApiToken (AI token or Admin token).
       Reserved tag prefixes (e.g. `transaction_entry` and `transaction_entry:*`)
       are rejected (use POST /api/log/transaction).
@@ -94,6 +96,7 @@
       Amount zero after decimal validation → 400. Sign: positive = normal
       for that type; negative = reversal of that type.
       Response is only `{ success, inserted }` (no full records).
+      Optional `suppress_notification: true` skips notify after insert (default false).
       Opinions/feelings about the spend → separate POST /api/log/text.
       Auth: ApiToken.
     security:

@@ -172,6 +172,7 @@ flowchart LR
 ## 7. 通知与 HTTP
 
 - 通知触发点：**HTTP handler**，在 lib 返回成功之后，经统一入口 `notify`（`NotifyUser` / `notify_user`）。
+- 录入 body 可选 `suppress_notification`（boolean；省略/null → false）：为 true 时跳过 notify；probe 不适用。
 - `telegram` / `qqbot` 仅为渠道（配置、发送；TG 另含排版）；probe 走各渠道 `SendMessage`，**不**经 `notify`。
 - **不**在 `CreateNumber` 等 DB 函数内部发送。
 - 失败 best-effort：不影响已成功写入的 HTTP 状态码（与现行为一致）。
