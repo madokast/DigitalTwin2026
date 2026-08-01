@@ -23,14 +23,14 @@ export const TRANSACTION_ENTRY_KEYS = [
 ] as const
 
 const SEGMENT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
-/** 金额形态：可选负号、整数或至多两位小数；禁 +、空格、残缺点、前导零 */
-const MONEY_AMOUNT = /^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$/
+/** 金额形态：可选负号、整数至多 12 位或至多两位小数；禁 +、空格、残缺点、前导零；绝对值 ≤ 999999999999.99 */
+const MONEY_AMOUNT = /^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/
 
 export const MAX_TRANSACTION_ENTRIES = 100
 
 export const AMOUNT_MUST_BE_STRING = 'amount must be a decimal string'
 export const INVALID_AMOUNT =
-  'Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, no spaces; e.g. 10, 10.5, 10.50, -1.5'
+  'Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5'
 
 export type TransactionType = 'income' | 'expense'
 
@@ -181,7 +181,7 @@ function parseEntry(
  * 解析 POST /api/log/transaction body。
  * 必填顶层 `type`（income|expense）整单共享；entries 长度 1..MAX；
  * 服务端组装保留前缀 tag `transaction_entry:{type}`。
- * amount：MoneyAmount 正则 → 拒零 → 规范为两位小数入库。
+ * amount：MoneyAmount 正则（含绝对值上限）→ 拒零 → 规范为两位小数入库。
  */
 export function parseTransactionBatch(
   body: LogTransactionBody,

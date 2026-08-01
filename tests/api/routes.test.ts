@@ -259,7 +259,7 @@ describe.skipIf(!hasDatabaseUrl)('API integration', () => {
       }))
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(
-        'entries[0]: Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, no spaces; e.g. 10, 10.5, 10.50, -1.5',
+        'entries[0]: Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5',
       )
     })
 

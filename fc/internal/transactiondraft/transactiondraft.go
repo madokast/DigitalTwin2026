@@ -17,11 +17,11 @@ const MaxTransactionEntries = 100
 
 var segmentPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
-// 金额形态：可选负号、整数或至多两位小数；禁 +、空格、残缺点、前导零
-var moneyAmountPattern = regexp.MustCompile(`^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$`)
+// 金额形态：可选负号、整数至多 12 位或至多两位小数；禁 +、空格、残缺点、前导零；绝对值 ≤ 999999999999.99
+var moneyAmountPattern = regexp.MustCompile(`^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$`)
 
 const AmountMustBeString = "amount must be a decimal string"
-const InvalidAmount = "Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, no spaces; e.g. 10, 10.5, 10.50, -1.5"
+const InvalidAmount = "Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5"
 
 // TransactionEntryInput 单条 entry 原始输入（any：字段级校验文案与 Next 对齐）。
 type TransactionEntryInput struct {
@@ -192,7 +192,7 @@ func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, err
 }
 
 // ParseTransactionBatch 解析 POST /api/log/transaction body（含 UseNumber JSON 解码）。
-// 必填顶层 type（income|expense）；entries 长度 1..Max；amount 经 MoneyAmount 校验后规范为两位小数。
+// 必填顶层 type（income|expense）；entries 长度 1..Max；amount 经 MoneyAmount（含绝对值上限）校验后规范为两位小数。
 func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, error) {
 	if err := jsonutil.RejectUnknownObjectKeys(raw, logTransactionKeys); err != nil {
 		return NormalizedTransactionBatch{}, err

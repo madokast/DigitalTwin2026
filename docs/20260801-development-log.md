@@ -27,12 +27,14 @@
 |----|------|
 | 路径 | `POST /api/log/transaction`（ApiToken） |
 | Body | `happened_at` + `type`（`income`\|`expense`）+ `entries[]` |
-| entries | 1..100；`amount` 为 `MoneyAmountString`（≤2 位小数、禁零/+/空格）；通过后规范为两位小数入库；正=正常、负=该 type 冲销 |
+| entries | 1..100；`amount` 为 `MoneyAmountString`（≤2 位小数、禁零/+/空格、绝对值 ≤ `999999999999.99`）；通过后规范为两位小数入库；正=正常、负=该 type 冲销 |
 | 落库 tags | `["transaction_entry:{type}","{category}:{subcategory}"]` |
 | 保留 tag | 前缀语义 `P` 或 `P:…`（`P=transaction_entry`）；number/text/Admin/rename 拒绝 |
 | 感受/评价 | 另走 `POST /api/log/text` |
 
 若库中仍有裸 tag `transaction_entry`（无 `:type`），需手工清理。
+
+金额后续收紧（2026-08-02）：`entries[].amount` 绝对值上限 `999999999999.99`（整数部分 ≤12 位，正则 `[1-9]\d{0,11}`）；统一 `Invalid amount` 文案含 magnitude；共享 fixture `testdata/money-amount-cases.json`。
 
 相关：`src/lib/transactiondraft.ts`、`fc/internal/logapi/transaction.go`、OpenAPI `LogTransactionRequest`。
 

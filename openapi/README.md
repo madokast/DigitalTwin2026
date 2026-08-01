@@ -111,7 +111,7 @@ npm run openapi:preview
 | `HappenedAtInput` | ISO 日期时间 + 必填时区后缀 `Z` / `±HH:MM` / `±HHMM` |
 | `HappenedAtUtcZ` | 输出专用：`…sssZ` |
 | `DecimalString` | `^-?(?:0\|[1-9]\d*)(?:\.\d+)?$`，`maxLength` 40 |
-| `MoneyAmountString` | `^-?(?:0\|[1-9]\d*)(?:\.\d{1,2})?$`；运行时拒零；禁 trim / `+`；通过后规范为两位小数入库；交易 `entries[].amount` |
+| `MoneyAmountString` | `^-?(?:0\|[1-9]\d{0,11})(?:\.\d{1,2})?$`；运行时拒零；绝对值 ≤ `999999999999.99`；禁 trim / `+`；通过后规范为两位小数入库；交易 `entries[].amount` |
 | `TagName` | 标识符 + 可选 `:` 分段 |
 
 `Record.valueNumber` / `LogNumberRequest.value_number` / PATCH draft 等均 `$ref` 上述组件（nullable 用 `oneOf`）。

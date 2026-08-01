@@ -53,16 +53,17 @@ MoneyAmountString:
   type: string
   description: |
     Transaction line amount: non-zero decimal string, optional leading
-    minus (no plus), at most 2 fractional digits, no spaces (no trim).
-    JSON number → 400 (`amount must be a decimal string`). Shape / zero /
-    spaces → 400 with unified message
+    minus (no plus), at most 2 fractional digits, absolute value at most
+    999999999999.99 (12 integer digits + 2 fractional), no spaces (no
+    trim). JSON number → 400 (`amount must be a decimal string`). Shape /
+    zero / magnitude / spaces → 400 with unified message
     (`Invalid amount: non-zero decimal string, optional leading minus
-    (no plus), at most 2 fractional digits, no spaces; e.g. 10, 10.5,
-    10.50, -1.5`). Literal zero (`0`, `0.0`, `-0`, …) rejected after the
-    pattern match. Accepted then normalized to 2 fractional digits for
-    storage (string pad, no float): `10` → `10.00`, `10.5` → `10.50`,
-    `-1.5` → `-1.50`.
-  pattern: '^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$'
+    (no plus), at most 2 fractional digits, absolute value at most
+    999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5`). Literal
+    zero (`0`, `0.0`, `-0`, …) rejected after the pattern match. Accepted
+    then normalized to 2 fractional digits for storage (string pad, no
+    float): `10` → `10.00`, `10.5` → `10.50`, `-1.5` → `-1.50`.
+  pattern: '^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$'
   maxLength: 40
   examples:
     - '10'
@@ -70,6 +71,7 @@ MoneyAmountString:
     - '10.50'
     - '-1.5'
     - '10.55'
+    - '999999999999.99'
 
 HappenedAtInput:
   type: string
