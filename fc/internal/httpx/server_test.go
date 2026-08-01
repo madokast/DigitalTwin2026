@@ -57,6 +57,42 @@ func TestAuthRequired(t *testing.T) {
 	}
 }
 
+func TestJSONNotFoundAndMethodNotAllowed(t *testing.T) {
+	h := testServer().Handler()
+
+	req404 := httptest.NewRequest(http.MethodGet, "/api/no-such-route", nil)
+	req404.Header.Set("Authorization", "Bearer ai-tok")
+	rr404 := httptest.NewRecorder()
+	h.ServeHTTP(rr404, req404)
+	if rr404.Code != 404 {
+		t.Fatalf("404 status %d body %s", rr404.Code, rr404.Body.String())
+	}
+	if rr404.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("404 content-type %q", rr404.Header().Get("Content-Type"))
+	}
+	var body404 map[string]string
+	_ = json.Unmarshal(rr404.Body.Bytes(), &body404)
+	if body404["error"] != "Not found" {
+		t.Fatalf("404 body %v", body404)
+	}
+
+	req405 := httptest.NewRequest(http.MethodGet, "/api/log/number", nil)
+	req405.Header.Set("Authorization", "Bearer ai-tok")
+	rr405 := httptest.NewRecorder()
+	h.ServeHTTP(rr405, req405)
+	if rr405.Code != 405 {
+		t.Fatalf("405 status %d body %s", rr405.Code, rr405.Body.String())
+	}
+	var body405 map[string]string
+	_ = json.Unmarshal(rr405.Body.Bytes(), &body405)
+	if body405["error"] != "Method not allowed" {
+		t.Fatalf("405 body %v", body405)
+	}
+	if !strings.Contains(rr405.Header().Get("Allow"), "POST") {
+		t.Fatalf("405 Allow %q", rr405.Header().Get("Allow"))
+	}
+}
+
 func TestAdminRejectsAIToken(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/rename", strings.NewReader(`{"from":"a","to":"b"}`))

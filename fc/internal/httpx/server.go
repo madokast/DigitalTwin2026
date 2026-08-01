@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -54,7 +55,62 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/query/tags", s.handleTags)
 	mux.HandleFunc("POST /api/admin/tags/rename", s.handleRenameTags)
 	mux.HandleFunc("PATCH /api/admin/records/{id}", s.handlePatchRecord)
-	return withCORS(s.withAuth(mux))
+	// 404/405 收成 {error} JSON（ServeMux 默认是 text/plain）
+	return withCORS(s.withAuth(withJSONErrorPages(mux)))
+}
+
+// bufferResponse 暂存下游写入，便于将 404/405 改写成 JSON。
+type bufferResponse struct {
+	header http.Header
+	code   int
+	body   bytes.Buffer
+}
+
+func (b *bufferResponse) Header() http.Header {
+	if b.header == nil {
+		b.header = make(http.Header)
+	}
+	return b.header
+}
+
+func (b *bufferResponse) Write(p []byte) (int, error) {
+	if b.code == 0 {
+		b.code = http.StatusOK
+	}
+	return b.body.Write(p)
+}
+
+func (b *bufferResponse) WriteHeader(statusCode int) {
+	b.code = statusCode
+}
+
+func withJSONErrorPages(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		buf := &bufferResponse{}
+		next.ServeHTTP(buf, r)
+		code := buf.code
+		if code == 0 {
+			code = http.StatusOK
+		}
+		if code == http.StatusNotFound {
+			writeError(w, http.StatusNotFound, "Not found")
+			return
+		}
+		if code == http.StatusMethodNotAllowed {
+			if allow := buf.Header().Get("Allow"); allow != "" {
+				w.Header().Set("Allow", allow)
+			}
+			writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+		for k, vs := range buf.Header() {
+			for _, v := range vs {
+				w.Header().Add(k, v)
+			}
+		}
+		w.WriteHeader(code)
+		_, _ = w.Write(buf.body.Bytes())
+	})
 }
 
 func withCORS(next http.Handler) http.Handler {
