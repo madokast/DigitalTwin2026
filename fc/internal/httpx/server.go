@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -91,12 +90,9 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
-func writeInternalError(w http.ResponseWriter, err error) {
-	msg := "Internal server error"
-	if os.Getenv("EXPOSE_ERRORS") == "1" && err != nil {
-		msg = err.Error()
-	}
-	writeError(w, 500, msg)
+func writeInternalError(w http.ResponseWriter, _ error) {
+	// 与 Next 对齐：500 恒为固定英文；细节只由调用方 log，禁止 EXPOSE_ERRORS 回传客户端
+	writeError(w, 500, "Internal server error")
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

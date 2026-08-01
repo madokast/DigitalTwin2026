@@ -316,3 +316,19 @@ func TestTelegramProbeSendFailure(t *testing.T) {
 	}
 }
 
+func TestWriteInternalErrorNeverExposesDetails(t *testing.T) {
+	t.Setenv("EXPOSE_ERRORS", "1")
+	rr := httptest.NewRecorder()
+	writeInternalError(rr, errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`))
+	if rr.Code != 500 {
+		t.Fatalf("status %d", rr.Code)
+	}
+	var body map[string]string
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["error"] != "Internal server error" {
+		t.Fatalf("leaked internal detail: %q", body["error"])
+	}
+}
+
