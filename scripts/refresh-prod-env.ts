@@ -13,6 +13,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { Interface as ReadlineInterface } from 'node:readline'
 import { spawnSync } from 'node:child_process'
 import postgres from 'postgres'
@@ -42,18 +43,27 @@ const KEYS = [
 
 type Key = (typeof KEYS)[number]
 
-const REQUIRED_KEYS: Key[] = [
+export const REQUIRED_KEYS: Key[] = [
   'DATABASE_URL',
   'DIGITAL_TWIN_TOKEN',
   'DIGITAL_TWIN_ADMIN_TOKEN',
 ]
 
-const OPTIONAL_EMPTY = new Set<Key>([
+export const OPTIONAL_EMPTY = new Set<Key>([
   'TELEGRAM_BOT_TOKEN',
   'TELEGRAM_USER_ID',
 ])
 
 type PromptResult = { action: 'skip' | 'set'; value: string }
+
+/** 空输入分支：必填拒绝 / Telegram 菜单 / 跳过 upsert */
+export function emptyInputPolicy(
+  key: Key,
+): 'reject' | 'telegram' | 'skip' {
+  if (REQUIRED_KEYS.includes(key)) return 'reject'
+  if (OPTIONAL_EMPTY.has(key)) return 'telegram'
+  return 'skip'
+}
 
 async function verifyDatabaseUrl(url: string): Promise<boolean> {
   console.error('Verifying DATABASE_URL connectivity...')
@@ -91,20 +101,24 @@ async function promptKv(
   key: Key,
   currentHint: string,
 ): Promise<PromptResult> {
-  const allowEmpty = OPTIONAL_EMPTY.has(key)
+  const emptyPolicy = emptyInputPolicy(key)
   for (;;) {
-    const prompt = allowEmpty
-      ? currentHint
-        ? `Enter ${key} (Enter = empty-or-skip; current ${maskValue(currentHint)}): `
-        : `Enter ${key} (Enter = empty-or-skip; currently unset): `
-      : currentHint
-        ? `Enter ${key} (Enter = skip, keep ${maskValue(currentHint)}): `
-        : `Enter ${key} (Enter = skip; currently unset — must exist on Vercel if you skip): `
+    const prompt =
+      emptyPolicy === 'telegram'
+        ? currentHint
+          ? `Enter ${key} (Enter = empty-or-skip; current ${maskValue(currentHint)}): `
+          : `Enter ${key} (Enter = empty-or-skip; currently unset): `
+        : `Enter ${key} (required; empty not allowed): `
 
     const val = trimInput(await askSecret(rl, prompt))
 
     if (!val) {
-      if (allowEmpty) {
+      if (emptyPolicy === 'reject') {
+        console.error(`  ${key} cannot be empty. Please enter a value.`)
+        console.error('')
+        continue
+      }
+      if (emptyPolicy === 'telegram') {
         const choice = await askLine(
           rl,
           '  Empty input: [e] upsert empty string, [s] skip upsert (keep current)? [s] ',
@@ -120,9 +134,7 @@ async function promptKv(
 
     if (key === 'DATABASE_URL') {
       if (!(await verifyDatabaseUrl(val))) {
-        console.error(
-          'Connection failed, please re-enter DATABASE_URL (or Enter to skip).',
-        )
+        console.error('Connection failed, please re-enter DATABASE_URL.')
         console.error('')
         continue
       }
@@ -326,14 +338,13 @@ async function main(): Promise<void> {
   )
   console.log('Do NOT commit these values to git or paste in chat logs.')
   console.log('Per key:')
+  console.log(
+    '  - DATABASE_URL / DIGITAL_TWIN_TOKEN / DIGITAL_TWIN_ADMIN_TOKEN: required every run (empty rejected; FC needs real values)',
+  )
   console.log('  - Type a value → confirm → upsert that key')
-  console.log('  - Enter on non-empty keys (DB URL / Tokens) → skip upsert')
   console.log('  - Enter on TELEGRAM_* → ask: [e] upsert empty, [s] skip')
   console.log(
-    '  - Connectivity checks only when you set a value (skip = no DB/Telegram probe)',
-  )
-  console.log(
-    '  - All skipped → code-only deploy (FC + Vercel), no env upserts',
+    '  - Connectivity checks when you set DATABASE_URL or upsert TELEGRAM_*',
   )
   console.log('')
 
@@ -354,7 +365,9 @@ async function main(): Promise<void> {
     process.exit(130)
   })
 
-  console.log('Pulling current Vercel production env (for skip / FC merge)...')
+  console.log(
+    'Pulling current Vercel production env (hints for TELEGRAM_*; Sensitive values often pull as empty)...',
+  )
   pullVercelProductionEnv(pullFile)
   console.log('')
 
@@ -415,12 +428,7 @@ async function main(): Promise<void> {
 
   for (const key of REQUIRED_KEYS) {
     if (!values[key]) {
-      console.error(
-        `Missing required ${key} after skip (not on Vercel production pull either).`,
-      )
-      console.error(
-        'Enter it this run, or ensure it exists on Vercel production.',
-      )
+      console.error(`Missing required ${key} (internal error; should have been prompted).`)
       process.exit(1)
     }
   }
@@ -449,9 +457,7 @@ async function main(): Promise<void> {
   try {
     go = await askLine(
       rl2,
-      anyUpdate
-        ? 'Upsert UPDATE keys on Vercel production, then deploy FC prod + Vercel --prod. Continue? [y/N] '
-        : 'All skipped → code-only deploy (FC prod + Vercel --prod), no env upserts. Continue? [y/N] ',
+      'Upsert UPDATE keys on Vercel production, then deploy FC prod + Vercel --prod. Continue? [y/N] ',
     )
   } finally {
     rl2.close()
@@ -523,7 +529,9 @@ async function main(): Promise<void> {
   )
 }
 
-main().catch((e) => {
-  console.error(e instanceof Error ? e.message : e)
-  process.exit(1)
-})
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((e) => {
+    console.error(e instanceof Error ? e.message : e)
+    process.exit(1)
+  })
+}

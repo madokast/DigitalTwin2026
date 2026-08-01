@@ -65,14 +65,11 @@ go run ./cmd/api          # :8080，可用 PORT 覆盖
 
 交互脚本（TypeScript：`scripts/refresh-prod-env.ts`，`npm run secrets:refresh-prod`）依次询问：`DATABASE_URL`、`DIGITAL_TWIN_TOKEN`、`DIGITAL_TWIN_ADMIN_TOKEN`、`TELEGRAM_BOT_TOKEN`、`TELEGRAM_USER_ID`。
 
-- **回车（DB URL / Token 等不可空项）**：跳过 upsert，保留 Vercel 现值。
+- **前三项必填**（`DATABASE_URL` / `DIGITAL_TWIN_TOKEN` / `DIGITAL_TWIN_ADMIN_TOKEN`）：每次必须粘贴非空值（Vercel Sensitive `env pull` 常为空，且 FC 部署需要完整串）；回车会提示不能空并继续询问。
 - **回车（`TELEGRAM_*` 可空项）**：再问一次 —— `[e]` 显式写成空串并 upsert（关闭通知），`[s]` 跳过 upsert。
-- 只想加 Telegram：前三项一路回车（skip），只填两个 `TELEGRAM_*`。
-- 跳过的必填项从 `vercel env pull` 合并进临时 `.env.fc.prod`，保证 FC 仍能部署。
 - `TELEGRAM_*` 最终要么都空，要么都非空。
-- 新填的 `DATABASE_URL` 会真实连库校验；**跳过则不校验**。
+- 新填的 `DATABASE_URL` 会真实连库校验。
 - 本次若 upsert 了任一 `TELEGRAM_*` 且最终双非空，会 `sendMessage` 探测；**双跳过或显式清空则不测**。
-- **全部跳过**：不 upsert 任何 env，只做 FC prod + `vercel deploy --prod`（纯代码部署）。
 
 然后：
 
