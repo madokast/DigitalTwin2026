@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -128,6 +129,32 @@ func TestSendMessageSuccessAndFailure(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 }
+
+func TestSendMessageTransportErrorFixedMessage(t *testing.T) {
+	s := &Sender{
+		HTTPClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return nil, fmt.Errorf("dial tcp: i/o timeout")
+		})},
+		APIBase: "http://example.invalid",
+		Getenv: func(k string) string {
+			switch k {
+			case "TELEGRAM_BOT_TOKEN":
+				return "bot"
+			case "TELEGRAM_USER_ID":
+				return "7"
+			}
+			return ""
+		},
+	}
+	err := s.SendMessage("x")
+	if err == nil || err.Error() != TransportFailedMessage {
+		t.Fatalf("err: %v", err)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestNotifySkipsWhenUnconfigured(t *testing.T) {
 	called := false

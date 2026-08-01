@@ -6,6 +6,10 @@ import { RESERVED_TAG_TRANSACTION_ENTRY } from '@/lib/tags'
 /** 与 Go `http.Client{Timeout: 15 * time.Second}` 对齐 */
 export const TELEGRAM_HTTP_TIMEOUT_MS = 15_000
 
+/** fetch/超时等传输失败：固定英文，避免 AbortError 与 Go deadline 文案分叉 */
+export const TELEGRAM_TRANSPORT_FAILED =
+  'Telegram sendMessage failed: request failed' as const
+
 export type EnvLike = {
   TELEGRAM_BOT_TOKEN?: string
   TELEGRAM_USER_ID?: string
@@ -234,9 +238,8 @@ export async function sendTelegramMessage(
 
     const reason = description || `HTTP ${res.status}`
     return { ok: false, error: `Telegram sendMessage failed: ${reason}` }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    return { ok: false, error: `Telegram sendMessage failed: ${msg}` }
+  } catch {
+    return { ok: false, error: TELEGRAM_TRANSPORT_FAILED }
   }
 }
 

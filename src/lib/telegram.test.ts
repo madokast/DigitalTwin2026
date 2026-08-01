@@ -9,6 +9,7 @@ import {
   sendTelegramMessage,
   shouldSkipNotifyInTest,
   TELEGRAM_HTTP_TIMEOUT_MS,
+  TELEGRAM_TRANSPORT_FAILED,
 } from './telegram'
 
 afterEach(() => {
@@ -201,7 +202,7 @@ describe('sendTelegramMessage', () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error('The operation was aborted'))
     await expect(sendTelegramMessage('x', { env, fetch: fetchMock })).resolves.toEqual({
       ok: false,
-      error: 'Telegram sendMessage failed: The operation was aborted',
+      error: TELEGRAM_TRANSPORT_FAILED,
     })
   })
 
