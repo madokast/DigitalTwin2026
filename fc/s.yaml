@@ -9,7 +9,7 @@ resources:
     component: fc3
     actions:
       pre-deploy:
-        - run: mkdir -p .s-build && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o .s-build/bootstrap ./cmd/api
+        - run: mkdir -p .s-build && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o .s-build/bootstrap ./cmd/api
           path: ./
     props:
       region: cn-hangzhou

@@ -122,7 +122,7 @@ curl -s -H "Authorization: Bearer $DIGITAL_TWIN_TOKEN" \
   "$(./scripts/info.sh test)/api/query/summary?tz=Asia/Shanghai"
 ```
 
-改规格（CPU/内存/并发等）只改 [`s.yaml`](s.yaml)，再执行 `./scripts/deploy.sh test`。当前默认**省钱档**：最低 memory/cpu、空闲缩到 0、`reservedConcurrency: 1`（最多 1 实例）。
+改规格（CPU/内存/并发等）只改 [`s.yaml`](s.yaml)，再执行 `./scripts/deploy.sh test`。当前默认**省钱档**：最低 memory/cpu、空闲缩到 0、`reservedConcurrency: 1`（最多 1 实例）。`pre-deploy` 使用 `go build -trimpath -ldflags="-s -w"`，去掉符号表与 DWARF，减小上传的 `bootstrap` 体积。
 
 ## 加了新 API 之后怎么更新 FC
 
