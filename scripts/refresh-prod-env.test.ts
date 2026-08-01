@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  OPTIONAL_EMPTY,
   REQUIRED_KEYS,
   emptyInputPolicy,
 } from './refresh-prod-env'
+import {
+  channelEnableDecision,
+  shouldSkipNotifyPrompt,
+} from './lib/notify-prompt'
 
 describe('emptyInputPolicy', () => {
   it('rejects empty for the three required keys', () => {
@@ -17,10 +20,30 @@ describe('emptyInputPolicy', () => {
     }
   })
 
-  it('offers telegram empty menu for TELEGRAM_*', () => {
-    expect(OPTIONAL_EMPTY.has('TELEGRAM_BOT_TOKEN')).toBe(true)
-    expect(OPTIONAL_EMPTY.has('TELEGRAM_USER_ID')).toBe(true)
-    expect(emptyInputPolicy('TELEGRAM_BOT_TOKEN')).toBe('telegram')
-    expect(emptyInputPolicy('TELEGRAM_USER_ID')).toBe('telegram')
+  it('skips empty for notify keys (handled by enable prompts)', () => {
+    expect(emptyInputPolicy('TELEGRAM_BOT_TOKEN')).toBe('skip')
+    expect(emptyInputPolicy('TELEGRAM_USER_ID')).toBe('skip')
+    expect(emptyInputPolicy('QQBOT_APP_ID')).toBe('skip')
+    expect(emptyInputPolicy('QQBOT_APP_SECRET')).toBe('skip')
+    expect(emptyInputPolicy('QQBOT_USER_OPENID')).toBe('skip')
+  })
+})
+
+describe('channelEnableDecision', () => {
+  it('defaults to disable; y/yes enable', () => {
+    expect(channelEnableDecision('')).toBe('disable')
+    expect(channelEnableDecision('n')).toBe('disable')
+    expect(channelEnableDecision('N')).toBe('disable')
+    expect(channelEnableDecision('y')).toBe('enable')
+    expect(channelEnableDecision('YES')).toBe('enable')
+  })
+})
+
+describe('shouldSkipNotifyPrompt', () => {
+  it('accepts DT_SKIP_NOTIFY_PROMPT or legacy DT_SKIP_TELEGRAM_PROMPT', () => {
+    expect(shouldSkipNotifyPrompt({})).toBe(false)
+    expect(shouldSkipNotifyPrompt({ DT_SKIP_NOTIFY_PROMPT: '1' })).toBe(true)
+    expect(shouldSkipNotifyPrompt({ DT_SKIP_TELEGRAM_PROMPT: '1' })).toBe(true)
+    expect(shouldSkipNotifyPrompt({ DT_SKIP_NOTIFY_PROMPT: '0' })).toBe(false)
   })
 })

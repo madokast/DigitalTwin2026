@@ -6,29 +6,57 @@
  */
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import {
-  askLine,
-  createRl,
-  trimInput,
-} from '../../scripts/lib/cli-prompt'
+import { createRl } from '../../scripts/lib/cli-prompt'
 import {
   parseDotenvFile,
   readDotenvKey,
   upsertDotenvKey,
 } from '../../scripts/lib/dotenv-file'
+import {
+  promptQqbotChannel,
+  promptTelegramChannel,
+  shouldSkipNotifyPrompt,
+} from '../../scripts/lib/notify-prompt'
 import { run, runDiscarded } from '../../scripts/lib/spawn'
-import { telegramProbeSend } from '../../scripts/lib/telegram-probe'
 
 const FC_ROOT = resolve(import.meta.dirname, '..')
 const REPO_ROOT = resolve(FC_ROOT, '..')
 
-async function resolveTelegramIfNeeded(envFile: string): Promise<void> {
+const TELEGRAM_KEYS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_USER_ID'] as const
+const QQBOT_KEYS = [
+  'QQBOT_APP_ID',
+  'QQBOT_APP_SECRET',
+  'QQBOT_USER_OPENID',
+] as const
+
+function applyEnvKeys(
+  envFile: string,
+  values: Record<string, string>,
+): void {
+  for (const [k, v] of Object.entries(values)) {
+    process.env[k] = v
+    upsertDotenvKey(envFile, k, v)
+  }
+}
+
+async function resolveNotifyChannels(envFile: string): Promise<void> {
   // refresh-prod 已写好并探测过时跳过二次询问
-  if (process.env.DT_SKIP_TELEGRAM_PROMPT === '1') {
+  if (shouldSkipNotifyPrompt()) {
     const token = process.env.TELEGRAM_BOT_TOKEN ?? ''
     const userId = process.env.TELEGRAM_USER_ID ?? ''
     if ((token || userId) && !(token && userId)) {
       console.error('If either TELEGRAM_* is set, both must be non-empty.')
+      process.exit(1)
+    }
+    const appId = process.env.QQBOT_APP_ID ?? ''
+    const appSecret = process.env.QQBOT_APP_SECRET ?? ''
+    const openid = process.env.QQBOT_USER_OPENID ?? ''
+    const qqAny = Boolean(appId || appSecret || openid)
+    const qqAll = Boolean(appId && appSecret && openid)
+    if (qqAny && !qqAll) {
+      console.error(
+        'If any QQBOT_* is set, QQBOT_APP_ID / QQBOT_APP_SECRET / QQBOT_USER_OPENID must all be non-empty.',
+      )
       process.exit(1)
     }
     console.error(
@@ -36,79 +64,36 @@ async function resolveTelegramIfNeeded(envFile: string): Promise<void> {
         ? 'TELEGRAM_* already set (skip prompt).'
         : 'Telegram notify disabled (both empty; skip prompt).',
     )
+    console.error(
+      qqAll
+        ? 'QQBOT_* already set (skip prompt).'
+        : 'QQ Bot notify disabled (all empty; skip prompt).',
+    )
     return
   }
-  await resolveTelegramEnv(envFile)
-}
 
-async function resolveTelegramEnv(envFile: string): Promise<void> {
   const rl = createRl()
   try {
     const rootEnv = resolve(REPO_ROOT, '.env')
-    const rootToken = readDotenvKey(rootEnv, 'TELEGRAM_BOT_TOKEN')
-    const rootUid = readDotenvKey(rootEnv, 'TELEGRAM_USER_ID')
+    const tg = await promptTelegramChannel(rl, {
+      probeText: 'DigitalTwin2026 deploying',
+      offerRepoEnv: {
+        token: readDotenvKey(rootEnv, 'TELEGRAM_BOT_TOKEN'),
+        userId: readDotenvKey(rootEnv, 'TELEGRAM_USER_ID'),
+      },
+    })
+    applyEnvKeys(envFile, tg)
+    console.error('')
 
-    const ans = await askLine(rl, 'Use TELEGRAM_* from repo .env? [Y/n] ')
-    const useRoot = !(
-      ans.trim().toLowerCase() === 'n' || ans.trim().toLowerCase() === 'no'
-    )
-
-    let token = ''
-    let userId = ''
-    if (useRoot) {
-      if (rootToken && rootUid) {
-        token = rootToken
-        userId = rootUid
-        console.error('Using TELEGRAM_* from repo .env.')
-      } else {
-        console.error(
-          'Repo .env TELEGRAM_* incomplete or missing; fall through to manual entry.',
-        )
-      }
-    }
-
-    if (!token || !userId) {
-      token = trimInput(
-        await askLine(rl, 'TELEGRAM_BOT_TOKEN (empty to disable notify): '),
-      )
-      userId = trimInput(
-        await askLine(rl, 'TELEGRAM_USER_ID (empty to disable notify): '),
-      )
-    }
-
-    if (!token && !userId) {
-      console.error('Telegram notify disabled for this deploy (both empty).')
-      process.env.TELEGRAM_BOT_TOKEN = ''
-      process.env.TELEGRAM_USER_ID = ''
-      upsertDotenvKey(envFile, 'TELEGRAM_BOT_TOKEN', '')
-      upsertDotenvKey(envFile, 'TELEGRAM_USER_ID', '')
-      return
-    }
-
-    if (!token || !userId) {
-      console.error('If either TELEGRAM_* is set, both must be non-empty.')
-      process.exit(1)
-    }
-
-    console.error(
-      'Probing Telegram with sendMessage (DigitalTwin2026 deploying)...',
-    )
-    const err = await telegramProbeSend(
-      token,
-      userId,
-      'DigitalTwin2026 deploying',
-    )
-    if (err) {
-      console.error(err)
-      console.error('Telegram probe failed — fix credentials and re-run deploy.')
-      process.exit(1)
-    }
-    console.error('Telegram probe OK.')
-
-    process.env.TELEGRAM_BOT_TOKEN = token
-    process.env.TELEGRAM_USER_ID = userId
-    upsertDotenvKey(envFile, 'TELEGRAM_BOT_TOKEN', token)
-    upsertDotenvKey(envFile, 'TELEGRAM_USER_ID', userId)
+    const qq = await promptQqbotChannel(rl, {
+      probeText: 'DigitalTwin2026 deploying',
+      offerRepoEnv: {
+        appId: readDotenvKey(rootEnv, 'QQBOT_APP_ID'),
+        appSecret: readDotenvKey(rootEnv, 'QQBOT_APP_SECRET'),
+        userOpenid: readDotenvKey(rootEnv, 'QQBOT_USER_OPENID'),
+      },
+    })
+    applyEnvKeys(envFile, qq)
   } finally {
     rl.close()
   }
@@ -145,7 +130,12 @@ async function main(): Promise<void> {
     }
   }
 
-  await resolveTelegramIfNeeded(envFile)
+  // 确保 skip 路径下缺失键视为空串（避免旧文件缺 QQBOT_*）
+  for (const key of [...TELEGRAM_KEYS, ...QQBOT_KEYS]) {
+    if (process.env[key] === undefined) process.env[key] = ''
+  }
+
+  await resolveNotifyChannels(envFile)
 
   console.log(
     `deploying env=${envName} (s deploy output discarded — secrets must not print)`,

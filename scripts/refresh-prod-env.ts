@@ -6,13 +6,10 @@
  */
 import {
   existsSync,
-  mkdtempSync,
   readFileSync,
   rmSync,
-  writeFileSync,
 } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Interface as ReadlineInterface } from 'node:readline'
 import { spawnSync } from 'node:child_process'
@@ -24,10 +21,13 @@ import {
   isYes,
   trimInput,
 } from './lib/cli-prompt'
-import { readDotenvKey, writeFcEnvFile } from './lib/dotenv-file'
+import { writeFcEnvFile } from './lib/dotenv-file'
 import { maskValue } from './lib/mask'
+import {
+  promptQqbotChannel,
+  promptTelegramChannel,
+} from './lib/notify-prompt'
 import { run, which } from './lib/spawn'
-import { telegramProbeSend } from './lib/telegram-probe'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const FC_DIR = resolve(ROOT, 'fc')
@@ -39,6 +39,9 @@ const KEYS = [
   'DIGITAL_TWIN_ADMIN_TOKEN',
   'TELEGRAM_BOT_TOKEN',
   'TELEGRAM_USER_ID',
+  'QQBOT_APP_ID',
+  'QQBOT_APP_SECRET',
+  'QQBOT_USER_OPENID',
 ] as const
 
 type Key = (typeof KEYS)[number]
@@ -49,19 +52,11 @@ export const REQUIRED_KEYS: Key[] = [
   'DIGITAL_TWIN_ADMIN_TOKEN',
 ]
 
-export const OPTIONAL_EMPTY = new Set<Key>([
-  'TELEGRAM_BOT_TOKEN',
-  'TELEGRAM_USER_ID',
-])
-
 type PromptResult = { action: 'skip' | 'set'; value: string }
 
-/** 空输入分支：必填拒绝 / Telegram 菜单 / 跳过 upsert */
-export function emptyInputPolicy(
-  key: Key,
-): 'reject' | 'telegram' | 'skip' {
+/** 空输入分支：前三项必填拒绝；其它键不应再走 promptKv */
+export function emptyInputPolicy(key: Key): 'reject' | 'skip' {
   if (REQUIRED_KEYS.includes(key)) return 'reject'
-  if (OPTIONAL_EMPTY.has(key)) return 'telegram'
   return 'skip'
 }
 
@@ -99,37 +94,16 @@ async function verifyDatabaseUrl(url: string): Promise<boolean> {
 async function promptKv(
   rl: ReadlineInterface,
   key: Key,
-  currentHint: string,
 ): Promise<PromptResult> {
-  const emptyPolicy = emptyInputPolicy(key)
   for (;;) {
-    const prompt =
-      emptyPolicy === 'telegram'
-        ? currentHint
-          ? `Enter ${key} (Enter = empty-or-skip; current ${maskValue(currentHint)}): `
-          : `Enter ${key} (Enter = empty-or-skip; currently unset): `
-        : `Enter ${key} (required; empty not allowed): `
-
-    const val = trimInput(await askSecret(rl, prompt))
+    const val = trimInput(
+      await askSecret(rl, `Enter ${key} (required; empty not allowed): `),
+    )
 
     if (!val) {
-      if (emptyPolicy === 'reject') {
-        console.error(`  ${key} cannot be empty. Please enter a value.`)
-        console.error('')
-        continue
-      }
-      if (emptyPolicy === 'telegram') {
-        const choice = await askLine(
-          rl,
-          '  Empty input: [e] upsert empty string, [s] skip upsert (keep current)? [s] ',
-        )
-        if (choice.trim().toLowerCase() === 'e') {
-          console.error('  → upsert empty')
-          return { action: 'set', value: '' }
-        }
-      }
-      console.error('  → skip')
-      return { action: 'skip', value: '' }
+      console.error(`  ${key} cannot be empty. Please enter a value.`)
+      console.error('')
+      continue
     }
 
     if (key === 'DATABASE_URL') {
@@ -145,21 +119,6 @@ async function promptKv(
       return { action: 'set', value: val }
     }
     console.error('Try again.')
-  }
-}
-
-function pullVercelProductionEnv(outFile: string): void {
-  rmSync(outFile, { force: true })
-  const r = run(
-    'vercel',
-    ['env', 'pull', outFile, '--environment=production', '--yes'],
-    { cwd: ROOT },
-  )
-  if ((r.status ?? 1) !== 0) {
-    console.error(
-      'warn: vercel env pull failed; skipped keys need a value you type, or pull manually.',
-    )
-    writeFileSync(outFile, '')
   }
 }
 
@@ -298,6 +257,9 @@ function preflightS(): void {
       DIGITAL_TWIN_ADMIN_TOKEN: '',
       TELEGRAM_BOT_TOKEN: '',
       TELEGRAM_USER_ID: '',
+      QQBOT_APP_ID: '',
+      QQBOT_APP_SECRET: '',
+      QQBOT_USER_OPENID: '',
     },
   })
   const blob = info.stdout + info.stderr
@@ -337,15 +299,17 @@ async function main(): Promise<void> {
     'If digitaltwin-api-prod does not exist, temporarily writes .env.fc.prod; deleted after deploy.',
   )
   console.log('Do NOT commit these values to git or paste in chat logs.')
-  console.log('Per key:')
+  console.log('Flow:')
   console.log(
-    '  - DATABASE_URL / DIGITAL_TWIN_TOKEN / DIGITAL_TWIN_ADMIN_TOKEN: required every run (empty rejected; FC needs real values)',
+    '  - DATABASE_URL / DIGITAL_TWIN_TOKEN / DIGITAL_TWIN_ADMIN_TOKEN: required every run',
   )
-  console.log('  - Type a value → confirm → upsert that key')
-  console.log('  - Enter on TELEGRAM_* → ask: [e] upsert empty, [s] skip')
   console.log(
-    '  - Connectivity checks when you set DATABASE_URL or upsert TELEGRAM_*',
+    '  - Enable Telegram notify? [y/N] → N clears TELEGRAM_*; Y requires both keys + probe',
   )
+  console.log(
+    '  - Enable QQ Bot notify? [y/N] → N clears QQBOT_*; Y requires three keys + C2C probe',
+  )
+  console.log('  - Connectivity checks for DATABASE_URL and enabled notify channels')
   console.log('')
 
   preflightVercel()
@@ -353,10 +317,7 @@ async function main(): Promise<void> {
   preflightS()
   console.log('')
 
-  const tmpDir = mkdtempSync(join(tmpdir(), 'dt-pull-'))
-  const pullFile = join(tmpDir, '.env.production')
   const cleanup = () => {
-    rmSync(tmpDir, { recursive: true, force: true })
     cleanupProdEnv()
   }
   process.on('exit', cleanup)
@@ -365,65 +326,40 @@ async function main(): Promise<void> {
     process.exit(130)
   })
 
-  console.log(
-    'Pulling current Vercel production env (hints for TELEGRAM_*; Sensitive values often pull as empty)...',
-  )
-  pullVercelProductionEnv(pullFile)
-  console.log('')
-
   const values = {} as Record<Key, string>
   const updated = {} as Record<Key, boolean>
 
   const rl = createRl()
   try {
-    for (const key of KEYS) {
-      const current = readDotenvKey(pullFile, key)
-      const result = await promptKv(rl, key, current)
-      if (result.action === 'set') {
-        values[key] = result.value
-        updated[key] = true
-      } else {
-        values[key] = current
-        updated[key] = false
-      }
+    for (const key of REQUIRED_KEYS) {
+      const result = await promptKv(rl, key)
+      values[key] = result.value
+      updated[key] = true
       console.log('')
     }
+
+    console.log('--- Notify channels ---')
+    const tg = await promptTelegramChannel(rl, {
+      probeText: 'DigitalTwin2026 prod env verify',
+    })
+    values.TELEGRAM_BOT_TOKEN = tg.TELEGRAM_BOT_TOKEN
+    values.TELEGRAM_USER_ID = tg.TELEGRAM_USER_ID
+    updated.TELEGRAM_BOT_TOKEN = true
+    updated.TELEGRAM_USER_ID = true
+    console.log('')
+
+    const qq = await promptQqbotChannel(rl, {
+      probeText: 'DigitalTwin2026 prod env verify',
+    })
+    values.QQBOT_APP_ID = qq.QQBOT_APP_ID
+    values.QQBOT_APP_SECRET = qq.QQBOT_APP_SECRET
+    values.QQBOT_USER_OPENID = qq.QQBOT_USER_OPENID
+    updated.QQBOT_APP_ID = true
+    updated.QQBOT_APP_SECRET = true
+    updated.QQBOT_USER_OPENID = true
+    console.log('')
   } finally {
     rl.close()
-  }
-
-  const tgBot = values.TELEGRAM_BOT_TOKEN
-  const tgUid = values.TELEGRAM_USER_ID
-  if ((tgBot || tgUid) && !(tgBot && tgUid)) {
-    console.error(
-      'TELEGRAM_BOT_TOKEN and TELEGRAM_USER_ID must both be set (or both empty to disable).',
-    )
-    console.error(
-      'One is missing after skip/merge. Re-run and fill both, or set both empty with [e].',
-    )
-    process.exit(1)
-  }
-
-  if (
-    tgBot &&
-    tgUid &&
-    (updated.TELEGRAM_BOT_TOKEN || updated.TELEGRAM_USER_ID)
-  ) {
-    console.error('Verifying Telegram sendMessage...')
-    const err = await telegramProbeSend(
-      tgBot,
-      tgUid,
-      'DigitalTwin2026 prod env verify',
-    )
-    if (err) {
-      console.error(err)
-      console.error(
-        'Telegram verify failed. Fix values and re-run (or skip both TELEGRAM_*).',
-      )
-      process.exit(1)
-    }
-    console.error('ok: Telegram message sent')
-    console.log('')
   }
 
   for (const key of REQUIRED_KEYS) {
@@ -485,14 +421,18 @@ async function main(): Promise<void> {
   console.log(`Temporarily wrote ${PROD_ENV_FILE} (deleted after deploy)`)
 
   console.log('Deploying FC prod...')
-  // 继承 stdio：deploy.ts 仍会交互确认 Telegram（与旧 shell 行为一致）
+  // refresh-prod 已写好并探测过：跳过 deploy 二次渠道询问
   const dep = spawnSync(
     'npx',
     ['tsx', resolve(FC_DIR, 'scripts/deploy.ts'), 'prod'],
     {
       cwd: ROOT,
       stdio: 'inherit',
-      env: { ...process.env, DT_SKIP_TELEGRAM_PROMPT: '1' },
+      env: {
+        ...process.env,
+        DT_SKIP_NOTIFY_PROMPT: '1',
+        DT_SKIP_TELEGRAM_PROMPT: '1',
+      },
     },
   )
   if ((dep.status ?? 1) !== 0) {

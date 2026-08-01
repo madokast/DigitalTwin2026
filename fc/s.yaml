@@ -43,9 +43,12 @@ resources:
         DATABASE_URL: ${env('DATABASE_URL', '')}
         DIGITAL_TWIN_TOKEN: ${env('DIGITAL_TWIN_TOKEN', '')}
         DIGITAL_TWIN_ADMIN_TOKEN: ${env('DIGITAL_TWIN_ADMIN_TOKEN', '')}
-        # 可空：两者皆空则关闭通知；deploy.sh 在任一非空时强制两者齐全并探测
+        # 可空：渠道皆空则关闭通知；deploy 在 Enable=Y 时强制齐全并探测
         TELEGRAM_BOT_TOKEN: ${env('TELEGRAM_BOT_TOKEN', '')}
         TELEGRAM_USER_ID: ${env('TELEGRAM_USER_ID', '')}
+        QQBOT_APP_ID: ${env('QQBOT_APP_ID', '')}
+        QQBOT_APP_SECRET: ${env('QQBOT_APP_SECRET', '')}
+        QQBOT_USER_OPENID: ${env('QQBOT_USER_OPENID', '')}
       triggers:
         - triggerName: httpTrigger
           triggerType: http

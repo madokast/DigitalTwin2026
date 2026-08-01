@@ -25,15 +25,21 @@
 
 鉴权：`Authorization: Bearer …`；`/api/admin/*` 仅 Admin Token；其余 AI 或 Admin。
 
-### Telegram 录入通知（可选）
+### 录入通知（Telegram / QQ Bot，可选）
 
-- 环境变量：`TELEGRAM_BOT_TOKEN`、`TELEGRAM_USER_ID`（**两者皆非空**才启用；任一为空则运行时跳过通知）。
-- 触发：`POST /api/log/number|text` INSERT 成功后推单条；`POST /api/log/transaction` 整单成功后推一条 batch 摘要；均为 best-effort，Telegram 失败不影响 `201`。
-- 测试：`POST /api/telegram/probe`（未配置 / 发送失败返回明确英文 `error`；成功 `{ success: true }`）。
+- 环境变量：
+  - Telegram：`TELEGRAM_BOT_TOKEN`、`TELEGRAM_USER_ID`（**两者皆非空**才启用）
+  - QQ Bot：`QQBOT_APP_ID`、`QQBOT_APP_SECRET`、`QQBOT_USER_OPENID`（**三键皆非空**才启用）
+  - 运行时经统一 `notify_user` 并行发送；未配置的渠道跳过。
+- 触发：`POST /api/log/number|text` INSERT 成功后推单条；`POST /api/log/transaction` 整单成功后推一条 batch 摘要；均为 best-effort，通知失败不影响 `201`。
+- 测试：`POST /api/telegram/probe`、`POST /api/qqbot/probe`（未配置 / 发送失败返回明确英文 `error`；成功 `{ success: true }`）。`DIGITAL_TWIN_TEST=1` 时默认跳过 `notify_user`；设 `NOTIFY_ALLOW_IN_TEST=1` 才允许测试环境实发。
 - 模板：根 `.env.example`、`fc/env.fc.example`、`fc/s.yaml` 的 `environmentVariables`。
-- **部署**：`npx tsx fc/scripts/deploy.ts`（或 `./scripts/deploy.sh`）在 `s deploy` 前会询问是否使用仓库根 `.env` 的 `TELEGRAM_*`；手填允许皆空（关闭通知）；若任一非空则两者必须齐全，并真实 `sendMessage` 文案 `DigitalTwin2026 deploying`，失败则 `exit 1`。选用值会写回当前 `.env.fc.<env>`。`secrets:refresh-prod` 调用部署时会跳过二次询问。
-- `secrets:rotate-test` **不**轮换 Telegram；生产刷新走 `deploy.sh prod` 时同样走上述交互（可从根 `.env` 选用）。
-- **禁止**把真实 Bot Token / User ID 提交进 git。
+- **部署**：`npx tsx fc/scripts/deploy.ts`（或 `./scripts/deploy.sh`）在 `s deploy` 前依次询问：
+  - `Enable Telegram notify? [y/N]` → N 写空；Y 可选用仓库根 `.env`（齐全则验证），否则手填必填两项并 `sendMessage` 探测（文案 `DigitalTwin2026 deploying`），失败则 `exit 1`
+  - `Enable QQ Bot notify? [y/N]` → 同上三键 + 主动 C2C 探测
+  - 选用值写回当前 `.env.fc.<env>`。`secrets:refresh-prod` 调用部署时设 `DT_SKIP_NOTIFY_PROMPT=1`（兼容旧 `DT_SKIP_TELEGRAM_PROMPT`）跳过二次询问。
+- `secrets:rotate-test` **不**轮换通知渠道密钥。
+- **禁止**把真实 Bot Token / AppSecret / OpenID 提交进 git。
 - **时区**：二进制嵌入 `time/tzdata`，FC 精简运行时无系统 zoneinfo 时 `Asia/Shanghai` 等仍可用。
 
 ## 本地开发
@@ -63,18 +69,20 @@ go run ./cmd/api          # :8080，可用 PORT 覆盖
 
 ## 生产密钥刷新（Vercel + FC prod）
 
-交互脚本（TypeScript：`scripts/refresh-prod-env.ts`，`npm run secrets:refresh-prod`）依次询问：`DATABASE_URL`、`DIGITAL_TWIN_TOKEN`、`DIGITAL_TWIN_ADMIN_TOKEN`、`TELEGRAM_BOT_TOKEN`、`TELEGRAM_USER_ID`。
+交互脚本（TypeScript：`scripts/refresh-prod-env.ts`，`npm run secrets:refresh-prod`）流程：
 
-- **前三项必填**（`DATABASE_URL` / `DIGITAL_TWIN_TOKEN` / `DIGITAL_TWIN_ADMIN_TOKEN`）：每次必须粘贴非空值（Vercel Sensitive `env pull` 常为空，且 FC 部署需要完整串）；回车会提示不能空并继续询问。
-- **回车（`TELEGRAM_*` 可空项）**：再问一次 —— `[e]` 显式写成空串并 upsert（关闭通知），`[s]` 跳过 upsert。
-- `TELEGRAM_*` 最终要么都空，要么都非空。
-- 新填的 `DATABASE_URL` 会真实连库校验。
-- 本次若 upsert 了任一 `TELEGRAM_*` 且最终双非空，会 `sendMessage` 探测；**双跳过或显式清空则不测**。
+1. **前三项必填**（`DATABASE_URL` / `DIGITAL_TWIN_TOKEN` / `DIGITAL_TWIN_ADMIN_TOKEN`）：每次必须粘贴非空值（Vercel Sensitive `env pull` 常为空，且 FC 部署需要完整串）；回车会提示不能空并继续询问。新填的 `DATABASE_URL` 会真实连库校验。
+2. **`Enable Telegram notify? [y/N]`**（默认 N）  
+   - N → 将 `TELEGRAM_BOT_TOKEN` / `TELEGRAM_USER_ID` **明确 upsert 为空串**（关闭线上通知）  
+   - Y → 必填两键（空拒）→ 掩码确认 → `sendMessage` 探测（文案 `DigitalTwin2026 prod env verify`）；失败则重填
+3. **`Enable QQ Bot notify? [y/N]`**（默认 N）  
+   - N → 将 `QQBOT_APP_ID` / `QQBOT_APP_SECRET` / `QQBOT_USER_OPENID` **明确 upsert 为空串**  
+   - Y → 必填三键 → 确认 → 主动 C2C 探测（同上文案）；失败则重填
 
 然后：
 
-1. 仅把**本次有输入**的 key 写入 Vercel **production**
-2. **临时**写入完整合并后的 `fc/.env.fc.prod` → `npx tsx fc/scripts/deploy.ts prod`（或 `./scripts/deploy.sh prod`）
+1. 把本次确定的 key（含通知渠道空串）写入 Vercel **production**
+2. **临时**写入完整 `fc/.env.fc.prod` → `npx tsx fc/scripts/deploy.ts prod`（`DT_SKIP_NOTIFY_PROMPT=1`，跳过二次渠道询问）
 3. **删除** `fc/.env.fc.prod`
 4. `vercel deploy --prod`
 
