@@ -39,6 +39,8 @@ tags:
     description: List, summarize, and aggregate tags
   - name: telegram
     description: Telegram Bot connectivity probe
+  - name: qqbot
+    description: QQ Bot connectivity probe
   - name: admin
     description: Admin-only corrections (AdminToken only)
 
@@ -51,6 +53,8 @@ paths:
     $ref: './paths/log.yaml#/~1api~1log~1transaction'
   /api/telegram/probe:
     $ref: './paths/telegram.yaml#/~1api~1telegram~1probe'
+  /api/qqbot/probe:
+    $ref: './paths/qqbot.yaml#/~1api~1qqbot~1probe'
   /api/query:
     $ref: './paths/query.yaml#/~1api~1query'
   /api/query/summary:
@@ -130,6 +134,8 @@ components:
       $ref: './components/schemas.yaml#/RecordDraftRequest'
     TelegramProbeRequest:
       $ref: './components/schemas.yaml#/TelegramProbeRequest'
+    QqbotProbeRequest:
+      $ref: './components/schemas.yaml#/QqbotProbeRequest'
     TransactionCategorySegment:
       $ref: './components/schemas.yaml#/TransactionCategorySegment'
     TransactionType:

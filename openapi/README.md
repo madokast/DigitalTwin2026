@@ -7,7 +7,7 @@
 | 路径 | 说明 |
 |------|------|
 | [`openapi.yaml`](./openapi.yaml) | 根文档：`openapi` / `info` / `servers` / `tags`，以及 `paths` / `components` 的 `$ref` |
-| [`paths/`](./paths/) | 按 tag 分组的 Path Item（`log` / `query` / `telegram` / `admin`）；根用 JSON Pointer 引用 |
+| [`paths/`](./paths/) | 按 tag 分组的 Path Item（`log` / `query` / `telegram` / `qqbot` / `admin`）；根用 JSON Pointer 引用 |
 | [`components/`](./components/) | `securitySchemes` / `parameters` / `responses` / `schemas` 映射 |
 | [`redocly.yaml`](./redocly.yaml) | Redocly lint 配置（`npm run openapi:lint`；Spectral 对 OAS 3.1 `type: […]` 会崩，故用 Redocly） |
 | [`fixtures/`](./fixtures/) | 共享响应/请求样例；Vitest + Go `internal/contract` 共同校验 |
@@ -22,6 +22,7 @@ openapi/
     log.yaml                   # /api/log/number, /text, /transaction
     query.yaml                 # /api/query, /summary, /tags
     telegram.yaml              # /api/telegram/probe
+    qqbot.yaml                 # /api/qqbot/probe
     admin.yaml                 # /api/admin/*
   components/
     securitySchemes.yaml

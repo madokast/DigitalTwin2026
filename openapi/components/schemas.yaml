@@ -291,6 +291,14 @@ TelegramProbeRequest:
       type: string
       description: Optional message body; blank/omitted → default probe text
 
+QqbotProbeRequest:
+  type: object
+  additionalProperties: true
+  properties:
+    text:
+      type: string
+      description: Optional message body; blank/omitted → default probe text
+
 TransactionCategorySegment:
   type: string
   description: |

@@ -90,6 +90,8 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"record-draft-request-valid.json", "RecordDraftRequest"},
 		{"telegram-probe-request.json", "TelegramProbeRequest"},
 		{"telegram-probe-success.json", "SuccessOnly"},
+		{"qqbot-probe-request.json", "QqbotProbeRequest"},
+		{"qqbot-probe-success.json", "SuccessOnly"},
 		{"log-transaction-request-valid.json", "LogTransactionRequest"},
 		{"transaction-batch-success.json", "TransactionBatchSuccess"},
 	}

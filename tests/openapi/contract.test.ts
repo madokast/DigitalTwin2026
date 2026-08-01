@@ -63,6 +63,11 @@ describe('OpenAPI contract (Phase 2)', () => {
     )
     await assertValidSchema('SuccessOnly', readFixture('telegram-probe-success.json'))
     await assertValidSchema(
+      'QqbotProbeRequest',
+      readFixture('qqbot-probe-request.json'),
+    )
+    await assertValidSchema('SuccessOnly', readFixture('qqbot-probe-success.json'))
+    await assertValidSchema(
       'LogTransactionRequest',
       readFixture('log-transaction-request-valid.json'),
     )
