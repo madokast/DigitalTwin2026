@@ -34,6 +34,11 @@ describe('verifyApiAccess', () => {
     expect(verifyApiAccess(requestWithAuth(`Bearer ${ai}`))).toBe(true)
   })
 
+  it('trims trailing whitespace on Bearer token (align with Go)', () => {
+    expect(verifyApiAccess(requestWithAuth(`Bearer ${ai} `))).toBe(true)
+    expect(verifyApiAccess(requestWithAuth(`Bearer  ${ai}`))).toBe(true)
+  })
+
   it('accepts admin token', () => {
     expect(verifyApiAccess(requestWithAuth(`Bearer ${admin}`))).toBe(true)
   })

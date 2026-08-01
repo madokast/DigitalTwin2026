@@ -6,7 +6,9 @@ function getBearerToken(request: NextRequest): string | null {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null
   }
-  return authHeader.slice(7)
+  // 与 Go auth.BearerToken 一致：TrimSpace，避免尾随/多余空格导致双端 401 vs 200
+  const token = authHeader.slice('Bearer '.length).trim()
+  return token === '' ? null : token
 }
 
 function isConfiguredToken(token: string, expected: string | undefined): boolean {

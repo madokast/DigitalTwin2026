@@ -19,6 +19,14 @@ func TestBearerToken(t *testing.T) {
 	if got := BearerToken(r); got != "secret" {
 		t.Fatalf("got %q", got)
 	}
+	r.Header.Set("Authorization", "Bearer secret ")
+	if got := BearerToken(r); got != "secret" {
+		t.Fatalf("trailing space: got %q", got)
+	}
+	r.Header.Set("Authorization", "Bearer  secret")
+	if got := BearerToken(r); got != "secret" {
+		t.Fatalf("extra space after Bearer: got %q", got)
+	}
 }
 
 func TestVerifyAPIAccess(t *testing.T) {
