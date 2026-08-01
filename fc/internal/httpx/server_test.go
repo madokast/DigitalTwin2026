@@ -334,6 +334,50 @@ func TestLogTextRejectsReservedTag(t *testing.T) {
 	}
 }
 
+func TestLogNumberRejectsBodyWeightReservedTag(t *testing.T) {
+	h := testServer().Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"value_number": "1",
+		"tags": ["body:weight"],
+		"objective_context": "x"
+	}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	want := `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`
+	if body["error"] != want {
+		t.Fatalf("error: %v", body)
+	}
+}
+
+func TestLogBodyWeightRejectsJSONNumber(t *testing.T) {
+	h := testServer().Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/log/body/weight", strings.NewReader(`{
+		"happened_at": "2026-08-02T08:00:00+08:00",
+		"value_number": 75.5,
+		"objective_context": "x"
+	}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["error"] != "value_number must be a decimal string" {
+		t.Fatalf("error: %v", body)
+	}
+}
+
 func TestRenameTagsRejectsReservedTag(t *testing.T) {
 	h := testServer().Handler()
 	for _, tc := range []struct {
@@ -343,6 +387,8 @@ func TestRenameTagsRejectsReservedTag(t *testing.T) {
 		{`{"from":"transaction_entry","to":"legacy_tx"}`, `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`},
 		{`{"from":"food","to":"transaction_entry"}`, `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`},
 		{`{"from":"transaction_entry:income","to":"legacy_tx"}`, `tag "transaction_entry:income" is reserved; use POST /api/log/transaction for transaction line entries`},
+		{`{"from":"weight","to":"body:weight"}`, `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`},
+		{`{"from":"body:weight","to":"mass"}`, `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`},
 	} {
 		req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/rename", strings.NewReader(tc.payload))
 		req.Header.Set("Authorization", "Bearer admin-tok")

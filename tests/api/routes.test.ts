@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST as postNumber } from '@/app/api/log/number/route'
+import { POST as postBodyWeight } from '@/app/api/log/body/weight/route'
 import { POST as postText } from '@/app/api/log/text/route'
 import { POST as postTransaction } from '@/app/api/log/transaction/route'
 import { GET as queryRecords } from '@/app/api/query/route'
@@ -283,6 +284,58 @@ describe.skipIf(!hasDatabaseUrl)('API integration', () => {
       }))
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(reservedTagError('transaction_entry:income'))
+    })
+
+    it('rejects body:weight reserved tag on log/number', async () => {
+      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-08-01T12:30:00+08:00',
+        value_number: '1',
+        tags: ['body:weight'],
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(reservedTagError('body:weight'))
+    })
+  })
+
+  describe('POST /api/log/body/weight', () => {
+    it('creates a weight record with body:weight tag and normalized value', async () => {
+      const res = await postBodyWeight(jsonPost('http://localhost/api/log/body/weight', {
+        happened_at: '2026-08-02T08:00:00+08:00',
+        value_number: '75.5',
+        objective_context: 'morning weigh-in',
+        subjective_interpretation: 'a bit heavy',
+        tags: ['morning'],
+      }))
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body.success).toBe(true)
+      expect(body.record.valueNumber).toBe('75.50')
+      expect(body.record.valueText).toBeNull()
+      expect(body.record.tags).toBe(JSON.stringify(['body:weight', 'morning']))
+      expect(body.record.objectiveContext).toBe('morning weigh-in')
+    })
+
+    it('rejects JSON number value_number', async () => {
+      const res = await postBodyWeight(jsonPost('http://localhost/api/log/body/weight', {
+        happened_at: '2026-08-02T08:00:00+08:00',
+        value_number: 75.5,
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('value_number must be a decimal string')
+    })
+
+    it('rejects out-of-range weight', async () => {
+      const res = await postBodyWeight(jsonPost('http://localhost/api/log/body/weight', {
+        happened_at: '2026-08-02T08:00:00+08:00',
+        value_number: '500.01',
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        'Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50',
+      )
     })
   })
 

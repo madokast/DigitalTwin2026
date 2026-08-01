@@ -1,0 +1,39 @@
+{
+  "comment": "Shared accept/reject cases for body weight value_number (parseWeightAmount). Both Next (src/lib/bodyweightdraft.test.ts) and Go (fc/internal/bodyweightdraft) load this file. Reject errors are byte-identical across backends. Accept returns stored (normalized to exactly 2 fractional digits). Range 1.00–500.00 inclusive, kg.",
+  "invalidWeightError": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50",
+  "valueNumberMustBeString": "value_number must be a decimal string",
+  "accept": [
+    { "input": "75", "stored": "75.00" },
+    { "input": "75.0", "stored": "75.00" },
+    { "input": "75.00", "stored": "75.00" },
+    { "input": "75.5", "stored": "75.50" },
+    { "input": "75.50", "stored": "75.50" },
+    { "input": "75.55", "stored": "75.55" },
+    { "input": "1", "stored": "1.00" },
+    { "input": "1.00", "stored": "1.00" },
+    { "input": "500", "stored": "500.00" },
+    { "input": "500.00", "stored": "500.00" },
+    { "input": "1.01", "stored": "1.01" },
+    { "input": "499.99", "stored": "499.99" }
+  ],
+  "reject": [
+    { "input": "0", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "0.0", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "0.00", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "0.99", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "-1", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "-75.5", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "500.01", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "501", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "75.123", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "75.000", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "+75", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "75.", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": ".5", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "75 ", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": " 75", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "01", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" },
+    { "input": "1000", "error": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50" }
+  ]
+}

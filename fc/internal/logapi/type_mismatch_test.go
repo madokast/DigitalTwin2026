@@ -31,3 +31,34 @@ func TestCreateTextTypeMismatchMessages(t *testing.T) {
 		t.Fatalf("status=%d err=%v", status, err)
 	}
 }
+
+func TestCreateBodyWeightRejectsJSONNumber(t *testing.T) {
+	t.Parallel()
+	raw := []byte(`{
+		"happened_at": "2026-08-02T08:00:00+08:00",
+		"value_number": 75.5,
+		"objective_context": "x"
+	}`)
+	_, status, err := CreateBodyWeight(context.Background(), nil, raw)
+	if status != 400 || err == nil || err.Error() != "value_number must be a decimal string" {
+		t.Fatalf("status=%d err=%v", status, err)
+	}
+}
+
+func TestCreateNumberRejectsBodyWeightTag(t *testing.T) {
+	t.Parallel()
+	raw := []byte(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"value_number": "1",
+		"tags": ["body:weight"],
+		"objective_context": "x"
+	}`)
+	_, status, err := CreateNumber(context.Background(), nil, raw)
+	if status != 400 {
+		t.Fatalf("status %d", status)
+	}
+	want := `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`
+	if err == nil || err.Error() != want {
+		t.Fatalf("err=%v", err)
+	}
+}

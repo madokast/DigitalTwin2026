@@ -5,6 +5,7 @@
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
+import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
 import { parseHappenedAt, parseValueNumber } from '@/lib/draft'
 import { fromDB, tagsJSON, type Record } from '@/lib/record'
 import { assertNoReservedTags, validateTags } from '@/lib/tags'
@@ -159,6 +160,35 @@ export async function createNumber(
     return { record, status: 201 }
   } catch (err) {
     console.error('Error creating number record:', err)
+    return { error: 'Internal server error', status: 500 }
+  }
+}
+
+/**
+ * 与 Go `logapi.CreateBodyWeight` 对齐：
+ * 解析委托 `parseBodyWeight`，落库强制含 `body:weight`。
+ */
+export async function createBodyWeight(
+  body: LogBodyWeightBody,
+): Promise<CreateRecordResult> {
+  const parsed = parseBodyWeight(body)
+  if ('error' in parsed) {
+    return { error: parsed.error, status: 400 }
+  }
+
+  try {
+    const record = await insertReturning(db, {
+      id: uuidv7(),
+      happenedAt: parsed.happenedAt,
+      valueNumber: parsed.valueNumber,
+      valueText: null,
+      tags: tagsJSON(parsed.tags),
+      objectiveContext: parsed.objectiveContext,
+      subjectiveInterpretation: parsed.subjectiveInterpretation,
+    })
+    return { record, status: 201 }
+  } catch (err) {
+    console.error('Error creating body weight record:', err)
     return { error: 'Internal server error', status: 500 }
   }
 }

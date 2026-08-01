@@ -54,6 +54,7 @@ func NewServer(pool *pgxpool.Pool, tokens auth.Tokens) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/log/number", s.handleLogNumber)
+	mux.HandleFunc("POST /api/log/body/weight", s.handleLogBodyWeight)
 	mux.HandleFunc("POST /api/log/text", s.handleLogText)
 	mux.HandleFunc("POST /api/log/transaction", s.handleLogTransaction)
 	mux.HandleFunc("POST /api/telegram/probe", s.handleTelegramProbe)
@@ -227,6 +228,32 @@ func (s *Server) handleLogNumber(w http.ResponseWriter, r *http.Request) {
 	// INSERT 成功后异步 best-effort notify，不阻塞写响应（渠道 HTTP 仍有 15s 超时）。
 	// 刻意允许的双端差异（docs/20260801-api-layering.md §1.1 / §7）：
 	// Go 用 go 协程；Next 用 after()（见 scheduleBestEffortNotify）。语义同为成功后不阻塞的扇出。
+	if !suppress {
+		go s.notify().NotifyRecordInserted(rec)
+	}
+	writeJSON(w, status, map[string]any{"success": true, "record": rec})
+}
+
+func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
+	raw, ok := readBodyOrError(w, r)
+	if !ok {
+		return
+	}
+	suppress, err := notify.ReadSuppressNotification(raw)
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+	rec, status, err := logapi.CreateBodyWeight(r.Context(), s.Pool, raw)
+	if err != nil {
+		if status >= 500 {
+			log.Printf("Error creating body weight record: %v", err)
+			writeInternalError(w, err)
+			return
+		}
+		writeError(w, status, err.Error())
+		return
+	}
 	if !suppress {
 		go s.notify().NotifyRecordInserted(rec)
 	}

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { VALUE_NUMBER_MUST_BE_STRING } from '@/lib/draft'
-import { createNumber, createText, createTransactionBatch } from '@/lib/logapi'
+import { INVALID_WEIGHT } from '@/lib/bodyweightdraft'
+import {
+  createBodyWeight,
+  createNumber,
+  createText,
+  createTransactionBatch,
+} from '@/lib/logapi'
 import { reservedTagError } from '@/lib/tags'
 import { AMOUNT_MUST_BE_STRING, INVALID_AMOUNT } from '@/lib/transactiondraft'
 
@@ -71,6 +77,19 @@ describe('createNumber', () => {
     })
   })
 
+  it('rejects body:weight reserved tag', async () => {
+    const result = await createNumber({
+      happened_at: '2026-08-01T12:30:00+08:00',
+      value_number: '1',
+      tags: ['body:weight'],
+      objective_context: 'x',
+    })
+    expect(result).toEqual({
+      error: reservedTagError('body:weight'),
+      status: 400,
+    })
+  })
+
   it('rejects non-string subjective_interpretation', async () => {
     for (const bad of [1, true, [], {}]) {
       const result = await createNumber({
@@ -116,6 +135,44 @@ describe('createNumber', () => {
       }),
     ).toEqual({
       error: 'Missing required field: objective_context',
+      status: 400,
+    })
+  })
+})
+
+describe('createBodyWeight', () => {
+  it('rejects JSON number value_number', async () => {
+    const result = await createBodyWeight({
+      happened_at: '2026-08-02T08:00:00+08:00',
+      value_number: 75.5,
+      objective_context: 'x',
+    })
+    expect(result).toEqual({
+      error: VALUE_NUMBER_MUST_BE_STRING,
+      status: 400,
+    })
+  })
+
+  it('rejects out-of-range and bad shape with INVALID_WEIGHT', async () => {
+    for (const bad of ['0', '500.01', '75.123', ' 75']) {
+      const result = await createBodyWeight({
+        happened_at: '2026-08-02T08:00:00+08:00',
+        value_number: bad,
+        objective_context: 'x',
+      })
+      expect(result).toEqual({ error: INVALID_WEIGHT, status: 400 })
+    }
+  })
+
+  it('rejects reserved client tags', async () => {
+    const result = await createBodyWeight({
+      happened_at: '2026-08-02T08:00:00+08:00',
+      value_number: '75',
+      objective_context: 'x',
+      tags: ['body:weight'],
+    })
+    expect(result).toEqual({
+      error: reservedTagError('body:weight'),
       status: 400,
     })
   })
