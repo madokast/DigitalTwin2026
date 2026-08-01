@@ -108,6 +108,13 @@ describe('aggregateTagCounts', () => {
     })
   })
 
+  it('sorts keys by byte order like Go sort.Strings (uppercase before lowercase)', () => {
+    const result = aggregateTagCounts([
+      JSON.stringify(['weight', 'Weight', 'apple', 'Apple']),
+    ])
+    expect(Object.keys(result)).toEqual(['Apple', 'Weight', 'apple', 'weight'])
+  })
+
   it('throws on invalid JSON', () => {
     expect(() => aggregateTagCounts(['not-json'])).toThrow()
   })

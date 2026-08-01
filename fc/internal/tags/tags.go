@@ -118,7 +118,7 @@ func parseTagsJSONArray(tagsJSON string) ([]any, error) {
 	return arr, nil
 }
 
-// AggregateTagCounts counts record occurrences per tag; keys sorted lexicographically.
+// AggregateTagCounts counts record occurrences per tag; keys sorted with sort.Strings (byte order).
 // 非法 JSON / 非数组返回 error（HTTP 映射 500）。
 func AggregateTagCounts(tagFields []string) (map[string]int, error) {
 	counts := map[string]int{}

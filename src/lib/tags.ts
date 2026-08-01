@@ -102,8 +102,9 @@ function parseTagsJsonArray(tagsJson: string): unknown[] {
 }
 
 /**
- * 从 records.tags（JSON 字符串数组）汇总「记录条数」，按 tag 名字典序返回。
- * 与 Go `AggregateTagCounts` 对齐：非法 JSON / 非数组抛错（由 HTTP 映射 500）。
+ * 从 records.tags（JSON 字符串数组）汇总「记录条数」，按 tag 名排序返回。
+ * 排序与 Go `sort.Strings` 一致：字节序（ASCII 下大写在小写前）；勿用 localeCompare。
+ * 非法 JSON / 非数组抛错（由 HTTP 映射 500）。
  */
 export function aggregateTagCounts(tagFields: string[]): Record<string, number> {
   const counts = new Map<string, number>()
@@ -117,7 +118,7 @@ export function aggregateTagCounts(tagFields: string[]): Record<string, number> 
   }
 
   return Object.fromEntries(
-    [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)),
+    [...counts.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
   )
 }
 

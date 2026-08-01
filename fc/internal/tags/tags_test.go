@@ -77,6 +77,24 @@ func TestAggregateTagCounts(t *testing.T) {
 	}
 }
 
+func TestAggregateTagCountsKeyOrderBytewise(t *testing.T) {
+	got, err := AggregateTagCounts([]string{
+		`["weight","Weight","apple","Apple"]`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// encoding/json 与 AggregateTagCounts 均按 sort.Strings：大写在小写前
+	raw, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"Apple":1,"Weight":1,"apple":1,"weight":1}`
+	if string(raw) != want {
+		t.Fatalf("json order:\n got %s\nwant %s", raw, want)
+	}
+}
+
 func TestAggregateTagCountsDirtyJSON(t *testing.T) {
 	if _, err := AggregateTagCounts([]string{`not-json`}); err == nil {
 		t.Fatal("expected invalid JSON error")
