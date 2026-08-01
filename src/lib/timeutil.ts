@@ -1,6 +1,16 @@
-/** 校验 Node/浏览器能否识别的 IANA 时区名 */
+/**
+ * Intl 能识别、但 Go `time.LoadLocation`（含 embed tzdata）失败的区名。
+ * OpenAPI：合法 tz = Intl ∩ Go；排除后与 Go IsValidTimeZone 求交。
+ * 生成方式：对本机 `Intl.supportedValuesOf('timeZone')` 逐个 LoadLocation。
+ */
+const INTL_ONLY_TIME_ZONES = new Set([
+  'America/Coyhaique',
+])
+
+/** 校验 IANA 时区名：须同时被 Intl 与 Go tzdata 接受 */
 export function isValidTimeZone(tz: string): boolean {
   if (!tz) return false
+  if (INTL_ONLY_TIME_ZONES.has(tz)) return false
   try {
     Intl.DateTimeFormat(undefined, { timeZone: tz })
     return true

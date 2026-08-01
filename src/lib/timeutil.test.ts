@@ -42,6 +42,8 @@ describe('time helpers', () => {
     expect(isValidTimeZone('Factory')).toBe(false)
     expect(isValidTimeZone('localtime')).toBe(false)
     expect(isValidTimeZone('posixrules')).toBe(false)
+    // Intl 有、Go tzdata 无 → 求交排除（与 Go IsValidTimeZone 一致）
+    expect(isValidTimeZone('America/Coyhaique')).toBe(false)
   })
 
   it('expandCompactOffset / parseRFC3339Flexible match Go', () => {

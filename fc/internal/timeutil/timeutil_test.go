@@ -103,6 +103,10 @@ func TestIsValidTimeZone(t *testing.T) {
 			t.Fatalf("want reject Go-only zone %q", tz)
 		}
 	}
+	// Intl 有、Go LoadLocation 失败 → 求交排除
+	if IsValidTimeZone("America/Coyhaique") {
+		t.Fatal("want reject Intl-only America/Coyhaique")
+	}
 }
 
 func TestCalendarDayBoundsSharedFixtures(t *testing.T) {
