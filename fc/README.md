@@ -18,7 +18,7 @@
 
 当前应对齐的路由：
 
-- `POST /api/log/number`、`POST /api/log/text`、`POST /api/log/transaction`
+- `POST /api/log/number`、`POST /api/log/text`、`POST /api/log/transaction`、`POST /api/log/body/weight`
 - `POST /api/telegram/probe`（普通 API Token；校验 Telegram 配置并试发消息）
 - `GET /api/query`、`/api/query/summary`、`/api/query/tags`、`/api/query/transaction/summary`
 - `POST /api/admin/tags/rename`、`PATCH /api/admin/records/{id}`
@@ -31,7 +31,7 @@
   - Telegram：`TELEGRAM_BOT_TOKEN`、`TELEGRAM_USER_ID`（**两者皆非空**才启用）
   - QQ Bot：`QQBOT_APP_ID`、`QQBOT_APP_SECRET`、`QQBOT_USER_OPENID`（**三键皆非空**才启用）
   - 运行时经统一 `notify_user` 并行发送；未配置的渠道跳过。
-- 触发：`POST /api/log/number|text` INSERT 成功后推单条；`POST /api/log/transaction` 整单成功后推一条 batch 摘要；均为 best-effort，通知失败不影响 `201`。
+- 触发：`POST /api/log/number|text|body/weight` INSERT 成功后推单条；`POST /api/log/transaction` 整单成功后推一条 batch 摘要；均为 best-effort，通知失败不影响 `201`。
 - 测试：`POST /api/telegram/probe`、`POST /api/qqbot/probe`（未配置 / 发送失败返回明确英文 `error`；成功 `{ success: true }`）。`DIGITAL_TWIN_TEST=1` 时默认跳过 `notify_user`；设 `NOTIFY_ALLOW_IN_TEST=1` 才允许测试环境实发。
 - 模板：根 `.env.example`、`fc/env.fc.example`、`fc/s.yaml` 的 `environmentVariables`。
 - **部署**：`npx tsx fc/scripts/deploy.ts`（或 `./scripts/deploy.sh`）在 `s deploy` 前依次询问：

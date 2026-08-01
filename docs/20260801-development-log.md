@@ -13,7 +13,7 @@
 | 通知统一 | `notify_user` / `NotifyUser`：Telegram + QQ 并行 timed await；`NOTIFY_ALLOW_IN_TEST` |
 | QQ Bot | `POST /api/qqbot/probe`；运行时 C2C 主动发；本地 `npm run qqbot:listen-openid` |
 | 部署 UX | `secrets:refresh-prod` / FC deploy：先问是否开启 TG/QQ，否→空串，是→填齐并探测 |
-| 录入开关 | 三 log API 可选 `suppress_notification`（默认 false；true 跳过 notify） |
+| 录入开关 | 四个 log 写入 API（number / text / transaction / body/weight）可选 `suppress_notification`（默认 false；true 跳过 notify） |
 | 契约收紧 | 请求体未知 JSON 键 → 400 `Unknown JSON key: …`（`additionalProperties: false`） |
 | 构建 | FC `go build -trimpath -ldflags="-s -w"`；tags→`tagsdb` 修 Vercel Client 打进 postgres |
 
@@ -81,7 +81,7 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 ### 3.1 运行时
 
 - Next：`src/lib/notify.ts`、`src/lib/qqbot.ts`；Go：`fc/internal/notify`、`fc/internal/qqbot`
-- 录入成功（number/text/transaction）→ format（仍在 telegram 包）→ **`notify_user`**：已配置渠道并行 + ~15s timed await；失败只打英文日志
+- 录入成功（number/text/transaction/body/weight）→ format（仍在 telegram 包）→ **`notify_user`**：已配置渠道并行 + ~15s timed await；失败只打英文日志
 - 测试跳过：`DIGITAL_TWIN_TEST=1`；放行统一为 **`NOTIFY_ALLOW_IN_TEST=1`**（废弃 `TELEGRAM_ALLOW_IN_TEST`）
 - Probe **不**经 `notify_user`：`POST /api/telegram/probe`、`POST /api/qqbot/probe` 各测单通道
 
@@ -99,7 +99,7 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 
 ### 3.4 `suppress_notification`
 
-三 log 请求体可选布尔：省略/null → false；`true` → 写入逻辑不变但跳过 notify；非 boolean → 写入前 400 `Invalid suppress_notification`。
+四个 log 写入 API（`/api/log/number`、`/api/log/text`、`/api/log/transaction`、`/api/log/body/weight`）请求体可选布尔：省略/null → false；`true` → 写入逻辑不变但跳过 notify；非 boolean → 写入前 400 `Invalid suppress_notification`。
 
 ---
 
