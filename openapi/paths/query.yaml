@@ -53,8 +53,9 @@
         required: true
         description: |
           Valid IANA time zone accepted by both backends (Intl ∩ Go tzdata),
-          e.g. `UTC`, `Asia/Shanghai`. Go-only names like `Factory` /
-          `localtime` / `posixrules` → 400.
+          e.g. `UTC`, `Asia/Shanghai`. Rejected: Go-only names (`Factory` /
+          `localtime` / `posixrules`) and Intl-only names Go cannot load
+          (e.g. `America/Coyhaique`) → 400.
         schema:
           type: string
           examples:
