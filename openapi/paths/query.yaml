@@ -103,3 +103,55 @@
         $ref: '../components/responses.yaml#/Unauthorized'
       '500':
         $ref: '../components/responses.yaml#/InternalError'
+
+/api/query/transaction/summary:
+  get:
+    operationId: queryTransactionSummary
+    tags: [query]
+    summary: Income/expense totals and category breakdown for a time range
+    description: |
+      Requires `from` and `to` (ISO 8601 with timezone). Aggregates records in
+      half-open `[from, to)` whose tags include `transaction_entry:income` or
+      `transaction_entry:expense`, plus a valid `{category}:{subcategory}` tag.
+      Amounts are signed `value_number` sums (reversals cancel); all money fields
+      are exactly two-decimal strings. Categories / subcategories sorted by sum
+      descending, then name ascending. Dirty rows are skipped.
+      Auth: ApiToken.
+    security:
+      - ApiToken: []
+    parameters:
+      - name: from
+        in: query
+        required: true
+        description: |
+          Inclusive lower bound on `happened_at`. Same ISO+timezone rules as
+          other query endpoints. Missing → 400
+          (`Missing required query parameter: from`).
+          `from >= to` → 400 (`from must be earlier than to`).
+        schema:
+          type: string
+          examples:
+            - '2026-07-01T00:00:00+08:00'
+      - name: to
+        in: query
+        required: true
+        description: |
+          Exclusive upper bound on `happened_at`. Missing → 400
+          (`Missing required query parameter: to`).
+        schema:
+          type: string
+          examples:
+            - '2026-08-01T00:00:00+08:00'
+    responses:
+      '200':
+        description: Aggregated income/expense summary
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/TransactionSummarySuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

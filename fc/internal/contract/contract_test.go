@@ -82,6 +82,7 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"error-value-number-type.json", "Error"},
 		{"query-success.json", "QuerySuccess"},
 		{"summary-success.json", "SummarySuccess"},
+		{"transaction-summary-success.json", "TransactionSummarySuccess"},
 		{"log-number-request-valid.json", "LogNumberRequest"},
 		{"log-text-request-valid.json", "LogTextRequest"},
 		{"tags-success.json", "TagsSuccess"},

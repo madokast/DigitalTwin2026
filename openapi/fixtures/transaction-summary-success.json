@@ -1,0 +1,37 @@
+{
+  "success": true,
+  "from": "2026-07-01T00:00:00+08:00",
+  "to": "2026-08-01T00:00:00+08:00",
+  "income": { "sum": "15000.00", "count": 2 },
+  "expense": { "sum": "8500.50", "count": 12 },
+  "net": "6499.50",
+  "income_categories": [
+    {
+      "category": "salary",
+      "sum": "15000.00",
+      "count": 2,
+      "subcategories": [
+        { "subcategory": "payroll", "sum": "15000.00", "count": 2 }
+      ]
+    }
+  ],
+  "expense_categories": [
+    {
+      "category": "food",
+      "sum": "3000.00",
+      "count": 8,
+      "subcategories": [
+        { "subcategory": "lunch", "sum": "2200.00", "count": 3 },
+        { "subcategory": "breakfast", "sum": "800.00", "count": 5 }
+      ]
+    },
+    {
+      "category": "transport",
+      "sum": "500.00",
+      "count": 2,
+      "subcategories": [
+        { "subcategory": "taxi", "sum": "500.00", "count": 2 }
+      ]
+    }
+  ]
+}

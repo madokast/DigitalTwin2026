@@ -61,6 +61,8 @@ paths:
     $ref: './paths/query.yaml#/~1api~1query~1summary'
   /api/query/tags:
     $ref: './paths/query.yaml#/~1api~1query~1tags'
+  /api/query/transaction/summary:
+    $ref: './paths/query.yaml#/~1api~1query~1transaction~1summary'
   /api/admin/tags/rename:
     $ref: './paths/admin.yaml#/~1api~1admin~1tags~1rename'
   /api/admin/records/{id}:
@@ -120,6 +122,16 @@ components:
       $ref: './components/schemas.yaml#/QuerySuccess'
     SummarySuccess:
       $ref: './components/schemas.yaml#/SummarySuccess'
+    Money2String:
+      $ref: './components/schemas.yaml#/Money2String'
+    MoneyBucket:
+      $ref: './components/schemas.yaml#/MoneyBucket'
+    SubcategoryBucket:
+      $ref: './components/schemas.yaml#/SubcategoryBucket'
+    CategoryBucket:
+      $ref: './components/schemas.yaml#/CategoryBucket'
+    TransactionSummarySuccess:
+      $ref: './components/schemas.yaml#/TransactionSummarySuccess'
     TagsSuccess:
       $ref: './components/schemas.yaml#/TagsSuccess'
     RenameTagsRequest:

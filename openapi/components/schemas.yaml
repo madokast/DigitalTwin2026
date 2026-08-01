@@ -172,6 +172,110 @@ SummarySuccess:
       type: string
       description: Echo of the requested IANA zone
 
+# 金额输出：恰好两位小数的十进制字符串（聚合结果）
+Money2String:
+  type: string
+  description: |
+    Decimal string with exactly two fractional digits (e.g. `"0.00"`,
+    `"3000.00"`, `"-1.50"`). Used for transaction summary sums / net.
+  pattern: '^-?(?:0|[1-9]\d*)\.\d{2}$'
+  examples:
+    - '0.00'
+    - '15000.00'
+    - '-12.50'
+
+MoneyBucket:
+  type: object
+  required: [sum, count]
+  additionalProperties: false
+  properties:
+    sum:
+      $ref: '#/Money2String'
+    count:
+      type: integer
+      minimum: 0
+      description: Number of matching transaction entry rows
+
+SubcategoryBucket:
+  type: object
+  required: [subcategory, sum, count]
+  additionalProperties: false
+  properties:
+    subcategory:
+      type: string
+      minLength: 1
+    sum:
+      $ref: '#/Money2String'
+    count:
+      type: integer
+      minimum: 0
+
+CategoryBucket:
+  type: object
+  required: [category, sum, count, subcategories]
+  additionalProperties: false
+  description: |
+    Category rollup. `subcategories` sorted by sum descending, then
+    subcategory name ascending (byte order).
+  properties:
+    category:
+      type: string
+      minLength: 1
+    sum:
+      $ref: '#/Money2String'
+    count:
+      type: integer
+      minimum: 0
+    subcategories:
+      type: array
+      items:
+        $ref: '#/SubcategoryBucket'
+
+TransactionSummarySuccess:
+  type: object
+  required:
+    - success
+    - from
+    - to
+    - income
+    - expense
+    - net
+    - income_categories
+    - expense_categories
+  additionalProperties: false
+  description: |
+    Aggregate of rows tagged `transaction_entry:income` or
+    `transaction_entry:expense` in half-open `[from, to)`.
+    Each counted row must also have a valid `{category}:{subcategory}`
+    business tag; dirty rows (entry type without that tag, or null
+    `value_number`) are skipped.
+    `net` = `income.sum` − `expense.sum` (two-decimal string).
+    Category / subcategory arrays: sum desc, then name asc (byte order).
+  properties:
+    success:
+      type: boolean
+      const: true
+    from:
+      type: string
+      description: Echo of the required `from` query parameter
+    to:
+      type: string
+      description: Echo of the required `to` query parameter
+    income:
+      $ref: '#/MoneyBucket'
+    expense:
+      $ref: '#/MoneyBucket'
+    net:
+      $ref: '#/Money2String'
+    income_categories:
+      type: array
+      items:
+        $ref: '#/CategoryBucket'
+    expense_categories:
+      type: array
+      items:
+        $ref: '#/CategoryBucket'
+
 TagsSuccess:
   type: object
   required: [success, tags]

@@ -40,6 +40,10 @@ describe('OpenAPI contract (Phase 2)', () => {
     await assertValidSchema('Error', readFixture('error-value-number-type.json'))
     await assertValidSchema('QuerySuccess', readFixture('query-success.json'))
     await assertValidSchema('SummarySuccess', readFixture('summary-success.json'))
+    await assertValidSchema(
+      'TransactionSummarySuccess',
+      readFixture('transaction-summary-success.json'),
+    )
   })
 
   it('validates remaining success / request fixtures', async () => {
