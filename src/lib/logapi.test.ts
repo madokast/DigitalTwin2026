@@ -70,6 +70,22 @@ describe('createNumber', () => {
       status: 400,
     })
   })
+
+  it('rejects non-string subjective_interpretation', async () => {
+    for (const bad of [1, true, [], {}]) {
+      const result = await createNumber({
+        happened_at: '2026-07-30T08:00:00+08:00',
+        value_number: '1',
+        tags: ['weight'],
+        objective_context: 'x',
+        subjective_interpretation: bad,
+      })
+      expect(result).toEqual({
+        error: 'Invalid subjective_interpretation',
+        status: 400,
+      })
+    }
+  })
 })
 
 describe('createText', () => {
@@ -95,6 +111,20 @@ describe('createText', () => {
     })
     expect(result).toEqual({
       error: reservedTagError('transaction_entry'),
+      status: 400,
+    })
+  })
+
+  it('rejects non-string subjective_interpretation', async () => {
+    const result = await createText({
+      happened_at: '2026-08-01T12:30:00+08:00',
+      value_text: 'hello',
+      tags: ['study'],
+      objective_context: 'x',
+      subjective_interpretation: 42,
+    })
+    expect(result).toEqual({
+      error: 'Invalid subjective_interpretation',
       status: 400,
     })
   })

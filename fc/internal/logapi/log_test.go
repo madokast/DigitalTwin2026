@@ -193,3 +193,22 @@ func TestCreateTransactionBatchRejectsZeroAmount(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+func TestOptionalSubjective(t *testing.T) {
+	t.Parallel()
+
+	if v, err := optionalSubjective(nil); err != nil || v != nil {
+		t.Fatalf("nil: got (%v, %v)", v, err)
+	}
+	if v, err := optionalSubjective(""); err != nil || v != nil {
+		t.Fatalf("empty: got (%v, %v)", v, err)
+	}
+	if v, err := optionalSubjective("ok"); err != nil || v != "ok" {
+		t.Fatalf("string: got (%v, %v)", v, err)
+	}
+	for _, bad := range []any{1, true, []any{}, map[string]any{}} {
+		if _, err := optionalSubjective(bad); err == nil || err.Error() != "Invalid subjective_interpretation" {
+			t.Fatalf("%v: want Invalid subjective_interpretation, got %v", bad, err)
+		}
+	}
+}

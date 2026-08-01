@@ -16,11 +16,11 @@ import (
 )
 
 type NumberBody struct {
-	HappenedAt               string `json:"happened_at"`
-	ValueNumber              any    `json:"value_number"`
+	HappenedAt               string   `json:"happened_at"`
+	ValueNumber              any      `json:"value_number"`
 	Tags                     []string `json:"tags"`
 	ObjectiveContext         string   `json:"objective_context"`
-	SubjectiveInterpretation *string  `json:"subjective_interpretation"`
+	SubjectiveInterpretation any      `json:"subjective_interpretation"`
 }
 
 type TextBody struct {
@@ -28,14 +28,22 @@ type TextBody struct {
 	ValueText                string   `json:"value_text"`
 	Tags                     []string `json:"tags"`
 	ObjectiveContext         string   `json:"objective_context"`
-	SubjectiveInterpretation *string  `json:"subjective_interpretation"`
+	SubjectiveInterpretation any      `json:"subjective_interpretation"`
 }
 
-func optionalSubjective(s *string) any {
-	if s == nil || *s == "" {
-		return nil
+// optionalSubjective 与 draft / PATCH 对齐：非 string → 错误；空串 / null / omit → nil
+func optionalSubjective(raw any) (any, error) {
+	if raw == nil {
+		return nil, nil
 	}
-	return *s
+	s, ok := raw.(string)
+	if !ok {
+		return nil, fmt.Errorf("Invalid subjective_interpretation")
+	}
+	if s == "" {
+		return nil, nil
+	}
+	return s, nil
 }
 
 // rowQuerier：pgxpool.Pool 与 pgx.Tx 均实现
@@ -114,6 +122,10 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	if body.ObjectiveContext == "" {
 		return record.Record{}, 400, fmt.Errorf("Missing required field: objective_context")
 	}
+	subj, err := optionalSubjective(body.SubjectiveInterpretation)
+	if err != nil {
+		return record.Record{}, 400, err
+	}
 
 	tagsJSON, err := record.TagsJSON(body.Tags)
 	if err != nil {
@@ -126,7 +138,7 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 
 	rec, err := insertReturning(
 		ctx, pool, id.String(), happenedAt, numStr, nil,
-		tagsJSON, body.ObjectiveContext, optionalSubjective(body.SubjectiveInterpretation),
+		tagsJSON, body.ObjectiveContext, subj,
 	)
 	if err != nil {
 		return record.Record{}, 500, err
@@ -159,6 +171,10 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	if body.ObjectiveContext == "" {
 		return record.Record{}, 400, fmt.Errorf("Missing required field: objective_context")
 	}
+	subj, err := optionalSubjective(body.SubjectiveInterpretation)
+	if err != nil {
+		return record.Record{}, 400, err
+	}
 
 	tagsJSON, err := record.TagsJSON(body.Tags)
 	if err != nil {
@@ -172,7 +188,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 
 	rec, err := insertReturning(
 		ctx, pool, id.String(), happenedAt, nil, &vt,
-		tagsJSON, body.ObjectiveContext, optionalSubjective(body.SubjectiveInterpretation),
+		tagsJSON, body.ObjectiveContext, subj,
 	)
 	if err != nil {
 		return record.Record{}, 500, err

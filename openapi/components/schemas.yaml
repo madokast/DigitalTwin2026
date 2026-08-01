@@ -225,7 +225,9 @@ LogNumberRequest:
       minLength: 1
     subjective_interpretation:
       type: string
-      description: Optional; empty / omitted → null
+      description: |
+        Optional; empty / omitted / null → null. Non-string JSON → 400
+        (`Invalid subjective_interpretation`).
 
 LogTextRequest:
   type: object
@@ -244,6 +246,9 @@ LogTextRequest:
       minLength: 1
     subjective_interpretation:
       type: string
+      description: |
+        Optional; empty / omitted / null → null. Non-string JSON → 400
+        (`Invalid subjective_interpretation`).
 
 RecordDraftRequest:
   type: object
@@ -272,6 +277,7 @@ RecordDraftRequest:
       minLength: 1
     subjective_interpretation:
       type: [string, 'null']
+      description: Non-string JSON → 400 (`Invalid subjective_interpretation`).
 
 TelegramProbeRequest:
   type: object

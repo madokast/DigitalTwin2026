@@ -52,10 +52,17 @@ type InsertExecutor = {
   insert: typeof db.insert
 }
 
-function optionalSubjective(raw: unknown): string | null {
-  if (raw === undefined || raw === null || raw === '') return null
-  if (typeof raw !== 'string') return null
-  return raw
+/** 与 draft / PATCH 对齐：非 string → 400；空串 / null / omit → null */
+function optionalSubjective(
+  raw: unknown,
+): { value: string | null } | { error: string } {
+  if (raw === undefined || raw === null || raw === '') {
+    return { value: null }
+  }
+  if (typeof raw !== 'string') {
+    return { error: 'Invalid subjective_interpretation' }
+  }
+  return { value: raw }
 }
 
 async function insertReturning(
@@ -105,6 +112,11 @@ export async function createNumber(
     return { error: 'Missing required field: objective_context', status: 400 }
   }
 
+  const subjective = optionalSubjective(body.subjective_interpretation)
+  if ('error' in subjective) {
+    return { error: subjective.error, status: 400 }
+  }
+
   try {
     const record = await insertReturning(db, {
       id: uuidv7(),
@@ -113,9 +125,7 @@ export async function createNumber(
       valueText: null,
       tags: tagsJSON(body.tags),
       objectiveContext: body.objective_context,
-      subjectiveInterpretation: optionalSubjective(
-        body.subjective_interpretation,
-      ),
+      subjectiveInterpretation: subjective.value,
     })
     return { record, status: 201 }
   } catch (err) {
@@ -154,6 +164,11 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     return { error: 'Missing required field: objective_context', status: 400 }
   }
 
+  const subjective = optionalSubjective(body.subjective_interpretation)
+  if ('error' in subjective) {
+    return { error: subjective.error, status: 400 }
+  }
+
   try {
     const record = await insertReturning(db, {
       id: uuidv7(),
@@ -162,9 +177,7 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
       valueText: body.value_text,
       tags: tagsJSON(body.tags),
       objectiveContext: body.objective_context,
-      subjectiveInterpretation: optionalSubjective(
-        body.subjective_interpretation,
-      ),
+      subjectiveInterpretation: subjective.value,
     })
     return { record, status: 201 }
   } catch (err) {
