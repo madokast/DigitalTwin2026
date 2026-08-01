@@ -155,6 +155,7 @@ flowchart LR
 
 - 用户可见 `error` 字符串与 OpenAPI / 契约 fixtures **字节级一致**
 - 不引入仅一端使用的 Result 库或错误码枚举体系（除非双端同时引入并写入本文）
+- **请求 body 上限**：双端写路径均为 **256 KiB**（`MAX_HTTP_BODY_BYTES` / `httpx.MaxBodyBytes`）。超限 → **413** + `Request body too large`（禁止静默截断后再当残缺 JSON）。
 
 ---
 

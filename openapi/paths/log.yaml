@@ -34,6 +34,8 @@
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
@@ -72,6 +74,8 @@
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
@@ -123,5 +127,7 @@
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
       '500':
         $ref: '../components/responses.yaml#/InternalError'

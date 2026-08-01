@@ -79,5 +79,13 @@ describe('malformed / empty JSON body → 400', () => {
       expect(res.status).toBe(400)
       await expect(res.json()).resolves.toEqual({ error: 'Invalid JSON body' })
     })
+
+    it(`${c.name}: body larger than 256 KiB`, async () => {
+      const res = await c.run('a'.repeat(256 * 1024 + 1))
+      expect(res.status).toBe(413)
+      await expect(res.json()).resolves.toEqual({
+        error: 'Request body too large',
+      })
+    })
   }
 })

@@ -87,6 +87,8 @@ components:
   responses:
     BadRequest:
       $ref: './components/responses.yaml#/BadRequest'
+    PayloadTooLarge:
+      $ref: './components/responses.yaml#/PayloadTooLarge'
     Unauthorized:
       $ref: './components/responses.yaml#/Unauthorized'
     InternalError:

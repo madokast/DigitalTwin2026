@@ -19,6 +19,14 @@ import (
 	"github.com/mdk/digitaltwin2026/fc/internal/telegram"
 )
 
+// MaxBodyBytes 与 Next MAX_HTTP_BODY_BYTES（256 KiB）对齐。
+const MaxBodyBytes = 256 * 1024
+
+// ErrBodyTooLarge / BodyTooLargeMessage 与 Next REQUEST_BODY_TOO_LARGE 同文案。
+var ErrBodyTooLarge = errors.New("Request body too large")
+
+const BodyTooLargeMessage = "Request body too large"
+
 type Server struct {
 	Pool     *pgxpool.Pool
 	Tokens   auth.Tokens
@@ -101,13 +109,34 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 
 func readBody(r *http.Request) ([]byte, error) {
 	defer r.Body.Close()
-	return io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	// 多读 1 字节以区分「恰好上限」与「超限」；禁止静默截断后当残缺 JSON。
+	raw, err := io.ReadAll(io.LimitReader(r.Body, int64(MaxBodyBytes)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) > MaxBodyBytes {
+		return nil, ErrBodyTooLarge
+	}
+	return raw, nil
+}
+
+// readBodyOrError 读 body；失败时已写 JSON error，调用方应直接 return。
+func readBodyOrError(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
+	raw, err := readBody(r)
+	if err != nil {
+		if errors.Is(err, ErrBodyTooLarge) {
+			writeError(w, 413, BodyTooLargeMessage)
+			return nil, false
+		}
+		writeError(w, 400, "Invalid JSON body")
+		return nil, false
+	}
+	return raw, true
 }
 
 func (s *Server) handleLogNumber(w http.ResponseWriter, r *http.Request) {
-	raw, err := readBody(r)
-	if err != nil {
-		writeError(w, 400, "Invalid JSON body")
+	raw, ok := readBodyOrError(w, r)
+	if !ok {
 		return
 	}
 	rec, status, err := logapi.CreateNumber(r.Context(), s.Pool, raw)
@@ -126,9 +155,8 @@ func (s *Server) handleLogNumber(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
-	raw, err := readBody(r)
-	if err != nil {
-		writeError(w, 400, "Invalid JSON body")
+	raw, ok := readBodyOrError(w, r)
+	if !ok {
 		return
 	}
 	rec, status, err := logapi.CreateText(r.Context(), s.Pool, raw)
@@ -146,9 +174,8 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogTransaction(w http.ResponseWriter, r *http.Request) {
-	raw, err := readBody(r)
-	if err != nil {
-		writeError(w, 400, "Invalid JSON body")
+	raw, ok := readBodyOrError(w, r)
+	if !ok {
 		return
 	}
 	inserted, recs, status, err := logapi.CreateTransactionBatch(r.Context(), s.Pool, raw)
@@ -174,6 +201,10 @@ func (s *Server) handleTelegramProbe(w http.ResponseWriter, r *http.Request) {
 
 	text := "DigitalTwin2026 probe"
 	raw, err := readBody(r)
+	if errors.Is(err, ErrBodyTooLarge) {
+		writeError(w, 413, BodyTooLargeMessage)
+		return
+	}
 	if err == nil && len(raw) > 0 {
 		var body struct {
 			Text string `json:"text"`
@@ -254,9 +285,8 @@ func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
-	raw, err := readBody(r)
-	if err != nil {
-		writeError(w, 400, "Invalid JSON body")
+	raw, ok := readBodyOrError(w, r)
+	if !ok {
 		return
 	}
 	// any 字段：与 Next 对齐，非 string from/to 走 validateRename，而非 Invalid JSON body
@@ -296,9 +326,8 @@ func (s *Server) handlePatchRecord(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "Missing record id")
 		return
 	}
-	raw, err := readBody(r)
-	if err != nil {
-		writeError(w, 400, "Invalid JSON body")
+	raw, ok := readBodyOrError(w, r)
+	if !ok {
 		return
 	}
 	parsed, err := draft.ParseRecordDraftJSON(raw)

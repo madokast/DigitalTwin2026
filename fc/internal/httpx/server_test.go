@@ -90,6 +90,40 @@ func TestLogNumberValidationWithoutDB(t *testing.T) {
 	}
 }
 
+func TestWriteEndpointsRejectBodyLargerThan256KiB(t *testing.T) {
+	h := testServer().Handler()
+	oversized := strings.Repeat("a", MaxBodyBytes+1)
+	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(oversized))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 413 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["error"] != BodyTooLargeMessage {
+		t.Fatalf("error: %v", body)
+	}
+}
+
+func TestReadBodyAllowsExactlyMaxBodyBytes(t *testing.T) {
+	pad := MaxBodyBytes - 2
+	payload := "{" + strings.Repeat(" ", pad) + "}"
+	if len(payload) != MaxBodyBytes {
+		t.Fatalf("len=%d", len(payload))
+	}
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(payload))
+	raw, err := readBody(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) != MaxBodyBytes {
+		t.Fatalf("len=%d", len(raw))
+	}
+}
+
 func TestWriteEndpointsRejectTrailingGarbageAfterJSON(t *testing.T) {
 	h := testServer().Handler()
 	// 合法 JSON 后跟垃圾：须 400（与 Next JSON.parse / Unmarshal 对齐；旧 Decoder 会静默忽略）

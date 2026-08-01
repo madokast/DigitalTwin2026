@@ -30,6 +30,8 @@
               $ref: '../components/schemas.yaml#/Error'
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
       '502':
         description: Telegram Bot API sendMessage failed
         content:

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { NextRequest } from 'next/server'
-import { INVALID_JSON_BODY, readJsonBody } from '@/lib/httpjson'
+import { INVALID_JSON_BODY, MAX_HTTP_BODY_BYTES, readJsonBody, REQUEST_BODY_TOO_LARGE } from '@/lib/httpjson'
 
 function req(body?: string): NextRequest {
   if (body === undefined) {
@@ -43,6 +43,25 @@ describe('readJsonBody', () => {
       ok: false,
       error: INVALID_JSON_BODY,
       status: 400,
+    })
+  })
+
+  it('rejects bodies larger than 256 KiB with 413', async () => {
+    const oversized = 'a'.repeat(MAX_HTTP_BODY_BYTES + 1)
+    await expect(readJsonBody(req(oversized))).resolves.toEqual({
+      ok: false,
+      error: REQUEST_BODY_TOO_LARGE,
+      status: 413,
+    })
+  })
+
+  it('accepts body of exactly 256 KiB when it is a JSON object', async () => {
+    const pad = MAX_HTTP_BODY_BYTES - 2
+    const body = `{${' '.repeat(pad)}}`
+    expect(body.length).toBe(MAX_HTTP_BODY_BYTES)
+    await expect(readJsonBody(req(body))).resolves.toEqual({
+      ok: true,
+      value: {},
     })
   })
 })

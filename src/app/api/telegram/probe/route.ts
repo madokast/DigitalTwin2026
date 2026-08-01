@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  MAX_HTTP_BODY_BYTES,
+  REQUEST_BODY_TOO_LARGE,
+} from '@/lib/httpjson'
+import {
   configError,
   sendTelegramMessage,
 } from '@/lib/telegram'
@@ -16,9 +20,18 @@ export async function POST(request: NextRequest) {
 
   let text = 'DigitalTwin2026 probe'
   try {
-    const body = (await request.json()) as ProbeBody
-    if (typeof body?.text === 'string' && body.text.trim() !== '') {
-      text = body.text.trim()
+    const buf = await request.arrayBuffer()
+    if (buf.byteLength > MAX_HTTP_BODY_BYTES) {
+      return NextResponse.json(
+        { error: REQUEST_BODY_TOO_LARGE },
+        { status: 413 },
+      )
+    }
+    if (buf.byteLength > 0) {
+      const body = JSON.parse(new TextDecoder('utf-8').decode(buf)) as ProbeBody
+      if (typeof body?.text === 'string' && body.text.trim() !== '') {
+        text = body.text.trim()
+      }
     }
   } catch {
     // 空 body / 非 JSON：使用默认文案

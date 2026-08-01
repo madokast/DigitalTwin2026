@@ -1,3 +1,11 @@
+PayloadTooLarge:
+  description: Request body exceeds the 256 KiB limit
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/Error'
+      example:
+        error: Request body too large
 BadRequest:
   description: Validation or malformed request
   content:
