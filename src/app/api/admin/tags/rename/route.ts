@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { readJsonBody } from '@/lib/httpjson'
 import { renameAcrossRecords, validateRename } from '@/lib/tags'
 
 interface RenameTagsRequest {
@@ -8,9 +9,15 @@ interface RenameTagsRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: RenameTagsRequest = await request.json()
-    const from = body.from?.trim() ?? ''
-    const to = body.to?.trim() ?? ''
+    const parsed = await readJsonBody(request)
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+    }
+
+    const body = parsed.value as RenameTagsRequest
+    const from =
+      typeof body.from === 'string' ? body.from.trim() : ''
+    const to = typeof body.to === 'string' ? body.to.trim() : ''
 
     const validation = validateRename(from, to)
     if (!validation.valid) {

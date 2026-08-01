@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parseRecordDraft } from '@/lib/draft'
+import { parseRecordDraft, type RecordDraftBody } from '@/lib/draft'
+import { readJsonBody } from '@/lib/httpjson'
 import { update } from '@/lib/record'
 
 export async function PATCH(
@@ -12,8 +13,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'Missing record id' }, { status: 400 })
     }
 
-    const body = await request.json()
-    const parsed = parseRecordDraft(body)
+    const parsedJson = await readJsonBody(request)
+    if (!parsedJson.ok) {
+      return NextResponse.json(
+        { error: parsedJson.error },
+        { status: parsedJson.status },
+      )
+    }
+
+    const parsed = parseRecordDraft(parsedJson.value as RecordDraftBody)
     if ('error' in parsed) {
       return NextResponse.json({ error: parsed.error }, { status: 400 })
     }

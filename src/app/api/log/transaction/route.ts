@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { readJsonBody } from '@/lib/httpjson'
 import { createTransactionBatch } from '@/lib/logapi'
 import { notifyTransactionBatchInserted } from '@/lib/telegram'
+import type { LogTransactionBody } from '@/lib/transactiondraft'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const result = await createTransactionBatch(body)
+    const parsed = await readJsonBody(request)
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+    }
+
+    const result = await createTransactionBatch(
+      parsed.value as LogTransactionBody,
+    )
     if ('error' in result) {
       return NextResponse.json({ error: result.error }, { status: result.status })
     }

@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createText } from '@/lib/logapi'
+import { readJsonBody } from '@/lib/httpjson'
+import { createText, type TextBody } from '@/lib/logapi'
 import { notifyRecordInserted } from '@/lib/telegram'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const result = await createText(body)
+    const parsed = await readJsonBody(request)
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+    }
+
+    const result = await createText(parsed.value as TextBody)
     if ('error' in result) {
       return NextResponse.json({ error: result.error }, { status: result.status })
     }
