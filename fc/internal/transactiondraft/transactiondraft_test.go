@@ -82,6 +82,20 @@ func TestParseTransactionBatchOK(t *testing.T) {
 	}
 }
 
+func TestParseTransactionBatchRejectsBadCategory(t *testing.T) {
+	for _, cat := range []string{"food:x", "food x", "food\u00a0x"} {
+		raw := []byte(`{
+			"happened_at": "2026-08-01T12:30:00+08:00",
+			"type": "expense",
+			"entries": [{"amount": "25.00", "memo": "x", "category": "` + cat + `", "subcategory": "lunch"}]
+		}`)
+		_, err := ParseTransactionBatch(raw)
+		if err == nil || !strings.Contains(err.Error(), "Invalid category") {
+			t.Fatalf("category %q: err=%v", cat, err)
+		}
+	}
+}
+
 func TestIsZeroDecimalLiteral(t *testing.T) {
 	for _, s := range []string{"0", "0.0", "0.00", "-0", "-0.00"} {
 		if !IsZeroDecimalLiteral(s) {

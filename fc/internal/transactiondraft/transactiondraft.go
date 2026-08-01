@@ -103,6 +103,7 @@ func parseSegment(raw, field string) (string, error) {
 	if raw == "" {
 		return "", fmt.Errorf("Missing required field: %s", field)
 	}
+	// 仅 ASCII 空白（与 Next /[ \t\n\r]/ 一致；不用 unicode.IsSpace）
 	if strings.ContainsAny(raw, " \t\n\r") || strings.Contains(raw, ":") || !segmentPattern.MatchString(raw) {
 		return "", fmt.Errorf("Invalid %s: must be a single identifier without spaces or colons", field)
 	}

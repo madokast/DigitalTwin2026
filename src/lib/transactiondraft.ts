@@ -94,7 +94,8 @@ function parseSegment(
   if (typeof raw !== 'string' || raw === '') {
     return { error: `Missing required field: ${field}` }
   }
-  if (/\s/.test(raw) || raw.includes(':') || !SEGMENT.test(raw)) {
+  // 与 Go parseSegment 一致：仅 ASCII 空白（空格/Tab/LF/CR），不用 /\s/（会含 \u00a0 等）
+  if (/[ \t\n\r]/.test(raw) || raw.includes(':') || !SEGMENT.test(raw)) {
     return {
       error: `Invalid ${field}: must be a single identifier without spaces or colons`,
     }

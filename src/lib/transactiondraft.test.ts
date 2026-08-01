@@ -97,7 +97,7 @@ describe('parseTransactionBatch', () => {
     })
   })
 
-  it('rejects category with colon or space', () => {
+  it('rejects category with colon, ASCII space, or NBSP', () => {
     const withColon = parseTransactionBatch({
       ...base,
       entries: [{ ...base.entries[0], category: 'food:x' }],
@@ -109,6 +109,13 @@ describe('parseTransactionBatch', () => {
       entries: [{ ...base.entries[0], category: 'food x' }],
     })
     expect('error' in withSpace).toBe(true)
+
+    // \u00a0：两端均拒（SEGMENT ASCII）；空白集合本身已与 Go 对齐为 [ \\t\\n\\r]
+    const withNbsp = parseTransactionBatch({
+      ...base,
+      entries: [{ ...base.entries[0], category: 'food\u00a0x' }],
+    })
+    expect('error' in withNbsp).toBe(true)
   })
 
   it(`rejects more than ${MAX_TRANSACTION_ENTRIES} entries`, () => {
