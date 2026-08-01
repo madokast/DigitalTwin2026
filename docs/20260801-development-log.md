@@ -99,6 +99,24 @@ OpenAPI：`TransactionSummarySuccess`、`MoneyBucket`、`CategoryBucket`、`Subc
 
 ---
 
+## 1d. GET /api/query 列表排序（2026-08-02）
+
+此前列表为 `happened_at DESC`。现改为固定升序，便于按时间正向阅读；同秒用 `id`（UUIDv7 写入序）打破平局。
+
+| 项 | 约定 |
+|----|------|
+| 路径 | `GET /api/query`（ApiToken；筛选/分页不变） |
+| 排序 | 固定 `ORDER BY happened_at ASC, id ASC` |
+| 参数 | **无** `order` query 参数（不开放客户端改序） |
+| OpenAPI | `openapi/paths/query.yaml` 描述改为 ascending + id 平局；注明无 `order` |
+| 双端常量 | Next `RECORDS_LIST_ORDER_BY_SQL`（`src/lib/query.ts`）↔ Go `RecordsListOrderBy`（`fc/internal/query`） |
+| fixture | `testdata/query-records-list-order.json`（`orderBy` 字面量） |
+| 测试 | Next `src/lib/query.test.ts` + Go `query_test.go` 读同一 fixture 断言子句 |
+
+提交：`70888e2`。
+
+---
+
 ## 2. 双端 API 对齐与分层（中后段）
 
 对照 OpenAPI / 集成期望，逐项收口 Next 与 Go FC，并写入分层规范：
@@ -154,7 +172,7 @@ OpenAPI：`TransactionSummarySuccess`、`MoneyBucket`、`CategoryBucket`、`Subc
 - `npm run openapi:lint` / `npm run test:openapi` — pass
 - 定向 vitest（notify / qqbot / suppress / unknown-keys / probes / transaction / body-weight / summary 等）— pass
 - `cd fc && go test ./...` — pass（无 DB 时集成 Skip）
-- 共享 fixture：`money-amount-cases.json`、`weight-amount-cases.json`、`transaction-summary-cases.json`
+- 共享 fixture：`money-amount-cases.json`、`weight-amount-cases.json`、`transaction-summary-cases.json`、`query-records-list-order.json`
 - 全量 `npm test` 若本机 Neon 不可达，含 DB 的集成会挂起；CI 无 DB 时 Skip
 
 ---
@@ -162,6 +180,7 @@ OpenAPI：`TransactionSummarySuccess`、`MoneyBucket`、`CategoryBucket`、`Subc
 ## 6. 今日提交（主题块，自新到旧节选）
 
 ```
+70888e2  GET /api/query 固定 happened_at ASC, id ASC（OpenAPI + 双端 fixture/测试）
 a70bb4f / cc047a3  文档：四个 log 写入含 body/weight；layering + 开发日志
 3939865 / 6e97b7b  POST /api/log/body/weight + WeightAmountString + 保留 tag
 c5428ab / c3f17bc / cb98dd1  MoneyAmountString + 2dp 规范化 + abs 上限 + 共享 fixture
@@ -186,6 +205,7 @@ b77309e / a234f7b  GET /api/query/transaction/summary（层级聚合 + OpenAPI�
 - [x] `GET /api/query/transaction/summary`（按 `transaction_entry:income|expense` + 符号聚合；半开 `[from,to)`；category→subcategory 层级；两位小数串）
 - [x] `POST /api/log/body/weight`（保留 tag `body:weight`；kg；无趋势 API）
 - [x] Transaction `MoneyAmountString` 收紧（禁零、2dp 规范化、abs ≤ `999999999999.99`）
+- [x] `GET /api/query` 列表排序改为 `happened_at ASC, id ASC`（无 `order` 参数）
 - [ ] Dashboard 支出组件 / 网页录入 UI
 - [ ] 记录删除 / 图表 / 列表行内编辑
 - [ ] 其它专用 log、AI CLI、数据导出
