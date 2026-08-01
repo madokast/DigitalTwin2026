@@ -1,0 +1,215 @@
+/**
+ * log 录入：校验 + Drizzle 写入；与 Go `fc/internal/logapi` 同构。
+ * Telegram 不在此包——由 HTTP route 在成功后 best-effort 调用。
+ */
+import { v7 as uuidv7 } from 'uuid'
+import db from '@/db'
+import { records } from '@/db/schema'
+import { parseHappenedAt, parseValueNumber } from '@/lib/draft'
+import { fromDB, tagsJSON, type Record } from '@/lib/record'
+import { assertNoReservedTags, validateTags } from '@/lib/tags'
+import { parseTransactionBatch } from '@/lib/transactiondraft'
+
+export type NumberBody = {
+  happened_at?: unknown
+  value_number?: unknown
+  tags?: unknown
+  objective_context?: unknown
+  subjective_interpretation?: unknown
+}
+
+export type TextBody = {
+  happened_at?: unknown
+  value_text?: unknown
+  tags?: unknown
+  objective_context?: unknown
+  subjective_interpretation?: unknown
+}
+
+export type LogApiError = { error: string; status: number }
+
+export type CreateRecordOk = { record: Record; status: 201 }
+export type CreateRecordResult = CreateRecordOk | LogApiError
+
+export type CreateBatchOk = {
+  inserted: number
+  records: Record[]
+  status: 201
+}
+export type CreateBatchResult = CreateBatchOk | LogApiError
+
+type InsertValues = {
+  id: string
+  happenedAt: Date
+  valueNumber: string | null
+  valueText: string | null
+  tags: string
+  objectiveContext: string
+  subjectiveInterpretation: string | null
+}
+
+type InsertExecutor = {
+  insert: typeof db.insert
+}
+
+function optionalSubjective(raw: unknown): string | null {
+  if (raw === undefined || raw === null || raw === '') return null
+  if (typeof raw !== 'string') return null
+  return raw
+}
+
+async function insertReturning(
+  executor: InsertExecutor,
+  values: InsertValues,
+): Promise<Record> {
+  const result = await executor.insert(records).values(values).returning()
+  return fromDB(result[0])
+}
+
+/** 与 Go `logapi.CreateNumber` 对齐：校验 + INSERT */
+export async function createNumber(
+  body: NumberBody,
+): Promise<CreateRecordResult> {
+  const happenedResult = parseHappenedAt(body.happened_at)
+  if ('error' in happenedResult) {
+    return { error: happenedResult.error, status: 400 }
+  }
+
+  if (body.value_number === undefined || body.value_number === null) {
+    return { error: 'Missing required field: value_number', status: 400 }
+  }
+  const numberResult = parseValueNumber(body.value_number)
+  if ('error' in numberResult) {
+    return { error: numberResult.error, status: 400 }
+  }
+  if (numberResult.value === null) {
+    return { error: 'Missing required field: value_number', status: 400 }
+  }
+
+  if (!Array.isArray(body.tags) || body.tags.length === 0) {
+    return {
+      error: 'Missing required field: tags (non-empty array)',
+      status: 400,
+    }
+  }
+  const tagsValidation = validateTags(body.tags)
+  if (!tagsValidation.valid) {
+    return { error: tagsValidation.error!, status: 400 }
+  }
+  const reserved = assertNoReservedTags(body.tags)
+  if (!reserved.valid) {
+    return { error: reserved.error!, status: 400 }
+  }
+
+  if (!body.objective_context || typeof body.objective_context !== 'string') {
+    return { error: 'Missing required field: objective_context', status: 400 }
+  }
+
+  try {
+    const record = await insertReturning(db, {
+      id: uuidv7(),
+      happenedAt: happenedResult.value,
+      valueNumber: numberResult.value,
+      valueText: null,
+      tags: tagsJSON(body.tags),
+      objectiveContext: body.objective_context,
+      subjectiveInterpretation: optionalSubjective(
+        body.subjective_interpretation,
+      ),
+    })
+    return { record, status: 201 }
+  } catch (err) {
+    console.error('Error creating number record:', err)
+    return { error: 'Internal server error', status: 500 }
+  }
+}
+
+/** 与 Go `logapi.CreateText` 对齐：校验 + INSERT */
+export async function createText(body: TextBody): Promise<CreateRecordResult> {
+  const happenedResult = parseHappenedAt(body.happened_at)
+  if ('error' in happenedResult) {
+    return { error: happenedResult.error, status: 400 }
+  }
+
+  if (!body.value_text || typeof body.value_text !== 'string') {
+    return { error: 'Missing required field: value_text', status: 400 }
+  }
+
+  if (!Array.isArray(body.tags) || body.tags.length === 0) {
+    return {
+      error: 'Missing required field: tags (non-empty array)',
+      status: 400,
+    }
+  }
+  const tagsValidation = validateTags(body.tags)
+  if (!tagsValidation.valid) {
+    return { error: tagsValidation.error!, status: 400 }
+  }
+  const reserved = assertNoReservedTags(body.tags)
+  if (!reserved.valid) {
+    return { error: reserved.error!, status: 400 }
+  }
+
+  if (!body.objective_context || typeof body.objective_context !== 'string') {
+    return { error: 'Missing required field: objective_context', status: 400 }
+  }
+
+  try {
+    const record = await insertReturning(db, {
+      id: uuidv7(),
+      happenedAt: happenedResult.value,
+      valueNumber: null,
+      valueText: body.value_text,
+      tags: tagsJSON(body.tags),
+      objectiveContext: body.objective_context,
+      subjectiveInterpretation: optionalSubjective(
+        body.subjective_interpretation,
+      ),
+    })
+    return { record, status: 201 }
+  } catch (err) {
+    console.error('Error creating text record:', err)
+    return { error: 'Internal server error', status: 500 }
+  }
+}
+
+/**
+ * 与 Go `logapi.CreateTransactionBatch` 对齐：
+ * 解析委托 `parseTransactionBatch`，整单事务写入。
+ */
+export async function createTransactionBatch(
+  body: unknown,
+): Promise<CreateBatchResult> {
+  const parsed = parseTransactionBatch(
+    body as Parameters<typeof parseTransactionBatch>[0],
+  )
+  if ('error' in parsed) {
+    return { error: parsed.error, status: 400 }
+  }
+
+  try {
+    const out = await db.transaction(async (tx) => {
+      const rows: Record[] = []
+      for (const entry of parsed.entries) {
+        const result = await tx
+          .insert(records)
+          .values({
+            id: uuidv7(),
+            happenedAt: parsed.happenedAt,
+            valueNumber: entry.amount,
+            valueText: null,
+            tags: tagsJSON(entry.tags),
+            objectiveContext: entry.memo,
+            subjectiveInterpretation: null,
+          })
+          .returning()
+        rows.push(fromDB(result[0]))
+      }
+      return rows
+    })
+    return { inserted: out.length, records: out, status: 201 }
+  } catch (err) {
+    console.error('Error creating transaction records:', err)
+    return { error: 'Internal server error', status: 500 }
+  }
+}

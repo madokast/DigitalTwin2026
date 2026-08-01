@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseRecordQueryParams } from './query-records'
+import { parseRecordQueryParams } from './query'
 
 describe('parseRecordQueryParams from/to timezone', () => {
   it('rejects date-only from', () => {

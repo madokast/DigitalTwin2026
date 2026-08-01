@@ -4,7 +4,7 @@ import {
   AMOUNT_MUST_NOT_BE_ZERO,
   MAX_TRANSACTION_ENTRIES,
   parseTransactionBatch,
-} from './transaction-draft'
+} from './transactiondraft'
 
 describe('parseTransactionBatch', () => {
   const base = {

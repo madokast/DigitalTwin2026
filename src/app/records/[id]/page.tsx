@@ -22,7 +22,7 @@ import {
   wallDateTimeToOffsetIso,
 } from '@/lib/datetime-ui'
 import { getAdminToken, resolveTimezone } from '@/lib/prefs'
-import { parseRecordDraft } from '@/lib/record-draft'
+import { parseRecordDraft } from '@/lib/draft'
 
 type FieldKey =
   | 'happenedAt'

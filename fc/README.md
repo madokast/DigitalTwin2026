@@ -13,7 +13,7 @@
 
 - **新增 / 修改 API：两侧都要改**（路径、方法、鉴权、请求响应语义、校验规则）。
 - **测试双份**：Node（Vitest / `tests/api`）+ Go（`cd fc && go test ./...`）。
-- 行为真源：现有 TS `src/lib/{auth,tags,time,query-records,record-draft}` 与各 `route.ts`；Go 对齐它们。
+- 行为真源：现有 TS `src/lib/{auth,tags,timeutil,query,draft,transactiondraft,record,telegram}` 与各 `route.ts`；Go 对齐它们（分层见 [`docs/20260801-api-layering.md`](../docs/20260801-api-layering.md)）。
 - 只用**标准 PostgreSQL**（见根 `AGENTS.md` Neon 原则）。
 
 当前应对齐的路由：

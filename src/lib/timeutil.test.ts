@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getZonedDayBounds, isValidTimeZone } from './time'
+import { getZonedDayBounds, isValidTimeZone } from './timeutil'
 
 describe('time helpers', () => {
   it('rejects invalid IANA time zones', () => {

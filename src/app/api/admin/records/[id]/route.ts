@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { eq } from 'drizzle-orm'
-import db from '@/db'
-import { records } from '@/db/schema'
-import { parseRecordDraft } from '@/lib/record-draft'
-import { toApiRecord } from '@/lib/record-json'
+import { parseRecordDraft } from '@/lib/draft'
+import { update } from '@/lib/record'
 
 export async function PATCH(
   request: NextRequest,
@@ -21,26 +18,14 @@ export async function PATCH(
       return NextResponse.json({ error: parsed.error }, { status: 400 })
     }
 
-    const result = await db
-      .update(records)
-      .set({
-        happenedAt: parsed.happenedAt,
-        valueNumber: parsed.valueNumber,
-        valueText: parsed.valueText,
-        tags: JSON.stringify(parsed.tags),
-        objectiveContext: parsed.objectiveContext,
-        subjectiveInterpretation: parsed.subjectiveInterpretation,
-      })
-      .where(eq(records.id, id))
-      .returning()
-
-    if (result.length === 0) {
-      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+    const result = await update(id, parsed)
+    if ('error' in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status })
     }
 
     return NextResponse.json({
       success: true,
-      record: toApiRecord(result[0]),
+      record: result.record,
     })
   } catch (error) {
     console.error('Error patching record:', error)

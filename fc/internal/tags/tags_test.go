@@ -2,6 +2,7 @@ package tags
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 )
 
@@ -71,19 +72,21 @@ func TestAggregateTagCounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys := make([]string, 0, len(got))
-	for k := range got {
-		keys = append(keys, k)
-	}
-	wantOrder := []string{"morning", "physics", "study", "weight"}
-	// map iteration order is not guaranteed for keys slice we built from range —
-	// AggregateTagCounts returns map; JSON marshal of maps in Go sorts keys, but
-	// for equality check compare values and that all keys exist.
 	if got["weight"] != 2 || got["morning"] != 1 || got["study"] != 1 || got["physics"] != 1 {
 		t.Fatalf("counts: %#v", got)
 	}
-	_ = wantOrder
-	_ = keys
+}
+
+func TestAggregateTagCountsDirtyJSON(t *testing.T) {
+	if _, err := AggregateTagCounts([]string{`not-json`}); err == nil {
+		t.Fatal("expected invalid JSON error")
+	}
+	for _, field := range []string{`{}`, `null`, `"weight"`} {
+		_, err := AggregateTagCounts([]string{field})
+		if !errors.Is(err, ErrTagsNotJSONArray) {
+			t.Fatalf("%q: want ErrTagsNotJSONArray, got %v", field, err)
+		}
+	}
 }
 
 func TestRenameTagInTagsJSON(t *testing.T) {
@@ -108,9 +111,56 @@ func TestRenameTagInTagsJSON(t *testing.T) {
 		t.Fatalf("dedupe got %s", out)
 	}
 
-	// ensure valid JSON
 	var arr []string
 	if err := json.Unmarshal([]byte(out), &arr); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRenameTagInTagsJSONDirty(t *testing.T) {
+	_, _, err := RenameTagInTagsJSON(`{`, "a", "b")
+	if err == nil {
+		t.Fatal("expected invalid JSON error")
+	}
+	_, _, err = RenameTagInTagsJSON(`{}`, "a", "b")
+	if !errors.Is(err, ErrTagsNotJSONArray) {
+		t.Fatalf("got %v", err)
+	}
+	_, _, err = RenameTagInTagsJSON(`null`, "a", "b")
+	if !errors.Is(err, ErrTagsNotJSONArray) {
+		t.Fatalf("null: got %v", err)
+	}
+}
+
+func TestValidateRename(t *testing.T) {
+	if r := ValidateRename("", "to_tag"); r.Valid || r.Error != "Missing required fields: from, to" {
+		t.Fatalf("empty from: %+v", r)
+	}
+	if r := ValidateRename("from_tag", ""); r.Valid || r.Error != "Missing required fields: from, to" {
+		t.Fatalf("empty to: %+v", r)
+	}
+	if r := ValidateRename("bad-tag", "ok"); r.Valid || r.Error != "from and to must be valid tag names" {
+		t.Fatalf("invalid: %+v", r)
+	}
+	if r := ValidateRename("transaction_entry", "weight"); r.Valid || r.Error != ReservedTagError("transaction_entry") {
+		t.Fatalf("reserved from: %+v", r)
+	}
+	if r := ValidateRename("weight", "transaction_entry:income"); r.Valid || r.Error != ReservedTagError("transaction_entry:income") {
+		t.Fatalf("reserved to: %+v", r)
+	}
+	if r := ValidateRename("weight", "weight"); r.Valid || r.Error != "from and to must be different" {
+		t.Fatalf("same: %+v", r)
+	}
+	if r := ValidateRename("exercise", "workout"); !r.Valid {
+		t.Fatalf("expected valid: %+v", r)
+	}
+}
+
+// RenameAcrossRecords 写库路径见 tags_db_test.go（假 Querier）。
+// 此处保留纯逻辑契约：脏 JSON 与 RenameTagInTagsJSON 对齐。
+func TestRenameAcrossRecordsPureLogicContract(t *testing.T) {
+	_, _, err := RenameTagInTagsJSON(`{"not":"array"}`, "a", "b")
+	if !errors.Is(err, ErrTagsNotJSONArray) {
+		t.Fatalf("dirty row must abort rename: %v", err)
 	}
 }

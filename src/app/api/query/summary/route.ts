@@ -1,32 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { and, count, gte, lt } from 'drizzle-orm'
-import db from '@/db'
-import { records } from '@/db/schema'
-import { getZonedDayBounds, isValidTimeZone } from '@/lib/time'
+import { fetchSummary } from '@/lib/query'
 
 export async function GET(request: NextRequest) {
   try {
-    const tz = request.nextUrl.searchParams.get('tz')
-    if (!tz || !isValidTimeZone(tz)) {
-      return NextResponse.json(
-        { error: 'Query parameter tz must be a valid IANA time zone' },
-        { status: 400 },
-      )
+    const tz = request.nextUrl.searchParams.get('tz') ?? ''
+    const result = await fetchSummary(tz)
+    if ('error' in result) {
+      return NextResponse.json({ error: result.error }, { status: 400 })
     }
-
-    const { start, end } = getZonedDayBounds(new Date(), tz)
-
-    const [totalRow] = await db.select({ value: count() }).from(records)
-    const [todayRow] = await db
-      .select({ value: count() })
-      .from(records)
-      .where(and(gte(records.happenedAt, start), lt(records.happenedAt, end)))
 
     return NextResponse.json({
       success: true,
-      total: Number(totalRow?.value ?? 0),
-      today: Number(todayRow?.value ?? 0),
-      tz,
+      total: result.total,
+      today: result.today,
+      tz: result.tz,
     })
   } catch (error) {
     console.error('Error querying summary:', error)

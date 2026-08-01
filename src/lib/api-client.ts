@@ -1,14 +1,8 @@
 import { getAdminToken, getApiAccelerateBase } from '@/lib/prefs'
+import type { Record } from '@/lib/record'
 
-export type TwinRecord = {
-  id: string
-  happenedAt: string
-  valueNumber: string | null
-  valueText: string | null
-  tags: string
-  objectiveContext: string
-  subjectiveInterpretation: string | null
-}
+/** 前端别名：共享后端域类型为 `Record`（见 `src/lib/record.ts`） */
+export type TwinRecord = Record
 
 /** 规范化加速 base：去尾 `/`；空则返回 ""（同源相对路径）。 */
 export function normalizeApiBase(raw: string): string {

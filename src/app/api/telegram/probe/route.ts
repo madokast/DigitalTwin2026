@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  configError,
   sendTelegramMessage,
-  telegramConfigError,
 } from '@/lib/telegram'
 
 interface ProbeBody {
@@ -9,9 +9,9 @@ interface ProbeBody {
 }
 
 export async function POST(request: NextRequest) {
-  const configError = telegramConfigError()
-  if (configError) {
-    return NextResponse.json({ error: configError }, { status: 400 })
+  const err = configError()
+  if (err) {
+    return NextResponse.json({ error: err }, { status: 400 })
   }
 
   let text = 'DigitalTwin2026 probe'

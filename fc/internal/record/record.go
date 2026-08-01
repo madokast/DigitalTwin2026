@@ -1,8 +1,14 @@
 package record
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/mdk/digitaltwin2026/fc/internal/db"
+	"github.com/mdk/digitaltwin2026/fc/internal/draft"
 )
 
 // Record matches Next/Drizzle JSON shape (camelCase).
@@ -46,4 +52,42 @@ func TagsJSON(tags []string) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+// ErrNotFound 与 TS RECORD_NOT_FOUND 同文案；Update 在无行时返回。
+var ErrNotFound = fmt.Errorf("Record not found")
+
+// Update 按已归一化草稿更新一条记录；成功 (rec, 200, nil)；不存在 (空, 404, err)。
+// q 为可注入 Querier（*pgxpool.Pool 或测试假实现）。
+func Update(ctx context.Context, q db.Querier, id string, d *draft.NormalizedRecordDraft) (Record, int, error) {
+	tagsJSON, err := TagsJSON(d.Tags)
+	if err != nil {
+		return Record{}, 500, err
+	}
+
+	var (
+		outID, outTags, outObj   string
+		outHappened              time.Time
+		outNum, outText, outSubj *string
+	)
+	err = q.QueryRow(ctx, `
+UPDATE records SET
+  happened_at = $1,
+  value_number = $2,
+  value_text = $3,
+  tags = $4,
+  objective_context = $5,
+  subjective_interpretation = $6
+WHERE id = $7
+RETURNING id, happened_at, value_number, value_text, tags, objective_context, subjective_interpretation
+`, d.HappenedAt, d.ValueNumber, d.ValueText, tagsJSON, d.ObjectiveContext, d.SubjectiveInterpretation, id).Scan(
+		&outID, &outHappened, &outNum, &outText, &outTags, &outObj, &outSubj,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return Record{}, 404, ErrNotFound
+		}
+		return Record{}, 500, err
+	}
+	return FromDB(outID, outHappened, outNum, outText, outTags, outObj, outSubj), 200, nil
 }

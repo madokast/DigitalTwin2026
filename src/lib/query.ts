@@ -1,6 +1,9 @@
 import { and, count, desc, eq, gte, like, lt, sql, type SQL } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
+import { fromDB, type Record } from '@/lib/record'
+import { aggregateTagCounts } from '@/lib/tags'
+import { getZonedDayBounds, isValidTimeZone } from '@/lib/timeutil'
 
 export type ParsedQuery = {
   conditions: SQL[]
@@ -86,7 +89,17 @@ export function parseRecordQueryParams(
   return { conditions, id, page, pageSize }
 }
 
-export async function fetchFilteredRecords(parsed: ParsedQuery) {
+/** 与 Go `query.FetchResult` 同构：lib 内完成 FromDB 映射 */
+export type FetchResult = {
+  total: number
+  page: number
+  pageSize: number
+  records: Record[]
+}
+
+export async function fetchFilteredRecords(
+  parsed: ParsedQuery,
+): Promise<FetchResult> {
   const where =
     parsed.conditions.length > 0 ? and(...parsed.conditions) : undefined
 
@@ -101,7 +114,12 @@ export async function fetchFilteredRecords(parsed: ParsedQuery) {
     const rows = where
       ? await db.select().from(records).where(where).orderBy(desc(records.happenedAt))
       : await db.select().from(records).orderBy(desc(records.happenedAt))
-    return { total, page: 1, pageSize: rows.length || 1, records: rows }
+    return {
+      total,
+      page: 1,
+      pageSize: rows.length || 1,
+      records: rows.map(fromDB),
+    }
   }
 
   const offset = (parsed.page - 1) * parsed.pageSize
@@ -124,6 +142,42 @@ export async function fetchFilteredRecords(parsed: ParsedQuery) {
     total,
     page: parsed.page,
     pageSize: parsed.pageSize,
-    records: rows,
+    records: rows.map(fromDB),
   }
+}
+
+export type SummaryResult = {
+  total: number
+  today: number
+  tz: string
+}
+
+/** 汇总 total / 今日条数；tz 非法时返回 { error }（与 Go FetchSummary 同文案） */
+export async function fetchSummary(
+  tz: string,
+  now: Date = new Date(),
+): Promise<SummaryResult | { error: string }> {
+  if (!tz || !isValidTimeZone(tz)) {
+    return { error: 'Query parameter tz must be a valid IANA time zone' }
+  }
+
+  const { start, end } = getZonedDayBounds(now, tz)
+
+  const [totalRow] = await db.select({ value: count() }).from(records)
+  const [todayRow] = await db
+    .select({ value: count() })
+    .from(records)
+    .where(and(gte(records.happenedAt, start), lt(records.happenedAt, end)))
+
+  return {
+    total: Number(totalRow?.value ?? 0),
+    today: Number(todayRow?.value ?? 0),
+    tz,
+  }
+}
+
+/** 全表 tags 字段聚合计数（与 Go FetchTagCounts 同构） */
+export async function fetchTagCounts(): Promise<Record<string, number>> {
+  const rows = await db.select({ tags: records.tags }).from(records)
+  return aggregateTagCounts(rows.map((row) => row.tags))
 }

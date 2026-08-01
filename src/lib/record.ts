@@ -1,0 +1,125 @@
+import { eq } from 'drizzle-orm'
+import db from '@/db'
+import { records } from '@/db/schema'
+import type { NormalizedRecordDraft } from '@/lib/draft'
+
+/** API 响应 Record：与 Go `record.Record` JSON 对齐（camelCase + UTC Z） */
+
+export type Record = {
+  id: string
+  happenedAt: string
+  valueNumber: string | null
+  valueText: string | null
+  tags: string
+  objectiveContext: string
+  subjectiveInterpretation: string | null
+}
+
+type RecordRow = {
+  id: string
+  happenedAt: Date | string
+  valueNumber: string | null
+  valueText: string | null
+  tags: string
+  objectiveContext: string
+  subjectiveInterpretation: string | null
+}
+
+/**
+ * 与 Go `record.FormatHappenedAt` 对齐：UTC、毫秒三位、`Z` 后缀。
+ * Date 的 `toISOString` 已是该格式；显式转换避免依赖 JSON 序列化副作用。
+ */
+export function formatHappenedAt(value: Date | string): string {
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) {
+    return value
+  }
+  return d.toISOString()
+}
+
+/** 与 Go `record.FromDB` 对齐：DB 行 → API Record（happenedAt 为 UTC Z 字符串） */
+export function fromDB(row: RecordRow): Record {
+  return {
+    id: row.id,
+    happenedAt: formatHappenedAt(row.happenedAt),
+    valueNumber: row.valueNumber,
+    valueText: row.valueText,
+    tags: row.tags,
+    objectiveContext: row.objectiveContext,
+    subjectiveInterpretation: row.subjectiveInterpretation,
+  }
+}
+
+/** 与 Go `record.TagsJSON` 对齐：tags 数组 → JSON 字符串 */
+export function tagsJSON(tags: string[]): string {
+  return JSON.stringify(tags)
+}
+
+export type UpdateRecordResult =
+  | { record: Record; status: 200 }
+  | { error: string; status: number }
+
+/** 与 Go `record.ErrNotFound` 同文案 */
+export const RECORD_NOT_FOUND = 'Record not found'
+
+/**
+ * update 可注入的写库边界（与 Go `db.Querier` 假实现对称）。
+ * 返回更新后行；无匹配行返回 `undefined`（映射 404）。
+ */
+export type UpdateDb = {
+  updateReturning: (
+    id: string,
+    values: {
+      happenedAt: Date
+      valueNumber: string | null
+      valueText: string | null
+      tags: string
+      objectiveContext: string
+      subjectiveInterpretation: string | null
+    },
+  ) => Promise<RecordRow | undefined>
+}
+
+const defaultUpdateDb: UpdateDb = {
+  async updateReturning(id, values) {
+    const result = await db
+      .update(records)
+      .set(values)
+      .where(eq(records.id, id))
+      .returning()
+    return result[0]
+  },
+}
+
+/**
+ * 按已归一化草稿更新一条记录。
+ * 与 Go `record.Update` 对齐：成功 `{ record, status: 200 }`；不存在 `{ error, status: 404 }`。
+ * 可选 `store`：测试注入；生产调用方省略即可。
+ */
+export async function update(
+  id: string,
+  d: NormalizedRecordDraft,
+  store: UpdateDb = defaultUpdateDb,
+): Promise<UpdateRecordResult> {
+  try {
+    const row = await store.updateReturning(id, {
+      happenedAt: d.happenedAt,
+      valueNumber: d.valueNumber,
+      valueText: d.valueText,
+      tags: tagsJSON(d.tags),
+      objectiveContext: d.objectiveContext,
+      subjectiveInterpretation: d.subjectiveInterpretation,
+    })
+
+    if (!row) {
+      return { error: RECORD_NOT_FOUND, status: 404 }
+    }
+    return { record: fromDB(row), status: 200 }
+  } catch (err) {
+    console.error('Error patching record:', err)
+    return { error: 'Internal server error', status: 500 }
+  }
+}

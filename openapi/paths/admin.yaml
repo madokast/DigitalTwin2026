@@ -42,7 +42,7 @@
     summary: Replace editable fields of one record
     description: |
       Full editable snapshot replace via `parseRecordDraft` / `draft.ParseRecordDraft`
-      (`src/lib/record-draft.ts`, `fc/internal/draft`).
+      (`src/lib/draft.ts`, `fc/internal/draft`).
       `happened_at` **must** include an explicit timezone suffix
       (`Z` or `±HH:MM` / `±HHMM`) — same rule as log endpoints — and at least
       one of `value_number` / `value_text` must be non-null after normalization

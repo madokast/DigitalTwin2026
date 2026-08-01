@@ -66,7 +66,7 @@ HappenedAtUtcZ:
   description: |
     Instant as UTC ISO-8601 with millisecond precision and `Z`
     (`YYYY-MM-DDTHH:mm:ss.sssZ`). Both backends normalize this way
-    (Go `record.FormatHappenedAt`; Next `toApiRecord` / `toISOString`).
+    (Go `record.FormatHappenedAt`; Next `record.fromDB` / `formatHappenedAt`).
   pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$'
   examples:
     - '2026-07-30T00:00:00.000Z'

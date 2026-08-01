@@ -1,83 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { v7 as uuidv7 } from 'uuid'
-import db from '@/db'
-import { records } from '@/db/schema'
-import { parseHappenedAt } from '@/lib/record-draft'
-import { toApiRecord } from '@/lib/record-json'
-import { assertNoReservedTags, validateTags } from '@/lib/tags'
+import { createText } from '@/lib/logapi'
 import { notifyRecordInserted } from '@/lib/telegram'
-
-interface LogTextRequest {
-  happened_at: string
-  value_text: string
-  tags: string[]
-  objective_context: string
-  subjective_interpretation?: string
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const body: LogTextRequest = await request.json()
-
-    const happenedResult = parseHappenedAt(body.happened_at)
-    if ('error' in happenedResult) {
-      return NextResponse.json(
-        { error: happenedResult.error },
-        { status: 400 },
-      )
+    const body = await request.json()
+    const result = await createText(body)
+    if ('error' in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status })
     }
-
-    if (!body.value_text) {
-      return NextResponse.json(
-        { error: 'Missing required field: value_text' },
-        { status: 400 },
-      )
-    }
-
-    if (!body.tags || !Array.isArray(body.tags) || body.tags.length === 0) {
-      return NextResponse.json(
-        { error: 'Missing required field: tags (non-empty array)' },
-        { status: 400 },
-      )
-    }
-
-    const tagsValidation = validateTags(body.tags)
-    if (!tagsValidation.valid) {
-      return NextResponse.json(
-        { error: tagsValidation.error },
-        { status: 400 },
-      )
-    }
-    const reserved = assertNoReservedTags(body.tags)
-    if ('error' in reserved) {
-      return NextResponse.json({ error: reserved.error }, { status: 400 })
-    }
-
-    if (!body.objective_context) {
-      return NextResponse.json(
-        { error: 'Missing required field: objective_context' },
-        { status: 400 },
-      )
-    }
-
-    const result = await db.insert(records).values({
-      id: uuidv7(),
-      happenedAt: happenedResult.value,
-      valueNumber: null,
-      valueText: body.value_text,
-      tags: JSON.stringify(body.tags),
-      objectiveContext: body.objective_context,
-      subjectiveInterpretation: body.subjective_interpretation || null,
-    }).returning()
 
     // 仅 INSERT 成功后 best-effort 通知；失败不影响 201
-    await notifyRecordInserted(result[0])
+    await notifyRecordInserted(result.record)
 
-    return NextResponse.json({
-      success: true,
-      record: toApiRecord(result[0]),
-    }, { status: 201 })
-
+    return NextResponse.json(
+      { success: true, record: result.record },
+      { status: result.status },
+    )
   } catch (error) {
     console.error('Error creating text record:', error)
     return NextResponse.json(

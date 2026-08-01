@@ -7,6 +7,7 @@ import (
 
 	"github.com/mdk/digitaltwin2026/fc/internal/draft"
 	"github.com/mdk/digitaltwin2026/fc/internal/tags"
+	"github.com/mdk/digitaltwin2026/fc/internal/transactiondraft"
 )
 
 func TestCreateNumberRejectsMissingTimezone(t *testing.T) {
@@ -161,7 +162,7 @@ func TestCreateTransactionBatchRejectsJSONNumberAmount(t *testing.T) {
 	if status != 400 {
 		t.Fatalf("status %d", status)
 	}
-	if err == nil || !strings.Contains(err.Error(), amountMustBeString) {
+	if err == nil || !strings.Contains(err.Error(), transactiondraft.AmountMustBeString) {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -187,7 +188,7 @@ func TestCreateTransactionBatchRejectsZeroAmount(t *testing.T) {
 	if status != 400 {
 		t.Fatalf("status %d", status)
 	}
-	want := "entries[0]: " + amountMustNotBeZero
+	want := "entries[0]: " + transactiondraft.AmountMustNotBeZero
 	if err == nil || err.Error() != want {
 		t.Fatalf("err=%v", err)
 	}

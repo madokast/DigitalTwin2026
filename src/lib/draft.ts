@@ -145,8 +145,8 @@ export function parseRecordDraft(
     return { error: tagsValidation.error ?? 'Invalid tags' }
   }
   const reserved = assertNoReservedTags(body.tags)
-  if ('error' in reserved) {
-    return { error: reserved.error }
+  if (!reserved.valid) {
+    return { error: reserved.error! }
   }
 
   if (

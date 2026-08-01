@@ -1,11 +1,15 @@
 package tags
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/mdk/digitaltwin2026/fc/internal/db"
 )
 
 var tagPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$`)
@@ -22,6 +26,9 @@ var ReservedTagPrefixes = []string{"transaction_entry"}
 var ReservedTags = ReservedTagPrefixes
 
 const ReservedTagTransactionEntry = "transaction_entry"
+
+// ErrTagsNotJSONArray 与 TS TAGS_NOT_JSON_ARRAY 同文案：根不是 JSON 数组。
+var ErrTagsNotJSONArray = errors.New("tags field is not a JSON array")
 
 // TransactionEntryTypeTag 组装落库用类型 tag。
 func TransactionEntryTypeTag(typ string) string {
@@ -48,6 +55,11 @@ func ReservedTagError(tag string) string {
 	)
 }
 
+type ValidationResult struct {
+	Valid bool
+	Error string
+}
+
 func AssertNoReservedTags(tagList []string) ValidationResult {
 	for _, tag := range tagList {
 		if IsReservedTag(tag) {
@@ -55,11 +67,6 @@ func AssertNoReservedTags(tagList []string) ValidationResult {
 		}
 	}
 	return ValidationResult{Valid: true}
-}
-
-type ValidationResult struct {
-	Valid bool
-	Error string
 }
 
 func ValidateTags(tags []string) ValidationResult {
@@ -80,12 +87,46 @@ func ValidateTags(tags []string) ValidationResult {
 	return ValidationResult{Valid: true}
 }
 
+// ValidateRename rename 业务校验：非空、合法 tag、非保留、from≠to。调用方应先 trim。
+func ValidateRename(from, to string) ValidationResult {
+	if from == "" || to == "" {
+		return ValidationResult{Valid: false, Error: "Missing required fields: from, to"}
+	}
+	if !IsValidTag(from) || !IsValidTag(to) {
+		return ValidationResult{Valid: false, Error: "from and to must be valid tag names"}
+	}
+	if IsReservedTag(from) {
+		return ValidationResult{Valid: false, Error: ReservedTagError(from)}
+	}
+	if IsReservedTag(to) {
+		return ValidationResult{Valid: false, Error: ReservedTagError(to)}
+	}
+	if from == to {
+		return ValidationResult{Valid: false, Error: "from and to must be different"}
+	}
+	return ValidationResult{Valid: true}
+}
+
+// parseTagsJSONArray 解析 records.tags；非法 JSON 返回 err；根非数组返回 ErrTagsNotJSONArray。
+func parseTagsJSONArray(tagsJSON string) ([]any, error) {
+	var raw any
+	if err := json.Unmarshal([]byte(tagsJSON), &raw); err != nil {
+		return nil, err
+	}
+	arr, ok := raw.([]any)
+	if !ok {
+		return nil, ErrTagsNotJSONArray
+	}
+	return arr, nil
+}
+
 // AggregateTagCounts counts record occurrences per tag; keys sorted lexicographically.
+// 非法 JSON / 非数组返回 error（HTTP 映射 500）。
 func AggregateTagCounts(tagFields []string) (map[string]int, error) {
 	counts := map[string]int{}
 	for _, field := range tagFields {
-		var parsed []any
-		if err := json.Unmarshal([]byte(field), &parsed); err != nil {
+		parsed, err := parseTagsJSONArray(field)
+		if err != nil {
 			return nil, err
 		}
 		for _, item := range parsed {
@@ -108,11 +149,56 @@ func AggregateTagCounts(tagFields []string) (map[string]int, error) {
 	return ordered, nil
 }
 
+// RenameAcrossRecords 全表扫描 records，将 tags JSON 中 from 重命名为 to。
+// 对称「笨」实现：逐行读改写；性能优化须双端文档化后再破缺。
+// 脏 tags JSON 向上返回 error（HTTP 映射 500）。
+// q 为可注入 Querier（*pgxpool.Pool 或测试假实现）。
+func RenameAcrossRecords(ctx context.Context, q db.Querier, from, to string) (int, error) {
+	rows, err := q.Query(ctx, `SELECT id, tags FROM records`)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	type row struct {
+		id   string
+		tags string
+	}
+	var list []row
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.id, &r.tags); err != nil {
+			return 0, err
+		}
+		list = append(list, r)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	updated := 0
+	for _, r := range list {
+		next, ok, err := RenameTagInTagsJSON(r.tags, from, to)
+		if err != nil {
+			return 0, err
+		}
+		if !ok {
+			continue
+		}
+		if _, err := q.Exec(ctx, `UPDATE records SET tags = $1 WHERE id = $2`, next, r.id); err != nil {
+			return 0, err
+		}
+		updated++
+	}
+	return updated, nil
+}
+
 // RenameTagInTagsJSON renames from→to in a tags JSON array.
 // Returns ("", false) when from is absent; dedupes keeping first occurrence order.
+// 非法 JSON / 非数组返回 error。
 func RenameTagInTagsJSON(tagsJSON, from, to string) (string, bool, error) {
-	var parsed []any
-	if err := json.Unmarshal([]byte(tagsJSON), &parsed); err != nil {
+	parsed, err := parseTagsJSONArray(tagsJSON)
+	if err != nil {
 		return "", false, err
 	}
 

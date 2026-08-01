@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  configError,
   formatRecordMessage,
-  getTelegramConfig,
   isTelegramConfigured,
+  loadConfig,
   notifyRecordInserted,
   sendTelegramMessage,
   shouldSkipNotifyInTest,
-  telegramConfigError,
 } from './telegram'
 
 afterEach(() => {
@@ -45,7 +45,7 @@ const sampleText = {
   subjectiveInterpretation: null as string | null,
 }
 
-describe('getTelegramConfig / isTelegramConfigured', () => {
+describe('loadConfig / isTelegramConfigured', () => {
   it('requires both token and user id non-empty', () => {
     expect(isTelegramConfigured({})).toBe(false)
     expect(isTelegramConfigured({ TELEGRAM_BOT_TOKEN: 't' })).toBe(false)
@@ -66,7 +66,7 @@ describe('getTelegramConfig / isTelegramConfigured', () => {
 
   it('trims whitespace and lists missing keys', () => {
     expect(
-      getTelegramConfig({
+      loadConfig({
         TELEGRAM_BOT_TOKEN: '  tok  ',
         TELEGRAM_USER_ID: '  9  ',
       }),
@@ -76,31 +76,31 @@ describe('getTelegramConfig / isTelegramConfigured', () => {
       userId: '9',
       missing: [],
     })
-    expect(getTelegramConfig({ TELEGRAM_BOT_TOKEN: 'tok' }).missing).toEqual([
+    expect(loadConfig({ TELEGRAM_BOT_TOKEN: 'tok' }).missing).toEqual([
       'TELEGRAM_USER_ID',
     ])
   })
 })
 
-describe('telegramConfigError', () => {
+describe('configError', () => {
   it('names both when neither is set', () => {
-    expect(telegramConfigError({})).toBe(
+    expect(configError({})).toBe(
       'Telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)',
     )
   })
 
   it('names the single missing env', () => {
-    expect(telegramConfigError({ TELEGRAM_BOT_TOKEN: 't' })).toBe(
+    expect(configError({ TELEGRAM_BOT_TOKEN: 't' })).toBe(
       'Telegram is not configured (missing TELEGRAM_USER_ID)',
     )
-    expect(telegramConfigError({ TELEGRAM_USER_ID: '1' })).toBe(
+    expect(configError({ TELEGRAM_USER_ID: '1' })).toBe(
       'Telegram is not configured (missing TELEGRAM_BOT_TOKEN)',
     )
   })
 
   it('returns null when configured', () => {
     expect(
-      telegramConfigError({
+      configError({
         TELEGRAM_BOT_TOKEN: 't',
         TELEGRAM_USER_ID: '1',
       }),

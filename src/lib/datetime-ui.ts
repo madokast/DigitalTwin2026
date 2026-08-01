@@ -1,4 +1,4 @@
-import { calendarDayBounds, zonedLocalToUtc } from '@/lib/time'
+import { calendarDayBounds, zonedLocalToUtc } from '@/lib/timeutil'
 import { resolveTimezone } from '@/lib/prefs'
 
 function formatOffsetIso(date: Date, timeZone: string): string {

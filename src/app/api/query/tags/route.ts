@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server'
-import db from '@/db'
-import { records } from '@/db/schema'
-import { aggregateTagCounts } from '@/lib/tags'
+import { fetchTagCounts } from '@/lib/query'
 
 export async function GET() {
   try {
-    const rows = await db.select({ tags: records.tags }).from(records)
-    const tags = aggregateTagCounts(rows.map((row) => row.tags))
+    const tags = await fetchTagCounts()
 
     return NextResponse.json({
       success: true,

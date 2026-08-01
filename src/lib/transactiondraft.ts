@@ -3,7 +3,7 @@ import {
   validateDecimalString,
   VALUE_NUMBER_MUST_BE_STRING,
   type DraftValidationError,
-} from '@/lib/record-draft'
+} from '@/lib/draft'
 import {
   isValidTag,
   transactionEntryTypeTag,

@@ -1,12 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  TAGS_NOT_JSON_ARRAY,
   aggregateTagCounts,
   assertNoReservedTags,
   isReservedTag,
   isValidTag,
+  renameAcrossRecords,
   renameTagInTagsJson,
   reservedTagError,
+  validateRename,
   validateTags,
+  type RenameAcrossRecordsDb,
 } from './tags'
 
 describe('isValidTag', () => {
@@ -66,15 +70,19 @@ describe('reserved tags', () => {
     expect(isReservedTag('weight')).toBe(false)
   })
 
-  it('assertNoReservedTags rejects reserved names and prefixed tags', () => {
+  it('assertNoReservedTags uses ValidationResult shape { valid, error? }', () => {
     expect(assertNoReservedTags(['weight', 'transaction_entry'])).toEqual({
+      valid: false,
       error: reservedTagError('transaction_entry'),
     })
     expect(assertNoReservedTags(['transaction_entry:income'])).toEqual({
+      valid: false,
       error: reservedTagError('transaction_entry:income'),
     })
-    expect(assertNoReservedTags(['weight'])).toEqual({ ok: true })
-    expect(assertNoReservedTags(['transaction_entrypoint'])).toEqual({ ok: true })
+    expect(assertNoReservedTags(['weight'])).toEqual({ valid: true })
+    expect(assertNoReservedTags(['transaction_entrypoint'])).toEqual({
+      valid: true,
+    })
   })
 })
 
@@ -97,6 +105,16 @@ describe('aggregateTagCounts', () => {
       weight: 2,
     })
   })
+
+  it('throws on invalid JSON', () => {
+    expect(() => aggregateTagCounts(['not-json'])).toThrow()
+  })
+
+  it('throws on non-array JSON root (object/null/string)', () => {
+    expect(() => aggregateTagCounts(['{}'])).toThrow(TAGS_NOT_JSON_ARRAY)
+    expect(() => aggregateTagCounts(['null'])).toThrow(TAGS_NOT_JSON_ARRAY)
+    expect(() => aggregateTagCounts(['"weight"'])).toThrow(TAGS_NOT_JSON_ARRAY)
+  })
 })
 
 describe('renameTagInTagsJson', () => {
@@ -111,5 +129,104 @@ describe('renameTagInTagsJson', () => {
     expect(renameTagInTagsJson(JSON.stringify(['exercise', 'workout']), 'exercise', 'workout')).toBe(
       JSON.stringify(['workout']),
     )
+  })
+
+  it('throws on invalid JSON', () => {
+    expect(() => renameTagInTagsJson('{', 'a', 'b')).toThrow()
+  })
+
+  it('throws on non-array JSON root', () => {
+    expect(() => renameTagInTagsJson('{}', 'a', 'b')).toThrow(TAGS_NOT_JSON_ARRAY)
+    expect(() => renameTagInTagsJson('null', 'a', 'b')).toThrow(TAGS_NOT_JSON_ARRAY)
+  })
+})
+
+describe('validateRename', () => {
+  it('rejects empty from or to', () => {
+    expect(validateRename('', 'to_tag')).toEqual({
+      valid: false,
+      error: 'Missing required fields: from, to',
+    })
+    expect(validateRename('from_tag', '')).toEqual({
+      valid: false,
+      error: 'Missing required fields: from, to',
+    })
+  })
+
+  it('rejects invalid tag names', () => {
+    expect(validateRename('bad-tag', 'ok')).toEqual({
+      valid: false,
+      error: 'from and to must be valid tag names',
+    })
+  })
+
+  it('rejects reserved from/to (from preferred when both reserved)', () => {
+    expect(validateRename('transaction_entry', 'weight')).toEqual({
+      valid: false,
+      error: reservedTagError('transaction_entry'),
+    })
+    expect(validateRename('weight', 'transaction_entry:income')).toEqual({
+      valid: false,
+      error: reservedTagError('transaction_entry:income'),
+    })
+  })
+
+  it('rejects when from equals to', () => {
+    expect(validateRename('weight', 'weight')).toEqual({
+      valid: false,
+      error: 'from and to must be different',
+    })
+  })
+
+  it('accepts a valid rename pair', () => {
+    expect(validateRename('exercise', 'workout')).toEqual({ valid: true })
+  })
+})
+
+/**
+ * renameAcrossRecords 写库路径：注入 RenameAcrossRecordsDb（与 Go 假 Querier 对称）。
+ */
+describe('renameAcrossRecords (injected store)', () => {
+  it('updates two matching rows and returns updated===2', async () => {
+    const updateTags = vi.fn(async () => {})
+    const store: RenameAcrossRecordsDb = {
+      listIdAndTags: async () => [
+        { id: 'id-1', tags: '["weight","morning"]' },
+        { id: 'id-2', tags: '["weight"]' },
+        { id: 'id-3', tags: '["other"]' },
+      ],
+      updateTags,
+    }
+    const updated = await renameAcrossRecords('weight', 'mass', store)
+    expect(updated).toBe(2)
+    expect(updateTags).toHaveBeenCalledTimes(2)
+    expect(updateTags).toHaveBeenNthCalledWith(1, 'id-1', '["mass","morning"]')
+    expect(updateTags).toHaveBeenNthCalledWith(2, 'id-2', '["mass"]')
+  })
+
+  it('returns updated===0 and skips updateTags when no match', async () => {
+    const updateTags = vi.fn(async () => {})
+    const store: RenameAcrossRecordsDb = {
+      listIdAndTags: async () => [
+        { id: 'id-1', tags: '["alpha"]' },
+        { id: 'id-2', tags: '["beta"]' },
+      ],
+      updateTags,
+    }
+    const updated = await renameAcrossRecords('weight', 'mass', store)
+    expect(updated).toBe(0)
+    expect(updateTags).not.toHaveBeenCalled()
+  })
+
+  it('throws on dirty tags JSON and does not update', async () => {
+    const updateTags = vi.fn(async () => {})
+    const store: RenameAcrossRecordsDb = {
+      listIdAndTags: async () => [{ id: 'id-1', tags: '{"not":"array"}' }],
+      updateTags,
+    }
+    await expect(renameAcrossRecords('a', 'b', store)).rejects.toThrow(
+      TAGS_NOT_JSON_ARRAY,
+    )
+    expect(updateTags).not.toHaveBeenCalled()
   })
 })

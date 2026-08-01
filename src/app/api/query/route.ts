@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   fetchFilteredRecords,
   parseRecordQueryParams,
-} from '@/lib/query-records'
-import { toApiRecord } from '@/lib/record-json'
+} from '@/lib/query'
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +18,7 @@ export async function GET(request: NextRequest) {
       count: result.total,
       page: result.page,
       pageSize: result.pageSize,
-      records: result.records.map(toApiRecord),
+      records: result.records,
     })
   } catch (error) {
     console.error('Error querying records:', error)

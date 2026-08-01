@@ -6,7 +6,7 @@ import {
   parseValueNumber,
   validateDecimalString,
   VALUE_NUMBER_MUST_BE_STRING,
-} from './record-draft'
+} from './draft'
 import { reservedTagError } from './tags'
 
 const validBase = {

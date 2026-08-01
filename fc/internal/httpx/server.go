@@ -1,7 +1,6 @@
 package httpx
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -10,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/fc/internal/auth"
 	"github.com/mdk/digitaltwin2026/fc/internal/draft"
@@ -274,74 +272,18 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 	}
 	from := strings.TrimSpace(body.From)
 	to := strings.TrimSpace(body.To)
-	if from == "" || to == "" {
-		writeError(w, 400, "Missing required fields: from, to")
-		return
-	}
-	if !tags.IsValidTag(from) || !tags.IsValidTag(to) {
-		writeError(w, 400, "from and to must be valid tag names")
-		return
-	}
-	if tags.IsReservedTag(from) || tags.IsReservedTag(to) {
-		bad := from
-		if tags.IsReservedTag(to) && !tags.IsReservedTag(from) {
-			bad = to
-		}
-		writeError(w, 400, tags.ReservedTagError(bad))
-		return
-	}
-	if from == to {
-		writeError(w, 400, "from and to must be different")
+	if vr := tags.ValidateRename(from, to); !vr.Valid {
+		writeError(w, 400, vr.Error)
 		return
 	}
 
-	updated, err := renameTags(r.Context(), s.Pool, from, to)
+	updated, err := tags.RenameAcrossRecords(r.Context(), s.Pool, from, to)
 	if err != nil {
 		log.Printf("Error renaming tags: %v", err)
 		writeInternalError(w, err)
 		return
 	}
 	writeJSON(w, 200, map[string]any{"success": true, "updated": updated})
-}
-
-func renameTags(ctx context.Context, pool *pgxpool.Pool, from, to string) (int, error) {
-	rows, err := pool.Query(ctx, `SELECT id, tags FROM records`)
-	if err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-
-	type row struct {
-		id   string
-		tags string
-	}
-	var list []row
-	for rows.Next() {
-		var r row
-		if err := rows.Scan(&r.id, &r.tags); err != nil {
-			return 0, err
-		}
-		list = append(list, r)
-	}
-	if err := rows.Err(); err != nil {
-		return 0, err
-	}
-
-	updated := 0
-	for _, r := range list {
-		next, ok, err := tags.RenameTagInTagsJSON(r.tags, from, to)
-		if err != nil {
-			return 0, err
-		}
-		if !ok {
-			continue
-		}
-		if _, err := pool.Exec(ctx, `UPDATE records SET tags = $1 WHERE id = $2`, next, r.id); err != nil {
-			return 0, err
-		}
-		updated++
-	}
-	return updated, nil
 }
 
 func (s *Server) handlePatchRecord(w http.ResponseWriter, r *http.Request) {
@@ -360,39 +302,15 @@ func (s *Server) handlePatchRecord(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, err.Error())
 		return
 	}
-	tagsJSON, err := record.TagsJSON(parsed.Tags)
+	rec, status, err := record.Update(r.Context(), s.Pool, id, parsed)
 	if err != nil {
-		writeError(w, 500, "Internal server error")
-		return
-	}
-
-	var (
-		outID, outTags, outObj   string
-		outHappened              time.Time
-		outNum, outText, outSubj *string
-	)
-	err = s.Pool.QueryRow(r.Context(), `
-UPDATE records SET
-  happened_at = $1,
-  value_number = $2,
-  value_text = $3,
-  tags = $4,
-  objective_context = $5,
-  subjective_interpretation = $6
-WHERE id = $7
-RETURNING id, happened_at, value_number, value_text, tags, objective_context, subjective_interpretation
-`, parsed.HappenedAt, parsed.ValueNumber, parsed.ValueText, tagsJSON, parsed.ObjectiveContext, parsed.SubjectiveInterpretation, id).Scan(
-		&outID, &outHappened, &outNum, &outText, &outTags, &outObj, &outSubj,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			writeError(w, 404, "Record not found")
+		if status >= 500 {
+			log.Printf("Error patching record: %v", err)
+			writeInternalError(w, err)
 			return
 		}
-		log.Printf("Error patching record: %v", err)
-		writeInternalError(w, err)
+		writeError(w, status, err.Error())
 		return
 	}
-	rec := record.FromDB(outID, outHappened, outNum, outText, outTags, outObj, outSubj)
-	writeJSON(w, 200, map[string]any{"success": true, "record": rec})
+	writeJSON(w, status, map[string]any{"success": true, "record": rec})
 }

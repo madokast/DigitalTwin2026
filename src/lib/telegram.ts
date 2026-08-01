@@ -68,7 +68,8 @@ type FetchLike = (
   json: () => Promise<unknown>
 }>
 
-export function getTelegramConfig(env: EnvLike = process.env): TelegramConfig {
+/** 与 Go `telegram.LoadConfig` 对齐 */
+export function loadConfig(env: EnvLike = process.env): TelegramConfig {
   const token = (env.TELEGRAM_BOT_TOKEN ?? '').trim()
   const userId = (env.TELEGRAM_USER_ID ?? '').trim()
   const missing: string[] = []
@@ -83,12 +84,12 @@ export function getTelegramConfig(env: EnvLike = process.env): TelegramConfig {
 }
 
 export function isTelegramConfigured(env: EnvLike = process.env): boolean {
-  return getTelegramConfig(env).configured
+  return loadConfig(env).configured
 }
 
-/** 未配置时的英文错误；已配置返回 null */
-export function telegramConfigError(env: EnvLike = process.env): string | null {
-  const cfg = getTelegramConfig(env)
+/** 与 Go `telegram.ConfigError` 对齐：未配置时的英文错误；已配置返回 null */
+export function configError(env: EnvLike = process.env): string | null {
+  const cfg = loadConfig(env)
   if (cfg.configured) return null
   if (cfg.missing.length === 2) {
     return 'Telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)'
@@ -188,9 +189,9 @@ export async function sendTelegramMessage(
   options?: { env?: EnvLike; fetch?: FetchLike },
 ): Promise<SendResult> {
   const env = options?.env ?? process.env
-  const cfg = getTelegramConfig(env)
+  const cfg = loadConfig(env)
   if (!cfg.configured) {
-    return { ok: false, error: telegramConfigError(env)! }
+    return { ok: false, error: configError(env)! }
   }
 
   const fetchFn = options?.fetch ?? (globalThis.fetch as FetchLike)

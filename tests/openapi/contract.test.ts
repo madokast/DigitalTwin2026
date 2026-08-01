@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { toApiRecord } from '@/lib/record-json'
+import { fromDB } from '@/lib/record'
 import {
   assertInvalidSchema,
   assertValidSchema,
@@ -130,8 +130,8 @@ describe('OpenAPI contract (Phase 2)', () => {
     })
   })
 
-  it('Next toApiRecord output matches Record schema + UTC Z', async () => {
-    const rec = toApiRecord({
+  it('Next fromDB output matches Record schema + UTC Z', async () => {
+    const rec = fromDB({
       id: '01900000-0000-7000-8000-000000000001',
       happenedAt: new Date('2026-07-30T08:00:00+08:00'),
       valueNumber: '1.0',
