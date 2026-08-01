@@ -1,7 +1,6 @@
 import {
   parseHappenedAt,
   validateDecimalString,
-  VALUE_NUMBER_MUST_BE_STRING,
   type DraftValidationError,
 } from '@/lib/draft'
 import {
@@ -78,16 +77,9 @@ function parseAmount(
   if (trimmed === '') {
     return { error: 'Missing required field: amount' }
   }
-  const check = validateDecimalString(trimmed)
-  if ('error' in check) {
-    // validateDecimalString 文案含 value_number；对外统一为 amount
-    if (check.error === VALUE_NUMBER_MUST_BE_STRING) {
-      return { error: AMOUNT_MUST_BE_STRING }
-    }
-    if (check.error === 'Invalid value_number') {
-      return { error: 'Invalid amount' }
-    }
-    return { error: check.error }
+  // 复用 decimal 规则；领域文案用 amount（与 Go parseAmount 一致，不依赖 draft 错误原文）
+  if ('error' in validateDecimalString(trimmed)) {
+    return { error: 'Invalid amount' }
   }
   if (isZeroDecimalLiteral(trimmed)) {
     return { error: AMOUNT_MUST_NOT_BE_ZERO }
