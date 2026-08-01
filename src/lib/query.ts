@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, like, lt, sql, type SQL } from 'drizzle-orm'
+import { and, count, desc, eq, gte, like, lt, or, type SQL } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
 import {
@@ -105,8 +105,14 @@ export function parseRecordQueryParams(
   const q = searchParams.get('q')
   if (q) {
     const searchPattern = `%${escapeLikePattern(q)}%`
+    // 必须用 or() 包一层，否则 and(...conds) 拼出 tag AND vt OR obj …（AND 优先于 OR）
     conditions.push(
-      sql`${records.valueText} LIKE ${searchPattern} OR ${records.objectiveContext} LIKE ${searchPattern} OR ${records.subjectiveInterpretation} LIKE ${searchPattern} OR ${records.tags} LIKE ${searchPattern}`,
+      or(
+        like(records.valueText, searchPattern),
+        like(records.objectiveContext, searchPattern),
+        like(records.subjectiveInterpretation, searchPattern),
+        like(records.tags, searchPattern),
+      )!,
     )
   }
 
