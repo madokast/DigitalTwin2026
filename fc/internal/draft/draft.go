@@ -68,6 +68,7 @@ func ParseHappenedAt(raw string) (time.Time, error) {
 }
 
 // ValidateDecimalString 校验已 trim 的十进制字面量（不经 float 往返；与 Next validateDecimalString 一致）。
+// 长度用 utf8.RuneCountInString；Next 用 string.length。DECIMAL_STRING 仅 ASCII，合法字面量下相等（api-layering §1.1）。
 // 边界样例见仓库根 testdata/decimal-string-cases.json（双端单测同读）。
 func ValidateDecimalString(s string) error {
 	if utf8.RuneCountInString(s) > valueNumberMaxLen || !decimalString.MatchString(s) {

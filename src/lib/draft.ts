@@ -67,6 +67,8 @@ export function parseHappenedAt(
 /**
  * 校验已 trim 的十进制字符串字面量（不经 Number 往返）。
  * 与 Go draft.ValidateDecimalString 规则一致；边界样例见 testdata/decimal-string-cases.json。
+ * 长度用 string.length（UTF-16）；Go 用 utf8.RuneCountInString。DECIMAL_STRING 仅 ASCII，
+ * 合法字面量下二者相等（api-layering §1.1）。
  */
 export function validateDecimalString(
   s: string,

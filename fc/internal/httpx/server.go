@@ -55,7 +55,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/query/tags", s.handleTags)
 	mux.HandleFunc("POST /api/admin/tags/rename", s.handleRenameTags)
 	mux.HandleFunc("PATCH /api/admin/records/{id}", s.handlePatchRecord)
-	// 404/405 收成 {error} JSON（ServeMux 默认是 text/plain）
+	// 404/405 → {error} JSON。Next 仍用框架默认（见 api-layering §1.1）；业务 4xx 两端已对齐。
 	return withCORS(s.withAuth(withJSONErrorPages(mux)))
 }
 
@@ -113,6 +113,8 @@ func withJSONErrorPages(next http.Handler) http.Handler {
 	})
 }
 
+// withCORS：国内 Accelerate 跨域预检。OPTIONS → 204 且不鉴权。
+// Next 同源无此中间件（见 api-layering §1.1）；勿要求两端 OPTIONS 行为字节级一致。
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")

@@ -22,6 +22,9 @@
 | 运行时类型 | Go `error` / `(T, status, error)`；TS 对等的 `{ error, status }` 或现有 Result 联合（**两端选同一种形状**，不用单端专有 Result 库） |
 | DB / HTTP 适配器 | `pgx` vs Drizzle；`http.Request` vs `NextRequest` — **只出现在适配边界**，不进纯逻辑 |
 | 前端专用 | `prefs` / `datetime-ui` / `api-client` 仅 TS，**不进**对照表 |
+| **404 / 405 形态** | Go FC（`withJSONErrorPages`）统一 `{ "error": "…" }` JSON；Next 未导出的 method / 未知 `/api/*` 仍用 **框架默认**（常非业务 JSON）。业务路径的 4xx/5xx 仍两端 `{error}` 对齐 |
+| **CORS / OPTIONS** | 仅 Go `withCORS`：跨域 Accelerate 需要预检 204、不鉴权；Next 同源 Vercel **不加** CORS，OPTIONS 也走 proxy 鉴权 → 401。属部署拓扑差异，非业务契约 |
+| **小数长度计数** | Next `string.length`（UTF-16）；Go `utf8.RuneCountInString`。`DECIMAL_STRING` 仅 ASCII，合法字面量下二者相等；非法非 ASCII 会先被正则拒 |
 
 ### 1.2 刻意不做的单端高级特性
 
