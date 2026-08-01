@@ -203,7 +203,7 @@ FROM records`
 			return nil, err
 		}
 		defer rows.Close()
-		var recs []record.Record
+		recs := []record.Record{}
 		for rows.Next() {
 			rec, err := scanRecord(rows)
 			if err != nil {
