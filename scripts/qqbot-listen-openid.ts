@@ -6,13 +6,11 @@
  * 需在 .env.test 配置 QQBOT_APP_ID、QQBOT_APP_SECRET。
  * 先启动本脚本，再给机器人发一条私聊（历史消息不会回放）。
  */
-import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config as loadDotenv } from 'dotenv'
 import { readDotenvKey } from './lib/dotenv-file'
 import { TEST_ENV_FILE } from './lib/test-env'
 
-const ROOT = resolve(import.meta.dirname, '..')
 const ENV_FILE = TEST_ENV_FILE
 
 const INTENT_GROUP_AND_C2C = 1 << 25
