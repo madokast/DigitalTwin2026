@@ -60,14 +60,13 @@ describe('optional FaaS prompt strings', () => {
     expect(PROMPT_DEPLOY_TENCENT_SCF).toBe('Deploy Tencent SCF prod? [y/N] ')
   })
 
-  it('SCF stub message explains not implemented without failing', () => {
+  it('SCF stub message points at scaffold + login link flow', () => {
     expect(SCF_NOT_IMPLEMENTED_MESSAGE).toContain(
-      'Tencent Cloud SCF prod deploy is not implemented',
+      'faas/providers/tencent-scf',
     )
-    expect(SCF_NOT_IMPLEMENTED_MESSAGE).toContain('SecretId')
-    expect(SCF_NOT_IMPLEMENTED_MESSAGE).toContain('SecretKey')
-    expect(SCF_NOT_IMPLEMENTED_MESSAGE).toContain('region')
-    expect(SCF_NOT_IMPLEMENTED_MESSAGE).toContain('Skipping SCF')
+    expect(SCF_NOT_IMPLEMENTED_MESSAGE).toContain('login.sh')
+    expect(SCF_NOT_IMPLEMENTED_MESSAGE).toContain('slslogin.qcloud.com')
+    expect(SCF_NOT_IMPLEMENTED_MESSAGE).toContain('Skipping automatic SCF deploy')
   })
 })
 

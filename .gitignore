@@ -36,6 +36,8 @@ yarn-error.log*
 
 # Aliyun FC local secrets + Serverless Devs build output
 faas/providers/aliyun-fc/.env.fc.*
+faas/providers/tencent-scf/.env.scf.*
+faas/providers/tencent-scf/.scf-build/
 faas/providers/aliyun-fc/.s-build/
 faas/providers/aliyun-fc/.s/
 faas/providers/aliyun-fc/.env.fc.test

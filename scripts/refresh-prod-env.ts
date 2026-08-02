@@ -42,14 +42,14 @@ export const PROMPT_CONFIRM_VERCEL =
 
 /** SCF 尚未实现时的英文说明（选 Y 时打印，不 fail 整脚本） */
 export const SCF_NOT_IMPLEMENTED_MESSAGE = [
-  'Tencent Cloud SCF prod deploy is not implemented in this repo yet.',
-  'When ready (Task 4), you will need roughly:',
-  '  - Tencent Cloud SecretId / SecretKey (or equivalent CLI login)',
-  '  - Preferred region (e.g. ap-guangzhou / ap-shanghai)',
-  '  - SCF Web function / Serverless Framework (or official SCF CLI) tooling',
-  '  - Same env keys as FC: DATABASE_URL, DIGITAL_TWIN_TOKEN, DIGITAL_TWIN_ADMIN_TOKEN,',
-  '    plus optional TELEGRAM_* / QQBOT_* notify channels',
-  'Skipping SCF for this run; Vercel (and optional Aliyun FC) steps already completed.',
+  'Tencent Cloud SCF provider scaffold exists under faas/providers/tencent-scf.',
+  'Automatic refresh-prod → scf deploy is still pending; for a manual deploy:',
+  '  1. npm i -g serverless-cloud-framework',
+  '  2. cd faas/providers/tencent-scf && ./scripts/login.sh',
+  '     (open the printed https://slslogin.qcloud.com/... link)',
+  '  3. cp env.scf.example .env.scf.prod && fill secrets',
+  '  4. npx tsx scripts/deploy.ts prod',
+  'Skipping automatic SCF deploy for this refresh-prod run.',
 ].join('\n')
 
 const KEYS = [

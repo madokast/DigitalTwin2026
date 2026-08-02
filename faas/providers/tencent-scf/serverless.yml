@@ -1,0 +1,35 @@
+# Serverless Cloud Framework（CLI: scf）— SCF Web + CustomRuntime
+# 文档: https://cloud.tencent.com/document/product/1154/50938
+# 地域: ap-guangzhou（可改）；真实函数 URL / 密钥禁止进 git。
+#
+# 部署前由 scripts/deploy.ts 交叉编译 faas/cmd/api → .scf-build/bootstrap，
+# 并写入 scf_bootstrap；勿手改 .scf-build/。
+
+app: digitaltwin-api
+component: scf
+name: digitaltwin-api
+
+inputs:
+  name: digitaltwin-api-${stage}
+  type: web
+  region: ap-guangzhou
+  runtime: CustomRuntime
+  description: DigitalTwin2026 HTTP API (Go Web on SCF)
+  # 省钱起步档；部署后可再调（用户确认最低可用）
+  memorySize: 64
+  timeout: 30
+  initTimeout: 30
+  src: ./.scf-build
+  environment:
+    variables:
+      PORT: '9000'
+      # 下列键由 deploy 脚本从 .env.scf.{stage} 注入到临时 env / 控制台；
+      # yml 内勿写真实密钥。占位空串便于文档对照。
+      DATABASE_URL: ${env:DATABASE_URL}
+      DIGITAL_TWIN_TOKEN: ${env:DIGITAL_TWIN_TOKEN}
+      DIGITAL_TWIN_ADMIN_TOKEN: ${env:DIGITAL_TWIN_ADMIN_TOKEN}
+      TELEGRAM_BOT_TOKEN: ${env:TELEGRAM_BOT_TOKEN, ''}
+      TELEGRAM_USER_ID: ${env:TELEGRAM_USER_ID, ''}
+      QQBOT_APP_ID: ${env:QQBOT_APP_ID, ''}
+      QQBOT_APP_SECRET: ${env:QQBOT_APP_SECRET, ''}
+      QQBOT_USER_OPENID: ${env:QQBOT_USER_OPENID, ''}

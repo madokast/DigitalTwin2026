@@ -1,0 +1,6 @@
+#!/bin/bash
+# Web 函数启动脚本模板；deploy 时复制到 .scf-build/scf_bootstrap 并 chmod +x。
+# 必须监听 9000（与 PORT 一致）。
+set -euo pipefail
+export PORT="${PORT:-9000}"
+exec ./bootstrap

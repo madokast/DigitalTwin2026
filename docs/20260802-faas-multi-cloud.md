@@ -1,9 +1,9 @@
 # DigitalTwin2026：多云 FaaS 国内加速（FC + SCF）
 
 > 创建日期：2026-08-02  
-> 状态：讨论定稿 + **Task 1–2 目录搬迁已落地**；**Task 3 `secrets:refresh-prod` UX 已落地**（SCF Web 实现仍属后续）  
+> 状态：讨论定稿 + Task 1–3 已落地；**Task 4 SCF**：部署工具已定为 **Serverless Cloud Framework**（`scf`），实现仍待做  
 > 性质：架构讨论；永久双云（阿里云 FC **保留** + 腾讯云 SCF **新增**）  
-> 相关：[`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md)、[`AGENTS.md`](../AGENTS.md)、[`docs/20260801-api-layering.md`](20260801-api-layering.md)
+> 相关：[`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md)、[`AGENTS.md`](../AGENTS.md)、[`docs/20260801-api-layering.md`](20260801-api-layering.md)；SCF 工具文档：https://cloud.tencent.com/document/product/1154/50938
 
 ## 0. 目标与非目标
 
@@ -19,7 +19,7 @@
 
 - ~~**不**移动 / 重命名现有 `fc/` 目录~~ → **已完成**：`faas/` + `providers/aliyun-fc/`。
 - ~~**不**改 `scripts/refresh-prod-env.ts`~~ → **已完成**（§4 UX）。
-- **不**实现腾讯云 SCF 函数、触发器或 Serverless Framework / SCF CLI 配置（仍属 Task 4）。
+- **不**实现腾讯云 SCF provider 全套（仍属 Task 4；工具链已定为 Serverless Cloud Framework）。
 - **不**改客户端 prefs / Settings UI 契约（仍是单一 Base URL 字符串）。
 - **不**新增「向阿里云 / 腾讯云自动部署」的 CI job（今天本来就没有）。
 
@@ -102,8 +102,13 @@ faas/
         deploy.sh
         info.sh
         …
-    tencent-scf/           # 新建：SCF Web 配置与部署脚本
-      # serverless.yml / scf 配置、env 模板、deploy 脚本（实现时定）
+    tencent-scf/           # 新建：Serverless Cloud Framework（`scf`）
+      serverless.yml       # type: web + CustomRuntime
+      scf_bootstrap        # 或构建时生成
+      env.scf.example
+      scripts/
+        deploy.ts          # 预编译 faas/cmd/api → scf deploy（丢弃敏感输出）
+        info.sh
     # future vendors...
       # providers/<id>/
 ```
@@ -169,16 +174,22 @@ flowchart TD
 
 ---
 
-## 5. SCF 接入约定（实现约束，本篇不写代码）
+## 5. SCF 接入约定
 
 | 项 | 约定 |
 |----|------|
-| 形态 | **SCF Web 函数**，HTTP 直出；与 FC custom runtime 同属「标准 HTTP 进程」模型 |
-| 二进制 | 同一 `faas/cmd/api` 构建产物语义（linux/amd64、trimpath/`-s -w` 等由各 provider 脚本决定） |
-| 端口 | **9000**（`PORT=9000`）；与今日 FC 一致，避免双端分叉 |
+| 形态 | **SCF Web 函数**（`type: web`），HTTP 直出；与 FC custom runtime 同属「标准 HTTP 进程」模型 |
+| **部署工具** | 全局安装 [`serverless-cloud-framework`](https://cloud.tencent.com/document/product/1154/50938)（`npm i -g serverless-cloud-framework`）；CLI 简写 **`scf`**（`scf deploy` / `scf info`）。厂商登录可用微信扫码（文档快速入门）或 `.env` 凭证；**AK 与函数 URL 禁止进 git** |
+| 配置 | `faas/providers/tencent-scf/serverless.yml`（及 env 模板 / deploy 包装脚本）；`component: scf`，`inputs.type: web`，`runtime: CustomRuntime`（或平台等价自定义运行时） |
+| 启动 | 构建 linux/amd64 二进制 + **`scf_bootstrap`**（启动 `./bootstrap` 或等价，监听 **9000**）；与 [Web 函数 bootstrap](https://cloud.tencent.com/document/product/583/56144) 模型对齐 |
+| 二进制 | 同一 `faas/cmd/api` 构建产物语义（`GOOS=linux GOARCH=amd64 CGO_ENABLED=0`，trimpath/`-s -w` 等由 provider 脚本决定） |
+| 端口 | **9000**（`PORT=9000`）；与今日 FC 一致 |
 | 环境变量 | 与 FC 同名键：`DATABASE_URL`、Tokens、Telegram / QQ Bot 等 |
 | 鉴权 / 路由 | 与 Next / FC **契约一致**（OpenAPI + 双端测试仍是真源） |
-| URL | 部署后得到的 HTTPS Base URL 粘到 Settings；**禁止进 git**（同今日 FC） |
+| URL | `scf deploy` / `scf info` 得到的 HTTPS Base URL 粘到 Settings；**禁止进 git** |
+| 密钥与 refresh-prod | 选 Y 部署 SCF 时：预检本机已安装 `scf`（或 `serverless-cloud-framework`）；部署前注入 env（勿把 `scf deploy` 明文密钥打到终端，对齐阿里云「禁裸 deploy」精神） |
+
+说明：官方快速入门模板多为事件函数 / Node；本仓库 **不用** `scf-nodejs` helloworld，而是自管 `serverless.yml` + 预编译 Go Web 包，仅复用 **SCF CLI / 登录 / 组件发布链路**。
 
 ---
 
@@ -234,20 +245,20 @@ flowchart TD
 1. **永久双云**：保留全部阿里云 FC 配置与能力；另增独立 provider 目录；**不删除** FC（按量、空闲 ≈ 免费）。  
 2. **目标布局**：`faas/{cmd,internal,go.mod}` + `faas/providers/aliyun-fc/` + `faas/providers/tencent-scf/`（及未来 `providers/<id>/`）；共享代码**不得** import `providers/*`。  
 3. **`secrets:refresh-prod`**：Vercel **必做**；阿里云 FC **`Deploy Aliyun FC prod? [y/N]` 默认 N**；腾讯云 SCF **`Deploy Tencent SCF prod? [y/N]` 默认 N**；逐云询问，仅 yes 部署；**各云 CLI 预检仅在该云部署前**（已落地）。  
-4. **SCF**：Web 函数 lift-and-shift；同一 Go 二进制语义；端口 **9000**。  
+4. **SCF**：Web 函数 lift-and-shift；同一 Go 二进制语义；端口 **9000**；部署工具 **`npm i -g serverless-cloud-framework`（CLI `scf`）**，见 §5 与 [官方快速部署](https://cloud.tencent.com/document/product/1154/50938)。  
 5. **成本**：FC 保持 128MB / min0 / reservedConcurrency 1；SCF 从约 64MB 等价档起，**部署后用户确认**能否更低。  
 6. **扩展**：更多厂商只加 `providers/<id>/` + refresh-prod 多一问。  
 7. **测试真相**：今日**无** CI/自动化部署阿里云 FC；仅有 `go test` 与 prefs 中的 URL 字符串样例。默认 off **不等于**关闭不存在的部署测试。  
 8. **客户端**：单条 Accelerate Base URL；厂商无关。  
-9. **交付进度**：目录搬迁 + refresh-prod UX 已落地；**不**实现完整 SCF Web（Task 4）；**不**改动 `docs/20260802-todo-feature.md`。  
+9. **交付进度**：目录搬迁 + refresh-prod UX 已落地；SCF **工具链已定**，完整 `providers/tencent-scf` 仍属 Task 4；**不**改动 `docs/20260802-todo-feature.md`。  
 10. **风险记账**：Neon 延迟、Telegram 出网、SCF 响应流量 / CLS —— 见 §7。
 
 ---
 
 ## 11. 开放小项（不阻塞定稿，实现前可再收）
 
-- `go.mod` module path：保持旧 path 还是改为 `…/faas`。  
-- SCF 具体 IaC 工具（腾讯云官方 CLI / Serverless Framework / 其它）与 test/prod 函数命名。  
-- refresh-prod 在「FC=Y 失败」后是否仍询问 SCF（建议：失败即 `exit 1`，与今日一致）。  
-- provider 内 env 文件命名是否统一为 `env.example` vs 保留 `env.fc.example`。  
+- SCF **地域**默认 **`ap-guangzhou`**（`faas/providers/tencent-scf/serverless.yml`）；可改。  
+- 登录：`cd faas/providers/tencent-scf && scf login` → 终端打印 `https://slslogin.qcloud.com/…`（或微信扫码）。  
+- SCF 最低 memory（64 vs 128）以首次部署后实测为准。  
+- refresh-prod 自动调用 `deploy.ts prod` 的接线仍待完成（骨架 + 手动 deploy 已可用）。  
 - Settings UI 是否补充 SCF URL 示例文案（纯文档/文案，非契约变更）。
