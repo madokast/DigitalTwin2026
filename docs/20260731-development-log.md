@@ -25,7 +25,7 @@
 | Telegram | `POST /api/log/*` 成功后 best-effort 通知；`POST /api/telegram/probe`；测试模式可跳过实发 |
 | OpenAPI | 3.1 多文件 `$ref`；Redocly；fixtures + Vitest / Go contract；CI；**已收口** |
 | 契约对齐 | `value_number` 仅十进制字符串；`happened_at` / `from`/`to` 必带时区；输出 `…sssZ` |
-| 文档 | `fc/README.md`、`openapi/README.md` 真源；根 README / `AGENTS.md` 同步；本日志 |
+| 文档 | `faas/providers/aliyun-fc/README.md`、`openapi/README.md` 真源；根 README / `AGENTS.md` 同步；本日志 |
 
 ## 1. Admin PATCH
 
@@ -83,7 +83,7 @@ cd fc && go test ./...
 - 部署：**必须** `./scripts/deploy` / `deploy.ts`（`test|prod`；禁裸 `s deploy`，防密钥进终端）
 - 取 URL：`./scripts/info.sh test|prod`
 - 省钱默认：128MB / 0.05 CPU / disk 512 / timeout 30 / `instanceConcurrency: 1` / `minInstances: 0` / `reservedConcurrency: 1`
-- 操作说明只维护在 **[`fc/README.md`](../fc/README.md)**；`AGENTS.md` 仅引用
+- 操作说明只维护在 **[`faas/providers/aliyun-faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-faas/providers/aliyun-fc/README.md)**；`AGENTS.md` 仅引用
 
 ### 4.3 密钥与 Vercel
 
@@ -190,7 +190,7 @@ f117da6 添加 Admin PATCH 更新记录接口与草稿校验。
 - [ ] 前端：记录删除 / 图表 / 列表行内编辑
 - [ ] AI 侧 CLI 包装（只注入 AI Token）
 - [ ] 数据库 COMMENT、数据导出
-- [x] 阿里云函数计算部署（日常以 `fc/README.md` 为准）
+- [x] 阿里云函数计算部署（日常以 `faas/providers/aliyun-fc/README.md` 为准）
 - [x] OpenAPI 契约基建（见 §9；维护即可）
 
 可选运维（非代码必做）：Vercel Hobby 防火墙限流 1 条；Token 轮换习惯；公开站主要风险是额度刷停而非自动扣费。

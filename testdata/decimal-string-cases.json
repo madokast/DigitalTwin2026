@@ -1,5 +1,5 @@
 {
-  "comment": "Shared accept/reject cases for validateDecimalString / ValidateDecimalString. Both Next (src/lib/draft.test.ts) and Go (fc/internal/draft) load this file.",
+  "comment": "Shared accept/reject cases for validateDecimalString / ValidateDecimalString. Both Next (src/lib/draft.test.ts) and Go (faas/internal/draft) load this file.",
   "accept": [
     "0",
     "1",

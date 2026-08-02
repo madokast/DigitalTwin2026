@@ -1,5 +1,5 @@
 {
-  "comment": "Shared calendarDayBounds / CalendarDayBounds cases. Both Next (src/lib/timeutil.test.ts) and Go (fc/internal/timeutil) load this file. end = next wall-clock midnight in tz (Go AddDate(0,0,1) / TS calendar day+1).",
+  "comment": "Shared calendarDayBounds / CalendarDayBounds cases. Both Next (src/lib/timeutil.test.ts) and Go (faas/internal/timeutil) load this file. end = next wall-clock midnight in tz (Go AddDate(0,0,1) / TS calendar day+1).",
   "cases": [
     {
       "name": "asia-shanghai",

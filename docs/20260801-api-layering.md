@@ -2,7 +2,7 @@
 
 > 日期：2026-08-01  
 > 状态：规范已落地；Phase 2–5 实现与验证已完成（2026-08-01）  
-> 适用范围：Next（`src/app/api` + `src/lib`）与 Go FC（`fc/internal`）共享后端域
+> 适用范围：Next（`src/app/api` + `src/lib`）与 Go FaaS（`faas/internal`）共享后端域
 
 本文件是双端 **强对称** 的硬规范。改 API 实现前先对照本文；新增能力必须同时加两端同名模块 / 函数。
 
@@ -58,13 +58,13 @@ flowchart LR
 
 | 层 | 职责 | 禁止 |
 |----|------|------|
-| **HTTP**（`fc/internal/httpx`、`src/app/api/**/route.ts`） | 绑定请求、调用 lib、映射 HTTP status、写 JSON、成功后统一 notify 扇出 | **业务 SQL** / 业务校验编排（保留鉴权、CORS、框架绑定） |
-| **lib / internal**（`src/lib/X`、`fc/internal/X`） | 校验、纯变换、DB 编排 | 直接写 HTTP 响应；在纯逻辑里依赖具体 HTTP 类型（适配器边界除外） |
-| **db**（`fc/internal/db`、Drizzle schema） | 连接与表定义 | 业务规则 |
+| **HTTP**（`faas/internal/httpx`、`src/app/api/**/route.ts`） | 绑定请求、调用 lib、映射 HTTP status、写 JSON、成功后统一 notify 扇出 | **业务 SQL** / 业务校验编排（保留鉴权、CORS、框架绑定） |
+| **lib / internal**（`src/lib/X`、`faas/internal/X`） | 校验、纯变换、DB 编排 | 直接写 HTTP 响应；在纯逻辑里依赖具体 HTTP 类型（适配器边界除外） |
+| **db**（`faas/internal/db`、Drizzle schema） | 连接与表定义 | 业务规则 |
 
 ### 2.1 硬禁令
 
-1. **禁止** `src/app/api/**/route.ts` 与 `fc/internal/httpx/server.go` 出现 **业务 SQL**（含内联 Drizzle `insert` / `update` / `select` 编排与 Go 裸 SQL）。例外：测试代码；`fc/internal/db` 连接辅助。
+1. **禁止** `src/app/api/**/route.ts` 与 `faas/internal/httpx/server.go` 出现 **业务 SQL**（含内联 Drizzle `insert` / `update` / `select` 编排与 Go 裸 SQL）。例外：测试代码；`faas/internal/db` 连接辅助。
 2. **禁止** 只改一端：共享后端新能力必须同时加两端同名模块 / 函数，并先更新本文对照表。
 3. **禁止** 静默单端性能优化导致对称破缺（见 §8）。
 4. **notify 留在 HTTP 层**：INSERT / 批处理成功后由 handler 经统一 `notify` best-effort 扇出（Telegram/QQ）；不把渠道发送塞进 `logapi` / `record` 的 DB 函数里。
@@ -97,20 +97,20 @@ flowchart LR
 
 | Stem | Go | TS | 备注 |
 |------|----|----|------|
-| `tags` | `fc/internal/tags` | `src/lib/tags.ts` | 已有；含 `RenameAcrossRecords` |
-| `draft` | `fc/internal/draft` | `src/lib/draft.ts` | TS 已由 `record-draft.ts` 改名 |
-| `transactiondraft` | `fc/internal/transactiondraft` | `src/lib/transactiondraft.ts` | **独立成包**（已落地）；TS 已由 `transaction-draft.ts` 改名；Go 已从 `logapi` 抽出纯解析 |
-| `bodyweightdraft` | `fc/internal/bodyweightdraft` | `src/lib/bodyweightdraft.ts` | **独立成包**；体重 `value_number` 解析/规范化；落库 tags 组装含 `body:weight` |
-| `query` | `fc/internal/query` | `src/lib/query.ts` | TS 已由 `query-records.ts` 改名 |
-| `logapi` | `fc/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` / `bodyweightdraft` |
-| `record` | `fc/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `Update` / `FromDB` / `TagsJSON` / type `Record` |
-| `telegram` | `fc/internal/telegram` | `src/lib/telegram.ts` | 渠道：配置 / 排版 / 发送；probe 直调；录入路径经 `notify` |
-| `qqbot` | `fc/internal/qqbot` | `src/lib/qqbot.ts` | 渠道：配置 / token / 发送；probe 直调；录入路径经 `notify`（函数 stem 见 §5.2） |
-| `notify` | `fc/internal/notify` | `src/lib/notify.ts` | 统一扇出入口；HTTP 成功后调用（函数 stem 见 §5.2；调度差异见 §1.1 / §7） |
-| `timeutil` | `fc/internal/timeutil` | `src/lib/timeutil.ts` | TS 已由 `time.ts` 改名 |
-| `auth` | `fc/internal/auth` | `src/lib/auth.ts` | 已有 |
-| `httpx` | `fc/internal/httpx` | `src/app/api/**/route.ts` | 框架层，**不要求**文件同名 |
-| `db` | `fc/internal/db`（含可注入 `Querier`） | Drizzle schema（现有路径）；写库函数可选末参 `store` | 连接 / 表；非业务编排 |
+| `tags` | `faas/internal/tags` | `src/lib/tags.ts` | 已有；含 `RenameAcrossRecords` |
+| `draft` | `faas/internal/draft` | `src/lib/draft.ts` | TS 已由 `record-draft.ts` 改名 |
+| `transactiondraft` | `faas/internal/transactiondraft` | `src/lib/transactiondraft.ts` | **独立成包**（已落地）；TS 已由 `transaction-draft.ts` 改名；Go 已从 `logapi` 抽出纯解析 |
+| `bodyweightdraft` | `faas/internal/bodyweightdraft` | `src/lib/bodyweightdraft.ts` | **独立成包**；体重 `value_number` 解析/规范化；落库 tags 组装含 `body:weight` |
+| `query` | `faas/internal/query` | `src/lib/query.ts` | TS 已由 `query-records.ts` 改名 |
+| `logapi` | `faas/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` / `bodyweightdraft` |
+| `record` | `faas/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `Update` / `FromDB` / `TagsJSON` / type `Record` |
+| `telegram` | `faas/internal/telegram` | `src/lib/telegram.ts` | 渠道：配置 / 排版 / 发送；probe 直调；录入路径经 `notify` |
+| `qqbot` | `faas/internal/qqbot` | `src/lib/qqbot.ts` | 渠道：配置 / token / 发送；probe 直调；录入路径经 `notify`（函数 stem 见 §5.2） |
+| `notify` | `faas/internal/notify` | `src/lib/notify.ts` | 统一扇出入口；HTTP 成功后调用（函数 stem 见 §5.2；调度差异见 §1.1 / §7） |
+| `timeutil` | `faas/internal/timeutil` | `src/lib/timeutil.ts` | TS 已由 `time.ts` 改名 |
+| `auth` | `faas/internal/auth` | `src/lib/auth.ts` | 已有 |
+| `httpx` | `faas/internal/httpx` | `src/app/api/**/route.ts` | 框架层，**不要求**文件同名 |
+| `db` | `faas/internal/db`（含可注入 `Querier`） | Drizzle schema（现有路径）；写库函数可选末参 `store` | 连接 / 表；非业务编排 |
 
 **不进对照表（仅 TS 前端）**：`prefs`、`datetime-ui`、`api-client`。
 
@@ -203,7 +203,7 @@ flowchart LR
 
 - **不**借分层重构修改对外 HTTP 契约与鉴权语义。
 - 改实现后仍跑：`npm test`、`cd fc && go test ./...`、`npm run test:openapi`、`cd fc && go test ./internal/contract/`。
-- 抽检：`src/app/api` 与 `fc/internal/httpx/server.go` 无业务 SQL。
+- 抽检：`src/app/api` 与 `faas/internal/httpx/server.go` 无业务 SQL。
 
 ---
 
@@ -212,7 +212,7 @@ flowchart LR
 以下为**后续变更**自检模板，非本轮未完成项（本轮同构落地已核；Phase 2–5 / P1 / DB mock 已完成）。
 
 - [ ] 对照表已包含新符号（先改本文）
-- [ ] Go `fc/internal/<stem>` 与 TS `src/lib/<stem>.ts` 同时存在
+- [ ] Go `faas/internal/<stem>` 与 TS `src/lib/<stem>.ts` 同时存在
 - [ ] 函数 stem / 字段名 / 错误文案对齐
 - [ ] HTTP 层无业务 SQL；notify（Telegram/QQ）仅在成功后由 HTTP 经统一入口调用
 - [ ] 契约测与双端单测通过

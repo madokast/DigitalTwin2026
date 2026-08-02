@@ -1,5 +1,5 @@
 /**
- * HTTP 层 JSON 绑定：与 Go `fc/internal/httpx` / decode 失败文案对齐。
+ * HTTP 层 JSON 绑定：与 Go `faas/internal/httpx` / decode 失败文案对齐。
  * 空 body、语法错误、非 object 等客户端问题 → 400，不得落入通用 500 catch。
  * 超过 MaxBodyBytes → 413（与 Go readBody 对齐）。
  */

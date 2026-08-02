@@ -1,5 +1,5 @@
 /**
- * 体重录入纯解析（与 fc/internal/bodyweightdraft 同构）。
+ * 体重录入纯解析（与 faas/internal/bodyweightdraft 同构）。
  * 单位约定 kg；落库 tags 始终以保留前缀 `body:weight` 开头。
  */
 import {

@@ -77,7 +77,7 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 
 相关：`src/lib/bodyweightdraft.ts`、`fc/internal/bodyweightdraft`、`logapi.CreateBodyWeight`、OpenAPI `LogBodyWeightRequest` / `WeightAmountString`。
 
-文档同步：四个 log 写入 API 列表（本日志 / `fc/README.md` / layering）均含 `body/weight`；`suppress_notification` 与 notify 扇出覆盖四路径。
+文档同步：四个 log 写入 API 列表（本日志 / `faas/providers/aliyun-fc/README.md` / layering）均含 `body/weight`；`suppress_notification` 与 notify 扇出覆盖四路径。
 
 ---
 

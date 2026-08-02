@@ -60,7 +60,7 @@ npm run openapi:preview
    - 共享参数 / 响应 / schema / 鉴权方案 → `components/*.yaml`。
    - 仅改总述、servers、tags → 根 [`openapi.yaml`](./openapi.yaml)。
 2. 必要时更新 [`fixtures/`](./fixtures/)。
-3. 再改 Next（`src/app/api/**`、`src/lib/**`）与 Go（`fc/internal/**`），保持语义一致。
+3. 再改 Next（`src/app/api/**`、`src/lib/**`）与 Go（`faas/internal/**`），保持语义一致。
 4. 跑：
    - `npm run openapi:lint`
    - `npm run test:openapi`（无 DB）
@@ -89,7 +89,7 @@ npm run openapi:preview
 
 1. 更新 YAML 模块 + 根 `$ref`（见「如何编辑」）。
 2. 必要时增改 `fixtures/`。
-3. 手写对齐 Next（`src/app/api/**`、`src/lib/**`）与 Go（`fc/internal/**`）。
+3. 手写对齐 Next（`src/app/api/**`、`src/lib/**`）与 Go（`faas/internal/**`）。
 4. 跑：`openapi:lint`、`test:openapi`、`go test ./internal/contract/`，以及行为测 `npm test` / `cd fc && go test ./...`。
 
 契约测继续锁**请求/响应形状**；**业务语义**靠双端手写 + 行为/集成测，不靠生成或模糊轰炸。

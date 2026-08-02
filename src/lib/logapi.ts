@@ -1,5 +1,5 @@
 /**
- * log 录入：校验 + Drizzle 写入；与 Go `fc/internal/logapi` 同构。
+ * log 录入：校验 + Drizzle 写入；与 Go `faas/internal/logapi` 同构。
  * Telegram 不在此包——由 HTTP route 在成功后 best-effort 调用。
  */
 import { v7 as uuidv7 } from 'uuid'

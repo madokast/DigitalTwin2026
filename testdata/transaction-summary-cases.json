@@ -1,5 +1,5 @@
 {
-  "comment": "Shared aggregation cases for aggregateTransactionSummary / AggregateTransactionSummary. Both Next (src/lib/query.transaction-summary.test.ts) and Go (fc/internal/query) load this file. Rows are in-memory candidates (already range-filtered); amounts are decimal strings.",
+  "comment": "Shared aggregation cases for aggregateTransactionSummary / AggregateTransactionSummary. Both Next (src/lib/query.transaction-summary.test.ts) and Go (faas/internal/query) load this file. Rows are in-memory candidates (already range-filtered); amounts are decimal strings.",
   "cases": [
     {
       "name": "empty-range",

@@ -3,7 +3,7 @@
 > 创建日期：2026-08-02  
 > 状态：讨论定稿（**仅文档；目录搬迁 / 部署脚本 / SCF 实现均属后续任务**）  
 > 性质：架构讨论；永久双云（阿里云 FC **保留** + 腾讯云 SCF **新增**）  
-> 相关：[`fc/README.md`](../fc/README.md)、[`AGENTS.md`](../AGENTS.md)、[`docs/20260801-api-layering.md`](20260801-api-layering.md)
+> 相关：[`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md)、[`AGENTS.md`](../AGENTS.md)、[`docs/20260801-api-layering.md`](20260801-api-layering.md)
 
 ## 0. 目标与非目标
 

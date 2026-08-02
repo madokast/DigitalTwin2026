@@ -12,7 +12,7 @@
 - **数据库**: PostgreSQL（Neon）
 - **ORM**: Drizzle ORM
 - **测试**: Vitest（真实测试库）+ `go test`
-- **部署**: Vercel（主站）+ 阿里云函数计算（国内 API 加速，见 [`fc/README.md`](fc/README.md)）
+- **部署**: Vercel（主站）+ 阿里云函数计算（国内 API 加速，见 [`faas/providers/aliyun-fc/README.md`](faas/providers/aliyun-fc/README.md)）
 
 ## 快速开始
 
@@ -57,7 +57,7 @@ npm run dev
 与 Next API 语义对齐；标准 PostgreSQL，不依赖阿里云 SDK：
 
 ```bash
-cd fc
+cd faas
 export $(grep -v '^#' ../.env | xargs)   # 或自行 export
 go run ./cmd/api                         # 默认 :8080；可用 PORT=9090
 ```
@@ -68,13 +68,13 @@ Settings → API Accelerate URL 填 `http://localhost:8080` 或 FC 的 `*.fcapp.
 
 | 命令 | 作用 |
 |------|------|
-| `npm run secrets:rotate-test` | 轮换本地测试库密码 + 两 Token（更新 `.env` / `fc/.env.fc.test`） |
+| `npm run secrets:rotate-test` | 轮换本地测试库密码 + 两 Token（更新 `.env` / `faas/providers/aliyun-fc/.env.fc.test`） |
 | `npm run secrets:refresh-prod` | 交互刷新生产 env（前三项必填；Telegram/QQ 先问 Enable，否→空值 upsert）→ Vercel production + FC prod → `vercel deploy --prod` |
-| `npm run fc:deploy -- test\|prod` | 部署 FC（`tsx fc/scripts/deploy.ts`）；`cd fc && ./scripts/deploy.sh …` 为薄包装 |
-| `cd fc && ./scripts/info.sh test\|prod` | 打印 FC HTTP Base URL（不含密钥） |
+| `npm run fc:deploy -- test\|prod` | 部署 FC（`tsx faas/providers/aliyun-fc/scripts/deploy.ts`）；`cd faas/providers/aliyun-fc && ./scripts/deploy.sh …` 为薄包装 |
+| `cd faas/providers/aliyun-fc && ./scripts/info.sh test\|prod` | 打印 FC HTTP Base URL（不含密钥） |
 
 - **禁止**裸跑 `s deploy`（会明文打印环境变量）。
-- FC 操作、省钱规格、安全细则：**只维护在 [`fc/README.md`](fc/README.md)**。
+- FC 操作、省钱规格、安全细则：**只维护在 [`faas/providers/aliyun-fc/README.md`](faas/providers/aliyun-fc/README.md)**。
 
 ## Web 路由
 
@@ -95,7 +95,7 @@ HTTP API 由 **Next（Vercel）** 与 **Go（FC）** 双端实现，路径 / 鉴
 
 鉴权：`Authorization: Bearer <token>`（`src/proxy.ts` / FC 同等逻辑）。普通 API：AI Token 或 Admin Token；`/api/admin/*`：仅 Admin Token。
 
-**接口契约**以 OpenAPI 3.1 为准：[`openapi/openapi.yaml`](openapi/openapi.yaml)（说明见 [`openapi/README.md`](openapi/README.md)）。根 README 不再维护接口表。契约基建已收口：`npm run openapi:lint` + `npm run test:openapi` + `cd fc && go test ./internal/contract/`。CI 另跑无 DB 单元测；集成测无库 Skip（可选 secrets 启用）。**不做** codegen / Schemathesis / 新 OpenAPI Phase。本地 Redoc：`npm run openapi:preview`。
+**接口契约**以 OpenAPI 3.1 为准：[`openapi/openapi.yaml`](openapi/openapi.yaml)（说明见 [`openapi/README.md`](openapi/README.md)）。根 README 不再维护接口表。契约基建已收口：`npm run openapi:lint` + `npm run test:openapi` + `cd faas && go test ./internal/contract/`。CI 另跑无 DB 单元测；集成测无库 Skip（可选 secrets 启用）。**不做** codegen / Schemathesis / 新 OpenAPI Phase。本地 Redoc：`npm run openapi:preview`。
 
 ## 数据库管理
 
@@ -113,8 +113,8 @@ npm run openapi:preview  # 生成 Redoc 静态页 openapi/redoc-static.html
 npm run test:openapi     # 契约 fixture（无 DB）
 npm test              # 使用 .env 测试库，勿对生产库执行
 npm run test:watch
-cd fc && go test ./internal/contract/   # Go 契约（无 DB）
-cd fc && go test ./...
+cd faas && go test ./internal/contract/   # Go 契约（无 DB）
+cd faas && go test ./...
 ```
 
 单元测 `src/lib`、`src/proxy`；集成测连真实 PG（migrate → TRUNCATE → 测 → DROP）。无 `DATABASE_URL` 时 Next `tests/api` 与 Go httptest 冒烟均 **Skip**（CI 默认可跑单元测）。配置 GitHub secrets `TEST_DATABASE_URL`（及可选 Token）可启用 CI 集成测 job。契约测与 DB 无关，见 `openapi/README.md`。
@@ -123,7 +123,8 @@ cd fc && go test ./...
 
 ```
 ├── src/               # Next 页面、API、prefs、鉴权
-├── fc/                # Go HTTP API + 阿里云 FC（见 fc/README.md）
+├── faas/              # Go HTTP API + providers/aliyun-fc（见 faas/README.md）
+├── fc/                # 短重定向 → faas/
 ├── openapi/           # OpenAPI 3.1 契约（双端共用源）
 ├── scripts/           # migrate 辅助、密钥轮换/生产刷新、共享 lib
 ├── tests/             # API 集成测试（无 DATABASE_URL 时 Skip）
