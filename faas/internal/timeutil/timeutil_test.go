@@ -103,7 +103,7 @@ func TestIsValidTimeZone(t *testing.T) {
 			t.Fatalf("want reject Go-only zone %q", tz)
 		}
 	}
-	// Intl 有、Go LoadLocation 失败 → 求交排除
+	// Intl 有；Go embed 常无，但 CI 宿主 zoneinfo 可能 LoadLocation 成功 → 与 Next denylist 对齐显式拒绝
 	if IsValidTimeZone("America/Coyhaique") {
 		t.Fatal("want reject Intl-only America/Coyhaique")
 	}

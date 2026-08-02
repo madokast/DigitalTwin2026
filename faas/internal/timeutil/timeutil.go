@@ -50,10 +50,12 @@ func IsValidTimeZone(tz string) bool {
 	if tz == "" {
 		return false
 	}
-	// Go time/tzdata 会 LoadLocation 成功、但非 Intl IANA 名的特殊条目；
-	// 与 Next isValidTimeZone（Intl 再减 Intl-only）求交。
+	// 与 Next isValidTimeZone 求交：
+	// - Factory/localtime/posixrules：Go LoadLocation 可能成功，Intl 拒绝
+	// - America/Coyhaique：Intl 有；Go embed tzdata 常无，但宿主系统 zoneinfo 可能有
+	//   （CI ubuntu）→ 必须显式拒绝，否则双端分叉
 	switch tz {
-	case "Factory", "localtime", "posixrules":
+	case "Factory", "localtime", "posixrules", "America/Coyhaique":
 		return false
 	}
 	_, err := time.LoadLocation(tz)
