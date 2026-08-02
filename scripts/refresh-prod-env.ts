@@ -1,5 +1,6 @@
 /**
- * 交互式刷新「生产」环境变量：Vercel production + 阿里云 FC prod。
+ * 交互式刷新「生产」环境变量：Vercel production 必做；
+ * 阿里云 FC / 腾讯云 SCF 默认跳过，仅在用户确认后才预检并部署。
  *
  * 用法（仓库根）: npm run secrets:refresh-prod
  * 勿把输入的密钥提交 git。
@@ -33,6 +34,24 @@ const ROOT = resolve(import.meta.dirname, '..')
 const FC_DIR = resolve(ROOT, 'faas/providers/aliyun-fc')
 const PROD_ENV_FILE = resolve(FC_DIR, '.env.fc.prod')
 
+/** 与 docs/20260802-faas-multi-cloud.md §4 / Task 3 对齐的提示文案 */
+export const PROMPT_DEPLOY_ALIYUN_FC = 'Deploy Aliyun FC prod? [y/N] '
+export const PROMPT_DEPLOY_TENCENT_SCF = 'Deploy Tencent SCF prod? [y/N] '
+export const PROMPT_CONFIRM_VERCEL =
+  'Upsert UPDATE keys on Vercel production, then vercel deploy --prod. Continue? [y/N] '
+
+/** SCF 尚未实现时的英文说明（选 Y 时打印，不 fail 整脚本） */
+export const SCF_NOT_IMPLEMENTED_MESSAGE = [
+  'Tencent Cloud SCF prod deploy is not implemented in this repo yet.',
+  'When ready (Task 4), you will need roughly:',
+  '  - Tencent Cloud SecretId / SecretKey (or equivalent CLI login)',
+  '  - Preferred region (e.g. ap-guangzhou / ap-shanghai)',
+  '  - SCF Web function / Serverless Framework (or official SCF CLI) tooling',
+  '  - Same env keys as FC: DATABASE_URL, DIGITAL_TWIN_TOKEN, DIGITAL_TWIN_ADMIN_TOKEN,',
+  '    plus optional TELEGRAM_* / QQBOT_* notify channels',
+  'Skipping SCF for this run; Vercel (and optional Aliyun FC) steps already completed.',
+].join('\n')
+
 const KEYS = [
   'DATABASE_URL',
   'DIGITAL_TWIN_TOKEN',
@@ -58,6 +77,11 @@ type PromptResult = { action: 'skip' | 'set'; value: string }
 export function emptyInputPolicy(key: Key): 'reject' | 'skip' {
   if (REQUIRED_KEYS.includes(key)) return 'reject'
   return 'skip'
+}
+
+/** Deploy …? [y/N] → deploy | skip（默认 N） */
+export function cloudDeployDecision(ans: string): 'deploy' | 'skip' {
+  return isYes(ans) ? 'deploy' : 'skip'
 }
 
 async function verifyDatabaseUrl(url: string): Promise<boolean> {
@@ -220,6 +244,7 @@ function preflightVercel(): void {
   console.log(`  Linked: ${resolve(ROOT, '.vercel/project.json')}`)
 }
 
+/** 仅在用户选择 Deploy Aliyun FC = Y 之后调用 */
 function preflightS(): void {
   console.log('Checking Serverless Devs (s / FC deploy)...')
   if (!which('s')) {
@@ -291,12 +316,52 @@ function cleanupProdEnv(): void {
   }
 }
 
+function deployAliyunFcProd(values: Record<Key, string>): void {
+  preflightS()
+  console.log('')
+
+  writeFcEnvFile(PROD_ENV_FILE, { ...values })
+  console.log(`Temporarily wrote ${PROD_ENV_FILE} (deleted after deploy)`)
+
+  console.log('Deploying FC prod...')
+  // refresh-prod 已写好并探测过：跳过 deploy 二次渠道询问
+  const dep = spawnSync(
+    'npx',
+    ['tsx', resolve(FC_DIR, 'scripts/deploy.ts'), 'prod'],
+    {
+      cwd: ROOT,
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        DT_SKIP_NOTIFY_PROMPT: '1',
+        DT_SKIP_TELEGRAM_PROMPT: '1',
+      },
+    },
+  )
+  if ((dep.status ?? 1) !== 0) {
+    console.error('FC deploy failed.')
+    process.exit(1)
+  }
+
+  const info = run('bash', [resolve(FC_DIR, 'scripts/info.sh'), 'prod'], {
+    cwd: FC_DIR,
+    env: process.env,
+  })
+  console.log(
+    `FC Base URL: ${info.stdout.trim() || '(see ./faas/providers/aliyun-fc/scripts/info.sh prod)'}`,
+  )
+}
+
+function handleTencentScfStub(): void {
+  console.log(SCF_NOT_IMPLEMENTED_MESSAGE)
+}
+
 async function main(): Promise<void> {
   console.log(
-    '=== Refresh production secrets (Vercel production + FC prod) ===',
+    '=== Refresh production secrets (Vercel required; FC/SCF optional) ===',
   )
   console.log(
-    'If digitaltwin-api-prod does not exist, temporarily writes .env.fc.prod; deleted after deploy.',
+    'Vercel production is always updated. Aliyun FC and Tencent SCF default to skip.',
   )
   console.log('Do NOT commit these values to git or paste in chat logs.')
   console.log('Flow:')
@@ -309,12 +374,13 @@ async function main(): Promise<void> {
   console.log(
     '  - Enable QQ Bot notify? [y/N] → N clears QQBOT_*; Y requires three keys + C2C probe',
   )
+  console.log('  - Upsert Vercel production + vercel deploy --prod')
+  console.log(`  - ${PROMPT_DEPLOY_ALIYUN_FC.trim()} (default N)`)
+  console.log(`  - ${PROMPT_DEPLOY_TENCENT_SCF.trim()} (default N)`)
   console.log('  - Connectivity checks for DATABASE_URL and enabled notify channels')
   console.log('')
 
   preflightVercel()
-  console.log('')
-  preflightS()
   console.log('')
 
   const cleanup = () => {
@@ -391,10 +457,7 @@ async function main(): Promise<void> {
   const rl2 = createRl()
   let go = ''
   try {
-    go = await askLine(
-      rl2,
-      'Upsert UPDATE keys on Vercel production, then deploy FC prod + Vercel --prod. Continue? [y/N] ',
-    )
+    go = await askLine(rl2, PROMPT_CONFIRM_VERCEL)
   } finally {
     rl2.close()
   }
@@ -402,6 +465,8 @@ async function main(): Promise<void> {
     console.log('Cancelled.')
     process.exit(0)
   }
+
+  const deployed: string[] = []
 
   console.log('')
   console.log('--- Vercel ---')
@@ -416,31 +481,6 @@ async function main(): Promise<void> {
   console.log('Note: will run vercel deploy --prod')
   console.log('')
 
-  console.log('--- FC prod ---')
-  writeFcEnvFile(PROD_ENV_FILE, { ...values })
-  console.log(`Temporarily wrote ${PROD_ENV_FILE} (deleted after deploy)`)
-
-  console.log('Deploying FC prod...')
-  // refresh-prod 已写好并探测过：跳过 deploy 二次渠道询问
-  const dep = spawnSync(
-    'npx',
-    ['tsx', resolve(FC_DIR, 'scripts/deploy.ts'), 'prod'],
-    {
-      cwd: ROOT,
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        DT_SKIP_NOTIFY_PROMPT: '1',
-        DT_SKIP_TELEGRAM_PROMPT: '1',
-      },
-    },
-  )
-  if ((dep.status ?? 1) !== 0) {
-    console.error('FC deploy failed.')
-    process.exit(1)
-  }
-
-  console.log('')
   console.log('--- Redeploy Vercel Production ---')
   const vd = spawnSync('vercel', ['deploy', '--prod', '--yes'], {
     cwd: ROOT,
@@ -454,18 +494,47 @@ async function main(): Promise<void> {
     process.exit(1)
   }
   console.log('Vercel production deploy OK.')
+  deployed.push('Vercel')
+
+  const rlCloud = createRl()
+  let fcAns = ''
+  let scfAns = ''
+  try {
+    console.log('')
+    console.log('--- Optional: Aliyun FC ---')
+    fcAns = await askLine(rlCloud, PROMPT_DEPLOY_ALIYUN_FC)
+    if (cloudDeployDecision(fcAns) === 'deploy') {
+      console.log('')
+      deployAliyunFcProd(values)
+      deployed.push('Aliyun FC')
+    } else {
+      console.log('Skipped Aliyun FC deploy.')
+    }
+
+    console.log('')
+    console.log('--- Optional: Tencent SCF ---')
+    scfAns = await askLine(rlCloud, PROMPT_DEPLOY_TENCENT_SCF)
+    if (cloudDeployDecision(scfAns) === 'deploy') {
+      console.log('')
+      handleTencentScfStub()
+      // 不加入 deployed：未真正部署
+    } else {
+      console.log('Skipped Tencent SCF deploy.')
+    }
+  } finally {
+    rlCloud.close()
+  }
 
   console.log('')
-  console.log('Done.')
-  const info = run('bash', [resolve(FC_DIR, 'scripts/info.sh'), 'prod'], {
-    cwd: FC_DIR,
-    env: process.env,
-  })
+  console.log('=== Done ===')
+  console.log(`Deployed: ${deployed.join(', ') || '(none)'}`)
+  if (!deployed.includes('Aliyun FC')) {
+    console.log(
+      'Aliyun FC: skipped (or not requested). Use npm run fc:deploy -- prod later if needed.',
+    )
+  }
   console.log(
-    `FC Base URL: ${info.stdout.trim() || '(see ./faas/providers/aliyun-fc/scripts/info.sh prod)'}`,
-  )
-  console.log(
-    'Paste FC URL into Settings → API Accelerate URL in browsers that need China acceleration; never commit it.',
+    'Paste your chosen China Accelerate Base URL (FC or SCF when available) into Settings → API Accelerate URL; leave empty for same-origin Vercel. Never commit the URL.',
   )
 }
 

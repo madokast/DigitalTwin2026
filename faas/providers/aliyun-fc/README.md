@@ -9,13 +9,13 @@
 | 密钥 | 存放 |
 |------|------|
 | 阿里云 AK | `s config add`，别名见 `s.yaml` 的 `access`（当前为 `dt`）→ `~/.s/`，**不进 git** |
-| `DATABASE_URL` / Token | 测试：`faas/providers/aliyun-fc/.env.fc.test`；生产：优先用 `npm run secrets:refresh-prod`（部署时临时写 `.env.fc.prod`，结束后删除）。模板 `env.fc.example` |
+| `DATABASE_URL` / Token | 测试：`faas/providers/aliyun-fc/.env.fc.test`；生产：优先用 `npm run secrets:refresh-prod`（仅当确认 Deploy Aliyun FC 时临时写 `.env.fc.prod`，结束后删除）。模板 `env.fc.example` |
 
 - **禁止**裸跑 `s deploy`：会明文打印 `environmentVariables`。
 - 部署只用 [`scripts/deploy.ts`](scripts/deploy.ts) / [`scripts/deploy.sh`](scripts/deploy.sh) 薄包装（内部 `s deploy` 输出丢弃）。
 - 真实 `*.fcapp.run` **禁止进 git**；只粘到浏览器「API 加速地址」。
 - 轮换**测试**库密码 + Token：`npm run secrets:rotate-test`（根目录），然后必须再 `cd faas/providers/aliyun-fc && ./scripts/deploy.sh test`。
-- 刷新**生产**密钥（Vercel + FC）：见下文「生产密钥刷新」。
+- 刷新**生产**密钥（Vercel 必做；FC 可选）：见下文「生产密钥刷新」。
 
 ### 部署时通知渠道询问
 
@@ -25,41 +25,35 @@
 - `Enable QQ Bot notify? [y/N]` → 同上三键 + 主动 C2C 探测
 - 选用值写回当前 `.env.fc.<env>`。`secrets:refresh-prod` 调用部署时设 `DT_SKIP_NOTIFY_PROMPT=1`（兼容旧 `DT_SKIP_TELEGRAM_PROMPT`）跳过二次询问。
 
-## 生产密钥刷新（Vercel + FC prod）
+## 生产密钥刷新（Vercel 必做；FC / SCF 可选）
 
-交互脚本（TypeScript：根 `scripts/refresh-prod-env.ts`，`npm run secrets:refresh-prod`）流程：
+交互脚本（TypeScript：根 `scripts/refresh-prod-env.ts`，`npm run secrets:refresh-prod`）流程见 [`docs/20260802-faas-multi-cloud.md`](../../../docs/20260802-faas-multi-cloud.md) §4：
 
-1. **前三项必填**（`DATABASE_URL` / `DIGITAL_TWIN_TOKEN` / `DIGITAL_TWIN_ADMIN_TOKEN`）：每次必须粘贴非空值（Vercel Sensitive `env pull` 常为空，且 FC 部署需要完整串）；回车会提示不能空并继续询问。新填的 `DATABASE_URL` 会真实连库校验。
-2. **`Enable Telegram notify? [y/N]`**（默认 N）  
-   - N → 将 `TELEGRAM_BOT_TOKEN` / `TELEGRAM_USER_ID` **明确 upsert 为空串**（关闭线上通知）  
-   - Y → 必填两键（空拒）→ 掩码确认 → `sendMessage` 探测（文案 `DigitalTwin2026 prod env verify`）；失败则重填
-3. **`Enable QQ Bot notify? [y/N]`**（默认 N）  
-   - N → 将 `QQBOT_APP_ID` / `QQBOT_APP_SECRET` / `QQBOT_USER_OPENID` **明确 upsert 为空串**  
-   - Y → 必填三键 → 确认 → 主动 C2C 探测（同上文案）；失败则重填
-
-然后：
-
-1. 把本次确定的 key（含通知渠道空串）写入 Vercel **production**
-2. **临时**写入完整 `faas/providers/aliyun-fc/.env.fc.prod` → `npx tsx faas/providers/aliyun-fc/scripts/deploy.ts prod`（`DT_SKIP_NOTIFY_PROMPT=1`，跳过二次渠道询问）
-3. **删除** `.env.fc.prod`
-4. `vercel deploy --prod`
+1. **仅**预检 Vercel（login / link）。**不会**在开头强制要求 `s` CLI。
+2. **前三项必填**（`DATABASE_URL` / `DIGITAL_TWIN_TOKEN` / `DIGITAL_TWIN_ADMIN_TOKEN`）：每次必须粘贴非空值；新填的 `DATABASE_URL` 会真实连库校验。
+3. **`Enable Telegram notify? [y/N]`** / **`Enable QQ Bot notify? [y/N]`**（默认 N）→ 否写空 upsert，是则填齐并探测。
+4. Upsert Vercel **production** + **`vercel deploy --prod`**（必做）。
+5. **`Deploy Aliyun FC prod? [y/N]`**（默认 N）  
+   - N / 回车 → 跳过：不写 `.env.fc.prod`、不预检 `s`、不部署 FC  
+   - Y → 才预检 Serverless Devs + access → 临时写 `.env.fc.prod` → `npx tsx faas/providers/aliyun-fc/scripts/deploy.ts prod`（`DT_SKIP_NOTIFY_PROMPT=1`）→ 删除临时文件 → `info.sh prod` 打印 Base URL
+6. **`Deploy Tencent SCF prod? [y/N]`**（默认 N）→ 目前若选 Y 会提示 SCF 尚未实现并跳过该分支（不 fail 整脚本）。
 
 ```bash
 # 仓库根目录
 vercel login          # 若未登录
 vercel link           # 若无 .vercel/project.json
+# 仅当本轮要部署 FC 时才需要：
 s config get -a dt    # 确认 FC 部署用的 AK 别名（见 s.yaml access）
 npm run secrets:refresh-prod
 ```
 
-脚本开头会预检：Vercel login/link、以及 `s` CLI + `s.yaml` 的 access 凭证（再 `s info --env prod` 探活）。
-
 之后：
 
 - 脚本会自动 **`vercel deploy --prod`**，使新 env 进入运行中的函数。
-- FC：用 `cd faas/providers/aliyun-fc && ./scripts/info.sh prod` 取 Base URL，粘到需要加速的浏览器「API 加速地址」（勿进 git）。
+- 若部署了 FC：用打印出的 Base URL（或 `cd faas/providers/aliyun-fc && ./scripts/info.sh prod`）粘到 Settings → API Accelerate URL（勿进 git）。
+- 结束摘要会列出本轮部署了哪些目标。
 
-前置：`s config`（`s.yaml` 的 `access`，当前 `dt`）可用；生产库建议已 `DATABASE_URL=… npm run db:migrate`。
+前置（仅选 FC=Y 时）：`s config`（`s.yaml` 的 `access`，当前 `dt`）可用。生产库建议已 `DATABASE_URL=… npm run db:migrate`。
 
 ## 测试 → 部署一条龙（test）
 
@@ -94,7 +88,7 @@ curl -s -H "Authorization: Bearer $DIGITAL_TWIN_TOKEN" \
 1. 在 `faas/` 实现路由 + `go test`
 2. `./scripts/deploy.sh test`（覆盖同一函数，URL 通常不变）
 3. curl / 网页加速地址验证  
-生产密钥与首次 FC prod：根目录 **`npm run secrets:refresh-prod`**（详见上文「生产密钥刷新」）；或手动 `.env.fc.prod` + `./scripts/deploy.sh prod`。
+生产密钥与首次 FC prod：根目录 **`npm run secrets:refresh-prod`** 并在提示时选 **Y** 部署 FC（详见上文「生产密钥刷新」）；或手动 `.env.fc.prod` + `./scripts/deploy.sh prod`。
 
 ## 本目录文件
 

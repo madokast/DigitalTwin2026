@@ -69,7 +69,7 @@ Settings → API Accelerate URL 填 `http://localhost:8080` 或 FC 的 `*.fcapp.
 | 命令 | 作用 |
 |------|------|
 | `npm run secrets:rotate-test` | 轮换本地测试库密码 + 两 Token（更新 `.env` / `faas/providers/aliyun-fc/.env.fc.test`） |
-| `npm run secrets:refresh-prod` | 交互刷新生产 env（前三项必填；Telegram/QQ 先问 Enable，否→空值 upsert）→ Vercel production + FC prod → `vercel deploy --prod` |
+| `npm run secrets:refresh-prod` | 交互刷新生产 env（前三项必填；Telegram/QQ Enable）→ Vercel production + `vercel deploy --prod`（必做）；再问 `Deploy Aliyun FC prod?` / `Deploy Tencent SCF prod?`（默认 N） |
 | `npm run fc:deploy -- test\|prod` | 部署 FC（`tsx faas/providers/aliyun-fc/scripts/deploy.ts`）；`cd faas/providers/aliyun-fc && ./scripts/deploy.sh …` 为薄包装 |
 | `cd faas/providers/aliyun-fc && ./scripts/info.sh test\|prod` | 打印 FC HTTP Base URL（不含密钥） |
 
