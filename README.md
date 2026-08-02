@@ -75,7 +75,7 @@ Settings → API Accelerate URL 填 `http://localhost:8080` 或 FC 的 `*.fcapp.
 | `npm run fc:deploy -- --env-file <path>` | 薄包装部署 FC（读 `FC_FUNCTION_NAME`） |
 | `npm run scf:deploy -- --env-file <path>` | 薄包装部署 SCF（读 `SCF_FUNCTION_NAME`） |
 
-- 旧命令 `secrets:refresh-prod` 已移除（会 exit 1 并提示改用 `deploy -- prod`）。
+- 密钥模板：根 [`.env.test.example`](.env.test.example) → 复制为常驻 `.env.test`；生产由 `collect-prod-env` 写临时 `.env.prod`。
 - **禁止**裸跑 `s deploy`（会明文打印环境变量）。
 - FC 操作、省钱规格、安全细则：**只维护在 [`faas/providers/aliyun-fc/README.md`](faas/providers/aliyun-fc/README.md)**。
 

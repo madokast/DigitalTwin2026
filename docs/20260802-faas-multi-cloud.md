@@ -18,7 +18,7 @@
 **非目标（本篇定稿时不实施；部分已由后续 Task 落地）**
 
 - ~~**不**移动 / 重命名现有 `fc/` 目录~~ → **已完成**：`faas/` + `providers/aliyun-fc/`。
-- ~~**不**改 `scripts/refresh-prod-env.ts`~~ → **已完成**（曾落地 §4 UX）；现已由 `deploy` + `collect-prod-env` **取代**（`secrets:refresh-prod` exit 1）。
+- ~~**不**改 `scripts/refresh-prod-env.ts`~~ → **已完成**（曾落地 §4 UX）；现已由 `deploy` + `collect-prod-env` **完全取代**（旧脚本与 `secrets:refresh-prod` 已删除）。
 - **不**改客户端 prefs / Settings UI 契约（仍是单一 Base URL 字符串）。
 - **不**新增「向阿里云 / 腾讯云自动部署」的 CI job（今天本来就没有）。
 
@@ -93,9 +93,8 @@ faas/
   internal/                # 现有 fc/internal 迁入
   go.mod                   # 现有 fc/go.mod 迁入（module path 另议）
   providers/
-    aliyun-fc/             # 迁入现有 s.yaml / env 模板 / deploy 脚本
+    aliyun-fc/             # 迁入现有 s.yaml / deploy 脚本
       s.yaml
-      env.fc.example       # 或统一命名 env.example（实现时定）
       scripts/
         deploy.ts
         deploy.sh
@@ -104,13 +103,14 @@ faas/
     tencent-scf/           # 新建：Serverless Cloud Framework（`scf`）
       serverless.yml       # type: web + CustomRuntime；name=digitaltwin-api-${stage}
       scf_bootstrap        # 或构建时生成
-      env.scf.example      # 仅键名参考；不常驻 .env.scf.*
       scripts/
         deploy.ts          # --env-file → 打进包；exit 删除临时 *env*
         info.sh
     # future vendors...
       # providers/<id>/
 ```
+
+密钥模板统一在仓库根 `.env.test.example`（常驻 `.env.test` / 临时 `.env.prod`）；provider 目录不再维护 `env.*.example`。
 
 | 规则 | 说明 |
 |------|------|
@@ -246,7 +246,7 @@ flowchart TD
 
 1. **永久双云**：保留全部阿里云 FC 配置与能力；另增独立 provider 目录；**不删除** FC（按量、空闲 ≈ 免费）。  
 2. **目标布局**：`faas/{cmd,internal,go.mod}` + `faas/providers/aliyun-fc/` + `faas/providers/tencent-scf/`（及未来 `providers/<id>/`）；共享代码**不得** import `providers/*`。  
-3. **`npm run deploy -- prod`**：Vercel **必做**；阿里云 FC / 腾讯云 SCF **`Deploy …? [y/N]` 默认 N**；逐云询问；**各云 CLI 预检仅在该云部署前**。`deploy -- test` 跳过 Vercel。旧 `secrets:refresh-prod` 已废弃。  
+3. **`npm run deploy -- prod`**：Vercel **必做**；阿里云 FC / 腾讯云 SCF **`Deploy …? [y/N]` 默认 N**；逐云询问；**各云 CLI 预检仅在该云部署前**。`deploy -- test` 跳过 Vercel。旧 `secrets:refresh-prod` / `refresh-prod-env` **已删除**。  
 4. **SCF**：Web 函数 lift-and-shift；同一 Go 二进制语义；端口 **9000**；部署工具 **`npm i -g serverless-cloud-framework`（CLI `scf`）**，见 §5 与 [官方快速部署](https://cloud.tencent.com/document/product/1154/50938)。  
 5. **成本**：FC 保持 128MB / min0 / reservedConcurrency 1；SCF 从约 64MB 等价档起，**部署后用户确认**能否更低。  
 6. **扩展**：更多厂商只加 `providers/<id>/` + deploy 多一问。  

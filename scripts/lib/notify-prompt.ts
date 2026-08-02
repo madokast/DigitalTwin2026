@@ -13,7 +13,7 @@ export function channelEnableDecision(ans: string): 'enable' | 'disable' {
   return isYes(ans) ? 'enable' : 'disable'
 }
 
-/** refresh-prod / deploy 已写好 env 时跳过全部渠道询问；兼容旧名 */
+/** deploy 已写好 env（DT_SKIP_NOTIFY_PROMPT=1）时跳过全部渠道询问；兼容旧名 DT_SKIP_TELEGRAM_PROMPT */
 export function shouldSkipNotifyPrompt(
   env: Record<string, string | undefined> = process.env,
 ): boolean {

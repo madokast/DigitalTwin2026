@@ -5,7 +5,7 @@
 | 原路径 | 新路径 |
 |--------|--------|
 | `fc/cmd`、`fc/internal`、`fc/go.mod` | [`faas/`](../faas/) |
-| `fc/s.yaml`、`env.yaml`、`scripts/`、`env.fc.example` | [`faas/providers/aliyun-fc/`](../faas/providers/aliyun-fc/) |
+| `fc/s.yaml`、`env.yaml`、`scripts/` | [`faas/providers/aliyun-fc/`](../faas/providers/aliyun-fc/)（密钥模板见根 `.env.test.example`） |
 | 操作说明 | [`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md) |
 | 共享 API 说明 | [`faas/README.md`](../faas/README.md) |
 

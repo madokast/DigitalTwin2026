@@ -16,7 +16,6 @@
     "db:migrate": "drizzle-kit migrate",
     "db:check": "tsx scripts/check-db.ts",
     "secrets:rotate-test": "tsx scripts/rotate-test-secrets.ts",
-    "secrets:refresh-prod": "tsx scripts/refresh-prod-env.ts",
     "deploy": "tsx scripts/deploy.ts",
     "qqbot:listen-openid": "tsx scripts/qqbot-listen-openid.ts",
     "fc:deploy": "tsx faas/providers/aliyun-fc/scripts/deploy.ts",

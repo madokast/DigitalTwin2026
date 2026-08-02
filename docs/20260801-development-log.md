@@ -209,4 +209,4 @@ b77309e / a234f7b  GET /api/query/transaction/summary（层级聚合 + OpenAPI�
 - [ ] Dashboard 支出组件 / 网页录入 UI
 - [ ] 记录删除 / 图表 / 列表行内编辑
 - [ ] 其它专用 log、AI CLI、数据导出
-- [ ] QQ 主动消息依赖用户端「允许主动发送」；生产密钥轮换仍建议 Neon 控制台 + `refresh-prod` 粘贴
+- [ ] QQ 主动消息依赖用户端「允许主动发送」；生产密钥轮换：Neon 控制台 + `npm run deploy -- prod`（`collect-prod-env`）
