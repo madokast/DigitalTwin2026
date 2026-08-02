@@ -1,0 +1,35 @@
+/api/db/probe:
+  post:
+    operationId: dbProbe
+    tags: [db]
+    summary: Probe Postgres connectivity and public.records
+    description: |
+      Opens a short-lived dedicated connection (not the shared pool), measures
+      connect and two `SELECT 1` round-trips, then checks `to_regclass('public.records')`.
+      Does **not** inspect `__drizzle_migrations`.
+
+      - **200** when the database is reachable: `ok` is true only if `public.records`
+        exists; missing table → still 200 with `ok: false` / `recordsTableExists: false`.
+      - **503** when `DATABASE_URL` is unset or the connection/query fails.
+        Error messages are English and never echo the connection string.
+
+      Auth: ApiToken (`DIGITAL_TWIN_TOKEN` or `DIGITAL_TWIN_ADMIN_TOKEN`).
+    security:
+      - ApiToken: []
+    responses:
+      '200':
+        description: Database reachable (table may or may not exist)
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/DbProbeSuccess'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '503':
+        description: DATABASE_URL missing or database unreachable
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Error'
+            example:
+              error: DATABASE_URL is not set

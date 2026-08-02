@@ -107,6 +107,7 @@ flowchart LR
 | `telegram` | `faas/internal/telegram` | `src/lib/telegram.ts` | 渠道：配置 / 排版 / 发送；probe 直调；录入路径经 `notify` |
 | `qqbot` | `faas/internal/qqbot` | `src/lib/qqbot.ts` | 渠道：配置 / token / 发送；probe 直调；录入路径经 `notify`（函数 stem 见 §5.2） |
 | `notify` | `faas/internal/notify` | `src/lib/notify.ts` | 统一扇出入口；HTTP 成功后调用（函数 stem 见 §5.2；调度差异见 §1.1 / §7） |
+| `dbprobe` | `faas/internal/dbprobe` | `src/lib/dbprobe.ts` | 短命连接探测 `POST /api/db/probe`；不查 `__drizzle_migrations` |
 | `timeutil` | `faas/internal/timeutil` | `src/lib/timeutil.ts` | TS 已由 `time.ts` 改名 |
 | `auth` | `faas/internal/auth` | `src/lib/auth.ts` | 已有 |
 | `httpx` | `faas/internal/httpx` | `src/app/api/**/route.ts` | 框架层，**不要求**文件同名 |
@@ -151,6 +152,7 @@ flowchart LR
 | telegram | `LoadConfig` / `ConfigError` / `FormatRecordMessage` / `FormatTransactionBatchMessage` / `SendMessage` | 同 stem：`loadConfig`、`configError`、`formatRecordMessage`、`formatTransactionBatchMessage`、`sendTelegramMessage` |
 | qqbot | `LoadConfig` / `ConfigError` / `SendMessage` / `Configured` | 同 stem：`loadConfig`、`configError`、`sendQqMessage`、`isConfigured` |
 | notify | `ShouldSkipNotifyInTest` / `NotifyUser` / `NotifyRecordInserted` / `NotifyTransactionBatchInserted` | 同 stem：`shouldSkipNotifyInTest`、`notify_user`、`notifyRecordInserted`、`notifyTransactionBatchInserted` |
+| dbprobe | `Probe` / `SanitizeProbeError` / type `Result` | `probeDatabase` / `sanitizeProbeError` / type `DbProbeResult` |
 
 后续若发现表内遗漏符号，**先改本文再改代码**。
 

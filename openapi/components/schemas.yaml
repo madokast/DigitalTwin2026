@@ -504,6 +504,40 @@ QqbotProbeRequest:
       type: string
       description: Optional message body; blank/omitted → default probe text
 
+DbProbeSuccess:
+  type: object
+  required:
+    - ok
+    - databaseReachable
+    - recordsTableExists
+    - connectMs
+    - select1FirstMs
+    - select1SecondMs
+  additionalProperties: false
+  properties:
+    ok:
+      type: boolean
+      description: true only when databaseReachable and public.records exists
+    databaseReachable:
+      type: boolean
+      const: true
+      description: Always true on HTTP 200 (unreachable → 503)
+    recordsTableExists:
+      type: boolean
+      description: Whether to_regclass('public.records') is non-null
+    connectMs:
+      type: number
+      minimum: 0
+      description: Milliseconds to open the dedicated connection (one decimal typical)
+    select1FirstMs:
+      type: number
+      minimum: 0
+      description: Milliseconds for the first SELECT 1 on that connection
+    select1SecondMs:
+      type: number
+      minimum: 0
+      description: Milliseconds for the second SELECT 1 on the same connection
+
 TransactionCategorySegment:
   type: string
   description: |

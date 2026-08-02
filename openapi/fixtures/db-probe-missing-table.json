@@ -1,0 +1,8 @@
+{
+  "ok": false,
+  "databaseReachable": true,
+  "recordsTableExists": false,
+  "connectMs": 8.0,
+  "select1FirstMs": 2.5,
+  "select1SecondMs": 1.2
+}

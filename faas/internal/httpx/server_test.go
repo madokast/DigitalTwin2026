@@ -669,6 +669,23 @@ func TestQqbotProbeSendFailure(t *testing.T) {
 	}
 }
 
+func TestDbProbeMissingDatabaseURL(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	h := testServer().Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/db/probe", nil)
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 503 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["error"] != "DATABASE_URL is not set" {
+		t.Fatalf("body: %v", body)
+	}
+}
+
 func TestWriteJSONDoesNotHTMLEscape(t *testing.T) {
 	rr := httptest.NewRecorder()
 	writeError(rr, 400, "a < b & c > d")

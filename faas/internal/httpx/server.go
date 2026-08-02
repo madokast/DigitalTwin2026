@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
+	"github.com/mdk/digitaltwin2026/faas/internal/dbprobe"
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/logapi"
@@ -59,6 +60,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/log/transaction", s.handleLogTransaction)
 	mux.HandleFunc("POST /api/telegram/probe", s.handleTelegramProbe)
 	mux.HandleFunc("POST /api/qqbot/probe", s.handleQqbotProbe)
+	mux.HandleFunc("POST /api/db/probe", s.handleDbProbe)
 	mux.HandleFunc("GET /api/query", s.handleQuery)
 	mux.HandleFunc("GET /api/query/summary", s.handleSummary)
 	mux.HandleFunc("GET /api/query/tags", s.handleTags)
@@ -380,6 +382,15 @@ func (s *Server) handleQqbotProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]any{"success": true})
+}
+
+func (s *Server) handleDbProbe(w http.ResponseWriter, r *http.Request) {
+	result, status, errMsg := dbprobe.Probe(r.Context(), nil)
+	if status != 200 {
+		writeError(w, status, errMsg)
+		return
+	}
+	writeJSON(w, 200, result)
 }
 
 func (s *Server) telegram() *telegram.Sender {

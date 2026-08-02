@@ -41,6 +41,8 @@ tags:
     description: Telegram Bot connectivity probe
   - name: qqbot
     description: QQ Bot connectivity probe
+  - name: db
+    description: Postgres connectivity probe
   - name: admin
     description: Admin-only corrections (AdminToken only)
 
@@ -57,6 +59,8 @@ paths:
     $ref: './paths/telegram.yaml#/~1api~1telegram~1probe'
   /api/qqbot/probe:
     $ref: './paths/qqbot.yaml#/~1api~1qqbot~1probe'
+  /api/db/probe:
+    $ref: './paths/db.yaml#/~1api~1db~1probe'
   /api/query:
     $ref: './paths/query.yaml#/~1api~1query'
   /api/query/summary:
@@ -156,6 +160,8 @@ components:
       $ref: './components/schemas.yaml#/TelegramProbeRequest'
     QqbotProbeRequest:
       $ref: './components/schemas.yaml#/QqbotProbeRequest'
+    DbProbeSuccess:
+      $ref: './components/schemas.yaml#/DbProbeSuccess'
     TransactionCategorySegment:
       $ref: './components/schemas.yaml#/TransactionCategorySegment'
     TransactionType:
