@@ -31,7 +31,7 @@
 | 海外默认 API | Vercel（Next `src/app/api`） |
 | 国内加速 | 阿里云 FC3（`faas/providers/aliyun-fc`，Serverless Devs `s.yaml`，custom runtime，端口 **9000**）；腾讯云 SCF **规划中** |
 | 共享库 | Neon / 标准 PostgreSQL；test / prod 与 Vercel 对齐 |
-| 生产密钥脚本 | `npm run deploy -- prod`：先问 Vercel / FC / SCF（均默认 N）；任一 Y → `collect-prod-env` → 临时 `.env.prod` → 仅部署所选。`deploy -- test` 用 `.env.test`、跳过 Vercel |
+| 生产密钥脚本 | `npm run deploy -- prod`：先问 Vercel / FC / SCF（均默认 N）；任一 Y → `collect-prod-env`（DB 校验后可选 migrate）→ 临时 `.env.prod` → 仅部署所选。`deploy -- test` 用 `.env.test`、跳过 Vercel |
 | CI / 自动化 | **没有**向阿里云 FC 部署的 CI；仅对 `faas/` 跑 `go test`。prefs / api-client 测试里的 `*.fcapp.run` **只是** URL 字符串样例，不触发部署 |
 | 客户端 | Settings → **API Accelerate URL**（prefs）；空 = 同源 Vercel |
 
@@ -134,7 +134,7 @@ faas/
 | 命令 | 行为 |
 |------|------|
 | `npm run deploy -- test` | 常驻 `.env.test`；**跳过 Vercel**；`Deploy Aliyun FC?` / `Deploy Tencent SCF?` 默认 N；全 N 则退出 |
-| `npm run deploy -- prod` | 先问 `Deploy Vercel production?` / FC / SCF（均默认 N）；全 N 退出；任一 Y → `collect-prod-env`（bot：Enable → 可选复用 `.env.test` 对应键）→ `.env.prod` → 仅部署所选；exit 删 `.env.prod` |
+| `npm run deploy -- prod` | 先问 `Deploy Vercel production?` / FC / SCF（均默认 N）；全 N 退出；任一 Y → `collect-prod-env`（DB 校验后可选 `npm run db:migrate`；bot：Enable → 可选复用 `.env.test` 对应键）→ `.env.prod` → 仅部署所选；exit 删 `.env.prod` |
 | Provider `deploy.ts` | **只** `--env-file`；读 `FC_FUNCTION_NAME` / `SCF_FUNCTION_NAME`；无 stdin、无 test/prod 分支 |
 
 规则：
@@ -162,7 +162,7 @@ flowchart TD
   AskFC2 --> AskSCF2{Deploy Tencent SCF? y/N}
   AskSCF2 --> AnyProd{any Y?}
   AnyProd -->|N| ExitProd[Nothing selected]
-  AnyProd -->|Y| Collect[collect-prod-env → .env.prod]
+  AnyProd -->|Y| Collect[collect-prod-env: verify DB → optional migrate → .env.prod]
   Collect --> RunProd[deploy only selected: Vercel and/or FC and/or SCF]
   RunProd --> Cleanup[exit: delete .env.prod + temp *env*]
 ```

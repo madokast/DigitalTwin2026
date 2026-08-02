@@ -8,6 +8,7 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Interface as ReadlineInterface } from 'node:readline'
+import type { SpawnSyncOptions } from 'node:child_process'
 import {
   askLine,
   askSecret,
@@ -21,8 +22,65 @@ import {
   promptQqbotChannel,
   promptTelegramChannel,
 } from './lib/notify-prompt'
-import { PROD_ENV_FILE, TEST_ENV_FILE } from './lib/test-env'
+import { runInherited } from './lib/spawn'
+import { PROD_ENV_FILE, REPO_ROOT, TEST_ENV_FILE } from './lib/test-env'
 import { verifyDatabaseUrl } from './lib/verify-database'
+
+/** DB 校验通过后询问是否 migrate；默认 N */
+export const PROMPT_RUN_DB_MIGRATE =
+  'Run drizzle-kit migrate on this database? [y/N] '
+
+/** Run drizzle-kit migrate? [y/N] → run | skip（默认 N） */
+export function dbMigrateDecision(ans: string): 'run' | 'skip' {
+  return isYes(ans) ? 'run' : 'skip'
+}
+
+/**
+ * 对刚校验通过的 DATABASE_URL 执行 `npm run db:migrate`。
+ * 子进程 env 注入 DATABASE_URL；不打印连接串。失败抛英文 Error 以中止 collect。
+ */
+export function runDbMigrate(
+  databaseUrl: string,
+  io: {
+    run?: (
+      command: string,
+      args: string[],
+      opts?: SpawnSyncOptions,
+    ) => number
+    cwd?: string
+  } = {},
+): void {
+  const runFn = io.run ?? runInherited
+  const status = runFn('npm', ['run', 'db:migrate'], {
+    cwd: io.cwd ?? REPO_ROOT,
+    env: { ...process.env, DATABASE_URL: databaseUrl },
+  })
+  if (status !== 0) {
+    throw new Error(
+      'drizzle-kit migrate failed. Fix the database and re-run collect-prod-env.',
+    )
+  }
+}
+
+/**
+ * 校验成功后询问 migrate；Y 则跑 npm run db:migrate，失败抛错中止 collect。
+ */
+export async function promptDbMigrateIfNeeded(
+  rl: ReadlineInterface,
+  databaseUrl: string,
+  io: { runMigrate?: (url: string) => void } = {},
+): Promise<'ran' | 'skipped'> {
+  const ans = await askLine(rl, PROMPT_RUN_DB_MIGRATE)
+  if (dbMigrateDecision(ans) === 'skip') {
+    console.error('Skipping drizzle-kit migrate.')
+    return 'skipped'
+  }
+  console.error('Running npm run db:migrate...')
+  const migrate = io.runMigrate ?? runDbMigrate
+  migrate(databaseUrl)
+  console.error('drizzle-kit migrate completed.')
+  return 'ran'
+}
 
 export const COLLECT_KEYS = [
   'DATABASE_URL',
@@ -72,6 +130,8 @@ async function promptRequired(
         console.error('')
         continue
       }
+      // 校验通过后可选 migrate；失败则抛错中止整个 collect（不写 .env.prod）
+      await promptDbMigrateIfNeeded(rl, val)
     }
     console.error(`  Preview: ${maskValue(val)}`)
     if (isYes(await askLine(rl, 'Confirm? [y/N] '))) {
@@ -195,6 +255,9 @@ async function main(): Promise<void> {
   console.log('Flow:')
   console.log(
     '  - DATABASE_URL / DIGITAL_TWIN_TOKEN / DIGITAL_TWIN_ADMIN_TOKEN: required',
+  )
+  console.log(
+    '  - After DATABASE_URL verify OK: Run drizzle-kit migrate? [y/N] (default N; Y → npm run db:migrate)',
   )
   console.log(
     '  - Enable Telegram / QQ? [y/N] → N writes empty; Y: if .env.test exists ask reuse bot keys, else fill + probe',
