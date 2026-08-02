@@ -14,9 +14,11 @@
 
 Base URL：本地 **Aliyun FC test** / **Tencent SCF test**（**不进 git**）。鉴权：ApiToken（`DIGITAL_TWIN_TOKEN` 即可）。两端同一测试库。墙钟为客户端 `curl %{time_total}`（ms）。
 
+**重要：** 客户端墙钟极易被本机 **VPN / HTTP(S)_PROXY** 扭曲。以 **§E（清代理 + `curl --noproxy '*'`）** 为可信结论；§A/§B 保留为「未强制绕过代理」对照。
+
 ---
 
-## A. `POST /api/db/probe`（专用连接）
+## A. `POST /api/db/probe`（专用连接）— 未强制绕过代理
 
 ### A.1 语义
 
@@ -27,7 +29,7 @@ POST /api/db/probe
 Authorization: Bearer <ApiToken>
 ```
 
-### A.2 结果摘要（本轮，2026-08-02 晚）
+### A.2 结果摘要（同日晚，未 `--noproxy`）
 
 两侧各 5 次全部 HTTP **200**，`ok=true`，`recordsTableExists=true`。
 
@@ -46,13 +48,11 @@ Authorization: Bearer <ApiToken>
 | Aliyun FC | ~460 ms | **~5.77–6.08 s** / **~5866 ms** |
 | Tencent SCF | ~467 ms | **~0.69–0.96 s** / **~850 ms** |
 
-本轮两侧 `connectMs` 均值接近；**墙钟仍差约 7×**，说明 probe 体感主要由链路 / 调度 / 冷启动外围主导，而非库内三次查询之和。
-
-> 更早一轮（同日、未记逐次 wall）：服务端 connect 均值约 Aliyun ~738 / Tencent ~410；墙钟约略 Tencent ~0.6–1.0 s、Aliyun ~5.8–11.3 s。趋势一致，以本表逐次 **wallMs** 为准。
+> 事后证明：当时 FC 墙钟被本机出口路径放大；**勿据此认定 Neon 或 FC 函数本身慢一个数量级**。见 §E。
 
 ---
 
-## B. `GET /api/query/transaction/summary`（连接池复用）
+## B. `GET /api/query/transaction/summary`（连接池复用）— 未强制绕过代理
 
 ### B.1 端点与语义
 
@@ -71,7 +71,7 @@ Authorization: Bearer <ApiToken>
 
 `from=2026-01-01T00:00:00Z` & `to=2026-01-02T00:00:00Z`
 
-### B.2 结果摘要
+### B.2 结果摘要（同日晚，未 `--noproxy`）
 
 两侧各 5 次全部 HTTP **200**，`success=true`，`income.count=0`，`expense.count=0`，`net="0.00"`（空区间）。
 
@@ -90,25 +90,77 @@ Authorization: Bearer <ApiToken>
 | Aliyun FC | **~5.23–5.36 s** / **~5279 ms** |
 | Tencent SCF | **~0.20–0.27 s** / **~226 ms** |
 
-Tencent 池路径相对 probe 明显更快（均值 ~850 → ~226 ms）；Aliyun 仍卡在约 5.3 s 量级，改善有限（probe ~5866 → summary ~5279）。
-
 ---
 
-## C. 对比解读
+## C. 对照解读（§A/§B，含代理噪声）
 
-| 维度 | 观察 |
+| 维度 | 观察（**可能被 VPN/代理污染**） |
 |------|------|
-| **专用连接 vs 池复用** | SCF 上池路径墙钟约为 probe 的 **1/4**（省掉反复建连）。FC 上两者都在 **~5–6 s**，池复用几乎吃不掉外围开销。 |
-| **Aliyun vs Tencent** | 同日、同库：SCF test 墙钟全面更短（probe ~7×，summary ~23×）。 |
-| **库内 vs 墙钟** | probe 的 `connectMs`+两次 `SELECT 1` 远小于 FC 墙钟；FC 瓶颈更像 **客户端→函数** 路径，而非 Neon 查询本身。 |
-| **选型** | 业务读路径（summary 等）更贴近真实 API；若只看当日 test 延迟，SCF 更优。生产仍要看地域、配额、出网与成本（见多云文档）。 |
+| **专用连接 vs 池复用** | SCF 上池路径墙钟约为 probe 的 **1/4**。FC 上两者都在 **~5–6 s**。 |
+| **Aliyun vs Tencent** | 墙钟差约 7×（probe）/ 23×（summary）——**不可信**，见 §E。 |
+| **库内 vs 墙钟** | 即便在噪声轮次，probe 的 `connectMs`+两次 `SELECT 1` 已接近两侧同级，说明 **Neon 并非墙钟差距来源**。 |
 
 ---
 
 ## D. 如何复现（本地）
 
-1. 确认 FC test / SCF test 已部署且含 `DATABASE_URL` + Tokens；summary 路由已随二进制上线。
-2. 从本地 env / `faas/providers/aliyun-fc/scripts/info.sh test` / 已知 SCF Web URL 取 Base URL（**勿提交**）。
-3. **Probe**：循环 `POST /api/db/probe`，记录 JSON 三个 ms + 客户端 **wallMs**。
-4. **Summary**：循环 `GET /api/query/transaction/summary?from=…&to=…`（窄窗口即可），记录 HTTP 状态、`success` / counts / `net`（勿贴大 payload）+ **wallMs**。
-5. 只提交聚合数字与表格；禁止 URL / Token / 连接串进 git。
+1. **先清代理**：`unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy NO_PROXY no_proxy`；curl 加 **`--noproxy '*'`**（本机开了 VPN 时尤其重要）。
+2. 确认 FC test / SCF test 已部署且含 `DATABASE_URL` + Tokens。
+3. 从本地 env / `info.sh` / 已知 Web URL 取 Base URL（**勿提交**）。
+4. **Probe**：循环 `POST /api/db/probe`，记录 JSON 三个 ms + **wallMs**。
+5. **Summary**：循环 `GET /api/query/transaction/summary?from=…&to=…`（窄窗口），记录状态 + **wallMs**。
+6. 只提交聚合数字与表格；禁止 URL / Token / 连接串进 git。
+
+---
+
+## E. 清代理后重测（可信结论，同日晚）
+
+条件：显式清空 `HTTP(S)_PROXY` / `ALL_PROXY` 等，且全部请求使用 `curl --noproxy '*'`。同一 Base URL、同一 Token、同一空 summary 窗口。各云各 5 次，全部 **200** / `ok` 或 `success`。
+
+### E.1 Probe（专用连接）
+
+| # | Aliyun connect / first / second / **wallMs** | Tencent connect / first / second / **wallMs** |
+|---|----------------------------------------------|-----------------------------------------------|
+| 1 | 452.0 / 73.9 / 73.6 / **2837.9** | 550.4 / 53.0 / 53.4 / **935.4** |
+| 2 | 514.2 / 75.2 / 74.6 / **935.5** | 657.7 / 48.1 / 48.3 / **988.9** |
+| 3 | 428.5 / 66.7 / 66.3 / **811.7** | 487.3 / 47.6 / 47.4 / **844.4** |
+| 4 | 439.6 / 70.1 / 69.9 / **838.1** | 295.8 / 47.4 / 47.6 / **700.0** |
+| 5 | 380.0 / 61.1 / 61.1 / **734.4** | 305.2 / 49.7 / 49.4 / **609.4** |
+
+| 侧 | connect 均值（约） | wallMs（含首发）/ 去掉首发均值 |
+|----|--------------------|--------------------------------|
+| Aliyun FC | ~443 ms | 均值 **~1232**；暖请求 **~830** |
+| Tencent SCF | ~459 ms | 均值 **~816**；暖请求 **~786** |
+
+服务端 `connectMs` / `SELECT 1` 两侧同量级；清代理后 **墙钟也同量级**（暖请求约 0.6–1.0 s）。
+
+### E.2 Transaction summary（池复用）
+
+| # | Aliyun **wallMs** | Tencent **wallMs** |
+|---|-------------------|--------------------|
+| 1 | **325.5** | **543.1** |
+| 2 | **205.3** | **153.9** |
+| 3 | **202.5** | **160.2** |
+| 4 | **161.8** | **176.1** |
+| 5 | **178.6** | **174.7** |
+
+| 侧 | wallMs 范围 / 均值 |
+|----|--------------------|
+| Aliyun FC | **~162–326** / **~215** |
+| Tencent SCF | **~154–543** / **~242**（去掉首发约 **~166**） |
+
+### E.3 与 §A/§B 对比 + 结论
+
+| 指标 | 未绕过代理（§A/§B） | 清代理 + `--noproxy '*'`（§E） |
+|------|---------------------|--------------------------------|
+| FC summary 墙钟均值 | **~5279 ms** | **~215 ms**（约 **25×** 下降） |
+| FC probe 墙钟均值 | **~5866 ms** | **~1232 ms**（暖约 **~830**） |
+| SCF summary 墙钟均值 | **~226 ms** | **~242 ms**（基本不变） |
+| SCF probe 墙钟均值 | **~850 ms** | **~816 ms** |
+
+**结论：**
+
+1. **Neon 不是瓶颈。** 库内 `connectMs` / `SELECT 1` 两侧本来就接近；差距主要在**本机到 FC 的客户端路径**（VPN/代理对 `*.fcapp.run` 不友好，对 SCF 影响小）。
+2. **清代理后** FC 与 SCF 的 summary 墙钟都在 **~0.15–0.35 s** 暖请求区间，**没有数量级鸿沟**。
+3. Probe（专用连接）暖墙钟仍约 **0.6–1.0 s**，高于 summary 池路径，符合「每次新建连接」预期。
+4. 以后双云延迟对比：**必须**记录是否清代理 / 是否 `--noproxy`；否则 FC 墙钟不可比。
