@@ -1,4 +1,6 @@
-import 'dotenv/config'
+import { loadTestEnv } from './scripts/lib/test-env'
+
+loadTestEnv()
 import { defineConfig } from 'drizzle-kit'
 
 export default defineConfig({

@@ -13,7 +13,7 @@ export function channelEnableDecision(ans: string): 'enable' | 'disable' {
   return isYes(ans) ? 'enable' : 'disable'
 }
 
-/** refresh-prod 已写好 env 时跳过全部渠道询问；兼容旧名 */
+/** refresh-prod / deploy 已写好 env 时跳过全部渠道询问；兼容旧名 */
 export function shouldSkipNotifyPrompt(
   env: Record<string, string | undefined> = process.env,
 ): boolean {
@@ -55,7 +55,7 @@ export type QqbotChannelValues = {
 /**
  * Enable Telegram？N→双空；Y→必填并探测。
  * @param probeText 探测文案（如 prod verify / deploying）
- * @param offerRepoEnv Enable=Y 时是否询问「Use from repo .env?」
+ * @param offerRepoEnv Enable=Y 时是否询问「Use from repo .env.test?」
  */
 export async function promptTelegramChannel(
   rl: ReadlineInterface,
@@ -75,7 +75,7 @@ export async function promptTelegramChannel(
     let userId = ''
     const offer = options.offerRepoEnv
     if (offer) {
-      const useAns = await askLine(rl, 'Use TELEGRAM_* from repo .env? [Y/n] ')
+      const useAns = await askLine(rl, 'Use TELEGRAM_* from repo .env.test? [Y/n] ')
       const useRoot = !(
         useAns.trim().toLowerCase() === 'n' ||
         useAns.trim().toLowerCase() === 'no'
@@ -84,10 +84,10 @@ export async function promptTelegramChannel(
         if (offer.token && offer.userId) {
           token = offer.token
           userId = offer.userId
-          console.error('Using TELEGRAM_* from repo .env.')
+          console.error('Using TELEGRAM_* from repo .env.test.')
         } else {
           console.error(
-            'Repo .env TELEGRAM_* incomplete or missing; fall through to manual entry.',
+            'Repo .env.test TELEGRAM_* incomplete or missing; fall through to manual entry.',
           )
         }
       }
@@ -141,7 +141,7 @@ export async function promptQqbotChannel(
     let userOpenid = ''
     const offer = options.offerRepoEnv
     if (offer) {
-      const useAns = await askLine(rl, 'Use QQBOT_* from repo .env? [Y/n] ')
+      const useAns = await askLine(rl, 'Use QQBOT_* from repo .env.test? [Y/n] ')
       const useRoot = !(
         useAns.trim().toLowerCase() === 'n' ||
         useAns.trim().toLowerCase() === 'no'
@@ -151,10 +151,10 @@ export async function promptQqbotChannel(
           appId = offer.appId
           appSecret = offer.appSecret
           userOpenid = offer.userOpenid
-          console.error('Using QQBOT_* from repo .env.')
+          console.error('Using QQBOT_* from repo .env.test.')
         } else {
           console.error(
-            'Repo .env QQBOT_* incomplete or missing; fall through to manual entry.',
+            'Repo .env.test QQBOT_* incomplete or missing; fall through to manual entry.',
           )
         }
       }

@@ -1,24 +1,20 @@
 /**
  * 轮换本地测试密钥：Neon DB 密码 + 两个 Bearer Token。
- * 只改 .env 与 faas/providers/aliyun-fc/.env.fc.test 中匹配行；打印旧/新值（中间掩码）。
+ * 只改根目录 `.env.test` 中匹配行；打印旧/新值（中间掩码）。
  *
  * 用法: npm run secrets:rotate-test
- * 之后需: cd faas/providers/aliyun-fc && ./scripts/deploy.sh test（禁止裸跑 s deploy）
+ * 之后若需同步 FaaS：npm run deploy -- test
  */
 import { randomBytes } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 import { maskValue } from './lib/mask'
+import { TEST_ENV_FILE } from './lib/test-env'
 
 export { maskValue } from './lib/mask'
 
-const ROOT = resolve(import.meta.dirname, '..')
-const ENV_FILES = [
-  resolve(ROOT, '.env'),
-  resolve(ROOT, 'faas/providers/aliyun-fc/.env.fc.test'),
-]
+const ENV_FILE = TEST_ENV_FILE
 const KEYS = ['DATABASE_URL', 'DIGITAL_TWIN_TOKEN', 'DIGITAL_TWIN_ADMIN_TOKEN'] as const
 
 type Key = (typeof KEYS)[number]
@@ -64,7 +60,6 @@ export function replaceEnvLine(
   }
 }
 
-
 function readEnvFile(path: string): string {
   try {
     return readFileSync(path, 'utf8')
@@ -88,7 +83,6 @@ function withPassword(url: string, password: string): string {
 }
 
 function genDbPassword(): string {
-  // URL 安全 Base64，去 padding，减少 .env / URI 转义
   return randomBytes(32).toString('base64url')
 }
 
@@ -103,10 +97,10 @@ function printChange(key: Key, oldValue: string, newValue: string) {
 }
 
 async function main() {
-  const primary = readEnvFile(ENV_FILES[0])
+  const primary = readEnvFile(ENV_FILE)
   const dbUrlMatch = primary.match(/^DATABASE_URL=(.*)$/m)
   if (!dbUrlMatch) {
-    throw new Error('.env missing DATABASE_URL')
+    throw new Error('.env.test missing DATABASE_URL')
   }
   const currentDbUrl = unquote(dbUrlMatch[1])
   const parsed = parseDatabaseUrl(currentDbUrl)
@@ -147,21 +141,14 @@ async function main() {
   }
 
   const collectedOld: Partial<Record<Key, string>> = {}
-
-  for (const file of ENV_FILES) {
-    let content = readEnvFile(file)
-    for (const key of KEYS) {
-      const result = replaceEnvLine(content, key, nextValues[key])
-      content = result.content
-      if (!(key in collectedOld)) {
-        collectedOld[key] = result.oldValue
-      } else if (collectedOld[key] !== result.oldValue) {
-        console.warn(`Warning: ${key} in ${file} differs from .env (replaced anyway)`)
-      }
-    }
-    writeFileSync(file, content, 'utf8')
-    console.log(`Wrote ${file}`)
+  let content = primary
+  for (const key of KEYS) {
+    const result = replaceEnvLine(content, key, nextValues[key])
+    content = result.content
+    collectedOld[key] = result.oldValue
   }
+  writeFileSync(ENV_FILE, content, 'utf8')
+  console.log(`Wrote ${ENV_FILE}`)
 
   console.log('')
   console.log('Rotated (middle masked):')
@@ -169,7 +156,7 @@ async function main() {
     printChange(key, collectedOld[key]!, nextValues[key])
   }
   console.log('')
-  console.log('Next: cd faas/providers/aliyun-fc && ./scripts/deploy.sh test')
+  console.log('Next (optional FaaS): npm run deploy -- test')
   console.log('Do NOT: s deploy (prints secrets in plaintext)')
 }
 

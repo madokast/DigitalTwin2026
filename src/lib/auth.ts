@@ -1,4 +1,6 @@
-import 'dotenv/config'
+import { loadTestEnv } from '../../scripts/lib/test-env'
+
+loadTestEnv()
 import { NextRequest, NextResponse } from 'next/server'
 
 function getBearerToken(request: NextRequest): string | null {

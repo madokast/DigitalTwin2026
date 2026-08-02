@@ -33,15 +33,15 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+!.env.test.example
 
-# Aliyun FC local secrets + Serverless Devs build output
-faas/providers/aliyun-fc/.env.fc.*
-faas/providers/tencent-scf/.env.scf.*
+# FaaS build / temp overlays（密钥勿提交）
 faas/providers/tencent-scf/.scf-build/
 faas/providers/aliyun-fc/.s-build/
 faas/providers/aliyun-fc/.s/
-faas/providers/aliyun-fc/.env.fc.test
-faas/providers/aliyun-fc/.env.fc.prod
+faas/providers/aliyun-fc/.s-deploy-overlay.yaml
+faas/providers/tencent-scf/.serverless-deploy-overlay.yml
+faas/providers/tencent-scf/.env.scf.bundle
 
 # vercel
 .vercel

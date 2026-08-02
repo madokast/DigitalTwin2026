@@ -3,16 +3,17 @@
  * 不打印 AppSecret / access_token。
  *
  * 用法（仓库根）: npm run qqbot:listen-openid
- * 需在 .env 配置 QQBOT_APP_ID、QQBOT_APP_SECRET。
+ * 需在 .env.test 配置 QQBOT_APP_ID、QQBOT_APP_SECRET。
  * 先启动本脚本，再给机器人发一条私聊（历史消息不会回放）。
  */
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config as loadDotenv } from 'dotenv'
 import { readDotenvKey } from './lib/dotenv-file'
+import { TEST_ENV_FILE } from './lib/test-env'
 
 const ROOT = resolve(import.meta.dirname, '..')
-const ENV_FILE = resolve(ROOT, '.env')
+const ENV_FILE = TEST_ENV_FILE
 
 const INTENT_GROUP_AND_C2C = 1 << 25
 const DEFAULT_TIMEOUT_MS = 120_000
@@ -292,7 +293,7 @@ async function main(): Promise<void> {
 
   if (!appId || !clientSecret) {
     console.error(
-      'Missing QQBOT_APP_ID or QQBOT_APP_SECRET in .env (see .env.example).',
+      'Missing QQBOT_APP_ID or QQBOT_APP_SECRET in .env.test (see .env.test.example).',
     )
     process.exit(1)
   }

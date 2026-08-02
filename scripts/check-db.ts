@@ -1,4 +1,6 @@
-import 'dotenv/config'
+import { loadTestEnv } from './lib/test-env'
+
+loadTestEnv()
 import postgres from 'postgres'
 
 const client = postgres(process.env.DATABASE_URL!)
