@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 薄包装 → TypeScript。用法: ./scripts/deploy.sh test|prod
+# 薄包装 → TypeScript。用法: ./scripts/deploy.sh --env-file <path>
 # 硬性规则仍在 deploy.ts：s deploy 输出必须丢弃。
 set -euo pipefail
 PROVIDER="$(cd "$(dirname "$0")/.." && pwd)"

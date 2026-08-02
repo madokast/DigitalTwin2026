@@ -1,14 +1,13 @@
-# 控制台先建无 CLS 的 Web 函数 digitaltwin-api-test，再由此更新代码。
-# 业务密钥不写进本文件：deploy 时拷贝 .env.scf.* → .scf-build/.env，由 scf_bootstrap source。
+# 控制台先建无 CLS 的 Web 函数；函数名来自 env 文件 SCF_FUNCTION_NAME（deploy overlay 覆盖）。
+# 密钥：--env-file 内容打进 .scf-build/.env，exit 删除；勿写 YAML environment。
 
 component: scf
 name: digitaltwin-api
 org: digitaltwin2026
 app: digitaltwin-api
-stage: test
 
 inputs:
-  name: digitaltwin-api-test
+  name: digitaltwin-api-${stage}
   type: web
   region: ap-guangzhou
   runtime: CustomRuntime

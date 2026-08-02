@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# 打印 FC HTTP Base URL（不含密钥）。用法: ./scripts/info.sh test|prod
+# 打印 FC HTTP Base URL（不含密钥）。用法: ./scripts/info.sh [test|prod]
+# 日常部署已用 --env-file + 临时 -t overlay；本脚本仍可用历史 env.yaml 的 --env。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -8,15 +9,6 @@ ENV_NAME="${1:-test}"
 if [[ "$ENV_NAME" != "test" && "$ENV_NAME" != "prod" ]]; then
   echo "usage: $0 test|prod" >&2
   exit 1
-fi
-
-# 若有本地密钥文件则加载（s info 解析 yaml 时可能仍引用 env）；没有也能跑（yaml 已给空默认）
-ENV_FILE="$ROOT/.env.fc.$ENV_NAME"
-if [[ -f "$ENV_FILE" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
 fi
 
 cd "$ROOT"

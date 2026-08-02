@@ -1,172 +1,148 @@
 /**
- * 用法: npx tsx faas/providers/aliyun-fc/scripts/deploy.ts test|prod
- * 或: cd faas/providers/aliyun-fc && ./scripts/deploy.sh test|prod（薄包装）
+ * 用法: npx tsx faas/providers/aliyun-fc/scripts/deploy.ts --env-file <path>
+ * 或: ENV_FILE=<path> npm run fc:deploy
  *
- * 硬性规则：禁止让 `s deploy` 的 stdout/stderr 进终端或日志。
+ * 不感知 test/prod；无 stdin。从 env 文件读密钥与 FC_FUNCTION_NAME，覆盖 IaC 函数名后部署。
+ * 临时 overlay 在 exit 删除。禁止让 `s deploy` 的 stdout/stderr 进终端。
  */
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { createRl } from '../../../../scripts/lib/cli-prompt'
+import { pathToFileURL } from 'node:url'
 import {
-  parseDotenvFile,
-  readDotenvKey,
-  upsertDotenvKey,
-} from '../../../../scripts/lib/dotenv-file'
-import {
-  promptQqbotChannel,
-  promptTelegramChannel,
-  shouldSkipNotifyPrompt,
-} from '../../../../scripts/lib/notify-prompt'
+  parseEnvFileArg,
+  usageEnvFile,
+} from '../../../../scripts/lib/env-file-arg'
+import { parseDotenvFile } from '../../../../scripts/lib/dotenv-file'
 import { run, runDiscarded } from '../../../../scripts/lib/spawn'
 
 const PROVIDER_ROOT = resolve(import.meta.dirname, '..')
-const REPO_ROOT = resolve(PROVIDER_ROOT, '../../..')
 
-const TELEGRAM_KEYS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_USER_ID'] as const
-const QQBOT_KEYS = [
+const REQUIRED_KEYS = [
+  'DATABASE_URL',
+  'DIGITAL_TWIN_TOKEN',
+  'DIGITAL_TWIN_ADMIN_TOKEN',
+  'FC_FUNCTION_NAME',
+] as const
+
+const OPTIONAL_KEYS = [
+  'TELEGRAM_BOT_TOKEN',
+  'TELEGRAM_USER_ID',
   'QQBOT_APP_ID',
   'QQBOT_APP_SECRET',
   'QQBOT_USER_OPENID',
 ] as const
 
-function applyEnvKeys(
-  envFile: string,
-  values: Record<string, string>,
-): void {
-  for (const [k, v] of Object.entries(values)) {
-    process.env[k] = v
-    upsertDotenvKey(envFile, k, v)
+/** 用 FC_FUNCTION_NAME 覆盖 s.yaml 中的 functionName，写临时模板 */
+export function patchSyamlFunctionName(
+  syaml: string,
+  functionName: string,
+): string {
+  if (!/functionName:\s*\S+/.test(syaml)) {
+    throw new Error('s.yaml missing functionName field')
   }
+  return syaml.replace(/functionName:\s*\S+/, `functionName: ${functionName}`)
 }
 
-async function resolveNotifyChannels(envFile: string): Promise<void> {
-  // refresh-prod 已写好并探测过时跳过二次询问
-  if (shouldSkipNotifyPrompt()) {
-    const token = process.env.TELEGRAM_BOT_TOKEN ?? ''
-    const userId = process.env.TELEGRAM_USER_ID ?? ''
-    if ((token || userId) && !(token && userId)) {
-      console.error('If either TELEGRAM_* is set, both must be non-empty.')
-      process.exit(1)
-    }
-    const appId = process.env.QQBOT_APP_ID ?? ''
-    const appSecret = process.env.QQBOT_APP_SECRET ?? ''
-    const openid = process.env.QQBOT_USER_OPENID ?? ''
-    const qqAny = Boolean(appId || appSecret || openid)
-    const qqAll = Boolean(appId && appSecret && openid)
-    if (qqAny && !qqAll) {
-      console.error(
-        'If any QQBOT_* is set, QQBOT_APP_ID / QQBOT_APP_SECRET / QQBOT_USER_OPENID must all be non-empty.',
-      )
-      process.exit(1)
-    }
-    console.error(
-      token
-        ? 'TELEGRAM_* already set (skip prompt).'
-        : 'Telegram notify disabled (both empty; skip prompt).',
-    )
-    console.error(
-      qqAll
-        ? 'QQBOT_* already set (skip prompt).'
-        : 'QQ Bot notify disabled (all empty; skip prompt).',
-    )
-    return
-  }
-
-  const rl = createRl()
-  try {
-    const rootEnv = resolve(REPO_ROOT, '.env')
-    const tg = await promptTelegramChannel(rl, {
-      probeText: 'DigitalTwin2026 deploying',
-      offerRepoEnv: {
-        token: readDotenvKey(rootEnv, 'TELEGRAM_BOT_TOKEN'),
-        userId: readDotenvKey(rootEnv, 'TELEGRAM_USER_ID'),
-      },
-    })
-    applyEnvKeys(envFile, tg)
-    console.error('')
-
-    const qq = await promptQqbotChannel(rl, {
-      probeText: 'DigitalTwin2026 deploying',
-      offerRepoEnv: {
-        appId: readDotenvKey(rootEnv, 'QQBOT_APP_ID'),
-        appSecret: readDotenvKey(rootEnv, 'QQBOT_APP_SECRET'),
-        userOpenid: readDotenvKey(rootEnv, 'QQBOT_USER_OPENID'),
-      },
-    })
-    applyEnvKeys(envFile, qq)
-  } finally {
-    rl.close()
-  }
-}
-
-async function main(): Promise<void> {
-  const envName = process.argv[2] ?? ''
-  if (envName !== 'test' && envName !== 'prod') {
-    console.error('usage: deploy.ts test|prod')
-    process.exit(1)
-  }
-
-  const envFile = resolve(PROVIDER_ROOT, `.env.fc.${envName}`)
+function loadSecrets(envFile: string): Record<string, string> {
   if (!existsSync(envFile)) {
-    console.error(
-      `missing ${envFile} — copy from env.fc.example and fill secrets`,
-    )
+    console.error(`missing ${envFile}`)
     process.exit(1)
   }
-
-  const loaded = parseDotenvFile(envFile)
-  for (const [k, v] of Object.entries(loaded)) {
-    process.env[k] = v
-  }
-
-  for (const key of [
-    'DATABASE_URL',
-    'DIGITAL_TWIN_TOKEN',
-    'DIGITAL_TWIN_ADMIN_TOKEN',
-  ] as const) {
-    if (!process.env[key]) {
+  const map = parseDotenvFile(envFile)
+  const out: Record<string, string> = {}
+  for (const key of REQUIRED_KEYS) {
+    const v = map[key]?.trim() ?? ''
+    if (!v) {
       console.error(`${key} required in ${envFile}`)
       process.exit(1)
     }
+    out[key] = map[key]!
+  }
+  for (const key of OPTIONAL_KEYS) {
+    out[key] = map[key] ?? ''
+  }
+  return out
+}
+
+function extractHttpUrl(blob: string): string {
+  const m = blob.match(/https:\/\/[^\s]+\.fcapp\.run/g)
+  if (!m) return ''
+  const publicUrl = m.find((u) => !/vpc/i.test(u))
+  return publicUrl ?? m[0] ?? ''
+}
+
+async function main(): Promise<void> {
+  const envFile = parseEnvFileArg()
+  if (!envFile) {
+    console.error(usageEnvFile('deploy.ts'))
+    process.exit(1)
   }
 
-  // 确保 skip 路径下缺失键视为空串（避免旧文件缺 QQBOT_*）
-  for (const key of [...TELEGRAM_KEYS, ...QQBOT_KEYS]) {
-    if (process.env[key] === undefined) process.env[key] = ''
+  const values = loadSecrets(envFile)
+  const functionName = values.FC_FUNCTION_NAME.trim()
+
+  for (const [k, v] of Object.entries(values)) {
+    process.env[k] = v
   }
 
-  await resolveNotifyChannels(envFile)
+  const tmpYaml = resolve(PROVIDER_ROOT, `.s-deploy-overlay.yaml`)
+  const cleanup = () => {
+    if (existsSync(tmpYaml)) rmSync(tmpYaml, { force: true })
+  }
+  process.on('exit', cleanup)
+  process.on('SIGINT', () => {
+    cleanup()
+    process.exit(130)
+  })
+
+  const base = readFileSync(resolve(PROVIDER_ROOT, 's.yaml'), 'utf8')
+  writeFileSync(tmpYaml, patchSyamlFunctionName(base, functionName), 'utf8')
 
   console.log(
-    `deploying env=${envName} (s deploy output discarded — secrets must not print)`,
+    `deploying FC function=${functionName} (s deploy output discarded — secrets must not print)`,
   )
-  const status = runDiscarded('s', ['deploy', '--env', envName, '-y'], {
+  const status = runDiscarded('s', ['deploy', '-t', tmpYaml, '-y'], {
     cwd: PROVIDER_ROOT,
     env: process.env,
   })
   if (status !== 0) {
     console.error(
-      `deploy FAILED (env=${envName}). Re-run only via this script; do not run bare s deploy.`,
+      `deploy FAILED (function=${functionName}). Re-run only via this script; do not run bare s deploy.`,
     )
     process.exit(1)
   }
 
   console.log('deploy OK.')
-  const info = run('bash', [resolve(PROVIDER_ROOT, 'scripts/info.sh'), envName], {
+  const scrubbed = {
+    ...process.env,
+    DATABASE_URL: '',
+    DIGITAL_TWIN_TOKEN: '',
+    DIGITAL_TWIN_ADMIN_TOKEN: '',
+    TELEGRAM_BOT_TOKEN: '',
+    TELEGRAM_USER_ID: '',
+    QQBOT_APP_ID: '',
+    QQBOT_APP_SECRET: '',
+    QQBOT_USER_OPENID: '',
+  }
+  const info = run('s', ['info', '-t', tmpYaml], {
     cwd: PROVIDER_ROOT,
-    env: process.env,
+    env: scrubbed,
   })
-  const url = info.stdout.trim()
+  const url = extractHttpUrl(info.stdout + info.stderr)
   if (url) {
     console.log(`HTTP Base URL: ${url}`)
     console.log('Paste into Settings → API Accelerate URL (never commit).')
   } else {
-    console.log(`Get HTTP URL with: ./scripts/info.sh ${envName}`)
+    console.log(
+      `Could not parse system_url. Try: cd faas/providers/aliyun-fc && s info -t ${tmpYaml}`,
+    )
   }
   console.log('Do NOT run: s deploy   (leaks env secrets to the terminal)')
 }
 
-main().catch((e) => {
-  console.error(e instanceof Error ? e.message : e)
-  process.exit(1)
-})
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  main().catch((e) => {
+    console.error(e instanceof Error ? e.message : e)
+    process.exit(1)
+  })
+}
