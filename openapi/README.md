@@ -79,7 +79,7 @@ npm run openapi:preview
 | 契约文档 | OpenAPI 3.1，多文件 `$ref`，入口 `openapi.yaml` |
 | Lint / 预览 | Redocly（`openapi:lint`）、Redoc 静态页（`openapi:preview`） |
 | 契约测 | `fixtures/` + Vitest Ajv + Go `internal/contract`（kin-openapi） |
-| CI | `.github/workflows/ci.yml`：lint + 双端契约测 + 无 DB 单元测；`tests/api` 无库 Skip。可选 secrets `TEST_DATABASE_URL` 启用 Node 集成测 |
+| CI | `.github/workflows/ci.yml`：lint + 双端契约测 + 无 DB 单元测；`tests/api` 无 `TEST_DATABASE_URL` Skip（不 DROP）。可选 secrets `TEST_DATABASE_URL` 启用 Node 集成测 |
 
 历史上称 Phase 1（文档）/ Phase 2（lint + 契约测 + CI）。**不设 Phase 3，不再开 OpenAPI「下一阶段」。**
 

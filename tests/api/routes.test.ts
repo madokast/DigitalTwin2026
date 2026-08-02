@@ -9,14 +9,14 @@ import { GET as queryTags } from '@/app/api/query/tags/route'
 import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
 import { PATCH as patchRecord } from '@/app/api/admin/records/[id]/route'
 import { closeDb } from '@/db'
-import { dropTestSchema, migrateTestDatabase, truncateRecords } from '../helpers/db'
+import { migrateTestDatabase, truncateRecords } from '../helpers/db'
 import { jsonGet, jsonPatch, jsonPost } from '../helpers/http'
 import { reservedTagError } from '@/lib/tags'
 
-/** 与 Go httpx integration 一致：无 DATABASE_URL 时 Skip，便于 CI 跑单元测 */
-const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim())
+/** 只认 TEST_DATABASE_URL（不做 DROP）；缺失则 Skip，避免误用生产 DATABASE_URL */
+const hasTestDatabaseUrl = Boolean(process.env.TEST_DATABASE_URL?.trim())
 
-describe.skipIf(!hasDatabaseUrl)('API integration', () => {
+describe.skipIf(!hasTestDatabaseUrl)('API integration', () => {
   beforeAll(async () => {
     await migrateTestDatabase()
   }, 60_000)
@@ -26,7 +26,6 @@ describe.skipIf(!hasDatabaseUrl)('API integration', () => {
   })
 
   afterAll(async () => {
-    await dropTestSchema()
     await closeDb()
   }, 60_000)
 

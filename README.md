@@ -117,7 +117,7 @@ cd faas && go test ./internal/contract/   # Go 契约（无 DB）
 cd faas && go test ./...
 ```
 
-单元测 `src/lib`、`src/proxy`；集成测连真实 PG（migrate → TRUNCATE → 测 → DROP）。无 `DATABASE_URL` 时 Next `tests/api` 与 Go httptest 冒烟均 **Skip**（CI 默认可跑单元测）。配置 GitHub secrets `TEST_DATABASE_URL`（及可选 Token）可启用 CI 集成测 job。契约测与 DB 无关，见 `openapi/README.md`。
+单元测 `src/lib`、`src/proxy`；API 集成测连真实 PG（migrate → 用例间 TRUNCATE；**不再 DROP** schema）。门闸为 `TEST_DATABASE_URL`（无则 Skip；setup 会映射到业务用的 `DATABASE_URL`）。Go httptest 冒烟仍看 `DATABASE_URL`。CI 默认可跑单元测；配置 GitHub secrets `TEST_DATABASE_URL`（及可选 Token）可启用 CI 集成测 job。契约测与 DB 无关，见 `openapi/README.md`。
 
 ## 项目结构
 
@@ -127,7 +127,7 @@ cd faas && go test ./...
 ├── fc/                # 短重定向 → faas/
 ├── openapi/           # OpenAPI 3.1 契约（双端共用源）
 ├── scripts/           # migrate 辅助、密钥轮换/生产刷新、共享 lib
-├── tests/             # API 集成测试（无 DATABASE_URL 时 Skip）
+├── tests/             # API 集成测试（无 TEST_DATABASE_URL 时 Skip；不 DROP）
 ├── testdata/          # 双端共享校验样例（decimal、日历日边界等）
 ├── drizzle/           # migration
 ├── docs/              # 设计与开发日志
