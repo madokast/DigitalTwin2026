@@ -2,13 +2,18 @@ import { describe, expect, it } from 'vitest'
 import {
   PROMPT_DEPLOY_ALIYUN_FC,
   PROMPT_DEPLOY_TENCENT_SCF,
+  PROMPT_DEPLOY_VERCEL,
+  anyDeployChosen,
   cloudDeployDecision,
   parseDeployTarget,
   USAGE,
 } from './deploy'
 import {
+  DEFAULT_FC_FUNCTION_NAME,
+  DEFAULT_SCF_FUNCTION_NAME,
   REQUIRED_COLLECT_KEYS,
   emptyInputPolicy,
+  resolveWithDefault,
 } from './collect-prod-env'
 import {
   channelEnableDecision,
@@ -28,9 +33,11 @@ describe('parseDeployTarget', () => {
 })
 
 describe('USAGE', () => {
-  it('is English and mentions test|prod', () => {
+  it('is English and mentions test|prod; Vercel optional on prod', () => {
     expect(USAGE).toMatch(/test\|prod/)
     expect(USAGE).toMatch(/usage:/i)
+    expect(USAGE).toMatch(/Ask Vercel\/FC\/SCF/i)
+    expect(USAGE).not.toMatch(/Vercel required/i)
   })
 })
 
@@ -54,6 +61,20 @@ describe('emptyInputPolicy (collect)', () => {
   })
 })
 
+describe('function name defaults', () => {
+  it('defaults to digitaltwin-api-prod; empty input keeps default', () => {
+    expect(DEFAULT_FC_FUNCTION_NAME).toBe('digitaltwin-api-prod')
+    expect(DEFAULT_SCF_FUNCTION_NAME).toBe('digitaltwin-api-prod')
+    expect(resolveWithDefault('', DEFAULT_FC_FUNCTION_NAME)).toBe(
+      'digitaltwin-api-prod',
+    )
+    expect(resolveWithDefault('  ', DEFAULT_SCF_FUNCTION_NAME)).toBe(
+      'digitaltwin-api-prod',
+    )
+    expect(resolveWithDefault('my-fn', DEFAULT_FC_FUNCTION_NAME)).toBe('my-fn')
+  })
+})
+
 describe('channelEnableDecision', () => {
   it('defaults to disable; y/yes enable', () => {
     expect(channelEnableDecision('')).toBe('disable')
@@ -72,10 +93,22 @@ describe('cloudDeployDecision', () => {
   })
 })
 
-describe('optional FaaS prompt strings', () => {
-  it('matches deploy UX (default N; no test/prod in prompt)', () => {
+describe('optional cloud prompt strings', () => {
+  it('matches deploy UX (default N for Vercel/FC/SCF)', () => {
+    expect(PROMPT_DEPLOY_VERCEL).toBe('Deploy Vercel production? [y/N] ')
     expect(PROMPT_DEPLOY_ALIYUN_FC).toBe('Deploy Aliyun FC? [y/N] ')
     expect(PROMPT_DEPLOY_TENCENT_SCF).toBe('Deploy Tencent SCF? [y/N] ')
+  })
+})
+
+describe('anyDeployChosen', () => {
+  it('is false when all skipped; true if any target selected', () => {
+    expect(
+      anyDeployChosen({ vercel: false, fc: false, scf: false }),
+    ).toBe(false)
+    expect(anyDeployChosen({ vercel: true, fc: false, scf: false })).toBe(true)
+    expect(anyDeployChosen({ vercel: false, fc: true, scf: false })).toBe(true)
+    expect(anyDeployChosen({ vercel: false, fc: false, scf: true })).toBe(true)
   })
 })
 

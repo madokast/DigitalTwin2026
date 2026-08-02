@@ -71,7 +71,7 @@ Settings → API Accelerate URL 填 `http://localhost:8080` 或 FC 的 `*.fcapp.
 |------|------|
 | `npm run secrets:rotate-test` | 轮换本地测试库密码 + 两 Token（只更新 `.env.test`） |
 | `npm run deploy -- test` | 用常驻 `.env.test`；**跳过 Vercel**；询问可选 FC/SCF（默认 N） |
-| `npm run deploy -- prod` | 调 `collect-prod-env` → 临时 `.env.prod` → Vercel 必做；询问可选 FC/SCF（默认 N）；exit 删 `.env.prod` |
+| `npm run deploy -- prod` | 先问 Vercel / FC / SCF（默认 N）；任一 Y → `collect-prod-env`（bot：Enable；有 `.env.test` 时可复用对应键）→ `.env.prod` → 仅部署所选目标；exit 删 `.env.prod` |
 | `npm run fc:deploy -- --env-file <path>` | 薄包装部署 FC（读 `FC_FUNCTION_NAME`） |
 | `npm run scf:deploy -- --env-file <path>` | 薄包装部署 SCF（读 `SCF_FUNCTION_NAME`） |
 

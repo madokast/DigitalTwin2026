@@ -11,7 +11,7 @@
 
 - 在**不删除**现有阿里云 FC 配置与能力的前提下，增加腾讯云 SCF（Web 函数）作为可选国内加速入口。
 - 将共享 Go API 与各云厂商部署壳分离：`faas/` 放业务二进制；`faas/providers/<id>/` 放厂商清单、env、部署脚本。
-- 调整顶层部署：`npm run deploy -- test|prod`。`collect-prod-env` 独立收集生产密钥 → 临时 `.env.prod`；`deploy` 只分发。Vercel 仅在 `prod` **必做**；各云 FaaS **默认跳过**。
+- 调整顶层部署：`npm run deploy -- test|prod`。`collect-prod-env` 独立收集生产密钥 → 临时 `.env.prod`；`deploy` 只分发。Vercel / FC / SCF 在 `prod` 均为可选（`[y/N]` **默认 N**）；任一 Y 才 collect。
 - 客户端继续只粘贴**一条** Accelerate Base URL（FC 或 SCF 任一）；对厂商无感。
 - 为日后再加第三方云预留 `providers/<id>/` 扩展点。
 
@@ -31,7 +31,7 @@
 | 海外默认 API | Vercel（Next `src/app/api`） |
 | 国内加速 | 阿里云 FC3（`faas/providers/aliyun-fc`，Serverless Devs `s.yaml`，custom runtime，端口 **9000**）；腾讯云 SCF **规划中** |
 | 共享库 | Neon / 标准 PostgreSQL；test / prod 与 Vercel 对齐 |
-| 生产密钥脚本 | `npm run deploy -- prod`：`collect-prod-env` → 临时 `.env.prod`；Vercel **必做**；`Deploy Aliyun FC?` / `Deploy Tencent SCF?` **默认 N**。`deploy -- test` 用 `.env.test`、跳过 Vercel |
+| 生产密钥脚本 | `npm run deploy -- prod`：先问 Vercel / FC / SCF（均默认 N）；任一 Y → `collect-prod-env` → 临时 `.env.prod` → 仅部署所选。`deploy -- test` 用 `.env.test`、跳过 Vercel |
 | CI / 自动化 | **没有**向阿里云 FC 部署的 CI；仅对 `faas/` 跑 `go test`。prefs / api-client 测试里的 `*.fcapp.run` **只是** URL 字符串样例，不触发部署 |
 | 客户端 | Settings → **API Accelerate URL**（prefs）；空 = 同源 Vercel |
 
@@ -101,7 +101,7 @@ faas/
         info.sh
         …
     tencent-scf/           # 新建：Serverless Cloud Framework（`scf`）
-      serverless.yml       # type: web + CustomRuntime；name=digitaltwin-api-${stage}
+      serverless.yml       # type: web + runtime Go1；Go 经 scf_bootstrap；name 由 SCF_FUNCTION_NAME 覆盖
       scf_bootstrap        # 或构建时生成
       scripts/
         deploy.ts          # --env-file → 打进包；exit 删除临时 *env*
@@ -133,16 +133,17 @@ faas/
 
 | 命令 | 行为 |
 |------|------|
-| `npm run deploy -- test` | 常驻 `.env.test`；**跳过 Vercel**；`Deploy Aliyun FC?` / `Deploy Tencent SCF?` 默认 N |
-| `npm run deploy -- prod` | 子过程 `collect-prod-env` → 临时 `.env.prod`；Vercel upsert + `deploy --prod` **必做**；同上问 FC/SCF；exit 删 `.env.prod` |
+| `npm run deploy -- test` | 常驻 `.env.test`；**跳过 Vercel**；`Deploy Aliyun FC?` / `Deploy Tencent SCF?` 默认 N；全 N 则退出 |
+| `npm run deploy -- prod` | 先问 `Deploy Vercel production?` / FC / SCF（均默认 N）；全 N 退出；任一 Y → `collect-prod-env`（bot：Enable → 可选复用 `.env.test` 对应键）→ `.env.prod` → 仅部署所选；exit 删 `.env.prod` |
 | Provider `deploy.ts` | **只** `--env-file`；读 `FC_FUNCTION_NAME` / `SCF_FUNCTION_NAME`；无 stdin、无 test/prod 分支 |
 
 规则：
 
+- **先问目标，再做重活**（prod 的 collect / CLI 预检均在选定之后）。
 - **逐云询问 → 仅 yes 才部署；N / 回车 = 跳过。**
 - **各云 CLI 预检只在该云选择 Y 之后。**
 - 临时 `*env*` / overlay / `.scf-build/.env`：**test/prod 一样** exit 删除。
-- 选 Y 失败：`exit 1`；**不**自动回滚已完成的 Vercel 步骤。
+- 选 Y 失败：`exit 1`；**不**自动回滚已完成的其它云步骤。
 
 ### 4.3 流程（mermaid）
 
@@ -150,22 +151,20 @@ faas/
 flowchart TD
   StartTest([npm run deploy -- test]) --> EnvTest[.env.test]
   EnvTest --> AskFC1{Deploy Aliyun FC? y/N}
-  AskFC1 -->|Y| Fc1[fc deploy --env-file .env.test]
-  AskFC1 -->|N| AskSCF1
-  Fc1 --> AskSCF1{Deploy Tencent SCF? y/N}
-  AskSCF1 -->|Y| Scf1[scf deploy --env-file .env.test]
-  AskSCF1 -->|N| DoneTest
+  AskFC1 --> AskSCF1{Deploy Tencent SCF? y/N}
+  AskSCF1 --> AnyTest{any Y?}
+  AnyTest -->|N| ExitTest[Nothing selected]
+  AnyTest -->|Y| RunTest[deploy selected FC/SCF]
+  RunTest --> DoneTest
 
-  StartProd([npm run deploy -- prod]) --> Collect[collect-prod-env → .env.prod]
-  Collect --> VPre[Preflight Vercel]
-  VPre --> VUp[Upsert + vercel deploy --prod]
-  VUp --> AskFC2{Deploy Aliyun FC? y/N}
-  AskFC2 -->|Y| Fc2[fc deploy --env-file .env.prod]
-  AskFC2 -->|N| AskSCF2
-  Fc2 --> AskSCF2{Deploy Tencent SCF? y/N}
-  AskSCF2 -->|Y| Scf2[scf deploy --env-file .env.prod]
-  AskSCF2 -->|N| Cleanup
-  Scf2 --> Cleanup[exit: delete .env.prod + temp *env*]
+  StartProd([npm run deploy -- prod]) --> AskV{Deploy Vercel? y/N}
+  AskV --> AskFC2{Deploy Aliyun FC? y/N}
+  AskFC2 --> AskSCF2{Deploy Tencent SCF? y/N}
+  AskSCF2 --> AnyProd{any Y?}
+  AnyProd -->|N| ExitProd[Nothing selected]
+  AnyProd -->|Y| Collect[collect-prod-env → .env.prod]
+  Collect --> RunProd[deploy only selected: Vercel and/or FC and/or SCF]
+  RunProd --> Cleanup[exit: delete .env.prod + temp *env*]
 ```
 
 ### 4.4 与测试 / CI 的关系（避免误解）
@@ -182,14 +181,14 @@ flowchart TD
 |----|------|
 | 形态 | **SCF Web 函数**（`type: web`），HTTP 直出；与 FC custom runtime 同属「标准 HTTP 进程」模型 |
 | **部署工具** | 全局安装 [`serverless-cloud-framework`](https://cloud.tencent.com/document/product/1154/50938)（`npm i -g serverless-cloud-framework`）；CLI 简写 **`scf`**（`scf deploy` / `scf info`）。厂商登录可用微信扫码（文档快速入门）或本机凭证；**AK 与函数 URL 禁止进 git** |
-| 配置 | `faas/providers/tencent-scf/serverless.yml`（及 env 模板 / deploy 包装脚本）；`component: scf`，`inputs.type: web`，`runtime: CustomRuntime`（或平台等价自定义运行时） |
-| 启动 | 构建 linux/amd64 二进制 + **`scf_bootstrap`**（启动 `./bootstrap` 或等价，监听 **9000**）；与 [Web 函数 bootstrap](https://cloud.tencent.com/document/product/583/56144) 模型对齐 |
+| 配置 | `faas/providers/tencent-scf/serverless.yml`（及 deploy 包装脚本）；`component: scf`，`inputs.type: web`，`runtime: Go1`（控制台 **Go 1**；Web CreateFunction **不支持** CustomRuntime） |
+| 启动 | 构建 linux/amd64 二进制 + **`scf_bootstrap`**（启动 `./bootstrap` 或等价，监听 **9000**）；与 [Web 函数 bootstrap](https://cloud.tencent.com/document/product/583/56144) / [Golang 部署](https://cloud.tencent.com/document/product/583/67385) 对齐 |
 | 二进制 | 同一 `faas/cmd/api` 构建产物语义（`GOOS=linux GOARCH=amd64 CGO_ENABLED=0`，trimpath/`-s -w` 等由 provider 脚本决定） |
 | 端口 | **9000**（`PORT=9000`）；与今日 FC 一致 |
 | 环境变量 | 与 FC 同名键：`DATABASE_URL`、Tokens、Telegram / QQ Bot 等 |
 | 鉴权 / 路由 | 与 Next / FC **契约一致**（OpenAPI + 双端测试仍是真源） |
 | URL | `scf deploy` / `scf info` 得到的 HTTPS Base URL 粘到 Settings；**禁止进 git** |
-| 密钥与 deploy | 选 Y 部署 SCF 时：预检本机已安装 `scf`；`--env-file` 注入（勿把 `scf deploy` 明文密钥打到终端） |
+| 密钥与 deploy | 选 Y 部署 SCF 时：预检本机已安装 `scf`；`--env-file` 注入进 `.scf-build/.env`（CLI 不打印密钥，stdout/stderr 可透传；**不同于** FC `s deploy` 须丢弃输出） |
 
 说明：官方快速入门模板多为事件函数 / Node；本仓库 **不用** `scf-nodejs` helloworld，而是自管 `serverless.yml` + 预编译 Go Web 包，仅复用 **SCF CLI / 登录 / 组件发布链路**。
 
@@ -230,7 +229,7 @@ flowchart TD
 **Task 顺序建议（可拆 PR）：**
 
 1. ~~**目录搬迁**：`fc/` → `faas/` + `providers/aliyun-fc/`~~ **已完成**。  
-2. ~~**deploy UX**：Vercel 仅 prod 必做；FC / SCF 分问默认 N；CLI 预检推迟到对应 Y~~ **已完成**（现为 `deploy` + `collect-prod-env`）。  
+2. ~~**deploy UX**：Vercel / FC / SCF 分问默认 N；CLI 预检推迟到对应 Y；prod 任一 Y 才 collect~~ **已完成**（现为 `deploy` + `collect-prod-env`）。  
 3. ~~**腾讯云 SCF Web**：`providers/tencent-scf/`；`--env-file`；函数名来自 `SCF_FUNCTION_NAME`~~ **骨架已落地**。  
 4. **验收**：同一 OpenAPI 契约；`go test`；手动对 SCF Base URL 打几条 API；对比 Neon / Telegram 行为；用户确认 SCF 内存档。  
 5. **（可选）** Settings placeholder / 开发日志补一句双云说明。
@@ -246,7 +245,7 @@ flowchart TD
 
 1. **永久双云**：保留全部阿里云 FC 配置与能力；另增独立 provider 目录；**不删除** FC（按量、空闲 ≈ 免费）。  
 2. **目标布局**：`faas/{cmd,internal,go.mod}` + `faas/providers/aliyun-fc/` + `faas/providers/tencent-scf/`（及未来 `providers/<id>/`）；共享代码**不得** import `providers/*`。  
-3. **`npm run deploy -- prod`**：Vercel **必做**；阿里云 FC / 腾讯云 SCF **`Deploy …? [y/N]` 默认 N**；逐云询问；**各云 CLI 预检仅在该云部署前**。`deploy -- test` 跳过 Vercel。旧 `secrets:refresh-prod` / `refresh-prod-env` **已删除**。  
+3. **`npm run deploy -- prod`**：Vercel / 阿里云 FC / 腾讯云 SCF 均为 **`Deploy …? [y/N]` 默认 N**；先问再 collect；**各云 CLI 预检仅在该云部署前**。`deploy -- test` 跳过 Vercel。旧 `secrets:refresh-prod` / `refresh-prod-env` **已删除**。  
 4. **SCF**：Web 函数 lift-and-shift；同一 Go 二进制语义；端口 **9000**；部署工具 **`npm i -g serverless-cloud-framework`（CLI `scf`）**，见 §5 与 [官方快速部署](https://cloud.tencent.com/document/product/1154/50938)。  
 5. **成本**：FC 保持 128MB / min0 / reservedConcurrency 1；SCF 从约 64MB 等价档起，**部署后用户确认**能否更低。  
 6. **扩展**：更多厂商只加 `providers/<id>/` + deploy 多一问。  

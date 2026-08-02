@@ -1,4 +1,7 @@
-# 控制台先建无 CLS 的 Web 函数；函数名来自 env 文件 SCF_FUNCTION_NAME（deploy overlay 覆盖）。
+# Web 函数：runtime 用 Go1（控制台「Go 1」；CreateFunction 合法值）。
+# CustomRuntime 对 Web CreateFunction 会报 runtime 参数错误；勿用 Nodejs 冒充基座。
+# 包内 scf_bootstrap 启动 ./bootstrap（linux/amd64），监听 9000。
+# 函数名由 deploy 用 SCF_FUNCTION_NAME 覆盖 inputs.name（SCF CLI 无 -t 模板，见 deploy.ts）。
 # 密钥：--env-file 内容打进 .scf-build/.env，exit 删除；勿写 YAML environment。
 
 component: scf
@@ -10,7 +13,7 @@ inputs:
   name: digitaltwin-api-${stage}
   type: web
   region: ap-guangzhou
-  runtime: CustomRuntime
+  runtime: Go1
   description: DigitalTwin2026 HTTP API (Go Web on SCF)
   memorySize: 64
   timeout: 30

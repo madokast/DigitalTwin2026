@@ -38,6 +38,20 @@ export function runDiscarded(
   return r.status ?? 1
 }
 
+/** 继承父进程 stdio（如 scf deploy：密钥经 env 文件，CLI 不打印密钥） */
+export function runInherited(
+  command: string,
+  args: string[],
+  opts: SpawnSyncOptions = {},
+): number {
+  const r = spawnSync(command, args, {
+    stdio: 'inherit',
+    ...opts,
+  })
+  if (r.error) return 1
+  return r.status ?? 1
+}
+
 export function which(cmd: string): boolean {
   const r = spawnSync(cmd, ['--version'], {
     encoding: 'utf8',

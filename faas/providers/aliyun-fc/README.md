@@ -29,18 +29,18 @@
 ```bash
 # 仓库根
 npm run deploy -- test    # .env.test；跳过 Vercel；问 FC/SCF
-npm run deploy -- prod    # collect → .env.prod；Vercel 必做；问 FC/SCF
+npm run deploy -- prod    # 先问 Vercel/FC/SCF（默认 N）；任一 Y 才 collect
 ```
 
 `prod` 流程摘要：
 
-1. 子过程 `collect-prod-env`：stdin 收集 DB/Token/通知/`FC_FUNCTION_NAME`/`SCF_FUNCTION_NAME` → 写 `.env.prod`（0600）
-2. Upsert Vercel production + `vercel deploy --prod`（必做）
-3. `Deploy Aliyun FC? [y/N]` / `Deploy Tencent SCF? [y/N]`（默认 N）→ Y 时 `fc:deploy` / `scf:deploy -- --env-file .env.prod`
+1. `Deploy Vercel production?` / `Deploy Aliyun FC?` / `Deploy Tencent SCF?`（均默认 N）；全 N → 退出
+2. 任一 Y → 子过程 `collect-prod-env`：stdin 收集 DB/Token/`FC_FUNCTION_NAME`/`SCF_FUNCTION_NAME`；Telegram/QQ 各自先问 Enable（N→写空）；Y 且根 `.env.test` 存在时再问是否复用该 bot 对应键（可手输）→ 写 `.env.prod`（0600）
+3. 仅对选中的目标：Vercel upsert + `deploy --prod`；和/或 `fc:deploy` / `scf:deploy -- --env-file .env.prod`（各云 CLI 预检仅在对应 Y 之后）
 4. exit / SIGINT：**删除** `.env.prod` 与部署临时 overlay
 
 ```bash
-vercel login && vercel link   # 首次
+vercel login && vercel link   # 若本轮要部署 Vercel
 s config get -a dt            # 若本轮要部署 FC
 npm run deploy -- prod
 ```

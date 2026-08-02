@@ -3,7 +3,10 @@
  * 或: ENV_FILE=<path> npm run scf:deploy
  *
  * 不感知 test/prod；无 stdin。从 env 文件读密钥与 SCF_FUNCTION_NAME。
- * 密钥打进 .scf-build/.env（避 YAML 501）；临时 overlay / build .env 在 exit 删除。
+ * 密钥打进 .scf-build/.env（避 YAML 501）；临时 patched serverless.yml / build .env 在 exit 删除。
+ *
+ * 注意：scf CLI 没有「-t 指定模板文件」；`-t` 会被忽略并仍读 cwd 的 serverless.yml。
+ * 因此用临时替换 serverless.yml（备份 → 写入 patched → deploy → 还原）覆盖 inputs.name。
  */
 import {
   chmodSync,
@@ -11,6 +14,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -21,11 +25,13 @@ import {
   usageEnvFile,
 } from '../../../../scripts/lib/env-file-arg'
 import { parseDotenvFile } from '../../../../scripts/lib/dotenv-file'
-import { run, runDiscarded, which } from '../../../../scripts/lib/spawn'
+import { run, runInherited, which } from '../../../../scripts/lib/spawn'
 
 const PROVIDER_ROOT = resolve(import.meta.dirname, '..')
 const FAAS_ROOT = resolve(PROVIDER_ROOT, '../..')
 const BUILD_DIR = resolve(PROVIDER_ROOT, '.scf-build')
+const SERVERLESS_YML = resolve(PROVIDER_ROOT, 'serverless.yml')
+const SERVERLESS_YML_BAK = resolve(PROVIDER_ROOT, '.serverless.yml.deploy-bak')
 
 const REQUIRED_KEYS = [
   'DATABASE_URL',
@@ -42,15 +48,37 @@ const OPTIONAL_KEYS = [
   'QQBOT_USER_OPENID',
 ] as const
 
-/** 覆盖 serverless.yml 中 inputs.name（去掉 ${stage} 占位） */
+/**
+ * 只覆盖 inputs.name（两空格缩进），不动顶层 component 的 name。
+ * SCF CLI banner 的 Name 仍是组件实例名；云函数名才是 inputs.name。
+ */
 export function patchServerlessFunctionName(
   yml: string,
   functionName: string,
 ): string {
-  if (!/^\s*name:\s*.+$/m.test(yml)) {
-    throw new Error('serverless.yml missing inputs.name')
+  const re = /^ {2}name:\s*.+$/m
+  if (!re.test(yml)) {
+    throw new Error('serverless.yml missing inputs.name (expected "  name: ...")')
   }
-  return yml.replace(/^\s*name:\s*.+$/m, `  name: ${functionName}`)
+  return yml.replace(re, `  name: ${functionName}`)
+}
+
+/** 供测试 / dry-run：生成将交给 scf deploy 的 serverless.yml 正文 */
+export function buildDeployServerlessYml(
+  baseYml: string,
+  functionName: string,
+): string {
+  const trimmed = functionName.trim()
+  if (!trimmed) {
+    throw new Error('SCF_FUNCTION_NAME must be non-empty')
+  }
+  // SCF：字母开头，字母/数字/连字符/下划线，长度 2–60
+  if (!/^[A-Za-z][\w-]{0,58}[A-Za-z0-9]$/.test(trimmed)) {
+    throw new Error(
+      `invalid SCF_FUNCTION_NAME "${trimmed}" (2–60 chars, start with letter, end with letter/digit)`,
+    )
+  }
+  return patchServerlessFunctionName(baseYml, trimmed)
 }
 
 function scfCommand(): string {
@@ -125,6 +153,22 @@ function buildBundle(buildEnvFile: string): void {
   )
 }
 
+/** 临时把 patched yml 落到 serverless.yml，调用后务必 restore */
+function withPatchedServerlessYml<T>(patched: string, fn: () => T): T {
+  if (!existsSync(SERVERLESS_YML)) {
+    throw new Error(`missing ${SERVERLESS_YML}`)
+  }
+  copyFileSync(SERVERLESS_YML, SERVERLESS_YML_BAK)
+  writeFileSync(SERVERLESS_YML, patched, 'utf8')
+  try {
+    return fn()
+  } finally {
+    if (existsSync(SERVERLESS_YML_BAK)) {
+      renameSync(SERVERLESS_YML_BAK, SERVERLESS_YML)
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const envFile = parseEnvFileArg()
   if (!envFile) {
@@ -139,13 +183,23 @@ async function main(): Promise<void> {
     process.env[k] = v
   }
 
-  const tmpYml = resolve(PROVIDER_ROOT, `.serverless-deploy-overlay.yml`)
   const buildEnv = resolve(BUILD_DIR, '.env')
   const stagingEnv = resolve(PROVIDER_ROOT, `.env.scf.bundle`)
 
   const cleanup = () => {
-    for (const p of [tmpYml, buildEnv, stagingEnv]) {
-      if (existsSync(p)) rmSync(p, { force: true })
+    for (const p of [buildEnv, stagingEnv, SERVERLESS_YML_BAK]) {
+      if (existsSync(p)) {
+        // 若仍留着 bak，说明中途崩溃；尽量还原正式 yml
+        if (p === SERVERLESS_YML_BAK && existsSync(SERVERLESS_YML_BAK)) {
+          try {
+            renameSync(SERVERLESS_YML_BAK, SERVERLESS_YML)
+          } catch {
+            rmSync(p, { force: true })
+          }
+          continue
+        }
+        rmSync(p, { force: true })
+      }
     }
   }
   process.on('exit', cleanup)
@@ -154,41 +208,55 @@ async function main(): Promise<void> {
     process.exit(130)
   })
 
-  console.error(
-    `Ensure console Web function ${functionName} exists (no CLS) before first deploy.`,
-  )
-
   writeBundleEnv(values, stagingEnv)
-  const baseYml = readFileSync(resolve(PROVIDER_ROOT, 'serverless.yml'), 'utf8')
-  writeFileSync(tmpYml, patchServerlessFunctionName(baseYml, functionName), 'utf8')
+  const baseYml = readFileSync(SERVERLESS_YML, 'utf8')
+  const patchedYml = buildDeployServerlessYml(baseYml, functionName)
+
+  // dry 校验：inputs.name 已改、顶层 name 未误改
+  if (!patchedYml.includes(`  name: ${functionName}`)) {
+    console.error(
+      `internal error: patched serverless.yml missing inputs.name=${functionName}`,
+    )
+    process.exit(1)
+  }
+  if (!/^name:\s*digitaltwin-api\s*$/m.test(patchedYml)) {
+    console.error(
+      'internal error: top-level component name was altered (should stay digitaltwin-api)',
+    )
+    process.exit(1)
+  }
 
   const scfBin = scfCommand()
   buildBundle(stagingEnv)
 
   console.error(
-    `deploying SCF function=${functionName} (scf output discarded where possible)`,
+    `deploying SCF Web function=${functionName} (runtime=Go1, scf_bootstrap → ./bootstrap)…`,
+  )
+  console.error(
+    `Note: CLI banner "Name" is the component instance (digitaltwin-api), not the cloud function name.`,
   )
 
-  const code = runDiscarded(scfBin, ['deploy', '-t', tmpYml], {
-    cwd: PROVIDER_ROOT,
-    env: process.env,
-  })
+  const code = withPatchedServerlessYml(patchedYml, () =>
+    runInherited(scfBin, ['deploy'], {
+      cwd: PROVIDER_ROOT,
+      env: process.env,
+    }),
+  )
+
   if (code !== 0) {
-    // 部分 CLI 用 --config；再试一次 inputs 覆盖
-    const code2 = runDiscarded(
-      scfBin,
-      ['deploy', '--inputs', JSON.stringify({ name: functionName })],
-      { cwd: PROVIDER_ROOT, env: process.env },
+    console.error(
+      `SCF deploy FAILED (expected cloud function name=${functionName}).`,
     )
-    if (code2 !== 0) {
-      console.error(
-        `SCF deploy FAILED (function=${functionName}). Ensure you ran: cd faas/providers/tencent-scf && scf login`,
-      )
-      console.error(
-        `If the function is missing: create Web CustomRuntime "${functionName}" in console (ap-guangzhou, no CLS), then retry.`,
-      )
-      process.exit(code2 || code)
-    }
+    console.error(
+      `Ensure you ran: cd faas/providers/tencent-scf && scf login`,
+    )
+    console.error(
+      `Web CreateFunction rejects CustomRuntime; use runtime Go1 (console: Go 1) with scf_bootstrap in the zip.`,
+    )
+    console.error(
+      `If create still fails: in console (ap-guangzhou) create Web function "${functionName}", runtime Go 1, 64MB, disable CLS if billed, then retry.`,
+    )
+    process.exit(code)
   }
   console.error(`SCF deploy OK (function=${functionName}).`)
   console.error(

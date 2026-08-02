@@ -2,6 +2,8 @@
  * 短命 DB 探测：独立连接测 connect / 两次 select 1 / public.records 是否存在。
  * 与 Go `faas/internal/dbprobe` 同构；不查 __drizzle_migrations。
  */
+import postgres from 'postgres'
+
 export type DbProbeResult = {
   ok: boolean
   databaseReachable: true
@@ -28,7 +30,7 @@ export function sanitizeProbeError(_err: unknown): string {
   return DATABASE_UNREACHABLE
 }
 
-type SqlFactory = typeof import('postgres').default
+type SqlFactory = typeof postgres
 
 /**
  * 打开短命连接，测三段延迟与 public.records。
@@ -37,15 +39,14 @@ type SqlFactory = typeof import('postgres').default
  */
 export async function probeDatabase(
   getenv: (key: string) => string | undefined = (k) => process.env[k],
-  createSql?: SqlFactory,
+  createSql: SqlFactory = postgres,
 ): Promise<DbProbeResult | DbProbeFailure> {
   const url = getenv('DATABASE_URL')?.trim()
   if (!url) {
     return { error: DATABASE_URL_NOT_SET, status: 503 }
   }
 
-  const postgres = createSql ?? (await import('postgres')).default
-  const pool = postgres(url, {
+  const pool = createSql(url, {
     max: 1,
     connect_timeout: 15,
     idle_timeout: 5,

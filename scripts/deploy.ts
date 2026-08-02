@@ -2,7 +2,7 @@
  * 顶层部署分发：不收集密钥。
  *
  *   npm run deploy -- test   # 常驻 .env.test；跳过 Vercel；可选 FC/SCF
- *   npm run deploy -- prod   # 调 collect → 临时 .env.prod；Vercel 必做；可选 FC/SCF
+ *   npm run deploy -- prod   # 先问 Vercel/FC/SCF（默认 N）；任一 Y 才 collect → .env.prod 再分发
  *
  * exit / SIGINT：删除 .env.prod 及本进程登记的临时 *env*。
  */
@@ -15,19 +15,29 @@ import { parseDotenvFile } from './lib/dotenv-file'
 import { run, which } from './lib/spawn'
 import { PROD_ENV_FILE, REPO_ROOT, TEST_ENV_FILE } from './lib/test-env'
 
+/** 与 FC/SCF 一致：默认 N；prod 才询问 */
+export const PROMPT_DEPLOY_VERCEL = 'Deploy Vercel production? [y/N] '
 export const PROMPT_DEPLOY_ALIYUN_FC = 'Deploy Aliyun FC? [y/N] '
 export const PROMPT_DEPLOY_TENCENT_SCF = 'Deploy Tencent SCF? [y/N] '
-export const PROMPT_CONFIRM_VERCEL =
-  'Upsert UPDATE keys on Vercel production, then vercel deploy --prod. Continue? [y/N] '
 
 export const USAGE =
   'usage: npm run deploy -- test|prod\n' +
   '  test  Use permanent .env.test; skip Vercel; optional FC/SCF\n' +
-  '  prod  Run collect-prod-env → .env.prod; Vercel required; optional FC/SCF'
+  '  prod  Ask Vercel/FC/SCF (default N); collect → .env.prod only if any Y'
+
+export type DeployChoices = {
+  vercel: boolean
+  fc: boolean
+  scf: boolean
+}
 
 /** Deploy …? [y/N] → deploy | skip（默认 N） */
 export function cloudDeployDecision(ans: string): 'deploy' | 'skip' {
   return isYes(ans) ? 'deploy' : 'skip'
+}
+
+export function anyDeployChosen(c: DeployChoices): boolean {
+  return c.vercel || c.fc || c.scf
 }
 
 export function parseDeployTarget(
@@ -250,36 +260,93 @@ function runProviderDeploy(
   }
 }
 
-async function askOptionalClouds(envFile: string): Promise<string[]> {
-  const deployed: string[] = []
+function deployVercel(values: Record<string, string>): void {
+  console.log('')
+  console.log('--- Vercel ---')
+  preflightVercel()
+  for (const key of VERCEL_KEYS) {
+    if (key in values) upsertVercelProd(key, values[key] ?? '')
+  }
+  console.log('Note: will run vercel deploy --prod')
+  console.log('')
+
+  console.log('--- Redeploy Vercel Production ---')
+  const vd = spawnSync('vercel', ['deploy', '--prod', '--yes'], {
+    cwd: REPO_ROOT,
+    stdio: 'inherit',
+    env: process.env,
+  })
+  if ((vd.status ?? 1) !== 0) {
+    console.error(
+      'Vercel deploy --prod failed. Env was written; retry manually: vercel deploy --prod',
+    )
+    process.exit(1)
+  }
+  console.log('Vercel production deploy OK.')
+}
+
+/** prod：先问三个目标（默认 N）；test：不写 vercel */
+async function askDeployChoices(mode: 'test' | 'prod'): Promise<DeployChoices> {
   const rl = createRl()
   try {
     console.log('')
-    console.log('--- Optional: Aliyun FC ---')
-    const fcAns = await askLine(rl, PROMPT_DEPLOY_ALIYUN_FC)
-    if (cloudDeployDecision(fcAns) === 'deploy') {
-      preflightS()
-      console.log('')
-      runProviderDeploy('fc', envFile)
-      deployed.push('Aliyun FC')
+    console.log('--- Deploy targets (default N) ---')
+    let vercel = false
+    if (mode === 'prod') {
+      const vAns = await askLine(rl, PROMPT_DEPLOY_VERCEL)
+      vercel = cloudDeployDecision(vAns) === 'deploy'
     } else {
-      console.log('Skipped Aliyun FC deploy.')
+      console.log('Skipping Vercel (test).')
     }
 
-    console.log('')
-    console.log('--- Optional: Tencent SCF ---')
+    const fcAns = await askLine(rl, PROMPT_DEPLOY_ALIYUN_FC)
+    const fc = cloudDeployDecision(fcAns) === 'deploy'
+
     const scfAns = await askLine(rl, PROMPT_DEPLOY_TENCENT_SCF)
-    if (cloudDeployDecision(scfAns) === 'deploy') {
-      preflightScf()
-      console.log('')
-      runProviderDeploy('scf', envFile)
-      deployed.push('Tencent SCF')
-    } else {
-      console.log('Skipped Tencent SCF deploy.')
-    }
+    const scf = cloudDeployDecision(scfAns) === 'deploy'
+
+    return { vercel, fc, scf }
   } finally {
     rl.close()
   }
+}
+
+function runSelectedDeploys(
+  choices: DeployChoices,
+  envFile: string,
+  values: Record<string, string>,
+): string[] {
+  const deployed: string[] = []
+
+  if (choices.vercel) {
+    deployVercel(values)
+    deployed.push('Vercel')
+  } else if (envFile === PROD_ENV_FILE) {
+    console.log('Skipped Vercel deploy.')
+  }
+
+  if (choices.fc) {
+    console.log('')
+    console.log('--- Aliyun FC ---')
+    preflightS()
+    console.log('')
+    runProviderDeploy('fc', envFile)
+    deployed.push('Aliyun FC')
+  } else {
+    console.log('Skipped Aliyun FC deploy.')
+  }
+
+  if (choices.scf) {
+    console.log('')
+    console.log('--- Tencent SCF ---')
+    preflightScf()
+    console.log('')
+    runProviderDeploy('scf', envFile)
+    deployed.push('Tencent SCF')
+  } else {
+    console.log('Skipped Tencent SCF deploy.')
+  }
+
   return deployed
 }
 
@@ -300,90 +367,15 @@ function runCollectProdEnv(): void {
   }
 }
 
-async function deployTest(): Promise<void> {
-  console.log('=== Deploy test (FaaS optional; no Vercel) ===')
-  if (!existsSync(TEST_ENV_FILE)) {
-    console.error(
-      `Missing ${TEST_ENV_FILE}. Copy from .env.test.example and fill secrets.`,
-    )
-    process.exit(1)
-  }
-  const map = parseDotenvFile(TEST_ENV_FILE)
-  assertRuntimeKeys(TEST_ENV_FILE, map)
-  console.log(`Using permanent ${TEST_ENV_FILE}`)
-  console.log('Skipping Vercel (no test environment on Vercel).')
-
-  const deployed = await askOptionalClouds(TEST_ENV_FILE)
+function printDone(deployed: string[]): void {
   console.log('')
   console.log('=== Done ===')
   console.log(`Deployed: ${deployed.join(', ') || '(none)'}`)
-}
-
-async function deployProd(): Promise<void> {
-  console.log('=== Deploy prod (Vercel required; FC/SCF optional) ===')
-  console.log('Do NOT commit secrets to git.')
-  console.log('')
-
-  registerTempPath(PROD_ENV_FILE)
-  const onCleanup = () => {
-    cleanupRegisteredTemps()
-  }
-  process.on('exit', onCleanup)
-  process.on('SIGINT', () => {
-    onCleanup()
-    process.exit(130)
-  })
-
-  preflightVercel()
-  console.log('')
-
-  runCollectProdEnv()
-  const values = parseDotenvFile(PROD_ENV_FILE)
-  assertRuntimeKeys(PROD_ENV_FILE, values)
-
-  const rl = createRl()
-  let go = ''
-  try {
-    go = await askLine(rl, PROMPT_CONFIRM_VERCEL)
-  } finally {
-    rl.close()
-  }
-  if (!isYes(go)) {
-    console.log('Cancelled.')
-    process.exit(0)
-  }
-
-  const deployed: string[] = []
-
-  console.log('')
-  console.log('--- Vercel ---')
-  for (const key of VERCEL_KEYS) {
-    if (key in values) upsertVercelProd(key, values[key] ?? '')
-  }
-  console.log('Note: will run vercel deploy --prod')
-  console.log('')
-
-  console.log('--- Redeploy Vercel Production ---')
-  const vd = spawnSync('vercel', ['deploy', '--prod', '--yes'], {
-    cwd: REPO_ROOT,
-    stdio: 'inherit',
-    env: process.env,
-  })
-  if ((vd.status ?? 1) !== 0) {
-    console.error(
-      'Vercel deploy --prod failed. Env was written; retry manually: vercel deploy --prod',
+  if (!deployed.includes('Vercel')) {
+    console.log(
+      'Vercel: skipped. Re-run npm run deploy -- prod and answer Y to Deploy Vercel production? if needed.',
     )
-    process.exit(1)
   }
-  console.log('Vercel production deploy OK.')
-  deployed.push('Vercel')
-
-  const clouds = await askOptionalClouds(PROD_ENV_FILE)
-  deployed.push(...clouds)
-
-  console.log('')
-  console.log('=== Done ===')
-  console.log(`Deployed: ${deployed.join(', ') || '(none)'}`)
   if (!deployed.includes('Aliyun FC')) {
     console.log(
       'Aliyun FC: skipped. Use npm run fc:deploy -- --env-file .env.prod later if needed (prefer npm run deploy -- prod).',
@@ -397,6 +389,59 @@ async function deployProd(): Promise<void> {
   console.log(
     'Paste your chosen China Accelerate Base URL (FC or SCF) into Settings → API Accelerate URL; leave empty for same-origin Vercel. Never commit the URL.',
   )
+}
+
+async function deployTest(): Promise<void> {
+  console.log('=== Deploy test (FaaS optional; no Vercel) ===')
+  if (!existsSync(TEST_ENV_FILE)) {
+    console.error(
+      `Missing ${TEST_ENV_FILE}. Copy from .env.test.example and fill secrets.`,
+    )
+    process.exit(1)
+  }
+  const map = parseDotenvFile(TEST_ENV_FILE)
+  assertRuntimeKeys(TEST_ENV_FILE, map)
+  console.log(`Using permanent ${TEST_ENV_FILE}`)
+
+  const choices = await askDeployChoices('test')
+  if (!anyDeployChosen(choices)) {
+    console.log('Nothing selected to deploy. Exiting.')
+    return
+  }
+
+  const deployed = runSelectedDeploys(choices, TEST_ENV_FILE, map)
+  console.log('')
+  console.log('=== Done ===')
+  console.log(`Deployed: ${deployed.join(', ') || '(none)'}`)
+}
+
+async function deployProd(): Promise<void> {
+  console.log('=== Deploy prod (Vercel / FC / SCF optional; default N) ===')
+  console.log('Do NOT commit secrets to git.')
+  console.log('')
+
+  const choices = await askDeployChoices('prod')
+  if (!anyDeployChosen(choices)) {
+    console.log('Nothing selected to deploy. Exiting.')
+    return
+  }
+
+  registerTempPath(PROD_ENV_FILE)
+  const onCleanup = () => {
+    cleanupRegisteredTemps()
+  }
+  process.on('exit', onCleanup)
+  process.on('SIGINT', () => {
+    onCleanup()
+    process.exit(130)
+  })
+
+  runCollectProdEnv()
+  const values = parseDotenvFile(PROD_ENV_FILE)
+  assertRuntimeKeys(PROD_ENV_FILE, values)
+
+  const deployed = runSelectedDeploys(choices, PROD_ENV_FILE, values)
+  printDone(deployed)
 }
 
 async function main(): Promise<void> {

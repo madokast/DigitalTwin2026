@@ -15,13 +15,13 @@ import {
   isYes,
   trimInput,
 } from './lib/cli-prompt'
-import { writeFcEnvFile } from './lib/dotenv-file'
+import { parseDotenvFile, writeFcEnvFile } from './lib/dotenv-file'
 import { maskValue } from './lib/mask'
 import {
   promptQqbotChannel,
   promptTelegramChannel,
 } from './lib/notify-prompt'
-import { PROD_ENV_FILE } from './lib/test-env'
+import { PROD_ENV_FILE, TEST_ENV_FILE } from './lib/test-env'
 import { verifyDatabaseUrl } from './lib/verify-database'
 
 export const COLLECT_KEYS = [
@@ -81,6 +81,54 @@ async function promptRequired(
   }
 }
 
+/** 非密钥：可见输入；回车采用 defaultValue，可改 */
+export function resolveWithDefault(raw: string, defaultValue: string): string {
+  const val = trimInput(raw)
+  return val || defaultValue
+}
+
+export async function promptWithDefault(
+  rl: ReadlineInterface,
+  key: CollectKey,
+  defaultValue: string,
+): Promise<string> {
+  const raw = await askLine(rl, `${key} [${defaultValue}]: `)
+  return resolveWithDefault(raw, defaultValue)
+}
+
+export const DEFAULT_FC_FUNCTION_NAME = 'digitaltwin-api-prod'
+export const DEFAULT_SCF_FUNCTION_NAME = 'digitaltwin-api-prod'
+
+const PROBE_TEXT = 'DigitalTwin2026 prod env verify'
+
+/** 仅当 `.env.test` 存在时返回 bot offer（给 Enable=Y 后询问是否复用） */
+export function readBotOffersFromTestEnv(
+  testEnvPath: string,
+  io: {
+    existsSync?: (path: string) => boolean
+    parseDotenvFile?: (path: string) => Record<string, string>
+  } = {},
+): {
+  telegram?: { token: string; userId: string }
+  qqbot?: { appId: string; appSecret: string; userOpenid: string }
+} {
+  const exists = io.existsSync ?? existsSync
+  const parse = io.parseDotenvFile ?? parseDotenvFile
+  if (!exists(testEnvPath)) return {}
+  const env = parse(testEnvPath)
+  return {
+    telegram: {
+      token: (env.TELEGRAM_BOT_TOKEN ?? '').trim(),
+      userId: (env.TELEGRAM_USER_ID ?? '').trim(),
+    },
+    qqbot: {
+      appId: (env.QQBOT_APP_ID ?? '').trim(),
+      appSecret: (env.QQBOT_APP_SECRET ?? '').trim(),
+      userOpenid: (env.QQBOT_USER_OPENID ?? '').trim(),
+    },
+  }
+}
+
 export async function collectProdEnvValues(
   rl: ReadlineInterface,
 ): Promise<Record<CollectKey, string>> {
@@ -95,16 +143,21 @@ export async function collectProdEnvValues(
     console.log('')
   }
 
+  // Bot 敏感度低：可选复用 `.env.test` 中对应键写入 `.env.prod`（非整文件）
+  const botOffers = readBotOffersFromTestEnv(TEST_ENV_FILE)
+
   console.log('--- Notify channels ---')
   const tg = await promptTelegramChannel(rl, {
-    probeText: 'DigitalTwin2026 prod env verify',
+    probeText: PROBE_TEXT,
+    ...(botOffers.telegram ? { offerRepoEnv: botOffers.telegram } : {}),
   })
   values.TELEGRAM_BOT_TOKEN = tg.TELEGRAM_BOT_TOKEN
   values.TELEGRAM_USER_ID = tg.TELEGRAM_USER_ID
   console.log('')
 
   const qq = await promptQqbotChannel(rl, {
-    probeText: 'DigitalTwin2026 prod env verify',
+    probeText: PROBE_TEXT,
+    ...(botOffers.qqbot ? { offerRepoEnv: botOffers.qqbot } : {}),
   })
   values.QQBOT_APP_ID = qq.QQBOT_APP_ID
   values.QQBOT_APP_SECRET = qq.QQBOT_APP_SECRET
@@ -112,9 +165,17 @@ export async function collectProdEnvValues(
   console.log('')
 
   console.log('--- FaaS function names ---')
-  values.FC_FUNCTION_NAME = await promptRequired(rl, 'FC_FUNCTION_NAME')
+  values.FC_FUNCTION_NAME = await promptWithDefault(
+    rl,
+    'FC_FUNCTION_NAME',
+    DEFAULT_FC_FUNCTION_NAME,
+  )
   console.log('')
-  values.SCF_FUNCTION_NAME = await promptRequired(rl, 'SCF_FUNCTION_NAME')
+  values.SCF_FUNCTION_NAME = await promptWithDefault(
+    rl,
+    'SCF_FUNCTION_NAME',
+    DEFAULT_SCF_FUNCTION_NAME,
+  )
   console.log('')
 
   return values
@@ -136,9 +197,11 @@ async function main(): Promise<void> {
     '  - DATABASE_URL / DIGITAL_TWIN_TOKEN / DIGITAL_TWIN_ADMIN_TOKEN: required',
   )
   console.log(
-    '  - Enable Telegram / QQ? [y/N] → N writes empty; Y fills + probes',
+    '  - Enable Telegram / QQ? [y/N] → N writes empty; Y: if .env.test exists ask reuse bot keys, else fill + probe',
   )
-  console.log('  - FC_FUNCTION_NAME / SCF_FUNCTION_NAME: required')
+  console.log(
+    '  - FC_FUNCTION_NAME / SCF_FUNCTION_NAME: default digitaltwin-api-prod (Enter to keep)',
+  )
   console.log('  - Writes repo-root .env.prod (mode 0600)')
   console.log('')
 
