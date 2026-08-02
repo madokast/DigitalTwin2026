@@ -1,6 +1,5 @@
 # Vercel 只跑 Next；勿上传国内 FaaS / Go 产物与无关大文件
 faas
-fc
 docs
 .git
 .next

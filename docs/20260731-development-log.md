@@ -15,11 +15,11 @@
 | 详情 UI | 双击编辑草稿；脏数据才显示提交；成功 refetch；失败展示 error |
 | Null | `NullBadge`：斜体淡色、不可选中；真实 `'-'` / `''` 原样 |
 | 标签 | 无逗号独立 chip；编辑仅显隐 `×` / `+`；修复占位塌缩导致的文字跳动 |
-| Go API | `fc/`：`go run ./cmd/api`，路由 + CORS + 鉴权对齐；`go test ./...` |
+| Go API | `faas/`：`go run ./cmd/api`，路由 + CORS + 鉴权对齐；`go test ./...` |
 | FC 部署 | `s.yaml` / `env.yaml`；`scripts/deploy`（禁裸 `s deploy`）；`info.sh`；省钱规格 |
 | 设置加速 | prefs `apiAccelerateBase` → UI **API Accelerate URL**；空=同源 Vercel |
 | 密钥脚本 | `secrets:rotate-test`；`secrets:refresh-prod`（Vercel prod + FC prod；TS 实现） |
-| Vercel | `.vercelignore` 排除整个 `fc/`，避免 bootstrap 撑大上传 |
+| Vercel | `.vercelignore` 排除整个 `faas/`，避免 bootstrap 撑大上传 |
 | 浏览器 Token | 前端只认 Admin Token（`digitaltwin_admin_token`）；服务端仍双 Token |
 | 语言 | 用户可见英文；注释/文档中文；原则写入 `AGENTS.md` |
 | Telegram | `POST /api/log/*` 成功后 best-effort 通知；`POST /api/telegram/probe`；测试模式可跳过实发 |
@@ -66,31 +66,31 @@
 
 ### 4.1 本地 Go HTTP
 
-- 目录：`fc/`（标准 `net/http`，不依赖阿里云 SDK 即可本地跑）
+- 目录：`faas/`（标准 `net/http`，不依赖阿里云 SDK 即可本地跑）
 - 路由与鉴权对齐 Next：`/api/log/*`、`/api/query*`、`/api/admin/*`
 - pgx：`QueryExecModeCacheDescribe`（适配 Neon pooler）
 - 设置页 **API Accelerate URL**：本机 prefs；**不用** `NEXT_PUBLIC_*`；真实 FC URL **不进 git**
 
 ```bash
-cd fc && export $(grep -v '^#' ../.env | xargs) && go run ./cmd/api
+cd faas && export $(grep -v '^#' ../.env.test | xargs) && go run ./cmd/api
 # Settings → API Accelerate URL = http://localhost:8080
-cd fc && go test ./...
+cd faas && go test ./...
 ```
 
 ### 4.2 Serverless Devs
 
-- `fc/s.yaml` + `fc/env.yaml`（test / prod 函数名；overlay 写在 `overlays.resources.api` 下，勿再包 `props:`）
-- 部署：**必须** `./scripts/deploy` / `deploy.ts`（`test|prod`；禁裸 `s deploy`，防密钥进终端）
-- 取 URL：`./scripts/info.sh test|prod`
+- `faas/providers/aliyun-fc/s.yaml` + `env.yaml`（test / prod 函数名；overlay 写在 `overlays.resources.api` 下，勿再包 `props:`）
+- 部署：**必须** `npm run fc:deploy -- --env-file <path>`（禁裸 `s deploy`，防密钥进终端）
+- 取 URL：见 [`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md)
 - 省钱默认：128MB / 0.05 CPU / disk 512 / timeout 30 / `instanceConcurrency: 1` / `minInstances: 0` / `reservedConcurrency: 1`
-- 操作说明只维护在 **[`faas/providers/aliyun-faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-faas/providers/aliyun-fc/README.md)**；`AGENTS.md` 仅引用
+- 操作说明只维护在 **[`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md)**；`AGENTS.md` 仅引用
 
 ### 4.3 密钥与 Vercel
 
-- `npm run secrets:rotate-test`：轮换测试库密码 + 两 Token；更新 `.env` 与 `fc/.env.fc.test`
-- `npm run secrets:refresh-prod`：交互刷新生产 `DATABASE_URL` / Token → Vercel production + 临时 `.env.fc.prod` 部署后删除 → `vercel deploy --prod`
-- `.vercelignore` 排除 `fc/` 等，避免本地 `bootstrap` 把上传体积撑到几十 MB
-- Vitest `tests/setup.ts`：以 `.env` override 加载，避免 shell 残留旧密钥
+- `npm run secrets:rotate-test`：轮换测试库密码 + 两 Token；更新 `.env.test`
+- `npm run secrets:refresh-prod`：交互刷新生产 `DATABASE_URL` / Token → Vercel production + 临时 `.env.prod` 部署后删除 → `vercel deploy --prod`
+- `.vercelignore` 排除 `faas/` 等，避免本地 `bootstrap` 把上传体积撑到几十 MB
+- Vitest `tests/setup.ts`：以 `.env.test` override 加载，避免 shell 残留旧密钥
 
 实测：配置加速后国内浏览器 API 约 **200–400ms**（仍受 FC→Neon 跨境影响，可接受）。
 
@@ -119,9 +119,9 @@ cd fc && go test ./...
 
 ## 8. 脚本迁 TypeScript
 
-- `scripts/refresh-prod-env.ts`、`fc/scripts/deploy.ts`；薄 `.sh` 包装
+- `scripts/refresh-prod-env.ts`、`faas/providers/aliyun-fc/scripts/deploy.ts`；薄 `.sh` 包装
 - 交互：跳过 / 空值 UX；连通性检查仅在未 skip 时跑
-- 根 README：env 细节指向 `.env.example`；接口表让位给 OpenAPI
+- 根 README：env 细节指向 `.env.test.example`；接口表让位给 OpenAPI
 
 ## 9. OpenAPI 契约（已收口）
 
@@ -132,7 +132,7 @@ cd fc && go test ./...
 | 文档 | Design-first OpenAPI 3.1；入口 `openapi/openapi.yaml` |
 | 模块 | `paths/`（log / query / telegram / admin）+ `components/`；kin-openapi 需按名 `$ref` + `IsExternalRefsAllowed` |
 | Lint / 预览 | `npm run openapi:lint`（Redocly）；`npm run openapi:preview` → `redoc-static.html` |
-| 契约测 | `openapi/fixtures/`；Vitest Ajv；Go `fc/internal/contract` |
+| 契约测 | `openapi/fixtures/`；Vitest Ajv；Go `faas/internal/contract` |
 | CI | `.github/workflows/ci.yml`（lint + 双端契约测；不含需 DB 集成测） |
 
 ### 9.2 与实现对齐的硬约束
@@ -171,7 +171,7 @@ bb61cc5 落地 OpenAPI Phase 1 契约，并显式对齐 Record.happenedAt 为 UT
 8c5cccc 用户可见文案统一为英文，并在 AGENTS 写入语言原则。
 c5f14cf 前端只认 Admin Token：去掉浏览器侧普通 Token 槽位。
 a09bdb9 添加生产密钥刷新脚本，并排除 FC 产物以免撑大 Vercel 上传。
-1132007 完善 FC 文档与省钱规格：fc/README 为操作真源，AGENTS 仅引用。
+1132007 完善 FC 文档与省钱规格：faas/providers/aliyun-fc/README 为操作真源，AGENTS 仅引用。
 7090104 测试 setup 以 .env override 加载，避免 shell 旧密钥覆盖。
 0629231 添加 FC Serverless Devs 部署骨架与测试密钥轮换脚本。
 070ae6f 实现阿里云 FC 第一期子集：设置页 API 加速地址与本地可跑 Go HTTP API。

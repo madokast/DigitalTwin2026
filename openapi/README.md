@@ -65,8 +65,8 @@ npm run openapi:preview
 4. 跑：
    - `npm run openapi:lint`
    - `npm run test:openapi`（无 DB）
-   - `cd fc && go test ./internal/contract/ -count=1`（无 DB）
-   - 行为回归：`npm test` 与 `cd fc && go test ./...`
+   - `cd faas && go test ./internal/contract/ -count=1`（无 DB）
+   - 行为回归：`npm test` 与 `cd faas && go test ./...`
 5. 用户可见的 `error` / `description` 用英文；本 README 等文档可用中文。
 
 鉴权：`Authorization: Bearer …`；普通路由接受 AI Token 或 Admin Token；`/api/admin/*` 仅 Admin Token。
@@ -91,7 +91,7 @@ npm run openapi:preview
 1. 更新 YAML 模块 + 根 `$ref`（见「如何编辑」）。
 2. 必要时增改 `fixtures/`。
 3. 手写对齐 Next（`src/app/api/**`、`src/lib/**`）与 Go（`faas/internal/**`）。
-4. 跑：`openapi:lint`、`test:openapi`、`go test ./internal/contract/`，以及行为测 `npm test` / `cd fc && go test ./...`。
+4. 跑：`openapi:lint`、`test:openapi`、`go test ./internal/contract/`，以及行为测 `npm test` / `cd faas && go test ./...`。
 
 契约测继续锁**请求/响应形状**；**业务语义**靠双端手写 + 行为/集成测，不靠生成或模糊轰炸。
 

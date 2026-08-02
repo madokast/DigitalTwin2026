@@ -49,7 +49,7 @@
 | 入库 | 通过后**字符串 pad** 为恰好两位小数（无 float）：`10`→`10.00`，`10.5`→`10.50`，`-1.5`→`-1.50` |
 | 双端 fixture | `testdata/money-amount-cases.json`（Next `transactiondraft` + Go `transactiondraft`） |
 
-相关：`src/lib/transactiondraft.ts`、`fc/internal/transactiondraft`、`fc/internal/logapi/transaction.go`、OpenAPI `LogTransactionRequest` / `MoneyAmountString`。
+相关：`src/lib/transactiondraft.ts`、`faas/internal/transactiondraft`、`faas/internal/logapi/transaction.go`、OpenAPI `LogTransactionRequest` / `MoneyAmountString`。
 
 ---
 
@@ -63,7 +63,7 @@
 | 落库 tags | `["body:weight", ...可选客户端 tags]`（保留 tag 在前） |
 | 保留 tag | 前缀 `body:weight` / `body:weight:*`（与 `transaction_entry` 并列）；number/text/Admin/rename 拒绝，文案指向专用路径 |
 | 查询 | 无专用趋势 API；用 `GET /api/query?tag=body:weight` |
-| 实现 | Next `CreateBodyWeight` + `bodyweightdraft`；Go `logapi.CreateBodyWeight` + `fc/internal/bodyweightdraft` |
+| 实现 | Next `CreateBodyWeight` + `bodyweightdraft`；Go `logapi.CreateBodyWeight` + `faas/internal/bodyweightdraft` |
 | fixture | `testdata/weight-amount-cases.json` |
 
 示例：
@@ -75,7 +75,7 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
   -d '{"happened_at":"2026-08-02T08:00:00+08:00","value_number":"75.5","objective_context":"morning weigh-in","subjective_interpretation":"a bit heavy","tags":["morning"]}'
 ```
 
-相关：`src/lib/bodyweightdraft.ts`、`fc/internal/bodyweightdraft`、`logapi.CreateBodyWeight`、OpenAPI `LogBodyWeightRequest` / `WeightAmountString`。
+相关：`src/lib/bodyweightdraft.ts`、`faas/internal/bodyweightdraft`、`logapi.CreateBodyWeight`、OpenAPI `LogBodyWeightRequest` / `WeightAmountString`。
 
 文档同步：四个 log 写入 API 列表（本日志 / `faas/providers/aliyun-fc/README.md` / layering）均含 `body/weight`；`suppress_notification` 与 notify 扇出覆盖四路径。
 
@@ -92,7 +92,7 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 | 层级 | `income_categories` / `expense_categories` → 每类含 `subcategories[]`（`CategoryBucket` / `SubcategoryBucket`） |
 | 排序 | 类 / 子类：`sum` 降序，同 sum 则 name 升序（字节序） |
 | 金额输出 | `Money2String`（恰好两位小数，如 `"0.00"`、`"799.50"`） |
-| 双端 | `aggregateTransactionSummary`（`src/lib/query.ts`）↔ `AggregateTransactionSummary`（`fc/internal/query`）；路由 Next `src/app/api/query/transaction/summary`、Go `httpx` |
+| 双端 | `aggregateTransactionSummary`（`src/lib/query.ts`）↔ `AggregateTransactionSummary`（`faas/internal/query`）；路由 Next `src/app/api/query/transaction/summary`、Go `httpx` |
 | fixture | `testdata/transaction-summary-cases.json`；契约 `openapi/fixtures/transaction-summary-success.json` |
 
 OpenAPI：`TransactionSummarySuccess`、`MoneyBucket`、`CategoryBucket`、`SubcategoryBucket`、`Money2String`。
@@ -109,7 +109,7 @@ OpenAPI：`TransactionSummarySuccess`、`MoneyBucket`、`CategoryBucket`、`Subc
 | 排序 | 固定 `ORDER BY happened_at ASC, id ASC` |
 | 参数 | **无** `order` query 参数（不开放客户端改序） |
 | OpenAPI | `openapi/paths/query.yaml` 描述改为 ascending + id 平局；注明无 `order` |
-| 双端常量 | Next `RECORDS_LIST_ORDER_BY_SQL`（`src/lib/query.ts`）↔ Go `RecordsListOrderBy`（`fc/internal/query`） |
+| 双端常量 | Next `RECORDS_LIST_ORDER_BY_SQL`（`src/lib/query.ts`）↔ Go `RecordsListOrderBy`（`faas/internal/query`） |
 | fixture | `testdata/query-records-list-order.json`（`orderBy` 字面量） |
 | 测试 | Next `src/lib/query.test.ts` + Go `query_test.go` 读同一 fixture 断言子句 |
 
@@ -121,11 +121,11 @@ OpenAPI：`TransactionSummarySuccess`、`MoneyBucket`、`CategoryBucket`、`Subc
 
 对照 OpenAPI / 集成期望，逐项收口 Next 与 Go FC，并写入分层规范：
 
-- **分层**：HTTP 只 bind + 调 lib；业务在 `src/lib/*` ↔ `fc/internal/*` stem 对齐（[`20260801-api-layering.md`](20260801-api-layering.md)）
+- **分层**：HTTP 只 bind + 调 lib；业务在 `src/lib/*` ↔ `faas/internal/*` stem 对齐（[`20260801-api-layering.md`](20260801-api-layering.md)）
 - **§1.1 允许差异**（刻意保留并注释）：404/405 框架默认 vs Go JSON；CORS 仅 FC；小数长度 `string.length` vs rune；notify 调度 `after()` vs `go`；`notify_user` snake_case；QQ token 缓存包级 vs per-Sender
 - **代表性对齐修复**（节选）：畸形 JSON 400、RFC3339/`happened_at`、字段类型文案、rename、page 上限、时区 deny-list、LIKE 转义、UUID、`query?id=` 空数组、Telegram 失败文案、admin 鉴权前缀、`writeJSON` 关 HTML escape、body 256KiB→413、JSON 尾部垃圾、tags 字节序、`q` OR 括号等
 
-验证习惯：`npm run openapi:lint`、`npm run test:openapi`、相关 vitest、`cd fc && go test ./...`（无 `DATABASE_URL` 时集成 Skip）。
+验证习惯：`npm run openapi:lint`、`npm run test:openapi`、相关 vitest、`cd faas && go test ./...`（无 `DATABASE_URL` 时集成 Skip）。
 
 ---
 
@@ -133,7 +133,7 @@ OpenAPI：`TransactionSummarySuccess`、`MoneyBucket`、`CategoryBucket`、`Subc
 
 ### 3.1 运行时
 
-- Next：`src/lib/notify.ts`、`src/lib/qqbot.ts`；Go：`fc/internal/notify`、`fc/internal/qqbot`
+- Next：`src/lib/notify.ts`、`src/lib/qqbot.ts`；Go：`faas/internal/notify`、`faas/internal/qqbot`
 - 录入成功（number/text/transaction/body/weight）→ format（仍在 telegram 包）→ **`notify_user`**：已配置渠道并行 + ~15s timed await；失败只打英文日志
 - 测试跳过：`DIGITAL_TWIN_TEST=1`；放行统一为 **`NOTIFY_ALLOW_IN_TEST=1`**（废弃 `TELEGRAM_ALLOW_IN_TEST`）
 - Probe **不**经 `notify_user`：`POST /api/telegram/probe`、`POST /api/qqbot/probe` 各测单通道
@@ -146,9 +146,10 @@ OpenAPI：`TransactionSummarySuccess`、`MoneyBucket`、`CategoryBucket`、`Subc
 
 ### 3.3 部署 / 刷新脚本
 
-- `secrets:refresh-prod`：前三项 DB/Token **必填**（Sensitive `env pull` 常为空）；Telegram / QQ 改为 **Enable? [y/N]** → 否写空 upsert，是则填齐并实发验证
-- FC `deploy.ts` 同逻辑；`DT_SKIP_NOTIFY_PROMPT`（兼容旧 `DT_SKIP_TELEGRAM_PROMPT`）
-- `fc/s.yaml` 注入 `QQBOT_*`
+- （当日）`secrets:refresh-prod`：前三项 DB/Token **必填**；Telegram / QQ **Enable? [y/N]** → 否写空，是则填齐并实发验证  
+- **后续（2026-08-02+）**：该脚本已删除；现用 `npm run deploy -- prod` + `collect-prod-env`（见 [`20260802-development-log.md`](20260802-development-log.md)）  
+- FC `deploy.ts` 同逻辑；`DT_SKIP_NOTIFY_PROMPT`（兼容旧 `DT_SKIP_TELEGRAM_PROMPT`）  
+- `faas/providers/aliyun-fc/s.yaml` 注入 `QQBOT_*`
 
 ### 3.4 `suppress_notification`
 
@@ -171,7 +172,7 @@ OpenAPI：`TransactionSummarySuccess`、`MoneyBucket`、`CategoryBucket`、`Subc
 
 - `npm run openapi:lint` / `npm run test:openapi` — pass
 - 定向 vitest（notify / qqbot / suppress / unknown-keys / probes / transaction / body-weight / summary 等）— pass
-- `cd fc && go test ./...` — pass（无 DB 时集成 Skip）
+- `cd faas && go test ./...` — pass（无 DB 时集成 Skip）
 - 共享 fixture：`money-amount-cases.json`、`weight-amount-cases.json`、`transaction-summary-cases.json`、`query-records-list-order.json`
 - 全量 `npm test` 若本机 Neon 不可达，含 DB 的集成会挂起；CI 无 DB 时 Skip
 

@@ -1,10 +1,10 @@
 # faas/ — 共享 Go HTTP API（国内 FaaS）
 
-与仓库根目录 Next.js（`src/app/api`）**同一套 HTTP API**，供国内访问；**共用同一 PostgreSQL**（测试库 / 生产库分别对应 test / prod 函数）。网页在设置里填「API 加速地址」指向本服务的 Base URL（当前为阿里云 FC `*.fcapp.run`）；空则仍走 Vercel 同源 `/api`。
+与仓库根目录 Next.js（`src/app/api`）**同一套 HTTP API**，供国内访问；**共用同一 PostgreSQL**（测试库 / 生产库分别对应 test / prod 函数）。网页在设置里填「API 加速地址」指向本服务的 Base URL（**阿里云 FC 或腾讯云 SCF 任一**）；空则仍走 Vercel 同源 `/api`。真实 URL **禁止进 git**。
 
 布局约定见 [`docs/20260802-faas-multi-cloud.md`](../docs/20260802-faas-multi-cloud.md)：共享二进制在本目录；各云部署壳在 `providers/<id>/`。
 
-详细 Agent 约定见根目录 [`AGENTS.md`](../AGENTS.md)（原则）；**阿里云 FC 操作步骤以 [`providers/aliyun-fc/README.md`](providers/aliyun-fc/README.md) 为准**。
+详细 Agent 约定见根目录 [`AGENTS.md`](../AGENTS.md)（原则）；**阿里云 FC** 以 [`providers/aliyun-fc/README.md`](providers/aliyun-fc/README.md) 为准；**腾讯云 SCF**（Web + Go1）以 [`providers/tencent-scf/README.md`](providers/tencent-scf/README.md) 为准。
 
 ## 双后端一致性（硬性）
 
@@ -63,10 +63,13 @@ faas/
   internal/                        # auth / db / handlers …（不得 import providers/*）
   go.mod
   providers/
-    aliyun-fc/                     # 阿里云 FC：s.yaml / deploy --env-file
-    tencent-scf/                   # SCF Web：deploy --env-file；密钥打进包
+    aliyun-fc/                     # 阿里云 FC：s.yaml / deploy --env-file；s deploy 输出丢弃
+    tencent-scf/                   # SCF Web Go1：deploy --env-file；密钥打进包；CLI 输出透传
 ```
 
-## 阿里云 FC 部署
+## 部署入口
 
-见 **[`providers/aliyun-fc/README.md`](providers/aliyun-fc/README.md)**（`npm run deploy`、`fc:deploy -- --env-file`、省钱规格、`s deploy` 禁令）。
+推荐仓库根：`npm run deploy -- test|prod`（见 multi-cloud 文档 §4）。薄包装：
+
+- FC：[`providers/aliyun-fc/README.md`](providers/aliyun-fc/README.md)（`fc:deploy -- --env-file`、省钱规格、`s deploy` 禁令）
+- SCF：[`providers/tencent-scf/README.md`](providers/tencent-scf/README.md)（`scf:deploy -- --env-file`、Go1 / `scf_bootstrap`、`scf login`）

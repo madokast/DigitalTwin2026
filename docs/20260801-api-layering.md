@@ -204,7 +204,7 @@ flowchart LR
 ## 9. 与 OpenAPI / 测试的关系
 
 - **不**借分层重构修改对外 HTTP 契约与鉴权语义。
-- 改实现后仍跑：`npm test`、`cd fc && go test ./...`、`npm run test:openapi`、`cd fc && go test ./internal/contract/`。
+- 改实现后仍跑：`npm test`、`cd faas && go test ./...`、`npm run test:openapi`、`cd faas && go test ./internal/contract/`。
 - 抽检：`src/app/api` 与 `faas/internal/httpx/server.go` 无业务 SQL。
 
 ---

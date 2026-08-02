@@ -63,7 +63,7 @@ set -a && source ../.env.test && set +a   # 或自行 export
 go run ./cmd/api                         # 默认 :8080；可用 PORT=9090
 ```
 
-Settings → API Accelerate URL 填 `http://localhost:8080` 或 FC 的 `*.fcapp.run`（仅本机 prefs；**不要**把真实 FC 域名写进仓库）。
+Settings → API Accelerate URL 填 `http://localhost:8080`，或国内加速的 FC / SCF Base URL（仅本机 prefs；**不要**把真实加速域名写进仓库）。
 
 ## 部署与密钥脚本
 
@@ -75,9 +75,9 @@ Settings → API Accelerate URL 填 `http://localhost:8080` 或 FC 的 `*.fcapp.
 | `npm run fc:deploy -- --env-file <path>` | 薄包装部署 FC（读 `FC_FUNCTION_NAME`） |
 | `npm run scf:deploy -- --env-file <path>` | 薄包装部署 SCF（读 `SCF_FUNCTION_NAME`） |
 
-- 密钥模板：根 [`.env.test.example`](.env.test.example) → 复制为常驻 `.env.test`；生产由 `collect-prod-env` 写临时 `.env.prod`。
-- **禁止**裸跑 `s deploy`（会明文打印环境变量）。
-- FC 操作、省钱规格、安全细则：**只维护在 [`faas/providers/aliyun-fc/README.md`](faas/providers/aliyun-fc/README.md)**。
+- 密钥模板：根 [`.env.test.example`](.env.test.example) → 复制为常驻 `.env.test`；生产由 `collect-prod-env` 写临时 `.env.prod`（`DATABASE_URL` 校验通过后可选 `db:migrate`，默认 N）。
+- **禁止**裸跑 `s deploy`（会明文打印环境变量）。FC `s deploy` 输出由包装脚本丢弃；SCF `scf deploy` 可透传（CLI 不打印密钥）。
+- FC 操作、省钱规格、安全细则：**只维护在 [`faas/providers/aliyun-fc/README.md`](faas/providers/aliyun-fc/README.md)**；SCF（Go1 / `scf_bootstrap`）：[`faas/providers/tencent-scf/README.md`](faas/providers/tencent-scf/README.md)；多云总览：[`docs/20260802-faas-multi-cloud.md`](docs/20260802-faas-multi-cloud.md)。
 
 ## Web 路由
 
@@ -94,7 +94,7 @@ Settings → API Accelerate URL 填 `http://localhost:8080` 或 FC 的 `*.fcapp.
 
 ## API
 
-HTTP API 由 **Next（Vercel）** 与 **Go（FC）** 双端实现，路径 / 鉴权 / 语义须一致（见 `AGENTS.md`）。
+HTTP API 由 **Next（Vercel）** 与 **Go（阿里云 FC / 腾讯云 SCF，同一 `faas/` 二进制）** 双端实现，路径 / 鉴权 / 语义须一致（见 `AGENTS.md`）。
 
 鉴权：`Authorization: Bearer <token>`（`src/proxy.ts` / FC 同等逻辑）。普通 API：AI Token 或 Admin Token；`/api/admin/*`：仅 Admin Token。
 
@@ -126,8 +126,7 @@ cd faas && go test ./...
 
 ```
 ├── src/               # Next 页面、API、prefs、鉴权
-├── faas/              # Go HTTP API + providers/aliyun-fc（见 faas/README.md）
-├── fc/                # 短重定向 → faas/
+├── faas/              # Go HTTP API + providers/aliyun-fc + providers/tencent-scf
 ├── openapi/           # OpenAPI 3.1 契约（双端共用源）
 ├── scripts/           # deploy / collect-prod-env、密钥轮换、共享 lib
 ├── tests/             # API 集成测试（无 TEST_DATABASE_URL 时 Skip；不 DROP）
@@ -162,3 +161,6 @@ cd faas && go test ./...
 - `20260731-development-log.md` — 详情编辑、FC、Telegram、语言原则等
 - `20260801-development-log.md` — transaction type、保留 tag 前缀
 - `20260801-api-layering.md` — 双端 API 分层同构规范
+- `20260802-faas-multi-cloud.md` — 多云 FaaS（FC + SCF）与 deploy/collect
+- `20260802-db-probe-multi-cloud.md` — 双云延迟对比（probe / summary）
+- `20260802-development-log.md` — 多云落地、SCF Go1、可选 migrate
