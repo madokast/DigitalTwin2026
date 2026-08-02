@@ -3,7 +3,7 @@
 > 创建日期：2026-08-02  
 > 状态：讨论定稿 + Task 1–3 已落地；**Task 4 SCF**：部署工具已定为 **Serverless Cloud Framework**（`scf`），实现仍待做  
 > 性质：架构讨论；永久双云（阿里云 FC **保留** + 腾讯云 SCF **新增**）  
-> 相关：[`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md)、[`AGENTS.md`](../AGENTS.md)、[`docs/20260801-api-layering.md`](20260801-api-layering.md)；SCF 工具文档：https://cloud.tencent.com/document/product/1154/50938；双云 test `POST /api/db/probe` 多轮对比见 [`docs/20260802-db-probe-multi-cloud.md`](20260802-db-probe-multi-cloud.md)。
+> 相关：[`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md)、[`AGENTS.md`](../AGENTS.md)、[`docs/20260801-api-layering.md`](20260801-api-layering.md)；SCF 工具文档：https://cloud.tencent.com/document/product/1154/50938；双云 test 延迟对比（`POST /api/db/probe` 专用连接 + `GET /api/query/transaction/summary` 池复用，含墙钟）见 [`docs/20260802-db-probe-multi-cloud.md`](20260802-db-probe-multi-cloud.md)。
 
 ## 0. 目标与非目标
 
