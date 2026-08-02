@@ -1,9 +1,9 @@
 /**
  * 轮换本地测试密钥：Neon DB 密码 + 两个 Bearer Token。
- * 只改 .env 与 fc/.env.fc.test 中匹配行；打印旧/新值（中间掩码）。
+ * 只改 .env 与 faas/providers/aliyun-fc/.env.fc.test 中匹配行；打印旧/新值（中间掩码）。
  *
  * 用法: npm run secrets:rotate-test
- * 之后需: cd fc && ./scripts/deploy.sh test（禁止裸跑 s deploy）
+ * 之后需: cd faas/providers/aliyun-fc && ./scripts/deploy.sh test（禁止裸跑 s deploy）
  */
 import { randomBytes } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -15,7 +15,10 @@ import { maskValue } from './lib/mask'
 export { maskValue } from './lib/mask'
 
 const ROOT = resolve(import.meta.dirname, '..')
-const ENV_FILES = [resolve(ROOT, '.env'), resolve(ROOT, 'fc/.env.fc.test')]
+const ENV_FILES = [
+  resolve(ROOT, '.env'),
+  resolve(ROOT, 'faas/providers/aliyun-fc/.env.fc.test'),
+]
 const KEYS = ['DATABASE_URL', 'DIGITAL_TWIN_TOKEN', 'DIGITAL_TWIN_ADMIN_TOKEN'] as const
 
 type Key = (typeof KEYS)[number]
@@ -166,7 +169,7 @@ async function main() {
     printChange(key, collectedOld[key]!, nextValues[key])
   }
   console.log('')
-  console.log('Next: cd fc && ./scripts/deploy.sh test')
+  console.log('Next: cd faas/providers/aliyun-fc && ./scripts/deploy.sh test')
   console.log('Do NOT: s deploy (prints secrets in plaintext)')
 }
 

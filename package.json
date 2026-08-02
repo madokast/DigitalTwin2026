@@ -18,7 +18,7 @@
     "secrets:rotate-test": "tsx scripts/rotate-test-secrets.ts",
     "secrets:refresh-prod": "tsx scripts/refresh-prod-env.ts",
     "qqbot:listen-openid": "tsx scripts/qqbot-listen-openid.ts",
-    "fc:deploy": "tsx fc/scripts/deploy.ts"
+    "fc:deploy": "tsx faas/providers/aliyun-fc/scripts/deploy.ts"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

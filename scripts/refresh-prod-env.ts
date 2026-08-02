@@ -30,7 +30,7 @@ import {
 import { run, which } from './lib/spawn'
 
 const ROOT = resolve(import.meta.dirname, '..')
-const FC_DIR = resolve(ROOT, 'fc')
+const FC_DIR = resolve(ROOT, 'faas/providers/aliyun-fc')
 const PROD_ENV_FILE = resolve(FC_DIR, '.env.fc.prod')
 
 const KEYS = [
@@ -234,7 +234,7 @@ function preflightS(): void {
   const syaml = readFileSync(resolve(FC_DIR, 's.yaml'), 'utf8')
   const access = syaml.match(/^access:\s*(\S+)/m)?.[1]
   if (!access) {
-    console.error('Cannot read access alias from fc/s.yaml.')
+    console.error('Cannot read access alias from faas/providers/aliyun-fc/s.yaml.')
     process.exit(1)
   }
   console.log(`  s.yaml access: ${access}`)
@@ -462,7 +462,7 @@ async function main(): Promise<void> {
     env: process.env,
   })
   console.log(
-    `FC Base URL: ${info.stdout.trim() || '(see ./fc/scripts/info.sh prod)'}`,
+    `FC Base URL: ${info.stdout.trim() || '(see ./faas/providers/aliyun-fc/scripts/info.sh prod)'}`,
   )
   console.log(
     'Paste FC URL into Settings → API Accelerate URL in browsers that need China acceleration; never commit it.',

@@ -34,12 +34,12 @@ yarn-error.log*
 .env*
 !.env.example
 
-# FC local secrets + Serverless Devs build output
-fc/.env.fc.*
-fc/.s-build/
-fc/.s/
-fc/.env.fc.test
-fc/.env.fc.prod
+# Aliyun FC local secrets + Serverless Devs build output
+faas/providers/aliyun-fc/.env.fc.*
+faas/providers/aliyun-fc/.s-build/
+faas/providers/aliyun-fc/.s/
+faas/providers/aliyun-fc/.env.fc.test
+faas/providers/aliyun-fc/.env.fc.prod
 
 # vercel
 .vercel

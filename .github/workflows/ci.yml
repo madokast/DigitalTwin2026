@@ -39,9 +39,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: fc/go.mod
-          cache-dependency-path: fc/go.sum
-      - working-directory: fc
+          go-version-file: faas/go.mod
+          cache-dependency-path: faas/go.sum
+      - working-directory: faas
         run: go test ./internal/contract/ -count=1
 
   unit-go:
@@ -51,9 +51,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: fc/go.mod
-          cache-dependency-path: fc/go.sum
-      - working-directory: fc
+          go-version-file: faas/go.mod
+          cache-dependency-path: faas/go.sum
+      - working-directory: faas
         # httpx integration 在无 DATABASE_URL 时 Skip
         run: go test ./... -count=1
 

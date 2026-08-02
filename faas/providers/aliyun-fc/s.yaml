@@ -1,0 +1,67 @@
+# Serverless Devs + FC3：Go custom runtime（标准 HTTP，与本地 go run 同一入口）
+# 密钥勿写入本文件；用 ${env(...)} + scripts/deploy.sh 注入。
+edition: 3.0.0
+name: digitaltwin-api
+access: dt
+
+resources:
+  api:
+    component: fc3
+    actions:
+      pre-deploy:
+        # 在 faas/ 模块根编译；产物落到本 provider 的 .s-build（code 相对 s.yaml）
+        - run: mkdir -p providers/aliyun-fc/.s-build && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o providers/aliyun-fc/.s-build/bootstrap ./cmd/api
+          path: ../..
+    props:
+      region: cn-hangzhou
+      functionName: digitaltwin-api-test
+      description: DigitalTwin2026 HTTP API (Go)
+      runtime: custom.debian10
+      handler: bootstrap
+      # —— 省钱：全部按平台允许的最低档；空闲缩到 0；最多 1 个实例 ——
+      # 内存 / CPU / 磁盘最低；CPU:内存(GB) 须约在 1:1～1:4
+      memorySize: 128
+      cpu: 0.05
+      diskSize: 512
+      timeout: 30
+      # 单实例只处理 1 个请求（最低）
+      instanceConcurrency: 1
+      # 空闲缩到 0，不常驻。禁止 provisionConfig / minInstances≥1
+      scalingConfig:
+        minInstances: 0
+      # 预留并发=1 ⇒ 全函数同时最多 1 请求 ⇒ 最多 1 个实例
+      concurrencyConfig:
+        reservedConcurrency: 1
+      internetAccess: true
+      code: ./.s-build
+      customRuntimeConfig:
+        port: 9000
+        command:
+          - ./bootstrap
+      environmentVariables:
+        PORT: "9000"
+        # 缺省为空以便 `s info` 不强制本机已 export；真正部署由 deploy.sh 校验非空
+        DATABASE_URL: ${env('DATABASE_URL', '')}
+        DIGITAL_TWIN_TOKEN: ${env('DIGITAL_TWIN_TOKEN', '')}
+        DIGITAL_TWIN_ADMIN_TOKEN: ${env('DIGITAL_TWIN_ADMIN_TOKEN', '')}
+        # 可空：渠道皆空则关闭通知；deploy 在 Enable=Y 时强制齐全并探测
+        TELEGRAM_BOT_TOKEN: ${env('TELEGRAM_BOT_TOKEN', '')}
+        TELEGRAM_USER_ID: ${env('TELEGRAM_USER_ID', '')}
+        QQBOT_APP_ID: ${env('QQBOT_APP_ID', '')}
+        QQBOT_APP_SECRET: ${env('QQBOT_APP_SECRET', '')}
+        QQBOT_USER_OPENID: ${env('QQBOT_USER_OPENID', '')}
+      triggers:
+        - triggerName: httpTrigger
+          triggerType: http
+          qualifier: LATEST
+          triggerConfig:
+            authType: anonymous
+            disableURLInternet: false
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - HEAD
+              - OPTIONS
