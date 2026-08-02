@@ -25,10 +25,11 @@ npm install
 ### 2. 配置环境变量
 
 ```bash
-cp .env.example .env
+cp .env.test.example .env.test
+# 若仍有旧根 .env：mv .env .env.test
 ```
 
-变量说明与约定见 **[`.env.example`](.env.example)**（本地指向专用测试库；生产连接串只放 Vercel / FC prod）。
+变量说明与约定见 **[`.env.test.example`](.env.test.example)**（本地指向专用测试库；生产由 `npm run deploy -- prod` 收集到临时 `.env.prod`）。
 
 ### 3. 初始化数据库
 
@@ -58,7 +59,7 @@ npm run dev
 
 ```bash
 cd faas
-export $(grep -v '^#' ../.env | xargs)   # 或自行 export
+set -a && source ../.env.test && set +a   # 或自行 export
 go run ./cmd/api                         # 默认 :8080；可用 PORT=9090
 ```
 
@@ -68,11 +69,13 @@ Settings → API Accelerate URL 填 `http://localhost:8080` 或 FC 的 `*.fcapp.
 
 | 命令 | 作用 |
 |------|------|
-| `npm run secrets:rotate-test` | 轮换本地测试库密码 + 两 Token（更新 `.env` / `faas/providers/aliyun-fc/.env.fc.test`） |
-| `npm run secrets:refresh-prod` | 交互刷新生产 env（前三项必填；Telegram/QQ Enable）→ Vercel production + `vercel deploy --prod`（必做）；再问 `Deploy Aliyun FC prod?` / `Deploy Tencent SCF prod?`（默认 N） |
-| `npm run fc:deploy -- test\|prod` | 部署 FC（`tsx faas/providers/aliyun-fc/scripts/deploy.ts`）；`cd faas/providers/aliyun-fc && ./scripts/deploy.sh …` 为薄包装 |
-| `cd faas/providers/aliyun-fc && ./scripts/info.sh test\|prod` | 打印 FC HTTP Base URL（不含密钥） |
+| `npm run secrets:rotate-test` | 轮换本地测试库密码 + 两 Token（只更新 `.env.test`） |
+| `npm run deploy -- test` | 用常驻 `.env.test`；**跳过 Vercel**；询问可选 FC/SCF（默认 N） |
+| `npm run deploy -- prod` | 调 `collect-prod-env` → 临时 `.env.prod` → Vercel 必做；询问可选 FC/SCF（默认 N）；exit 删 `.env.prod` |
+| `npm run fc:deploy -- --env-file <path>` | 薄包装部署 FC（读 `FC_FUNCTION_NAME`） |
+| `npm run scf:deploy -- --env-file <path>` | 薄包装部署 SCF（读 `SCF_FUNCTION_NAME`） |
 
+- 旧命令 `secrets:refresh-prod` 已移除（会 exit 1 并提示改用 `deploy -- prod`）。
 - **禁止**裸跑 `s deploy`（会明文打印环境变量）。
 - FC 操作、省钱规格、安全细则：**只维护在 [`faas/providers/aliyun-fc/README.md`](faas/providers/aliyun-fc/README.md)**。
 
@@ -111,7 +114,7 @@ npm run db:check      # 验证表结构
 npm run openapi:lint     # Redocly 校验 openapi.yaml
 npm run openapi:preview  # 生成 Redoc 静态页 openapi/redoc-static.html
 npm run test:openapi     # 契约 fixture（无 DB）
-npm test              # 使用 .env 测试库，勿对生产库执行
+npm test              # 使用 .env.test 测试库，勿对生产库执行
 npm run test:watch
 cd faas && go test ./internal/contract/   # Go 契约（无 DB）
 cd faas && go test ./...
@@ -126,12 +129,12 @@ cd faas && go test ./...
 ├── faas/              # Go HTTP API + providers/aliyun-fc（见 faas/README.md）
 ├── fc/                # 短重定向 → faas/
 ├── openapi/           # OpenAPI 3.1 契约（双端共用源）
-├── scripts/           # migrate 辅助、密钥轮换/生产刷新、共享 lib
+├── scripts/           # deploy / collect-prod-env、密钥轮换、共享 lib
 ├── tests/             # API 集成测试（无 TEST_DATABASE_URL 时 Skip；不 DROP）
 ├── testdata/          # 双端共享校验样例（decimal、日历日边界等）
 ├── drizzle/           # migration
 ├── docs/              # 设计与开发日志
-└── .env.example       # 环境变量说明（复制为 .env）
+└── .env.test.example  # 环境变量说明（复制为 .env.test）
 ```
 
 ## 数据模型

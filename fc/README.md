@@ -13,7 +13,7 @@
 
 ```bash
 cd faas && go test ./...
-npm run fc:deploy -- test   # → faas/providers/aliyun-fc/scripts/deploy.ts
+npm run fc:deploy -- --env-file ../../.env.test   # 从仓库根更常见：npm run fc:deploy -- --env-file .env.test
 ```
 
 架构约定：[`docs/20260802-faas-multi-cloud.md`](../docs/20260802-faas-multi-cloud.md)。

@@ -9,95 +9,76 @@
 | 密钥 | 存放 |
 |------|------|
 | 阿里云 AK | `s config add`，别名见 `s.yaml` 的 `access`（当前为 `dt`）→ `~/.s/`，**不进 git** |
-| `DATABASE_URL` / Token | 测试：`faas/providers/aliyun-fc/.env.fc.test`；生产：优先用 `npm run secrets:refresh-prod`（仅当确认 Deploy Aliyun FC 时临时写 `.env.fc.prod`，结束后删除）。模板 `env.fc.example` |
+| `DATABASE_URL` / Token / `FC_FUNCTION_NAME` | 测试：仓库根常驻 **`.env.test`**；生产：`npm run deploy -- prod` → `collect-prod-env` 写临时 **`.env.prod`**（exit 删除）。键名参考 `env.fc.example` |
 
 - **禁止**裸跑 `s deploy`：会明文打印 `environmentVariables`。
-- 部署只用 [`scripts/deploy.ts`](scripts/deploy.ts) / [`scripts/deploy.sh`](scripts/deploy.sh) 薄包装（内部 `s deploy` 输出丢弃）。
+- 部署只用 [`scripts/deploy.ts`](scripts/deploy.ts) / [`scripts/deploy.sh`](scripts/deploy.sh) 薄包装（`--env-file`；内部 `s deploy` 输出丢弃）。
+- **不再**常驻 `.env.fc.test` / `.env.fc.prod`。
 - 真实 `*.fcapp.run` **禁止进 git**；只粘到浏览器「API 加速地址」。
-- 轮换**测试**库密码 + Token：`npm run secrets:rotate-test`（根目录），然后必须再 `cd faas/providers/aliyun-fc && ./scripts/deploy.sh test`。
-- 刷新**生产**密钥（Vercel 必做；FC 可选）：见下文「生产密钥刷新」。
+- 轮换**测试**库密码 + Token：`npm run secrets:rotate-test`（只改 `.env.test`），然后可选 `npm run deploy -- test`。
+- 刷新**生产**密钥：见下文「顶层 deploy」。
 
-### 部署时通知渠道询问
+### Provider 无 stdin
 
-`npx tsx faas/providers/aliyun-fc/scripts/deploy.ts`（或 `./scripts/deploy.sh` / `npm run fc:deploy -- …`）在 `s deploy` 前依次询问：
+`deploy.ts` **只读** `--env-file`（或 `ENV_FILE`）：校验必填键 + `FC_FUNCTION_NAME`，用临时 `s.yaml` overlay 覆盖函数名后部署；**不**询问通知渠道。顶层 `deploy` 在密钥已由 collect 校验后设 `DT_SKIP_NOTIFY_PROMPT=1`。
 
-- `Enable Telegram notify? [y/N]` → N 写空；Y 可选用仓库根 `.env`（齐全则验证），否则手填必填两项并 `sendMessage` 探测（文案 `DigitalTwin2026 deploying`），失败则 `exit 1`
-- `Enable QQ Bot notify? [y/N]` → 同上三键 + 主动 C2C 探测
-- 选用值写回当前 `.env.fc.<env>`。`secrets:refresh-prod` 调用部署时设 `DT_SKIP_NOTIFY_PROMPT=1`（兼容旧 `DT_SKIP_TELEGRAM_PROMPT`）跳过二次询问。
+## 顶层 deploy（推荐）
 
-## 生产密钥刷新（Vercel 必做；FC / SCF 可选）
-
-交互脚本（TypeScript：根 `scripts/refresh-prod-env.ts`，`npm run secrets:refresh-prod`）流程见 [`docs/20260802-faas-multi-cloud.md`](../../../docs/20260802-faas-multi-cloud.md) §4：
-
-1. **仅**预检 Vercel（login / link）。**不会**在开头强制要求 `s` CLI。
-2. **前三项必填**（`DATABASE_URL` / `DIGITAL_TWIN_TOKEN` / `DIGITAL_TWIN_ADMIN_TOKEN`）：每次必须粘贴非空值；新填的 `DATABASE_URL` 会真实连库校验。
-3. **`Enable Telegram notify? [y/N]`** / **`Enable QQ Bot notify? [y/N]`**（默认 N）→ 否写空 upsert，是则填齐并探测。
-4. Upsert Vercel **production** + **`vercel deploy --prod`**（必做）。
-5. **`Deploy Aliyun FC prod? [y/N]`**（默认 N）  
-   - N / 回车 → 跳过：不写 `.env.fc.prod`、不预检 `s`、不部署 FC  
-   - Y → 才预检 Serverless Devs + access → 临时写 `.env.fc.prod` → `npx tsx faas/providers/aliyun-fc/scripts/deploy.ts prod`（`DT_SKIP_NOTIFY_PROMPT=1`）→ 删除临时文件 → `info.sh prod` 打印 Base URL
-6. **`Deploy Tencent SCF prod? [y/N]`**（默认 N）→ 目前若选 Y 会提示 SCF 尚未实现并跳过该分支（不 fail 整脚本）。
+见 [`docs/20260802-faas-multi-cloud.md`](../../../docs/20260802-faas-multi-cloud.md) §4：
 
 ```bash
-# 仓库根目录
-vercel login          # 若未登录
-vercel link           # 若无 .vercel/project.json
-# 仅当本轮要部署 FC 时才需要：
-s config get -a dt    # 确认 FC 部署用的 AK 别名（见 s.yaml access）
-npm run secrets:refresh-prod
+# 仓库根
+npm run deploy -- test    # .env.test；跳过 Vercel；问 FC/SCF
+npm run deploy -- prod    # collect → .env.prod；Vercel 必做；问 FC/SCF
 ```
 
-之后：
+`prod` 流程摘要：
 
-- 脚本会自动 **`vercel deploy --prod`**，使新 env 进入运行中的函数。
-- 若部署了 FC：用打印出的 Base URL（或 `cd faas/providers/aliyun-fc && ./scripts/info.sh prod`）粘到 Settings → API Accelerate URL（勿进 git）。
-- 结束摘要会列出本轮部署了哪些目标。
+1. 子过程 `collect-prod-env`：stdin 收集 DB/Token/通知/`FC_FUNCTION_NAME`/`SCF_FUNCTION_NAME` → 写 `.env.prod`（0600）
+2. Upsert Vercel production + `vercel deploy --prod`（必做）
+3. `Deploy Aliyun FC? [y/N]` / `Deploy Tencent SCF? [y/N]`（默认 N）→ Y 时 `fc:deploy` / `scf:deploy -- --env-file .env.prod`
+4. exit / SIGINT：**删除** `.env.prod` 与部署临时 overlay
 
-前置（仅选 FC=Y 时）：`s config`（`s.yaml` 的 `access`，当前 `dt`）可用。生产库建议已 `DATABASE_URL=… npm run db:migrate`。
+```bash
+vercel login && vercel link   # 首次
+s config get -a dt            # 若本轮要部署 FC
+npm run deploy -- prod
+```
 
 ## 测试 → 部署一条龙（test）
 
-前置：已开通函数计算；`s config get -a dt`（或你的别名）可用；测试库已 `npm run db:migrate`。
+前置：已开通函数计算；`s config get -a dt` 可用；测试库已 `npm run db:migrate`；根 `.env.test` 已填（含 `FC_FUNCTION_NAME`）。
 
 ```bash
-cd faas
-# 1) Go 测试（共享模块）
-go test ./...
+cd faas && go test ./...
 
-cd providers/aliyun-fc
-cp env.fc.example .env.fc.test   # 首次：填入与根 .env 相同的测试三件套
+# 仓库根：可选部署 FC
+npm run deploy -- test
+# 或：npm run fc:deploy -- --env-file .env.test
 
-# 2) 部署（编译 linux 二进制 + 上传；输出丢弃防泄密）
-./scripts/deploy.sh test
-# 或仓库根: npm run fc:deploy -- test
-# 函数名: digitaltwin-api-test
-
-# 3) 拿 Base URL
-./scripts/info.sh test
-# 示例: https://xxxx.cn-hangzhou.fcapp.run  → 粘到设置「API 加速地址」
-
-# 4) 冒烟（Token 来自 .env.fc.test，勿把 Token 贴进聊天/文档）
+# 冒烟（Token 来自 .env.test，勿贴进聊天）
+set -a && source .env.test && set +a
 curl -s -H "Authorization: Bearer $DIGITAL_TWIN_TOKEN" \
-  "$(./scripts/info.sh test)/api/query/summary?tz=Asia/Shanghai"
+  "https://<your-fcapp.run>/api/query/summary?tz=Asia/Shanghai"
 ```
 
-改规格（CPU/内存/并发等）只改 [`s.yaml`](s.yaml)，再执行 `./scripts/deploy.sh test`。当前默认**省钱档**：最低 memory/cpu、空闲缩到 0、`reservedConcurrency: 1`（最多 1 实例）。`pre-deploy` 在 `faas/` 模块根执行 `go build -trimpath -ldflags="-s -w"`，去掉符号表与 DWARF，减小上传的 `bootstrap` 体积。
+改规格只改 [`s.yaml`](s.yaml)，再部署。当前默认**省钱档**。`pre-deploy` 在 `faas/` 编译 `bootstrap`。
 
 ## 加了新 API 之后怎么更新 FC
 
 1. 在 `faas/` 实现路由 + `go test`
-2. `./scripts/deploy.sh test`（覆盖同一函数，URL 通常不变）
+2. `npm run fc:deploy -- --env-file .env.test`（或 `deploy -- test`）
 3. curl / 网页加速地址验证  
-生产密钥与首次 FC prod：根目录 **`npm run secrets:refresh-prod`** 并在提示时选 **Y** 部署 FC（详见上文「生产密钥刷新」）；或手动 `.env.fc.prod` + `./scripts/deploy.sh prod`。
+生产：`npm run deploy -- prod` 并在提示时选 **Y** 部署 FC。
 
 ## 本目录文件
 
 ```text
 providers/aliyun-fc/
-  s.yaml             # FC3 资源与规格（pre-deploy 在 ../../ 编译）
-  env.yaml           # test / prod 函数名 overlays
-  scripts/deploy.ts  # 唯一允许的部署入口（deploy.sh → tsx）
+  s.yaml             # FC3 资源与规格（functionName 占位；deploy 用 overlay 覆盖）
+  env.yaml           # 可选历史 overlays（手动 s --env）；日常走 --env-file
+  scripts/deploy.ts  # 唯一允许的部署入口（--env-file）
   scripts/deploy.sh  # 薄包装
-  scripts/info.sh    # 打印 HTTP Base URL
-  env.fc.example     # 密钥模板
+  scripts/info.sh    # 可选：s info --env（手工）
+  env.fc.example     # 键名参考
 ```

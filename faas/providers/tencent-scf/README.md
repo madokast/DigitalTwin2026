@@ -12,44 +12,38 @@ npm i -g serverless-cloud-framework   # CLI 简写 scf
 
 ## 登录（一次）
 
-必须在**本目录**（含 `serverless.yml`）执行：
-
 ```bash
 cd faas/providers/tencent-scf
 ./scripts/login.sh
-# 或: scf login
+# 或仓库根: npm run scf:login
 ```
 
-终端会出现 **https://slslogin.qcloud.com/…** 链接（或微信二维码）。用浏览器/微信完成授权后，凭证落在本机（**勿提交 git**）。
+## 函数名
+
+由 env 文件中的 **`SCF_FUNCTION_NAME`** 决定（覆盖 `serverless.yml` 占位）。常用：`digitaltwin-api-test` / `digitaltwin-api-prod`。
+
+控制台先建对应 **无 CLS** Web 函数（CustomRuntime、`ap-guangzhou`、64MB），再部署。
+
+## 密钥来源（重要）
+
+| 场景 | 密钥从哪来 | 落盘 |
+|------|------------|------|
+| 任意部署 | **仅** `--env-file <path>`（或 `ENV_FILE`） | 内容拷进 `.scf-build/.env` → **exit 删除**；临时 serverless overlay 同删 |
+| 推荐入口 | `npm run deploy -- test`（`.env.test`）或 `deploy -- prod`（临时 `.env.prod`） | 同上 |
+
+Provider **无 stdin**、**无 test/prod 分支**。YAML `environment` 只留 `PORT`（避免 DATABASE_URL 特殊字符触发 501）。
 
 ## 部署
 
 ```bash
-cp env.scf.example .env.scf.test   # 填密钥（DATABASE_URL 含 & 时请用单引号包裹整段）
-# 共享测试库须已迁移，否则鉴权过了也会对 /api/query 返回 500：
-#   set -a && source .env.scf.test && set +a && cd ../../.. && npm run db:migrate
-npx tsx scripts/deploy.ts test     # 或 ./scripts/deploy.sh test
-./scripts/info.sh test             # 查看 URL → 粘贴到 Settings「API Accelerate URL」
+# 推荐：仓库根 orchestrator
+npm run deploy -- test
+npm run deploy -- prod    # Deploy Tencent SCF? → Y
+
+# 薄包装
+npm run scf:deploy -- --env-file .env.test
 ```
 
-`prod` 同理（`.env.scf.prod`）。`npm run secrets:refresh-prod` 中「Deploy Tencent SCF prod?」选 Y 时走同一套（实现接线后）。
+## 冒烟
 
-### 密钥如何进运行时（勿写进 serverless.yml）
-
-`serverless.yml` 的 `environment.variables` **只保留** `PORT=9000`。把 `DATABASE_URL` / Token 等写进 YAML 时，含 `&` 等特殊字符的连接串会导致平台侧异常（实测 HTTP 501）。
-
-正确路径：
-
-1. `deploy.ts` 把 `.env.scf.<env>` **原样拷贝**到 `.scf-build/.env`（与 `bootstrap`、`scf_bootstrap` 同包上传）
-2. Web 入口 `scf_bootstrap`：`set -a && source ./.env && set +a`，再 `exec ./bootstrap`
-3. `.env*` / `.scf-build/` 均已 gitignore；真实 Function URL **禁止进 git**
-
-## 规格
-
-- 地域 **`ap-guangzhou`**
-- Web 函数、**64MB**、超时 30s、**无 CLS**（不必开通日志集）
-- **新建**函数：控制台先建无 CLS 的 Web 函数（CustomRuntime），再本目录 `scf deploy` 更新代码包；`scf deploy` 直接新建常因未开通 CLS 失败
-
-## 当前试验函数
-
-`serverless.yml` → `inputs.name: digitaltwin-api-test`（CustomRuntime Web）。冒烟：`Authorization: Bearer <DIGITAL_TWIN_TOKEN>` 访问 `/api/query?limit=1` 应 **200** JSON。
+Bearer Token 调 `/api/db/probe` 或 `/api/query?limit=1`。测延迟用 `curl --noproxy '*'`（见 [`docs/20260802-db-probe-multi-cloud.md`](../../../docs/20260802-db-probe-multi-cloud.md)）。

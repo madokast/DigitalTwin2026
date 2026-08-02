@@ -38,7 +38,7 @@
   - 运行时经统一 `notify_user` 并行发送；未配置的渠道跳过。
 - 触发：`POST /api/log/number|text|body/weight` INSERT 成功后推单条；`POST /api/log/transaction` 整单成功后推一条 batch 摘要；均为 best-effort，通知失败不影响 `201`。
 - 测试：`POST /api/telegram/probe`、`POST /api/qqbot/probe`（未配置 / 发送失败返回明确英文 `error`；成功 `{ success: true }`）。`DIGITAL_TWIN_TEST=1` 时默认跳过 `notify_user`；设 `NOTIFY_ALLOW_IN_TEST=1` 才允许测试环境实发。
-- 模板：根 `.env.example`、`faas/providers/aliyun-fc/env.fc.example`、`s.yaml` 的 `environmentVariables`。
+- 模板：根 `.env.test.example`、`faas/providers/aliyun-fc/env.fc.example`、`s.yaml` 的 `environmentVariables`。
 - `secrets:rotate-test` **不**轮换通知渠道密钥。
 - **禁止**把真实 Bot Token / AppSecret / OpenID 提交进 git。
 - **时区**：二进制嵌入 `time/tzdata`，FC 精简运行时无系统 zoneinfo 时 `Asia/Shanghai` 等仍可用。
@@ -48,7 +48,7 @@
 ```bash
 cd faas
 # 使用与根目录相同的测试库密钥（或自行 export）
-set -a && source ../.env && set +a
+set -a && source ../.env.test && set +a
 go test ./...
 go run ./cmd/api          # :8080，可用 PORT 覆盖
 ```
@@ -63,10 +63,10 @@ faas/
   internal/                        # auth / db / handlers …（不得 import providers/*）
   go.mod
   providers/
-    aliyun-fc/                     # 阿里云 FC：s.yaml / env / deploy（见该目录 README）
-    # tencent-scf/                 # 预留（尚未实现）
+    aliyun-fc/                     # 阿里云 FC：s.yaml / deploy --env-file
+    tencent-scf/                   # SCF Web：deploy --env-file；密钥打进包
 ```
 
 ## 阿里云 FC 部署
 
-见 **[`providers/aliyun-fc/README.md`](providers/aliyun-fc/README.md)**（`npm run fc:deploy`、`secrets:refresh-prod`、省钱规格、`s deploy` 禁令）。
+见 **[`providers/aliyun-fc/README.md`](providers/aliyun-fc/README.md)**（`npm run deploy`、`fc:deploy -- --env-file`、省钱规格、`s deploy` 禁令）。

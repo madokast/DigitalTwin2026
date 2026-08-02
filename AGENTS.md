@@ -30,7 +30,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **API 契约**：入口 [`openapi/openapi.yaml`](openapi/openapi.yaml)（OpenAPI 3.1，`$ref` 拆至 `openapi/paths/`、`openapi/components/`；说明见 [`openapi/README.md`](openapi/README.md)）。基建已收口；**不做** codegen / Schemathesis / 新 OpenAPI Phase。本地浏览：`npm run openapi:preview`（Redoc 静态 HTML）。
 - **改 API = 更新 OpenAPI（+ fixtures）+ 双改代码 + 双跑测试**：`npm run openapi:lint`（Redocly）、`npm run test:openapi`、`cd faas && go test ./internal/contract/`，以及 `npm test` / `cd faas && go test ./...`。CI：[`.github/workflows/ci.yml`](.github/workflows/ci.yml)（lint + 契约 + 无 DB 单元测；Node `tests/api` 无 `TEST_DATABASE_URL` 时 Skip，且不 DROP schema；Go httptest 集成无 `DATABASE_URL` 时 Skip。可选 secrets `TEST_DATABASE_URL` 等启用 Node 集成测 job）。
 - 网页 Settings 中的 **API Accelerate URL** 指向国内 FaaS Base URL（当前为 FC；日后亦可为 SCF）；空则同源 Vercel。真实 URL **禁止进 git**。
-- 生产密钥刷新：`npm run secrets:refresh-prod` — Vercel **必做**；阿里云 FC / 腾讯云 SCF **默认跳过**（`[y/N]`）；细节见 [`faas/providers/aliyun-fc/README.md`](faas/providers/aliyun-fc/README.md) 与 [`docs/20260802-faas-multi-cloud.md`](docs/20260802-faas-multi-cloud.md) §4。
+- 部署：`npm run deploy -- test|prod` — `test` 跳过 Vercel、可选 FC/SCF；`prod` 经 `collect-prod-env` 写临时 `.env.prod` 后 Vercel **必做**，FC/SCF **默认跳过**（`[y/N]`）；细节见 [`faas/providers/aliyun-fc/README.md`](faas/providers/aliyun-fc/README.md) 与 [`docs/20260802-faas-multi-cloud.md`](docs/20260802-faas-multi-cloud.md) §4。
 - **共享 Go 不得** import `faas/providers/*`。
 
 # 部署原则（摘要）
