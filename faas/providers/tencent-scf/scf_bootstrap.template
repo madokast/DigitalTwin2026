@@ -1,6 +1,12 @@
 #!/bin/bash
-# Web 函数启动脚本模板；deploy 时复制到 .scf-build/scf_bootstrap 并 chmod +x。
-# 必须监听 9000（与 PORT 一致）。
+# Web 函数启动：先加载同目录 .env（由 deploy 注入，勿提交 git），再起 HTTP。
 set -euo pipefail
+cd "$(dirname "$0")"
+if [[ -f ./.env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source ./.env
+  set +a
+fi
 export PORT="${PORT:-9000}"
 exec ./bootstrap

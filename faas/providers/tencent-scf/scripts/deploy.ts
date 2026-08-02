@@ -55,7 +55,7 @@ function loadEnvFile(envName: 'test' | 'prod'): void {
   }
 }
 
-function buildBundle(): void {
+function buildBundle(envName: 'test' | 'prod'): void {
   mkdirSync(BUILD_DIR, { recursive: true })
   const outBin = resolve(BUILD_DIR, 'bootstrap')
   console.error('Building linux/amd64 bootstrap from faas/cmd/api...')
@@ -81,6 +81,11 @@ function buildBundle(): void {
     resolve(BUILD_DIR, 'scf_bootstrap'),
   )
   chmodSync(resolve(BUILD_DIR, 'scf_bootstrap'), 0o755)
+  // 密钥进代码包由 bootstrap source；勿写进 serverless.yml（含特殊字符的 URL 会 501）
+  copyFileSync(
+    resolve(PROVIDER_ROOT, `.env.scf.${envName}`),
+    resolve(BUILD_DIR, '.env'),
+  )
   writeFileSync(
     resolve(BUILD_DIR, '.build-stamp'),
     `built ${new Date().toISOString()}\n`,
@@ -96,14 +101,13 @@ function main(): void {
 
   const scfBin = scfCommand()
   loadEnvFile(envName)
-  buildBundle()
+  buildBundle(envName)
 
-  const stage = envName === 'prod' ? 'prod' : 'test'
   console.error(
-    `deploying SCF env=${envName} stage=${stage} (scf output discarded where possible)`,
+    `deploying SCF env=${envName} (scf output discarded where possible)`,
   )
 
-  const code = runDiscarded(scfBin, ['deploy', '--stage', stage], {
+  const code = runDiscarded(scfBin, ['deploy'], {
     cwd: PROVIDER_ROOT,
     env: process.env,
   })
@@ -114,12 +118,6 @@ function main(): void {
     process.exit(code)
   }
   console.error(`SCF deploy OK (env=${envName}).`)
-  const info = run('bash', [resolve(PROVIDER_ROOT, 'scripts/info.sh'), envName], {
-    cwd: PROVIDER_ROOT,
-    env: process.env,
-  })
-  const out = `${info.stdout}${info.stderr}`.trim()
-  if (out) console.error(out)
   console.error('Paste SCF Base URL into Settings → API Accelerate URL (never commit).')
 }
 
