@@ -189,6 +189,7 @@ flowchart TD
 | 鉴权 / 路由 | 与 Next / FC **契约一致**（OpenAPI + 双端测试仍是真源） |
 | URL | `scf deploy` / `scf info` 得到的 HTTPS Base URL 粘到 Settings；**禁止进 git** |
 | 密钥与 deploy | 选 Y 部署 SCF 时：预检本机已安装 `scf`；`--env-file` 注入进 `.scf-build/.env`（CLI 不打印密钥，stdout/stderr 可透传；**不同于** FC `s deploy` 须丢弃输出） |
+| COS 暂存 zip | `scf deploy` 每次上传新对象到默认桶 `sls-cloudfunction-<region>-code-<AppId>`；本仓库脚本 / CLI **不立刻删旧包**；组件创建桶时常挂约 **10 天**对象生命周期。COS 仅为**部署暂存**：成功 deploy 后 SCF 已摄入代码，**生命周期删旧 zip 后已部署函数仍应可用**（≠ 删函数；≠ 部署中途删对象）。细节见 [`faas/providers/tencent-scf/README.md`](../faas/providers/tencent-scf/README.md)「COS 暂存 zip」 |
 
 说明：官方快速入门模板多为事件函数 / Node；本仓库 **不用** `scf-nodejs` helloworld，而是自管 `serverless.yml` + 预编译 Go Web 包，仅复用 **SCF CLI / 登录 / 组件发布链路**。
 
@@ -211,6 +212,7 @@ flowchart TD
 | **Neon 延迟** | 国内 FaaS → 海外 Neon 仍有 RTT；换 SCF **不 magically** 解决 DB 延迟 | 接受加速「API 边缘」；日后若迁国内 PG 再评估；测试库 / 生产库勿混 |
 | **Telegram 出网** | FC / SCF 出网策略、对 `api.telegram.org` 的连通性可能不同 | 部署前探测（沿用今日 sendMessage / QQ C2C）；失败则该渠道留空或修网络，勿静默 |
 | **SCF 响应流量 / CLS** | 出站响应计费、日志服务（CLS）可能产生费用 | 起步最低规格；控制日志级别与保留；部署后看一波账单再调 |
+| **SCF COS 暂存残留** | 每次 deploy 新 zip；旧对象靠桶生命周期（约 10 天），非即时清理；删的是暂存，**已部署函数仍应可用** | 控制台确认生命周期；堆积时人工删旧包（勿在上传中途删）；见 provider README |
 | 双云配置漂移 | 两套 provider 的 env / 超时不一致 | `deploy -- prod` 共用同一组已收集的 values；文档要求键名对齐 |
 | 操作者只装一云 CLI | 开头强制 `s` 会误伤「只要 Vercel / 只要 SCF」 | **已拍板**：分云预检 |
 

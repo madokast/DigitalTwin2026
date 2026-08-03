@@ -62,6 +62,7 @@
 | 函数名 | env `SCF_FUNCTION_NAME` → deploy 临时改写 `serverless.yml` 的 `inputs.name`；CLI **无** `-t` 模板 |
 | 密钥 | `--env-file` → `.scf-build/.env`（YAML environment 只留 `PORT`，避免连接串特殊字符触发 501） |
 | CLI 输出 | **透传**（SCF CLI 不打印密钥）；对比：FC `s deploy` **必须丢弃** |
+| COS 暂存 | 每次 deploy 新 zip 到默认桶；约 10 天生命周期；**删旧 zip ≠ 停函数**（仅暂存，成功后 SCF 已摄入） |
 | 地域 / 规格 | 默认 `ap-guangzhou`；约 64MB；能关 CLS 则关 |
 
 详情：[`faas/providers/tencent-scf/README.md`](../faas/providers/tencent-scf/README.md)。
