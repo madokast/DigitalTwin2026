@@ -1,7 +1,7 @@
 # DigitalTwin2026：任务清单 / Todo（GTD）
 
 > 创建日期：2026-08-02  
-> 状态：讨论定稿（**仅文档，尚未开发**）  
+> 状态：讨论定稿（**仅文档，尚未开发**；§9 中 transition 成功响应形状与 notify 范围两项**已收**）  
 > 性质：个人项目；偏 GTD 个人待办  
 > 相关：`docs/20260729-schema-v1.md`（append-only / tags）、账单与体重的「保留 tag + 专用 API」先例
 
@@ -165,7 +165,19 @@
 
 任一步失败 → 整单回滚。成功后 HTTP 层再 best-effort `notify_user`（除非 suppress）；通知失败不影响已提交事务。
 
-成功响应默认：`200` + `{ success, record }`，**`record` 为更新后的待办行且必须对外变形**（`created_at` / `content`）。审计不强制回传（可靠 `?tag=todo:transition` 查）。HTTP 状态码若 OpenAPI 改选 `201` 亦可，但变形要求不变。
+成功响应（**已拍板**）：HTTP **`200`**（不用 `201`）+ 下述 JSON；**无** `record`、**无** `audit_record`。更新后的待办行与审计行如需查看，分别用 `GET /api/query`（如 `?tag=todo:in_progress` 或对应态）与 `?tag=todo:transition`。
+
+```json
+{
+  "success": true,
+  "id": "<todo uuid>",
+  "transition": { "from": "<TodoState>", "to": "<TodoState>" }
+}
+```
+
+- `id`：被流转的待办行 UUID（与请求体 `id` 相同）。
+- `transition.from` / `transition.to`：均为 **TodoState** 字面量（`in_progress` \| `completed` \| `cancelled` \| `paused`），与请求体 `target` 同一套词汇；**不是**完整 tag（勿写 `todo:completed`）。
+- `from` = 事务开始前读到的代表状态；`to` = 请求的 `target`（且已校验 `to ≠ from`）。
 
 ---
 
@@ -193,9 +205,13 @@
 
 其中 `{todo.happened_at}` / `{todo.value_text}` 为流转**之前**读到的待办行字段全文拼接，不得截断、不得改写。
 
-### 4.2 通知范围
+### 4.2 通知范围（**已拍板**）
 
-一次 transition 成功：对「更新后的待办」与「新审计行」的 notify 策略与现有「多行写入」对齐即可——若当前 number 单行只 notify 一行，则 transition **至少** notify 一次（建议以更新后的待办为主，或两条都 notify；**实现时与 `CreateTransactionBatch` / 体重单行先例对齐并在 OpenAPI 写清**）。`suppress_notification: true` 时整次跳过。
+一次 transition **成功**后：`notify_user` **恰好一次**（除非 `suppress_notification: true` 则整次跳过）。
+
+- 通知正文与本次 **INSERT 的审计行** `value_text` **字节级完全一致**（即 §4.1 模板拼出的那串英文）。
+- **不**另就「更新后的待办行」再 notify 一次；双端（Next / Go）必须同一规则、同一文案。
+- 通知失败不影响已提交事务（best-effort，与其它 log 一致）。
 
 ---
 
@@ -219,7 +235,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 | **待办行**（查询侧判定见 §1.3「略宽」规则） | 对外键名：`happened_at` → **`created_at`**，`value_text` → **`content`**；其余字段默认序列化不变。响应中**不再出现**该行的 `happened_at` / `value_text` 键（避免双键并存）。 |
 | **审计行**（`todo:transition`）及其它非待办行 | **默认 toJSON**，仍为 `happened_at` / `value_text`（与现网 Record 契约一致），**不做**别名。 |
 
-**对外一律变形（已拍板）**：凡 HTTP 响应里出现的**待办行**——含 `GET /api/query` 的 `records[]`、`POST /api/log/todo` 的 `201.record`、`POST /api/log/todo/transition` 的成功 `record`——**都必须**使用 `created_at` / `content`，双端一致。审计行始终默认形状。
+**对外变形范围（已拍板）**：凡 HTTP 响应里出现的**待办行**——含 `GET /api/query` 的 `records[]`、`POST /api/log/todo` 的 `201.record`——**都必须**使用 `created_at` / `content`，双端一致。审计行始终默认形状。**`POST /api/log/todo/transition` 成功响应不含 `record`**（见 §3.5），故无待办行变形问题。
 
 ### 5.2 实现备忘（Next / Go）
 
@@ -241,10 +257,10 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 
 日后撰写「AI 操作手册 / tool 说明」时，**必须写清楚**（勿让模型以为库字段就叫 created_at）：
 
-1. **对 AI 可见的 HTTP JSON（待办行）**使用别名：`created_at`、`content`（创建请求也用这两键；query / 创建成功 / transition 成功里的待办行同样）。
+1. **对 AI 可见的 HTTP JSON（待办行）**使用别名：`created_at`、`content`（创建请求也用这两键；**query** 与 **创建成功** `record` 同样）。transition 成功响应**没有**待办 `record`，只有 `id` + `transition.from`/`to`（TodoState 字面量）。
 2. **数据库真实列名仍是** `happened_at`、`value_text`；变形只发生在 API 边界。
 3. **流转**请求时间字段仍是 `happened_at`（审计时间），不要写成 `created_at`。
-4. **审计行**响应仍是 `happened_at` / `value_text`，没有 content 别名。
+4. **审计行**若出现在 query 响应中仍是 `happened_at` / `value_text`，没有 content 别名。
 5. 闭集五个 tag 见 §1.2；查询活跃清单用 `tag=todo:in_progress`。
 
 本小节只作备忘，**不**在本阶段产出手册正文。
@@ -264,7 +280,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 
 ## 7. 实现时模块草案（开发阶段再用，此处仅备忘）
 
-- OpenAPI：`LogTodoRequest`、`LogTodoTransitionRequest`、TodoState 枚举、`TodoRecord`（查询/成功响应中的待办形状）、路径挂到 `log.yaml`；query 响应说明 records 元素可能为 Record 或 TodoRecord。
+- OpenAPI：`LogTodoRequest`、`LogTodoTransitionRequest`、TodoState 枚举、`TodoRecord`（query / 创建成功 `record` 中的待办形状）、transition 成功体（`success` + `id` + `transition.{from,to}`，无 record）、路径挂到 `log.yaml`；query 响应说明 records 元素可能为 Record 或 TodoRecord。
 - `RESERVED_TAG_PREFIXES` += `todo`；`reservedTagError` 按前缀指向 `/api/log/todo`。
 - 纯逻辑包建议：`tododraft`（解析创建 / transition）+ `logapi.CreateTodo` / `TransitionTodo`（事务）+ query 层 `toQueryRecordJson` / Go `TodoRecordJSON`。
 - 测试：四类 transition 错误全文双端断言；创建 tags 组装；事务失败回滚；保留 tag 拒绝对通用 log；**query 待办行 JSON 键为 created_at/content、审计行仍为 happened_at/value_text**。
@@ -280,22 +296,23 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 5. transition **只**替换代表状态 tag，不动其它 tags / 字段。  
 6. **创建** JSON：`created_at`（→ 库 `happened_at`）、`content`（→ 库 `value_text`）、`objective_context` 必填；`subjective_interpretation` / `suppress_notification` 可选。请求禁止再传 `happened_at` / `value_text` 键名。  
 7. **流转** JSON：仍用 `happened_at`（审计时间），**不用** `created_at` / `content`。  
-8. 创建与 transition（含审计 insert）均走 `notify_user`，支持 suppress。  
+8. **Notify**：创建成功走 `notify_user`（可 suppress）。transition **成功恰好 notify 一次**（可 `suppress_notification`）；正文与插入审计行的 `value_text` **字节级一致**；**不**就待办行再 notify。双端必须一致。  
 9. AI 与 Admin 均可调 transition。  
 10. 审计必须重复待办原文，并带上待办创建时间（`created at {todo.happened_at}`）；`objective_context` 只备查 id。  
 11. 禁止对审计行 transition；uuid 不存在 / 非待办 / 审计 / target 相同 → **四类不同英文报错**。  
-12. **对外待办行一律变形**：query / 创建成功 / transition 成功均 `created_at`+`content`；审计行默认 toJSON。Go 用 `TodoRecordJSON` + `[]any`（或等价 Marshaler）。  
+12. **对外待办行变形**：仅 **query** 的 `records[]` 与 **创建** 成功 `201.record` 使用 `created_at`+`content`；审计行默认 toJSON。**transition 成功响应无 `record`**（见第 17 条）。Go 用 `TodoRecordJSON` + `[]any`（或等价 Marshaler）。  
 13. **五 tag 闭集**定死；录入严、查询略宽，**Node/Go 宽松度必须一致**（共享判定 + fixture）。  
 14. **AI 手册预留（§5.4）**：必须向 AI 说明「对外别名 vs 库列 happened_at/value_text」；本阶段不写手册。  
 15. **导入/导出**（未做）：日后同时接受变形与不变形 JSON（§5.3）；本阶段只记账。  
-16. **本阶段只产出本文档，不开发。**
+16. **本阶段只产出本文档，不开发。**  
+17. **transition 成功响应（已拍板）**：HTTP **`200`** + `{ success, id, transition: { from, to } }`；`from`/`to` 为 TodoState 字面量（与请求 `target` 同词汇，非 `todo:*` tag）；**无** `record`、**无** `audit_record`。
 
 ---
 
-## 9. 开放小项（不阻塞定稿，实现前可再收）
+## 9. 开放小项（不阻塞定稿；已收两项保留备查）
 
-- transition 成功 HTTP 状态码（`200` vs `201`）与是否在 JSON 中返回 `audit_record`。  
-- 一次 transition 的 notify 是「只通知待办」还是「待办 + 审计各一次」。  
+- **【已收】** transition 成功 HTTP：**`200`**；JSON 为 `{ success, id, transition: { from, to } }`（`from`/`to` = TodoState 字面量）；**无** `record` / **无** `audit_record`。详见 §3.5、§8 第 17 条。  
+- **【已收】** transition notify：成功时**恰好一次**（除非 `suppress_notification`）；正文 = 审计行 `value_text`（字节一致）；不另通知待办行。详见 §4.2、§8 第 8 条。  
 - Admin PATCH 是否允许改待办正文（库列 `value_text`；与保留 tag 的 PATCH 规则需对照现有 admin 行为）。  
 - OpenAPI 对 `records[]` oneOf 写到多严（严格 schema vs description-only）。  
 - **导入/导出**（未排期）：详见 §5.3。  
