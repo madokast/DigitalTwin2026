@@ -38,12 +38,22 @@ describe('OpenAPI contract (Phase 2)', () => {
   it('validates Error / QuerySuccess / SummarySuccess fixtures', async () => {
     await assertValidSchema('Error', readFixture('error-unauthorized.json'))
     await assertValidSchema('Error', readFixture('error-value-number-type.json'))
+    await assertValidSchema('Error', readFixture('error-export-invalid-from.json'))
+    await assertValidSchema('Error', readFixture('error-export-limit.json'))
+    await assertValidSchema('Error', readFixture('error-export-from-not-found.json'))
     await assertValidSchema('QuerySuccess', readFixture('query-success.json'))
     await assertValidSchema('SummarySuccess', readFixture('summary-success.json'))
     await assertValidSchema(
       'TransactionSummarySuccess',
       readFixture('transaction-summary-success.json'),
     )
+  })
+
+  it('lists export path in OpenAPI', async () => {
+    const doc = (await loadOpenApi()) as {
+      paths?: Record<string, unknown>
+    }
+    expect(doc.paths?.['/api/export/records']).toBeTruthy()
   })
 
   it('validates remaining success / request fixtures', async () => {

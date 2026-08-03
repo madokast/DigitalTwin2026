@@ -106,6 +106,7 @@ flowchart LR
 | `logapi` | `faas/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` / `bodyweightdraft` / `tododraft` |
 | `record` | `faas/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `Update` / `FromDB` / `TagsJSON` / type `Record` |
 | `recordjsonl` | `faas/internal/recordjsonl` | `src/lib/recordjsonl.ts` | Record JSONL 行 parse / serialize；表示层 camelCase；**不**调用 `assertNoReservedTags`（由调用方决定） |
+| `exportapi` | `faas/internal/exportapi` | `src/lib/exportapi.ts` | `GET /api/export/records`：游标参数解析、按 `id ASC` 拉取、NDJSON 文件名 / Notify 文案；HTTP 层负责流响应与 notify 调度 |
 | `telegram` | `faas/internal/telegram` | `src/lib/telegram.ts` | 渠道：配置 / 排版 / 发送；probe 直调；录入路径经 `notify` |
 | `qqbot` | `faas/internal/qqbot` | `src/lib/qqbot.ts` | 渠道：配置 / token / 发送；probe 直调；录入路径经 `notify`（函数 stem 见 §5.2） |
 | `notify` | `faas/internal/notify` | `src/lib/notify.ts` | 统一扇出入口；HTTP 成功后调用（函数 stem 见 §5.2；调度差异见 §1.1 / §7） |
@@ -142,6 +143,7 @@ flowchart LR
 | record | `FormatHappenedAt` | `formatHappenedAt`（与现有 UTC Z 语义对齐；已收敛 `formatHappenedAtUtc`） |
 | record | `IsValidID` / `InvalidID` | `isValidRecordId` / `INVALID_RECORD_ID` |
 | recordjsonl | `ParseLine` / `SerializeLine` / `SerializeRecord` / `FormatLineError` / type `Row` | `parseLine` / `serializeLine` / `serializeRecord` / `formatLineError` / type `RecordJsonlRow` |
+| exportapi | `ParseExportRecordsParams` / `FetchExportRecords` / `BuildExportNdjson` / `ExportFilename` / `FormatExportNotifyMessage` / type `ParsedExport` | `parseExportRecordsParams` / `fetchExportRecords` / `buildExportNdjson` / `exportFilename` / `formatExportNotifyMessage` / type `ParsedExport` |
 
 ### 5.2 同构样板（保持 / 微调 stem）
 

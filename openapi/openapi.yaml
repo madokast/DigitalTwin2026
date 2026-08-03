@@ -45,6 +45,8 @@ tags:
     description: Postgres connectivity probe
   - name: admin
     description: Admin-only corrections (AdminToken only)
+  - name: export
+    description: Cursor-paginated Record JSONL file download (ApiToken)
 
 paths:
   /api/log/number:
@@ -77,6 +79,8 @@ paths:
     $ref: './paths/admin.yaml#/~1api~1admin~1tags~1rename'
   /api/admin/records/{id}:
     $ref: './paths/admin.yaml#/~1api~1admin~1records~1{id}'
+  /api/export/records:
+    $ref: './paths/export.yaml#/~1api~1export~1records'
 
 # 按名 $ref 到 components/*.yaml（kin-openapi 不支持整段 map 替换为 $ref）
 components:
@@ -100,6 +104,10 @@ components:
       $ref: './components/parameters.yaml#/QueryTag'
     QueryQ:
       $ref: './components/parameters.yaml#/QueryQ'
+    ExportFrom:
+      $ref: './components/parameters.yaml#/ExportFrom'
+    ExportLimit:
+      $ref: './components/parameters.yaml#/ExportLimit'
   responses:
     BadRequest:
       $ref: './components/responses.yaml#/BadRequest'

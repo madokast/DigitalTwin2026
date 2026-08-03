@@ -69,3 +69,25 @@ QueryQ:
   description: Substring search across text fields and tags JSON
   schema:
     type: string
+ExportFrom:
+  name: from
+  in: query
+  required: false
+  description: |
+    Inclusive cursor UUID (`WHERE id >= from`). Omit = start from the smallest
+    `id` at request time. Non-UUID → 400 (`Invalid record id`). Valid UUID with
+    no matching row → 404 (`export from id not found`).
+  schema:
+    type: string
+    format: uuid
+ExportLimit:
+  name: limit
+  in: query
+  required: true
+  description: |
+    Page size. Required integer **1 ≤ limit ≤ 1000**. Missing or out of range
+    → 400 (`limit must be an integer between 1 and 1000`).
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 1000

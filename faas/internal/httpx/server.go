@@ -15,6 +15,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/dbprobe"
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
+	"github.com/mdk/digitaltwin2026/faas/internal/exportapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/logapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/notify"
@@ -75,6 +76,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/query/transaction/summary", s.handleTransactionSummary)
 	mux.HandleFunc("POST /api/admin/tags/rename", s.handleRenameTags)
 	mux.HandleFunc("PATCH /api/admin/records/{id}", s.handlePatchRecord)
+	mux.HandleFunc("GET /api/export/records", s.handleExportRecords)
 	// 404/405 → {error} JSON。Next 仍用框架默认（见 api-layering §1.1）；业务 4xx 两端已对齐。
 	return withCORS(s.withAuth(withJSONErrorPages(mux)))
 }
@@ -599,4 +601,39 @@ func (s *Server) handlePatchRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
+}
+
+func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
+	parsed, err := exportapi.ParseExportRecordsParams(r.URL.Query())
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+	recs, status, err := exportapi.FetchExportRecords(r.Context(), s.Pool, parsed)
+	if err != nil {
+		if status >= 500 {
+			log.Printf("Error exporting records: %v", err)
+			writeInternalError(w, err)
+			return
+		}
+		writeError(w, status, err.Error())
+		return
+	}
+	body, err := exportapi.BuildExportNdjson(recs)
+	if err != nil {
+		log.Printf("Error serializing export NDJSON: %v", err)
+		writeInternalError(w, err)
+		return
+	}
+	now := s.Now()
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("Content-Disposition", exportapi.ExportContentDisposition(parsed.From, parsed.Limit, now))
+	msg := exportapi.FormatExportNotifyMessage(len(recs), parsed.From, parsed.Limit)
+	if s.NotifyUser != nil {
+		s.NotifyUser(msg)
+	} else {
+		go s.notify().NotifyUser(msg)
+	}
+	w.WriteHeader(200)
+	_, _ = w.Write([]byte(body))
 }

@@ -1,7 +1,7 @@
 # DigitalTwin2026：Records 导入 / 导出（规划）
 
 > 创建日期：2026-08-03  
-> 状态：**规划已定稿**（含审查 errata）；**实现阶段见 §11**（阶段 1 已落地；2–4 未落地）  
+> 状态：**规划已定稿**（含审查 errata）；**实现阶段见 §11**（阶段 1–2 已落地；3–4 未落地）  
 > 性质：分块备份 / 迁移；**不做**前端 UI；**一期无 gzip**  
 > 相关：[`docs/20260802-todo-feature.md`](20260802-todo-feature.md) §5.3、[`docs/20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)、OpenAPI `Record` / `ApiToken`·`AdminToken`、`src/proxy.ts`、写路径 `draft` / `logapi`
 
@@ -303,7 +303,7 @@ BEGIN
 
 ### 阶段 2：导出 `GET /api/export/records`
 
-**状态：未开始**
+**状态：已完成**（stem `exportapi`；OpenAPI `paths/export.yaml`；Next `src/app/api/export/records`；Go `handleExportRecords`）
 
 **目标：** ApiToken；`from?` + 必填 `limit`∈[1,1000]；NDJSON 文件流；成功（含 0 行）一律 Notify；开流前错误 JSON、开流后失败不 Notify。
 
@@ -320,12 +320,14 @@ BEGIN
 - 不改阶段 1 校验语义（除非测出 bug）
 
 **验收标准：**
-- [ ] OpenAPI 与双端行为一致；未知/非法 query → 约定英文错误
-- [ ] 200 为 NDJSON 流；0 行仍带正确头并 Notify 一次
-- [ ] from 非法 400、不存在 404、文案可区分
-- [ ] 相关契约 / httpx / route 测绿
+- [x] OpenAPI 与双端行为一致；未知/非法 query → 约定英文错误
+- [x] 200 为 NDJSON 流；0 行仍带正确头并 Notify 一次
+- [x] from 非法 400、不存在 404、文案可区分
+- [x] 相关契约 / httpx / route 测绿
 
 **依赖 / 可并行：** **依赖阶段 1**。与阶段 3 **文件面可并行开发**，但建议 **先合 2 再合 3**（round-trip 与对外叙事更顺）；若并行开 PR，勿合并「仅一端导出」。
+
+**落地备注：** 错误终稿：`Invalid record id`（400）/ `export from id not found`（404）/ `limit must be an integer between 1 and 1000`（400）；Notify：`Exported N records (from {uuid|start}, limit L)`；GET 不调用 `readJsonBody` / `readBody`。
 
 ---
 

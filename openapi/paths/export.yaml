@@ -1,0 +1,73 @@
+/api/export/records:
+  get:
+    operationId: exportRecords
+    tags: [export]
+    summary: Export records as NDJSON file (id cursor pagination)
+    description: |
+      Downloads a chunk of `records` as **NDJSON** (`application/x-ndjson`)
+      attachment. Rows are OpenAPI `Record` camelCase (no Todo deform).
+
+      Query: optional `from` (inclusive UUID cursor) + required `limit`
+      (1…1000). With `from`: `WHERE id >= :from ORDER BY id ASC LIMIT :limit`.
+      Without `from`: same order/limit from the smallest id.
+
+      End-of-table is client-side: fewer than `limit` rows usually means no
+      next page; when row count equals `limit`, use the last row `id` as the
+      next `from` (one-row overlap; upsert-friendly). A request after the last
+      page often returns 1 overlapping row and triggers Notify again — expected.
+
+      Success (including **0 rows**) always schedules Notify once. Pre-stream
+      validation errors return JSON `{ "error" }` and do **not** Notify.
+      Auth: ApiToken. No gzip; no `X-Export-*` headers; no JSON envelope.
+    security:
+      - ApiToken: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/ExportFrom'
+      - $ref: '../components/parameters.yaml#/ExportLimit'
+    responses:
+      '200':
+        description: |
+          NDJSON body (possibly empty). Each non-empty line is one `Record`
+          JSON object. Headers always include `Content-Type: application/x-ndjson`
+          and `Content-Disposition: attachment; filename="…"`.
+          Filename: `records-from-{uuid|start}-limit-{n}-{YYYYMMDDTHHMMSSZ}.jsonl`.
+        headers:
+          Content-Disposition:
+            description: |
+              `attachment; filename="records-from-…-limit-…-….jsonl"`
+            schema:
+              type: string
+        content:
+          application/x-ndjson:
+            schema:
+              type: string
+              description: |
+                Zero or more lines of Record JSON (NDJSON). Empty body when
+                0 rows.
+      '400':
+        description: |
+          Invalid `from` UUID, missing/invalid `limit`, or other query errors.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Error'
+            examples:
+              invalidFrom:
+                value:
+                  error: Invalid record id
+              badLimit:
+                value:
+                  error: limit must be an integer between 1 and 1000
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        description: |
+          `from` is a valid UUID but no row has that id
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Error'
+            example:
+              error: export from id not found
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

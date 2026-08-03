@@ -8,6 +8,7 @@ import { POST as postTransaction } from '@/app/api/log/transaction/route'
 import { GET as queryRecords } from '@/app/api/query/route'
 import { GET as querySummary } from '@/app/api/query/summary/route'
 import { GET as queryTags } from '@/app/api/query/tags/route'
+import { GET as exportRecords } from '@/app/api/export/records/route'
 import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
 import { PATCH as patchRecord } from '@/app/api/admin/records/[id]/route'
 import { closeDb } from '@/db'
@@ -1133,6 +1134,95 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         { params: Promise.resolve({ id }) },
       )
       expect(res.status).toBe(404)
+    })
+  })
+
+  describe('GET /api/export/records', () => {
+    it('returns empty NDJSON with headers when table is empty', async () => {
+      const res = await exportRecords(
+        jsonGet('http://localhost/api/export/records?limit=100'),
+      )
+      expect(res.status).toBe(200)
+      expect(res.headers.get('Content-Type')).toBe('application/x-ndjson')
+      const disposition = res.headers.get('Content-Disposition') ?? ''
+      expect(disposition).toMatch(
+        /^attachment; filename="records-from-start-limit-100-\d{8}T\d{6}Z\.jsonl"$/,
+      )
+      expect(await res.text()).toBe('')
+    })
+
+    it('rejects missing/invalid limit and invalid from', async () => {
+      const missing = await exportRecords(
+        jsonGet('http://localhost/api/export/records'),
+      )
+      expect(missing.status).toBe(400)
+      expect((await missing.json()).error).toBe(
+        'limit must be an integer between 1 and 1000',
+      )
+
+      const badFrom = await exportRecords(
+        jsonGet(
+          'http://localhost/api/export/records?from=not-a-uuid&limit=10',
+        ),
+      )
+      expect(badFrom.status).toBe(400)
+      expect((await badFrom.json()).error).toBe('Invalid record id')
+    })
+
+    it('returns 404 when from uuid does not exist', async () => {
+      const res = await exportRecords(
+        jsonGet(
+          'http://localhost/api/export/records?from=01900000-0000-7000-8000-000000000000&limit=10',
+        ),
+      )
+      expect(res.status).toBe(404)
+      expect((await res.json()).error).toBe('export from id not found')
+    })
+
+    it('exports by id ASC and supports overlapping cursor pages', async () => {
+      const ids: string[] = []
+      for (const n of ['1', '2', '3']) {
+        const created = await postNumber(
+          jsonPost('http://localhost/api/log/number', {
+            happened_at: '2026-07-30T08:00:00+08:00',
+            value_number: n,
+            tags: ['export_test'],
+            objective_context: `export-row-${n}`,
+          }),
+        )
+        expect(created.status).toBe(201)
+        ids.push((await created.json()).record.id)
+      }
+      ids.sort()
+
+      const page1 = await exportRecords(
+        jsonGet('http://localhost/api/export/records?limit=2'),
+      )
+      expect(page1.status).toBe(200)
+      const lines1 = (await page1.text()).trimEnd().split('\n')
+      expect(lines1).toHaveLength(2)
+      const row1 = JSON.parse(lines1[0]) as { id: string }
+      const row2 = JSON.parse(lines1[1]) as { id: string }
+      expect(row1.id).toBe(ids[0])
+      expect(row2.id).toBe(ids[1])
+      expect(row1.id < row2.id).toBe(true)
+
+      const page2 = await exportRecords(
+        jsonGet(
+          `http://localhost/api/export/records?from=${row2.id}&limit=2`,
+        ),
+      )
+      expect(page2.status).toBe(200)
+      const lines2 = (await page2.text()).trimEnd().split('\n')
+      expect(lines2).toHaveLength(2)
+      const overlap = JSON.parse(lines2[0]) as { id: string }
+      const last = JSON.parse(lines2[1]) as { id: string }
+      expect(overlap.id).toBe(row2.id)
+      expect(last.id).toBe(ids[2])
+      // Record camelCase only (no Todo deform keys)
+      expect(overlap).toHaveProperty('happenedAt')
+      expect(overlap).not.toHaveProperty('created_at')
+      expect(overlap).not.toHaveProperty('content')
     })
   })
 })
