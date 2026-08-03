@@ -1,7 +1,7 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-08-02（续至 2026-08-03）  
-> 状态：多云 FaaS（FC + SCF）落地；deploy / collect 分离；SCF Web **Go1** 打包；prod 可选 drizzle migrate  
+> 状态：多云 FaaS（FC + SCF）落地；deploy / collect 分离；SCF Web **Go1** 打包；prod 可选 drizzle migrate；续记集成门闸（`DATABASE_URL` only）+ `test:integration` + Todo Phase 4  
 > 相关：[`docs/20260802-faas-multi-cloud.md`](20260802-faas-multi-cloud.md)、[`docs/20260802-db-probe-multi-cloud.md`](20260802-db-probe-multi-cloud.md)、[`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md)、[`faas/providers/tencent-scf/README.md`](../faas/providers/tencent-scf/README.md)
 
 ## 0. 今日做成了什么（总览）
@@ -118,8 +118,20 @@ d2efdd7  Add Tencent SCF Web provider scaffold with scf login flow
 
 ---
 
-## 7. 仍待办 / 开放
+## 7. 续记（2026-08-03）：集成门闸与 Todo Phase 4
+
+本批与多云并列落地（细节见 Todo 规格与 08-01 日志）：
+
+| 项 | 状态 |
+|----|------|
+| Todo Phase 4（query 待办行 JSON 变形） | ✅ `b6c8d0a`；规格 [`20260802-todo-feature.md`](20260802-todo-feature.md) §10 |
+| 集成测仅认安全 `DATABASE_URL` | ✅ `456b55f`：废弃 `TEST_DATABASE_URL`；host/库名须含 `test` / `TestDigitalTwin`，否则 Skip / 拒绝 |
+| `npm run test:integration` | ✅ `eeaf760`：本地一键跑 Node `tests/api` + Go httpx/dbprobe（读 `.env.test`） |
+| CI 可选集成 job | ✅ `.github/workflows/ci.yml` 用 `secrets.DATABASE_URL`（及可选 Token）；未配置则跳过 |
+
+## 8. 仍待办 / 开放
 
 - [ ] 手动验收清单续跑；用户确认 SCF 内存档是否可再降  
 - [ ] （可选）Settings placeholder 补 SCF 域名示例  
 - [ ] Dashboard 支出组件 / 网页录入 UI（与多云无关，沿自既有待办）
+- [x] Todo Phase 4 / `test:integration` / `DATABASE_URL`-only 门闸（见 §7）

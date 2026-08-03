@@ -1,7 +1,7 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-08-01（续至 2026-08-03）
-> 状态：transaction 录入 + summary；金额 `MoneyAmountString` 收紧；body weight 写入；Todo Phase 1 保留前缀 + Phase 2 创建 + Phase 3 transition；双端 API 对齐；统一 `notify_user` + QQ Bot；契约收紧（未知键 / `suppress_notification`）
+> 状态：transaction 录入 + summary；金额 `MoneyAmountString` 收紧；body weight 写入；Todo Phase 1–4（保留前缀 / 创建 / transition / query 变形）已落地；双端 API 对齐；统一 `notify_user` + QQ Bot；契约收紧（未知键 / `suppress_notification`）
 
 ## 0. 今日做成了什么（总览）
 
@@ -14,6 +14,7 @@
 | Todo Phase 1 | 保留前缀 `todo` / `todo:*`：通用 log + Admin rename 拒写；错误指向 `/api/log/todo` |
 | Todo Phase 2 | `POST /api/log/todo` 创建：`created_at`/`content` 别名；落库 `todo:in_progress`；`201.record` 变形；notify + suppress |
 | Todo Phase 3 | `POST /api/log/todo/transition`：同事务改状态 tag + 审计 `todo:transition`；`200` 仅 `id`+`transition`；notify 一次=审计文案 |
+| Todo Phase 4 | `GET /api/query` 待办行 JSON 变形为 `created_at`/`content`（与 create 对齐）；见 [`20260802-todo-feature.md`](20260802-todo-feature.md) §10 |
 | 双端对齐 | 大量 Next ↔ Go 契约/语义对齐（JSON、时区、UUID、鉴权路径、Telegram、query 等）；见 §2 |
 | 分层文档 | [`docs/20260801-api-layering.md`](20260801-api-layering.md)：模块同构、§1.1 允许差异、§7 通知 |
 | 通知统一 | `notify_user` / `NotifyUser`：Telegram + QQ 并行 timed await；`NOTIFY_ALLOW_IN_TEST` |
@@ -107,7 +108,7 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 | 成功 | `201` + `{ success, record }`；`record` 为 **TodoRecord**（`created_at`/`content`，无 `happenedAt`/`valueText`） |
 | Notify | 成功后 best-effort `notify_user`（与其它 log 同）；`suppress_notification: true` 跳过 |
 | 模块 | `tododraft`（`parseTodo` / `toTodoRecordJson`）+ `logapi.createTodo` / `CreateTodo`；分层表已补 |
-| Query 变形 | **未做**（Phase 4）；期内 query 待办行仍可能是默认 Record 键 |
+| Query 变形 | **已做**（Phase 4，见 §1b4 / [`20260802-todo-feature.md`](20260802-todo-feature.md) §10） |
 
 ### 1b3. Todo Phase 3 — Transition + 审计（2026-08-03）
 
@@ -121,6 +122,17 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 | 错误 | 四类英文：`to-do not found` / `record is not a to-do` / `cannot transition a to-do audit record` / `to-do is already in target state` |
 | Notify | 成功后恰好一次，正文 = 审计 `value_text`；`suppress_notification: true` 跳过 |
 | 模块 | `tododraft`（`parseTodoTransition` / `auditValueText`）+ `logapi.transitionTodo` / `TransitionTodo` |
+
+### 1b4. Todo Phase 4 — Query 待办行 JSON 变形（2026-08-03）
+
+| 项 | 约定 |
+|----|------|
+| 范围 | `GET /api/query` 的 `records[]`：待办行输出 `created_at`/`content`（与 `POST /api/log/todo` 的 `201.record` 同形） |
+| 判定 | 双端共用 `shouldDeformTodoRecordTags` / `ShouldDeformTodoRecordTags` + fixture `testdata/todo-query-deform-cases.json` |
+| 非待办 | 默认 Record 键（`happened_at`/`value_text` 等）；审计行不变形 |
+| 文档 | [`docs/20260802-todo-feature.md`](20260802-todo-feature.md) §10 Phase 4 ✅；分层表 `query` 行已注明 |
+
+提交：`b6c8d0a`。
 
 ---
 
@@ -249,6 +261,9 @@ b77309e / a234f7b  GET /api/query/transaction/summary（层级聚合 + OpenAPI�
 - [x] `GET /api/query/transaction/summary`（按 `transaction_entry:income|expense` + 符号聚合；半开 `[from,to)`；category→subcategory 层级；两位小数串）
 - [x] `POST /api/log/body/weight`（保留 tag `body:weight`；kg；无趋势 API）
 - [x] Todo Phase 1：保留前缀 `todo` / `todo:*`（通用路径拒写；专用路由未开）
+- [x] Todo Phase 2：`POST /api/log/todo` 创建 + TodoRecord 变形
+- [x] Todo Phase 3：`POST /api/log/todo/transition` + 审计 + notify
+- [x] Todo Phase 4：`GET /api/query` 待办行 `created_at`/`content` 变形（见 [`20260802-todo-feature.md`](20260802-todo-feature.md)）
 - [x] Transaction `MoneyAmountString` 收紧（禁零、2dp 规范化、abs ≤ `999999999999.99`）
 - [x] `GET /api/query` 列表排序改为 `happened_at ASC, id ASC`（无 `order` 参数）
 - [ ] Dashboard 支出组件 / 网页录入 UI
