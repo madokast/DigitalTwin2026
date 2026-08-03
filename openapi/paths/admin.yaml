@@ -97,3 +97,77 @@
         $ref: '../components/responses.yaml#/PayloadTooLarge'
       '500':
         $ref: '../components/responses.yaml#/InternalError'
+
+/api/admin/import/records:
+  post:
+    operationId: adminImportRecords
+    tags: [admin]
+    summary: Import records from NDJSON multipart upload (upsert by id)
+    description: |
+      Uploads a Record JSONL file and **upserts by `id`** in a **single DB
+      transaction** (stream parse → validate → upsert). Reserved tags are
+      allowed (skips `assertNoReservedTags`); Admin PATCH still rejects them.
+
+      Multipart field name **`file`** (exactly one). Accept
+      `application/x-ndjson`, `application/jsonl`, or `application/octet-stream`
+      with a `.jsonl` filename. Limits: ≤1000 non-empty lines and ≤4 MiB for
+      the file part bytes. Empty file / only blank lines → 200 with all zeros
+      and still Notify. Any failure → rollback and no Notify.
+
+      Auth: **AdminToken only**. Does **not** use the 256 KiB JSON body gate
+      (`readJsonBody` / `readBody`); large file parts must not return 413 from
+      that gate.
+    security:
+      - AdminToken: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file]
+            additionalProperties: true
+            properties:
+              file:
+                type: string
+                format: binary
+                description: |
+                  UTF-8 NDJSON of OpenAPI `Record` objects (one JSON object per
+                  non-empty line). Max 1000 non-empty lines and 4 MiB.
+    responses:
+      '200':
+        description: |
+          Import committed. `total = inserted + updated`. Existing id →
+          counted as updated even if values unchanged.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/ImportRecordsSuccess'
+            example:
+              success: true
+              inserted: 12
+              updated: 3
+              total: 15
+      '400':
+        description: |
+          Multipart / limits / duplicate id / line or field validation errors.
+          Messages include line numbers and field names when applicable;
+          duplicate id includes the uuid.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Error'
+            examples:
+              limits:
+                value:
+                  error: import exceeds limits (max 1000 lines or 4 MiB); split the file
+              duplicateId:
+                value:
+                  error: 'line 2: duplicate record id 01900000-0000-7000-8000-000000000001'
+              multipart:
+                value:
+                  error: multipart form field "file" is required
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

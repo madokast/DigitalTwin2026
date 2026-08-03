@@ -373,6 +373,29 @@ RenameTagsSuccess:
       minimum: 0
       description: Number of records whose tags field was rewritten
 
+ImportRecordsSuccess:
+  type: object
+  required: [success, inserted, updated, total]
+  additionalProperties: false
+  properties:
+    success:
+      type: boolean
+      const: true
+    inserted:
+      type: integer
+      minimum: 0
+      description: Rows whose id did not exist before this import upsert
+    updated:
+      type: integer
+      minimum: 0
+      description: |
+        Rows whose id already existed (counts as updated even if values
+        unchanged)
+    total:
+      type: integer
+      minimum: 0
+      description: inserted + updated (non-empty lines successfully upserted)
+
 LogNumberRequest:
   type: object
   required: [happened_at, value_number, tags, objective_context]

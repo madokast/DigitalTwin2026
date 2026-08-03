@@ -7,7 +7,10 @@ import (
 	"errors"
 	"io"
 	"log"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,6 +19,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/dbprobe"
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/exportapi"
+	"github.com/mdk/digitaltwin2026/faas/internal/importapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/logapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/notify"
@@ -76,6 +80,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/query/transaction/summary", s.handleTransactionSummary)
 	mux.HandleFunc("POST /api/admin/tags/rename", s.handleRenameTags)
 	mux.HandleFunc("PATCH /api/admin/records/{id}", s.handlePatchRecord)
+	mux.HandleFunc("POST /api/admin/import/records", s.handleImportRecords)
 	mux.HandleFunc("GET /api/export/records", s.handleExportRecords)
 	// 404/405 → {error} JSON。Next 仍用框架默认（见 api-layering §1.1）；业务 4xx 两端已对齐。
 	return withCORS(s.withAuth(withJSONErrorPages(mux)))
@@ -636,4 +641,93 @@ func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(200)
 	_, _ = w.Write([]byte(body))
+}
+
+// handleImportRecords：勿走 readBody（MaxBodyBytes）；MultipartReader 取 file part（≤4MiB）。
+func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
+	ct := r.Header.Get("Content-Type")
+	mediatype, params, err := mime.ParseMediaType(ct)
+	if err != nil || !strings.EqualFold(mediatype, "multipart/form-data") {
+		writeError(w, 400, importapi.ErrMultipartContentType.Error())
+		return
+	}
+	boundary := params["boundary"]
+	if boundary == "" {
+		writeError(w, 400, importapi.ErrMultipartContentType.Error())
+		return
+	}
+
+	mr := multipart.NewReader(r.Body, boundary)
+	var (
+		fileRaw   []byte
+		filename  string
+		partCT    string
+		fileCount int
+	)
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			writeError(w, 400, importapi.ErrMultipartContentType.Error())
+			return
+		}
+		if part.FormName() != "file" {
+			_, _ = io.Copy(io.Discard, part)
+			_ = part.Close()
+			continue
+		}
+		fileCount++
+		if fileCount > 1 {
+			_ = part.Close()
+			writeError(w, 400, importapi.ErrMultipartMultipleFile.Error())
+			return
+		}
+		filename = filepath.Base(part.FileName())
+		partCT = part.Header.Get("Content-Type")
+		// +1 字节以区分恰好上限与超限
+		fileRaw, err = io.ReadAll(io.LimitReader(part, int64(importapi.MaxImportFileBytes)+1))
+		_ = part.Close()
+		if err != nil {
+			writeError(w, 400, importapi.ErrMultipartContentType.Error())
+			return
+		}
+	}
+	if fileCount == 0 {
+		writeError(w, 400, importapi.ErrMultipartRequired.Error())
+		return
+	}
+	if !importapi.IsAcceptedImportFilePart(partCT, filename) {
+		writeError(w, 400, importapi.ErrUnsupportedFileContentType.Error())
+		return
+	}
+	if len(fileRaw) > importapi.MaxImportFileBytes {
+		writeError(w, 400, importapi.ImportLimitsError.Error())
+		return
+	}
+
+	counts, err := importapi.ImportRecordsJSONL(r.Context(), s.Pool, strings.NewReader(string(fileRaw)))
+	if err != nil {
+		if st := importapi.StatusOf(err); st > 0 && st < 500 {
+			writeError(w, st, err.Error())
+			return
+		}
+		log.Printf("Error importing records: %v", err)
+		writeInternalError(w, err)
+		return
+	}
+
+	msg := importapi.FormatImportNotifyMessage(counts)
+	if s.NotifyUser != nil {
+		s.NotifyUser(msg)
+	} else {
+		go s.notify().NotifyUser(msg)
+	}
+	writeJSON(w, 200, map[string]any{
+		"success":  true,
+		"inserted": counts.Inserted,
+		"updated":  counts.Updated,
+		"total":    counts.Total,
+	})
 }

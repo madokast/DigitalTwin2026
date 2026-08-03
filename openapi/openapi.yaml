@@ -44,7 +44,7 @@ tags:
   - name: db
     description: Postgres connectivity probe
   - name: admin
-    description: Admin-only corrections (AdminToken only)
+    description: Admin-only corrections and Record JSONL import (AdminToken only)
   - name: export
     description: Cursor-paginated Record JSONL file download (ApiToken)
 
@@ -79,6 +79,8 @@ paths:
     $ref: './paths/admin.yaml#/~1api~1admin~1tags~1rename'
   /api/admin/records/{id}:
     $ref: './paths/admin.yaml#/~1api~1admin~1records~1{id}'
+  /api/admin/import/records:
+    $ref: './paths/admin.yaml#/~1api~1admin~1import~1records'
   /api/export/records:
     $ref: './paths/export.yaml#/~1api~1export~1records'
 
@@ -160,6 +162,8 @@ components:
       $ref: './components/schemas.yaml#/RenameTagsRequest'
     RenameTagsSuccess:
       $ref: './components/schemas.yaml#/RenameTagsSuccess'
+    ImportRecordsSuccess:
+      $ref: './components/schemas.yaml#/ImportRecordsSuccess'
     LogNumberRequest:
       $ref: './components/schemas.yaml#/LogNumberRequest'
     LogBodyWeightRequest:

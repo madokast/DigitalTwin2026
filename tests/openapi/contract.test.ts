@@ -54,6 +54,7 @@ describe('OpenAPI contract (Phase 2)', () => {
       paths?: Record<string, unknown>
     }
     expect(doc.paths?.['/api/export/records']).toBeTruthy()
+    expect(doc.paths?.['/api/admin/import/records']).toBeTruthy()
   })
 
   it('validates remaining success / request fixtures', async () => {
@@ -67,6 +68,13 @@ describe('OpenAPI contract (Phase 2)', () => {
       'RenameTagsSuccess',
       readFixture('rename-tags-success.json'),
     )
+    await assertValidSchema(
+      'ImportRecordsSuccess',
+      readFixture('import-records-success.json'),
+    )
+    await assertValidSchema('Error', readFixture('error-import-limits.json'))
+    await assertValidSchema('Error', readFixture('error-import-duplicate-id.json'))
+    await assertValidSchema('Error', readFixture('error-import-multipart.json'))
     await assertValidSchema(
       'RecordDraftRequest',
       readFixture('record-draft-request-valid.json'),

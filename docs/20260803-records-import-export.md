@@ -1,7 +1,7 @@
 # DigitalTwin2026：Records 导入 / 导出（规划）
 
 > 创建日期：2026-08-03  
-> 状态：**规划已定稿**（含审查 errata）；**实现阶段见 §11**（阶段 1–2 已落地；3–4 未落地）  
+> 状态：**规划已定稿**（含审查 errata）；**实现阶段见 §11**（阶段 1–3 已落地；4 未落地）  
 > 性质：分块备份 / 迁移；**不做**前端 UI；**一期无 gzip**  
 > 相关：[`docs/20260802-todo-feature.md`](20260802-todo-feature.md) §5.3、[`docs/20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)、OpenAPI `Record` / `ApiToken`·`AdminToken`、`src/proxy.ts`、写路径 `draft` / `logapi`
 
@@ -333,7 +333,7 @@ BEGIN
 
 ### 阶段 3：导入 `POST /api/admin/import/records`
 
-**状态：未开始**
+**状态：已完成**（stem `importapi`；OpenAPI `paths/admin.yaml` import；Next `src/app/api/admin/import/records`；Go `handleImportRecords`）
 
 **目标：** AdminToken；multipart 字段 `file`；≤1000 行且 file part≤4MiB；单事务流式 upsert；可写保留 tag；成功（含空文件）commit + Notify；失败 rollback、不 Notify。
 
@@ -351,13 +351,15 @@ BEGIN
 - 不做前端
 
 **验收标准：**
-- [ ] 成功响应形状 §5.5；空文件全 0 + Notify
-- [ ] 任一行失败 → 整单 rollback + 400 含行号/字段；无 Notify
-- [ ] 保留 tag 可写入；Admin PATCH 行为不变（仍拒保留 tag）
-- [ ] openapi + 双端测绿；误接小 body 门闸的回归测存在
-- [ ] round-trip fixture 绿（若阶段 2 已合；否则本项 defer 到 2+3 均合后的立即补测，不得拖到阶段 4 才发现语义裂）
+- [x] 成功响应形状 §5.5；空文件全 0 + Notify
+- [x] 任一行失败 → 整单 rollback + 400 含行号/字段；无 Notify
+- [x] 保留 tag 可写入；Admin PATCH 行为不变（仍拒保留 tag）
+- [x] openapi + 双端测绿；误接小 body 门闸的回归测存在
+- [x] round-trip fixture 绿（若阶段 2 已合；否则本项 defer 到 2+3 均合后的立即补测，不得拖到阶段 4 才发现语义裂）
 
 **依赖 / 可并行：** **依赖阶段 1**；**强依赖阶段 2 已合**才宣称 round-trip 验收完毕（实现可与 2 并行写，合入顺序建议 `2 → 3`）。
+
+**落地备注：** 错误终稿：`import exceeds limits (max 1000 lines or 4 MiB); split the file` / `line N: duplicate record id {uuid}` / multipart 文案见 `importapi` 常量；Notify：`Imported N records (inserted I, updated U)`；HTTP 勿接 `readJsonBody` / `readBody`。
 
 ---
 

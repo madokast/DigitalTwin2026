@@ -9,6 +9,7 @@ import { GET as queryRecords } from '@/app/api/query/route'
 import { GET as querySummary } from '@/app/api/query/summary/route'
 import { GET as queryTags } from '@/app/api/query/tags/route'
 import { GET as exportRecords } from '@/app/api/export/records/route'
+import { POST as importRecords } from '@/app/api/admin/import/records/route'
 import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
 import { PATCH as patchRecord } from '@/app/api/admin/records/[id]/route'
 import { closeDb } from '@/db'
@@ -18,8 +19,10 @@ import {
   SAFE_TEST_DATABASE_HINT,
   truncateRecords,
 } from '../helpers/db'
-import { jsonGet, jsonPatch, jsonPost } from '../helpers/http'
+import { jsonGet, jsonPatch, jsonPost, multipartPost } from '../helpers/http'
 import { reservedTagError } from '@/lib/tags'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 
 /** DATABASE_URL 缺失 → Skip；已设但 unsafe → throw（不 wipe）。不做 DROP。 */
 function shouldRunApiIntegration(): boolean {
@@ -1223,6 +1226,160 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(overlap).toHaveProperty('happenedAt')
       expect(overlap).not.toHaveProperty('created_at')
       expect(overlap).not.toHaveProperty('content')
+    })
+  })
+
+  describe('POST /api/admin/import/records', () => {
+    it('imports empty file as all zeros', async () => {
+      const res = await importRecords(
+        multipartPost('http://localhost/api/admin/import/records', ''),
+      )
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({
+        success: true,
+        inserted: 0,
+        updated: 0,
+        total: 0,
+      })
+    })
+
+    it('rejects duplicate ids and line errors; rolls back', async () => {
+      const id = '01900000-0000-7000-8000-0000000000aa'
+      const line = JSON.stringify({
+        id,
+        happenedAt: '2026-07-30T00:00:00.000Z',
+        valueNumber: '1',
+        valueText: null,
+        tags: '["weight"]',
+        objectiveContext: 'import-dup',
+        subjectiveInterpretation: null,
+      })
+      const dup = await importRecords(
+        multipartPost(
+          'http://localhost/api/admin/import/records',
+          `${line}\n${line}`,
+        ),
+      )
+      expect(dup.status).toBe(400)
+      expect((await dup.json()).error).toBe(
+        `line 2: duplicate record id ${id}`,
+      )
+      const listed = await queryRecords(
+        jsonGet('http://localhost/api/query?page_size=10'),
+      )
+      expect((await listed.json()).records).toHaveLength(0)
+
+      const bad = await importRecords(
+        multipartPost(
+          'http://localhost/api/admin/import/records',
+          `${line}\n{bad}`,
+        ),
+      )
+      expect(bad.status).toBe(400)
+      expect((await bad.json()).error).toBe('line 2: Invalid JSON line')
+      const listed2 = await queryRecords(
+        jsonGet('http://localhost/api/query?page_size=10'),
+      )
+      expect((await listed2.json()).records).toHaveLength(0)
+    })
+
+    it('allows reserved tags on import; PATCH still rejects them', async () => {
+      const id = '01900000-0000-7000-8000-0000000000bb'
+      const line = JSON.stringify({
+        id,
+        happenedAt: '2026-07-30T00:00:00.000Z',
+        valueNumber: '70.5',
+        valueText: null,
+        tags: '["body:weight"]',
+        objectiveContext: 'import-reserved',
+        subjectiveInterpretation: null,
+      })
+      const res = await importRecords(
+        multipartPost('http://localhost/api/admin/import/records', line),
+      )
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({
+        success: true,
+        inserted: 1,
+        updated: 0,
+        total: 1,
+      })
+
+      const patch = await patchRecord(
+        jsonPatch(`http://localhost/api/admin/records/${id}`, {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          value_number: '71',
+          tags: ['body:weight'],
+          objective_context: 'patch-reserved',
+        }),
+        { params: Promise.resolve({ id }) },
+      )
+      expect(patch.status).toBe(400)
+      expect((await patch.json()).error).toBe(reservedTagError('body:weight'))
+    })
+
+    it('round-trips export → import', async () => {
+      const created = await postNumber(
+        jsonPost('http://localhost/api/log/number', {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          value_number: '42',
+          tags: ['roundtrip'],
+          objective_context: 'export-import-rt',
+        }),
+      )
+      expect(created.status).toBe(201)
+      const rec = (await created.json()).record as {
+        id: string
+        happenedAt: string
+        valueNumber: string
+        tags: string
+        objectiveContext: string
+      }
+
+      const exported = await exportRecords(
+        jsonGet(
+          `http://localhost/api/export/records?from=${rec.id}&limit=1`,
+        ),
+      )
+      expect(exported.status).toBe(200)
+      const ndjson = await exported.text()
+      expect(ndjson.trim()).not.toBe('')
+
+      await truncateRecords()
+
+      const imported = await importRecords(
+        multipartPost('http://localhost/api/admin/import/records', ndjson),
+      )
+      expect(imported.status).toBe(200)
+      expect(await imported.json()).toEqual({
+        success: true,
+        inserted: 1,
+        updated: 0,
+        total: 1,
+      })
+
+      const listed = await queryRecords(
+        jsonGet(`http://localhost/api/query?id=${rec.id}`),
+      )
+      const body = await listed.json()
+      expect(body.records).toHaveLength(1)
+      expect(body.records[0].id).toBe(rec.id)
+      expect(body.records[0].valueNumber).toBe(rec.valueNumber)
+      expect(body.records[0].objectiveContext).toBe(rec.objectiveContext)
+      expect(body.records[0].tags).toBe(rec.tags)
+    })
+
+    it('route source bypasses readJsonBody', () => {
+      const src = readFileSync(
+        path.resolve(
+          process.cwd(),
+          'src/app/api/admin/import/records/route.ts',
+        ),
+        'utf8',
+      )
+      expect(src).not.toMatch(/from ['"]@\/lib\/httpjson['"]/)
+      expect(src).not.toMatch(/\breadJsonBody\s*\(/)
+      expect(src).toMatch(/formData/)
     })
   })
 })

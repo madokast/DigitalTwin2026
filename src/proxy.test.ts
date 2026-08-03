@@ -59,6 +59,13 @@ describe('proxy API auth', () => {
     expect(res.status).toBe(401)
   })
 
+  it('rejects AI token on POST /api/admin/import/records', () => {
+    const res = proxy(
+      apiRequest('/api/admin/import/records', `Bearer ${ai}`),
+    )
+    expect(res?.status).toBe(401)
+  })
+
   it('allows admin token on /api/admin', () => {
     const res = proxy(apiRequest('/api/admin/tags/rename', `Bearer ${admin}`))
     expect(res.status).toBe(200)
