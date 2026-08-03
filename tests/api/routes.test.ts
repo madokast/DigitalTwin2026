@@ -58,6 +58,20 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.error).toContain('happened_at')
     })
 
+    it('rejects suppress_notification as unknown key', async () => {
+      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        value_number: '75.5',
+        tags: ['weight'],
+        objective_context: 'morning weigh-in',
+        suppress_notification: true,
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        'Unknown JSON key: suppress_notification',
+      )
+    })
+
     it('returns 400 for invalid tags', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
@@ -385,7 +399,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'weekend grocery list',
         subjective_interpretation: 'need it for breakfast',
         tags: ['errand'],
-        suppress_notification: true,
       }))
       expect(res.status).toBe(201)
       const body = await res.json()
@@ -436,7 +449,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         content,
         objective_context: 'weekend grocery list',
         tags: ['errand'],
-        suppress_notification: true,
       }))
       expect(res.status).toBe(201)
       const body = await res.json()
@@ -451,7 +463,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
           id: todo.id,
           target: 'completed',
           happened_at: '2026-08-02T12:00:00+08:00',
-          suppress_notification: true,
         },
       ))
       expect(res.status).toBe(200)
@@ -512,7 +523,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
           id: '01900000-0000-7000-8000-000000000099',
           target: 'completed',
           happened_at: '2026-08-02T12:00:00+08:00',
-          suppress_notification: true,
         },
       ))
       expect(missing.status).toBe(404)
@@ -523,7 +533,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         value_text: 'plain note',
         tags: ['note'],
         objective_context: 'x',
-        suppress_notification: true,
       }))
       expect(text.status).toBe(201)
       const textId = (await text.json()).record.id as string
@@ -533,7 +542,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
           id: textId,
           target: 'completed',
           happened_at: '2026-08-02T12:00:00+08:00',
-          suppress_notification: true,
         },
       ))
       expect(notTodo.status).toBe(400)
@@ -545,7 +553,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
           id: todo.id,
           target: 'completed',
           happened_at: '2026-08-02T12:00:00+08:00',
-          suppress_notification: true,
         },
       ))
       expect(done.status).toBe(200)
@@ -565,7 +572,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
           id: auditId,
           target: 'paused',
           happened_at: '2026-08-02T13:00:00+08:00',
-          suppress_notification: true,
         },
       ))
       expect(onAudit.status).toBe(400)
@@ -579,7 +585,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
           id: todo.id,
           target: 'completed',
           happened_at: '2026-08-02T14:00:00+08:00',
-          suppress_notification: true,
         },
       ))
       expect(already.status).toBe(400)
@@ -705,7 +710,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         content: 'Query deform smoke',
         objective_context: 'phase4',
         tags: ['errand'],
-        suppress_notification: true,
       }))
       expect(created.status).toBe(201)
       const todo = (await created.json()).record as {

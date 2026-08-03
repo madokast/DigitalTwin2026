@@ -22,7 +22,6 @@ type NumberBody struct {
 	Tags                     any `json:"tags"`
 	ObjectiveContext         any `json:"objective_context"`
 	SubjectiveInterpretation any `json:"subjective_interpretation"`
-	SuppressNotification     any `json:"suppress_notification"`
 }
 
 type TextBody struct {
@@ -31,17 +30,16 @@ type TextBody struct {
 	Tags                     any `json:"tags"`
 	ObjectiveContext         any `json:"objective_context"`
 	SubjectiveInterpretation any `json:"subjective_interpretation"`
-	SuppressNotification     any `json:"suppress_notification"`
 }
 
 var logNumberKeys = []string{
 	"happened_at", "value_number", "tags", "objective_context",
-	"subjective_interpretation", "suppress_notification",
+	"subjective_interpretation",
 }
 
 var logTextKeys = []string{
 	"happened_at", "value_text", "tags", "objective_context",
-	"subjective_interpretation", "suppress_notification",
+	"subjective_interpretation",
 }
 
 // optionalSubjective 与 draft / PATCH 对齐：非 string → 错误；空串 / null / omit → nil

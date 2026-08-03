@@ -1,7 +1,7 @@
 # DigitalTwin2026：用 `SUPPRESS_BOT_NOTIFICATION` 替代请求体 suppress 与模糊测试 env
 
 > 创建日期：2026-08-03  
-> 状态：**设计已定稿**；**阶段 1–2 已完成**（门闸换键 + deploy 强制注入）；阶段 3–4 未开始  
+> 状态：**设计已定稿**；**阶段 1–3 已完成**（门闸换键 + deploy 强制注入 + 删 body `suppress_notification`）；阶段 4 未开始  
 > 性质：Diataxis **explanation** + how-it-works；可独立验收阶段见 **§10**（完整逐任务 plan 另开会话）  
 
 > 相关：[`docs/20260801-api-layering.md`](20260801-api-layering.md) §7、[`docs/20260802-todo-feature.md`](20260802-todo-feature.md)、[`docs/20260803-records-import-export.md`](20260803-records-import-export.md)、[`faas/README.md`](../faas/README.md)、[`.env.test.example`](../.env.test.example)
@@ -378,6 +378,8 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 
 ### 阶段 3：删除请求体 `suppress_notification`（OpenAPI + 双端）
 
+**状态：已完成**
+
 **目标：** 契约与实现同步去掉按请求关通知；成功写路径**一律** schedule → `notify_*`（真发与否仅看阶段 1 的 env）。
 
 **范围：**
@@ -392,11 +394,11 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 - 不借机大改 import/export 等未就绪写路径（若尚未 schedule，仅保证与「一律 Notify」规格不冲突；已有路径必须一律 schedule）
 
 **验收标准：**
-- [ ] OpenAPI / fixtures **无** `suppress_notification`；`npm run openapi:lint`、`npm run test:openapi` 绿
-- [ ] Next + Go 无 ReadSuppress / 按 body 跳过 schedule；未知键规则不再允许该字段
-- [ ] `cd faas && go test ./internal/contract/` 及双端相关单测 / 契约测绿
-- [ ] 有 DB 的集成测：在 `SUPPRESS_BOT_NOTIFICATION=1` 下写路径成功且不实发 bot（或 mock 断言 schedule 仍发生）
-- [ ] **无**「OpenAPI 已删、一端仍接受该字段」的可合并中间提交对外长期存在（同一 PR 或紧耦合连续 PR 同日合入）
+- [x] OpenAPI / fixtures **无** `suppress_notification`；`npm run openapi:lint`、`npm run test:openapi` 绿
+- [x] Next + Go 无 ReadSuppress / 按 body 跳过 schedule；未知键规则不再允许该字段
+- [x] `cd faas && go test ./internal/contract/` 及双端相关单测 / 契约测绿
+- [x] 有 DB 的集成测：在 `SUPPRESS_BOT_NOTIFICATION=1` 下写路径成功且不实发 bot（或 mock 断言 schedule 仍发生）
+- [x] **无**「OpenAPI 已删、一端仍接受该字段」的可合并中间提交对外长期存在（同一 PR 或紧耦合连续 PR 同日合入）
 
 **依赖 / 可并行：** **依赖阶段 1**（删 body 后测试静音必须靠 SUPPRESS）。与**阶段 2 可并行**。勿与阶段 1 对半合并成「只删 schema」。
 

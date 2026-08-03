@@ -36,12 +36,11 @@ type LogTodoBody struct {
 	ObjectiveContext         any `json:"objective_context"`
 	SubjectiveInterpretation any `json:"subjective_interpretation"`
 	Tags                     any `json:"tags"`
-	SuppressNotification     any `json:"suppress_notification"`
 }
 
 var logTodoKeys = []string{
 	"created_at", "content", "objective_context",
-	"subjective_interpretation", "tags", "suppress_notification",
+	"subjective_interpretation", "tags",
 }
 
 // NormalizedTodo 校验后的待办行（落库列语义）。
@@ -94,23 +93,22 @@ func ShouldDeformTodoRecordTags(tagList []string) bool {
 
 // Transition 四类可区分英文错误（与 TS tododraft 字节一致）。
 const (
-	ErrTodoNotFound     = "to-do not found"
-	ErrNotATodo         = "record is not a to-do"
-	ErrAuditTransition  = "cannot transition a to-do audit record"
-	ErrAlreadyTarget    = "to-do is already in target state"
-	ErrInvalidTarget    = "target must be one of: in_progress, completed, cancelled, paused"
+	ErrTodoNotFound    = "to-do not found"
+	ErrNotATodo        = "record is not a to-do"
+	ErrAuditTransition = "cannot transition a to-do audit record"
+	ErrAlreadyTarget   = "to-do is already in target state"
+	ErrInvalidTarget   = "target must be one of: in_progress, completed, cancelled, paused"
 )
 
 // LogTodoTransitionBody POST /api/log/todo/transition 请求体。
 type LogTodoTransitionBody struct {
-	ID                   any `json:"id"`
-	Target               any `json:"target"`
-	HappenedAt           any `json:"happened_at"`
-	SuppressNotification any `json:"suppress_notification"`
+	ID         any `json:"id"`
+	Target     any `json:"target"`
+	HappenedAt any `json:"happened_at"`
 }
 
 var logTodoTransitionKeys = []string{
-	"id", "target", "happened_at", "suppress_notification",
+	"id", "target", "happened_at",
 }
 
 // NormalizedTodoTransition 校验后的流转请求。

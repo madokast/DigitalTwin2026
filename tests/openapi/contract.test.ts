@@ -172,26 +172,14 @@ describe('OpenAPI contract (Phase 2)', () => {
     )
   })
 
-  it('accepts LogNumberRequest suppress_notification boolean / null; rejects string', async () => {
+  it('rejects LogNumberRequest unknown suppress_notification key', async () => {
     const base = readFixture('log-number-request-valid.json') as Record<
       string,
       unknown
     >
-    await assertValidSchema('LogNumberRequest', {
-      ...base,
-      suppress_notification: true,
-    })
-    await assertValidSchema('LogNumberRequest', {
-      ...base,
-      suppress_notification: false,
-    })
-    await assertValidSchema('LogNumberRequest', {
-      ...base,
-      suppress_notification: null,
-    })
     await assertInvalidSchema('LogNumberRequest', {
       ...base,
-      suppress_notification: 'true',
+      suppress_notification: true,
     })
   })
 

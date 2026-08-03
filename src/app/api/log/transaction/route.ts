@@ -5,7 +5,6 @@ import {
   notifyTransactionBatchInserted,
   scheduleBestEffortNotify,
 } from '@/lib/notify'
-import { readSuppressNotification } from '@/lib/suppress-notification'
 import type { LogTransactionBody } from '@/lib/transactiondraft'
 
 export async function POST(request: NextRequest) {
@@ -15,12 +14,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: parsed.status })
     }
 
-    // Create 前 peek：避免已写入却因字段类型 400
-    const suppress = readSuppressNotification(parsed.value)
-    if (!suppress.ok) {
-      return NextResponse.json({ error: suppress.error }, { status: 400 })
-    }
-
     const result = await createTransactionBatch(
       parsed.value as LogTransactionBody,
     )
@@ -28,11 +21,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: result.status })
     }
 
-    if (!suppress.value) {
-      scheduleBestEffortNotify(() =>
-        notifyTransactionBatchInserted(result.records),
-      )
-    }
+    scheduleBestEffortNotify(() =>
+      notifyTransactionBatchInserted(result.records),
+    )
 
     return NextResponse.json(
       { success: true, inserted: result.inserted },

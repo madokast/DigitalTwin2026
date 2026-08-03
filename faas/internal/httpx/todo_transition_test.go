@@ -71,21 +71,10 @@ func TestLogTodoTransitionSuccessBodyAndNotify(t *testing.T) {
 	}
 }
 
-func TestLogTodoTransitionSuppressSkipsNotify(t *testing.T) {
-	var notified []string
+func TestLogTodoTransitionRejectsSuppressAsUnknownKey(t *testing.T) {
+	// 不注入 TransitionTodo：走真实 parse（rejectUnknownKeys）后才触达 DB。
 	s := &Server{
 		Tokens: auth.Tokens{AI: "ai-tok", Admin: "admin-tok"},
-		TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ []byte) (logapi.TransitionResult, int, error) {
-			return logapi.TransitionResult{
-				ID:             "01900000-0000-7000-8000-000000000003",
-				From:           "in_progress",
-				To:             "completed",
-				AuditValueText: "should-not-notify",
-			}, 200, nil
-		},
-		NotifyUser: func(text string) {
-			notified = append(notified, text)
-		},
 	}
 	h := s.Handler()
 
@@ -100,11 +89,13 @@ func TestLogTodoTransitionSuppressSkipsNotify(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
 
-	if rr.Code != 200 {
+	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	if len(notified) != 0 {
-		t.Fatalf("notified=%v want empty", notified)
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["error"] != "Unknown JSON key: suppress_notification" {
+		t.Fatalf("error: %v", body)
 	}
 }
 

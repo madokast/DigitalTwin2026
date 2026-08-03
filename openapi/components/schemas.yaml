@@ -393,13 +393,6 @@ LogNumberRequest:
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
         (`Invalid subjective_interpretation`).
-    suppress_notification:
-      type: [boolean, 'null']
-      default: false
-      description: |
-        When true, skip notify_user after a successful insert.
-        Omitted / null → false. Non-boolean → 400
-        (`Invalid suppress_notification`). Not stored on the record.
 
 LogBodyWeightRequest:
   type: object
@@ -432,13 +425,6 @@ LogBodyWeightRequest:
         Optional extra tags (e.g. `morning`). Omitted or `[]` → only
         `body:weight` is stored. Non-empty values must be valid tag
         names and must not use reserved prefixes.
-    suppress_notification:
-      type: [boolean, 'null']
-      default: false
-      description: |
-        When true, skip notify_user after a successful insert.
-        Omitted / null → false. Non-boolean → 400
-        (`Invalid suppress_notification`). Not stored on the record.
 
 TodoState:
   type: string
@@ -538,13 +524,6 @@ LogTodoRequest:
       description: |
         Optional extra non-reserved tags (e.g. `errand`). Omitted or `[]`
         → only `todo:in_progress` is stored.
-    suppress_notification:
-      type: [boolean, 'null']
-      default: false
-      description: |
-        When true, skip notify_user after a successful insert.
-        Omitted / null → false. Non-boolean → 400
-        (`Invalid suppress_notification`). Not stored on the record.
 
 LogTodoTransitionRequest:
   type: object
@@ -565,13 +544,6 @@ LogTodoTransitionRequest:
     happened_at:
       $ref: '#/HappenedAtInput'
       description: Time anchor for the audit row (not the to-do's created_at)
-    suppress_notification:
-      type: [boolean, 'null']
-      default: false
-      description: |
-        When true, skip notify_user after a successful transition.
-        Omitted / null → false. Non-boolean → 400
-        (`Invalid suppress_notification`). Not stored on the record.
 
 TodoTransitionSuccess:
   type: object
@@ -618,13 +590,6 @@ LogTextRequest:
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
         (`Invalid subjective_interpretation`).
-    suppress_notification:
-      type: [boolean, 'null']
-      default: false
-      description: |
-        When true, skip notify_user after a successful insert.
-        Omitted / null → false. Non-boolean → 400
-        (`Invalid suppress_notification`). Not stored on the record.
 
 RecordDraftRequest:
   type: object
@@ -781,13 +746,6 @@ LogTransactionRequest:
       maxItems: 100
       items:
         $ref: '#/TransactionEntry'
-    suppress_notification:
-      type: [boolean, 'null']
-      default: false
-      description: |
-        When true, skip notify_user after a successful insert.
-        Omitted / null → false. Non-boolean → 400
-        (`Invalid suppress_notification`). Not stored on the record.
 
 TransactionBatchSuccess:
   type: object

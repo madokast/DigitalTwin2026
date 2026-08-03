@@ -73,13 +73,19 @@ describe('POST /api/log/todo/transition', () => {
     expect(notify_user).toHaveBeenCalledWith(auditText)
   })
 
-  it('skips notify when suppress_notification is true', async () => {
+  it('returns 400 for unknown suppress_notification key before transition', async () => {
+    transitionTodo.mockResolvedValue({
+      error: 'Unknown JSON key: suppress_notification',
+      status: 400,
+    })
     const res = await POST(
       post({ ...validBody, suppress_notification: true }),
     )
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error: 'Unknown JSON key: suppress_notification',
+    })
     expect(scheduleBestEffortNotify).not.toHaveBeenCalled()
-    expect(notify_user).not.toHaveBeenCalled()
   })
 
   it('returns four domain errors with exact English strings', async () => {
@@ -96,16 +102,5 @@ describe('POST /api/log/todo/transition', () => {
       await expect(res.json()).resolves.toEqual({ error: c.error })
       expect(scheduleBestEffortNotify).not.toHaveBeenCalled()
     }
-  })
-
-  it('returns 400 before transition when suppress_notification is non-boolean', async () => {
-    const res = await POST(
-      post({ ...validBody, suppress_notification: 'true' }),
-    )
-    expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({
-      error: 'Invalid suppress_notification',
-    })
-    expect(transitionTodo).not.toHaveBeenCalled()
   })
 })

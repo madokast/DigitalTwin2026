@@ -44,7 +44,6 @@ export const LOG_TODO_KEYS = [
   'objective_context',
   'subjective_interpretation',
   'tags',
-  'suppress_notification',
 ] as const
 
 export type LogTodoBody = {
@@ -53,7 +52,6 @@ export type LogTodoBody = {
   objective_context?: unknown
   subjective_interpretation?: unknown
   tags?: unknown
-  suppress_notification?: unknown
 }
 
 export type NormalizedTodo = {
@@ -111,14 +109,12 @@ export const LOG_TODO_TRANSITION_KEYS = [
   'id',
   'target',
   'happened_at',
-  'suppress_notification',
 ] as const
 
 export type LogTodoTransitionBody = {
   id?: unknown
   target?: unknown
   happened_at?: unknown
-  suppress_notification?: unknown
 }
 
 export type NormalizedTodoTransition = {

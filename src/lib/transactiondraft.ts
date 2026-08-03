@@ -12,7 +12,6 @@ export const LOG_TRANSACTION_KEYS = [
   'happened_at',
   'type',
   'entries',
-  'suppress_notification',
 ] as const
 
 export const TRANSACTION_ENTRY_KEYS = [
@@ -47,7 +46,6 @@ export type LogTransactionBody = {
   happened_at?: unknown
   type?: unknown
   entries?: unknown
-  suppress_notification?: unknown
 }
 
 export type NormalizedTransactionEntry = {

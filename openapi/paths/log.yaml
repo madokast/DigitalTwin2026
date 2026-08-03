@@ -5,8 +5,7 @@
     summary: Create a numeric record
     description: |
       Inserts a record with `value_number` set and `value_text` null.
-      On success, notification via notify_user is best-effort and does not change the 201 response.
-      Optional `suppress_notification: true` skips notify after insert (default false).
+      On success, notification via notify_user is always scheduled (best-effort) and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
       Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`,
       `body:weight` / `body:weight:*`, `todo` / `todo:*`) are rejected (use the dedicated
@@ -52,9 +51,8 @@
       `body:weight` (optional client `tags` follow). Reserved prefixes
       `body:weight` / `body:weight:*`, `transaction_entry` /
       `transaction_entry:*`, and `todo` / `todo:*` are rejected on client tags.
-      On success, notification via notify_user is best-effort and does
-      not change the 201 response. Optional `suppress_notification: true`
-      skips notify after insert (default false).
+      On success, notification via notify_user is always scheduled
+      (best-effort) and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
       Query later with `GET /api/query?tag=body:weight` (no dedicated
       trend/summary endpoint).
@@ -72,7 +70,6 @@
             objective_context: morning weigh-in
             subjective_interpretation: a bit heavy
             tags: [morning]
-            suppress_notification: false
     responses:
       '201':
         description: Record created
@@ -103,9 +100,8 @@
       `body:weight` / `body:weight:*`) and must not send `happened_at` /
       `value_text` / `value_number` keys (use aliases). Success `201.record`
       is a **TodoRecord** (`created_at` / `content`, not `happenedAt` /
-      `valueText`). On success, notification via notify_user is best-effort
-      and does not change the 201 response. Optional
-      `suppress_notification: true` skips notify after insert (default false).
+      `valueText`). On success, notification via notify_user is always
+      scheduled (best-effort) and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
       Query later with `GET /api/query?tag=todo:in_progress` (list items also
       use TodoRecord aliases when tags include a todo state tag).
@@ -122,7 +118,6 @@
             content: Buy milk
             objective_context: weekend grocery list
             tags: [errand]
-            suppress_notification: false
     responses:
       '201':
         description: To-do created (record uses TodoRecord aliases)
@@ -150,7 +145,7 @@
       (value_text per feature spec §4.1). Success is HTTP **200** with
       `{ success, id, transition: { from, to } }` (TodoState literals; no
       `record` / `audit_record`). Notify exactly once with the audit
-      value_text unless `suppress_notification: true`. Four distinct English
+      value_text. Four distinct English
       errors: not found (404), not a to-do / audit / already target (400).
       Auth: ApiToken (AI token or Admin token).
     security:
@@ -165,7 +160,6 @@
             id: '01900000-0000-7000-8000-000000000003'
             target: completed
             happened_at: '2026-08-02T12:00:00+08:00'
-            suppress_notification: false
     responses:
       '200':
         description: To-do transitioned (no record payloads)
@@ -197,8 +191,7 @@
     summary: Create a text record
     description: |
       Inserts a record with `value_text` set and `value_number` null.
-      On success, notification via notify_user is best-effort and does not change the 201 response.
-      Optional `suppress_notification: true` skips notify after insert (default false).
+      On success, notification via notify_user is always scheduled (best-effort) and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
       Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`,
       `body:weight` / `body:weight:*`, `todo` / `todo:*`) are rejected (use the dedicated
@@ -247,7 +240,7 @@
       Amount zero after decimal validation → 400. Sign: positive = normal
       for that type; negative = reversal of that type.
       Response is only `{ success, inserted }` (no full records).
-      Optional `suppress_notification: true` skips notify after insert (default false).
+      On success, notification via notify_user is always scheduled (best-effort).
       Opinions/feelings about the spend → separate POST /api/log/text.
       Auth: ApiToken.
     security:

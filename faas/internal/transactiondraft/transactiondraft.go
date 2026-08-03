@@ -33,14 +33,13 @@ type TransactionEntryInput struct {
 
 // LogTransactionBody POST /api/log/transaction 请求体。
 type LogTransactionBody struct {
-	HappenedAt           any `json:"happened_at"`
-	Type                 any `json:"type"`
-	Entries              any `json:"entries"`
-	SuppressNotification any `json:"suppress_notification"`
+	HappenedAt any `json:"happened_at"`
+	Type       any `json:"type"`
+	Entries    any `json:"entries"`
 }
 
 var logTransactionKeys = []string{
-	"happened_at", "type", "entries", "suppress_notification",
+	"happened_at", "type", "entries",
 }
 
 var transactionEntryKeys = []string{

@@ -21,7 +21,6 @@ export const LOG_BODY_WEIGHT_KEYS = [
   'objective_context',
   'subjective_interpretation',
   'tags',
-  'suppress_notification',
 ] as const
 
 /** 体重形态：正数、至多 3 位整数或至多两位小数；禁 +、负号、空格、残缺点、前导零 */
@@ -39,7 +38,6 @@ export type LogBodyWeightBody = {
   objective_context?: unknown
   subjective_interpretation?: unknown
   tags?: unknown
-  suppress_notification?: unknown
 }
 
 export type NormalizedBodyWeight = {

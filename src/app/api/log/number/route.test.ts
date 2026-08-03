@@ -49,39 +49,25 @@ beforeEach(() => {
   createNumber.mockResolvedValue({ status: 201, record: sampleRecord })
 })
 
-describe('POST /api/log/number suppress_notification', () => {
-  it('returns 400 before create when field is non-boolean', async () => {
-    const res = await POST(
-      post({ ...validBody, suppress_notification: 'true' }),
-    )
-    expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({
-      error: 'Invalid suppress_notification',
-    })
-    expect(createNumber).not.toHaveBeenCalled()
-    expect(scheduleBestEffortNotify).not.toHaveBeenCalled()
-  })
-
-  it('skips scheduleBestEffortNotify when true', async () => {
-    const res = await POST(
-      post({ ...validBody, suppress_notification: true }),
-    )
-    expect(res.status).toBe(201)
-    expect(createNumber).toHaveBeenCalledTimes(1)
-    expect(scheduleBestEffortNotify).not.toHaveBeenCalled()
-  })
-
-  it('schedules notify when omitted', async () => {
+describe('POST /api/log/number notify schedule', () => {
+  it('always schedules notify on success', async () => {
     const res = await POST(post(validBody))
     expect(res.status).toBe(201)
     expect(scheduleBestEffortNotify).toHaveBeenCalledTimes(1)
+    const task = scheduleBestEffortNotify.mock.calls[0][0] as () => void
+    task()
+    expect(notifyRecordInserted).toHaveBeenCalledWith(sampleRecord)
   })
 
-  it('schedules notify when false', async () => {
+  it('does not schedule notify when create fails', async () => {
+    createNumber.mockResolvedValue({
+      error: 'Unknown JSON key: suppress_notification',
+      status: 400,
+    })
     const res = await POST(
-      post({ ...validBody, suppress_notification: false }),
+      post({ ...validBody, suppress_notification: true }),
     )
-    expect(res.status).toBe(201)
-    expect(scheduleBestEffortNotify).toHaveBeenCalledTimes(1)
+    expect(res.status).toBe(400)
+    expect(scheduleBestEffortNotify).not.toHaveBeenCalled()
   })
 })

@@ -142,22 +142,22 @@ func TestLogNumberValidationWithoutDB(t *testing.T) {
 	}
 }
 
-func TestLogRejectsInvalidSuppressNotificationWithoutDB(t *testing.T) {
+func TestLogRejectsSuppressNotificationAsUnknownKeyWithoutDB(t *testing.T) {
 	h := testServer().Handler()
 	cases := []struct {
 		path, payload string
 	}{
 		{
 			"/api/log/number",
-			`{"happened_at":"2026-08-01T12:00:00Z","value_number":"1","tags":["weight"],"objective_context":"x","suppress_notification":"true"}`,
+			`{"happened_at":"2026-08-01T12:00:00Z","value_number":"1","tags":["weight"],"objective_context":"x","suppress_notification":true}`,
 		},
 		{
 			"/api/log/text",
-			`{"happened_at":"2026-08-01T12:00:00Z","value_text":"hi","tags":["study"],"objective_context":"x","suppress_notification":1}`,
+			`{"happened_at":"2026-08-01T12:00:00Z","value_text":"hi","tags":["study"],"objective_context":"x","suppress_notification":true}`,
 		},
 		{
 			"/api/log/transaction",
-			`{"happened_at":"2026-08-01T12:00:00Z","type":"expense","entries":[{"amount":"1.00","memo":"m","category":"food","subcategory":"lunch"}],"suppress_notification":"yes"}`,
+			`{"happened_at":"2026-08-01T12:00:00Z","type":"expense","entries":[{"amount":"1.00","memo":"m","category":"food","subcategory":"lunch"}],"suppress_notification":true}`,
 		},
 	}
 	for _, tc := range cases {
@@ -172,7 +172,7 @@ func TestLogRejectsInvalidSuppressNotificationWithoutDB(t *testing.T) {
 			}
 			var body map[string]string
 			_ = json.Unmarshal(rr.Body.Bytes(), &body)
-			if body["error"] != "Invalid suppress_notification" {
+			if body["error"] != "Unknown JSON key: suppress_notification" {
 				t.Fatalf("error: %v", body)
 			}
 		})
@@ -738,4 +738,3 @@ func TestWriteInternalErrorNeverExposesDetails(t *testing.T) {
 		t.Fatalf("leaked internal detail: %q", body["error"])
 	}
 }
-

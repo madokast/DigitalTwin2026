@@ -42,7 +42,6 @@ export const LOG_NUMBER_KEYS = [
   'tags',
   'objective_context',
   'subjective_interpretation',
-  'suppress_notification',
 ] as const
 
 export const LOG_TEXT_KEYS = [
@@ -51,7 +50,6 @@ export const LOG_TEXT_KEYS = [
   'tags',
   'objective_context',
   'subjective_interpretation',
-  'suppress_notification',
 ] as const
 
 export type NumberBody = {
@@ -60,7 +58,6 @@ export type NumberBody = {
   tags?: unknown
   objective_context?: unknown
   subjective_interpretation?: unknown
-  suppress_notification?: unknown
 }
 
 export type TextBody = {
@@ -69,7 +66,6 @@ export type TextBody = {
   tags?: unknown
   objective_context?: unknown
   subjective_interpretation?: unknown
-  suppress_notification?: unknown
 }
 
 export type LogApiError = { error: string; status: number }

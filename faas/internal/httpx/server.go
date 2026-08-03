@@ -223,12 +223,6 @@ func (s *Server) handleLogNumber(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Create 前 peek：避免已写入却因字段类型 400
-	suppress, err := notify.ReadSuppressNotification(raw)
-	if err != nil {
-		writeError(w, 400, err.Error())
-		return
-	}
 	rec, status, err := logapi.CreateNumber(r.Context(), s.Pool, raw)
 	if err != nil {
 		if status >= 500 {
@@ -242,20 +236,13 @@ func (s *Server) handleLogNumber(w http.ResponseWriter, r *http.Request) {
 	// INSERT 成功后异步 best-effort notify，不阻塞写响应（渠道 HTTP 仍有 15s 超时）。
 	// 刻意允许的双端差异（docs/20260801-api-layering.md §1.1 / §7）：
 	// Go 用 go 协程；Next 用 after()（见 scheduleBestEffortNotify）。语义同为成功后不阻塞的扇出。
-	if !suppress {
-		go s.notify().NotifyRecordInserted(rec)
-	}
+	go s.notify().NotifyRecordInserted(rec)
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
 }
 
 func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
 	raw, ok := readBodyOrError(w, r)
 	if !ok {
-		return
-	}
-	suppress, err := notify.ReadSuppressNotification(raw)
-	if err != nil {
-		writeError(w, 400, err.Error())
 		return
 	}
 	rec, status, err := logapi.CreateBodyWeight(r.Context(), s.Pool, raw)
@@ -268,20 +255,13 @@ func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, err.Error())
 		return
 	}
-	if !suppress {
-		go s.notify().NotifyRecordInserted(rec)
-	}
+	go s.notify().NotifyRecordInserted(rec)
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
 }
 
 func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
 	raw, ok := readBodyOrError(w, r)
 	if !ok {
-		return
-	}
-	suppress, err := notify.ReadSuppressNotification(raw)
-	if err != nil {
-		writeError(w, 400, err.Error())
 		return
 	}
 	rec, status, err := logapi.CreateTodo(r.Context(), s.Pool, raw)
@@ -294,9 +274,7 @@ func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, err.Error())
 		return
 	}
-	if !suppress {
-		go s.notify().NotifyRecordInserted(rec)
-	}
+	go s.notify().NotifyRecordInserted(rec)
 	writeJSON(w, status, map[string]any{
 		"success": true,
 		"record":  tododraft.ToTodoRecordJSON(rec),
@@ -308,14 +286,10 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	suppress, err := notify.ReadSuppressNotification(raw)
-	if err != nil {
-		writeError(w, 400, err.Error())
-		return
-	}
 	var (
 		result logapi.TransitionResult
 		status int
+		err    error
 	)
 	if s.TransitionTodo != nil {
 		result, status, err = s.TransitionTodo(r.Context(), s.Pool, raw)
@@ -332,12 +306,10 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// §4.2：恰好一次 notify，正文 = 审计 value_text
-	if !suppress {
-		if s.NotifyUser != nil {
-			s.NotifyUser(result.AuditValueText)
-		} else {
-			go s.notify().NotifyUser(result.AuditValueText)
-		}
+	if s.NotifyUser != nil {
+		s.NotifyUser(result.AuditValueText)
+	} else {
+		go s.notify().NotifyUser(result.AuditValueText)
 	}
 	writeJSON(w, status, map[string]any{
 		"success": true,
@@ -354,11 +326,6 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	suppress, err := notify.ReadSuppressNotification(raw)
-	if err != nil {
-		writeError(w, 400, err.Error())
-		return
-	}
 	rec, status, err := logapi.CreateText(r.Context(), s.Pool, raw)
 	if err != nil {
 		if status >= 500 {
@@ -369,20 +336,13 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, err.Error())
 		return
 	}
-	if !suppress {
-		go s.notify().NotifyRecordInserted(rec)
-	}
+	go s.notify().NotifyRecordInserted(rec)
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
 }
 
 func (s *Server) handleLogTransaction(w http.ResponseWriter, r *http.Request) {
 	raw, ok := readBodyOrError(w, r)
 	if !ok {
-		return
-	}
-	suppress, err := notify.ReadSuppressNotification(raw)
-	if err != nil {
-		writeError(w, 400, err.Error())
 		return
 	}
 	inserted, recs, status, err := logapi.CreateTransactionBatch(r.Context(), s.Pool, raw)
@@ -395,9 +355,7 @@ func (s *Server) handleLogTransaction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, err.Error())
 		return
 	}
-	if !suppress {
-		go s.notify().NotifyTransactionBatchInserted(recs)
-	}
+	go s.notify().NotifyTransactionBatchInserted(recs)
 	writeJSON(w, status, map[string]any{"success": true, "inserted": inserted})
 }
 

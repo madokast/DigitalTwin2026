@@ -30,12 +30,11 @@ type LogBodyWeightBody struct {
 	ObjectiveContext         any `json:"objective_context"`
 	SubjectiveInterpretation any `json:"subjective_interpretation"`
 	Tags                     any `json:"tags"`
-	SuppressNotification     any `json:"suppress_notification"`
 }
 
 var logBodyWeightKeys = []string{
 	"happened_at", "value_number", "objective_context",
-	"subjective_interpretation", "tags", "suppress_notification",
+	"subjective_interpretation", "tags",
 }
 
 // NormalizedBodyWeight 校验后的体重行。
