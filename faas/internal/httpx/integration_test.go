@@ -18,8 +18,12 @@ import (
 )
 
 func TestIntegrationSmoke(t *testing.T) {
-	if os.Getenv("DATABASE_URL") == "" {
-		t.Skip("DATABASE_URL not set; skipping Go API integration test")
+	url := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	if url == "" {
+		t.Skip("DATABASE_URL not set; skipping Go API integration test. " + db.TestDatabaseURLHint)
+	}
+	if err := db.AssertSafeTestDatabaseURL(url); err != nil {
+		t.Fatalf("%v", err)
 	}
 
 	ctx := context.Background()

@@ -34,6 +34,14 @@ describe('assertSafeTestDatabaseUrl', () => {
     ).toThrow(/must contain "test"/i)
   })
 
+  it('rejects when only username contains test', () => {
+    expect(() =>
+      assertSafeTestDatabaseUrl(
+        'postgresql://testuser:p@ep-long-pine.example.com/neondb',
+      ),
+    ).toThrow(/must contain "test"/i)
+  })
+
   it('rejects empty URL', () => {
     expect(() => assertSafeTestDatabaseUrl('  ')).toThrow(/empty/i)
   })

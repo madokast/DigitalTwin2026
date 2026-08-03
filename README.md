@@ -120,7 +120,7 @@ cd faas && go test ./internal/contract/   # Go 契约（无 DB）
 cd faas && go test ./...
 ```
 
-单元测 `src/lib`、`src/proxy`；API 集成测连真实 PG（migrate → 用例间 TRUNCATE；**不再 DROP** schema）。门闸为 `TEST_DATABASE_URL`（无则 Skip；setup 会映射到业务用的 `DATABASE_URL`）。Go httptest 冒烟仍看 `DATABASE_URL`。CI 默认可跑单元测；配置 GitHub secrets `TEST_DATABASE_URL`（及可选 Token）可启用 CI 集成测 job。契约测与 DB 无关，见 `openapi/README.md`。
+单元测 `src/lib`、`src/proxy`；API 集成测连真实 PG（migrate → 用例间 TRUNCATE；**不再 DROP** schema）。门闸为安全的 `DATABASE_URL`（host/库名须含 `test` / `TestDigitalTwin`；无则 Skip；unsafe 则拒绝，不 wipe）。Go httptest / dbprobe 集成同规则。CI 默认可跑单元测；配置 GitHub secrets `DATABASE_URL`（及可选 Token）可启用 CI 集成测 job。契约测与 DB 无关，见 `openapi/README.md`。
 
 ## 项目结构
 
@@ -129,7 +129,7 @@ cd faas && go test ./...
 ├── faas/              # Go HTTP API + providers/aliyun-fc + providers/tencent-scf
 ├── openapi/           # OpenAPI 3.1 契约（双端共用源）
 ├── scripts/           # deploy / collect-prod-env、密钥轮换、共享 lib
-├── tests/             # API 集成测试（无 TEST_DATABASE_URL 时 Skip；不 DROP）
+├── tests/             # API 集成测试（无安全 DATABASE_URL 时 Skip；不 DROP）
 ├── testdata/          # 双端共享校验样例（decimal、日历日边界等）
 ├── drizzle/           # migration
 ├── docs/              # 设计与开发日志

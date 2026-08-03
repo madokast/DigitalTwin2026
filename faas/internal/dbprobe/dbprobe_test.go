@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/mdk/digitaltwin2026/faas/internal/db"
 )
 
 func TestSanitizeProbeError(t *testing.T) {
@@ -38,11 +39,14 @@ func TestProbeConnectFailure(t *testing.T) {
 	}
 }
 
-// 有 DATABASE_URL 时真实连库；无则 Skip（与 httpx integration 一致）。
+// 有安全 DATABASE_URL 时真实连库；无则 Skip；unsafe 则 Fatal（与 httpx integration 一致）。
 func TestProbeIntegration(t *testing.T) {
 	url := strings.TrimSpace(os.Getenv("DATABASE_URL"))
 	if url == "" {
-		t.Skip("DATABASE_URL not set; skipping dbprobe integration")
+		t.Skip("DATABASE_URL not set; skipping dbprobe integration. " + db.TestDatabaseURLHint)
+	}
+	if err := db.AssertSafeTestDatabaseURL(url); err != nil {
+		t.Fatalf("%v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()

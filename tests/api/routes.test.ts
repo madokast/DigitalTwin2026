@@ -11,14 +11,29 @@ import { GET as queryTags } from '@/app/api/query/tags/route'
 import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
 import { PATCH as patchRecord } from '@/app/api/admin/records/[id]/route'
 import { closeDb } from '@/db'
-import { migrateTestDatabase, truncateRecords } from '../helpers/db'
+import {
+  assertSafeTestDatabaseUrl,
+  migrateTestDatabase,
+  SAFE_TEST_DATABASE_HINT,
+  truncateRecords,
+} from '../helpers/db'
 import { jsonGet, jsonPatch, jsonPost } from '../helpers/http'
 import { reservedTagError } from '@/lib/tags'
 
-/** 只认 TEST_DATABASE_URL（不做 DROP）；缺失则 Skip，避免误用生产 DATABASE_URL */
-const hasTestDatabaseUrl = Boolean(process.env.TEST_DATABASE_URL?.trim())
+/** DATABASE_URL 缺失 → Skip；已设但 unsafe → throw（不 wipe）。不做 DROP。 */
+function shouldRunApiIntegration(): boolean {
+  const url = process.env.DATABASE_URL?.trim()
+  if (!url) {
+    console.warn(`Skipping API integration: DATABASE_URL is not set. ${SAFE_TEST_DATABASE_HINT}`)
+    return false
+  }
+  assertSafeTestDatabaseUrl(url)
+  return true
+}
 
-describe.skipIf(!hasTestDatabaseUrl)('API integration', () => {
+const runApiIntegration = shouldRunApiIntegration()
+
+describe.skipIf(!runApiIntegration)('API integration', () => {
   beforeAll(async () => {
     await migrateTestDatabase()
   }, 60_000)

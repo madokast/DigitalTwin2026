@@ -8,11 +8,7 @@ process.env.DIGITAL_TWIN_TEST = '1'
 delete process.env.NOTIFY_ALLOW_IN_TEST
 delete process.env.TELEGRAM_ALLOW_IN_TEST
 
-// 集成测只认 TEST_DATABASE_URL：映射给业务 @/db，勿借用 DATABASE_URL 做 wipe
-const testDbUrl = process.env.TEST_DATABASE_URL?.trim()
-if (testDbUrl) {
-  process.env.DATABASE_URL = testDbUrl
-}
+// 集成测门闸只认 DATABASE_URL（须通过 assertSafeTestDatabaseUrl）
 
 if (!process.env.DIGITAL_TWIN_TOKEN) {
   process.env.DIGITAL_TWIN_TOKEN = 'test-token-for-vitest'

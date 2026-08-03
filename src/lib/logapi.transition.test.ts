@@ -1,5 +1,5 @@
 /**
- * transitionTodo 域错误 / 成功路径：mock Drizzle，无需 TEST_DATABASE_URL。
+ * transitionTodo 域错误 / 成功路径：mock Drizzle，无需真实 DATABASE_URL。
  * 与 Go faas/internal/logapi/todo_db_test.go 对齐。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'

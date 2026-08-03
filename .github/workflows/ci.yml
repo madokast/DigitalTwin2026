@@ -29,7 +29,7 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
-      # 无 TEST_DATABASE_URL：tests/api 会 skip（与 Go integration Skip 对齐）；仍跑 src/lib 等单元测
+      # 无安全 DATABASE_URL：tests/api 会 skip（与 Go integration Skip 对齐）；仍跑 src/lib 等单元测
       - run: npm test
 
   go-contract:
@@ -69,12 +69,14 @@ jobs:
       - run: npm ci
       - name: Run API integration tests
         env:
-          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          # 可选 GitHub secret：DATABASE_URL（须为测试库；host/库名含 test）
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIGITAL_TWIN_TOKEN: ${{ secrets.TEST_DIGITAL_TWIN_TOKEN }}
           DIGITAL_TWIN_ADMIN_TOKEN: ${{ secrets.TEST_DIGITAL_TWIN_ADMIN_TOKEN }}
         run: |
-          if [ -z "$TEST_DATABASE_URL" ]; then
-            echo "TEST_DATABASE_URL secret not set; skipping API integration"
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret not set; skipping API integration"
+            echo "Point DATABASE_URL at a test database (hostname or database name must contain \"test\")."
             exit 0
           fi
           npx vitest run tests/api
