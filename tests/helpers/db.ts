@@ -53,27 +53,18 @@ export function resolveTestDatabaseUrl(): string {
   return url
 }
 
-/** 独立短连接，用于 migrate / truncate，不与业务单例抢生命周期 */
-function adminClient() {
+/** 独立短连接：migrate；或套件级复用做 DELETE（勿与业务单例混用）。 */
+export function openTestAdminClient() {
   return postgres(resolveTestDatabaseUrl(), { max: 1 })
 }
 
 export async function migrateTestDatabase() {
-  const client = adminClient()
+  const client = openTestAdminClient()
   try {
     const db = drizzle(client)
     await migrate(db, {
       migrationsFolder: path.resolve(process.cwd(), 'drizzle'),
     })
-  } finally {
-    await client.end({ timeout: 5 })
-  }
-}
-
-export async function truncateRecords() {
-  const client = adminClient()
-  try {
-    await client`TRUNCATE TABLE records`
   } finally {
     await client.end({ timeout: 5 })
   }

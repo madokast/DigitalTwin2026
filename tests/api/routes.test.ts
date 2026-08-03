@@ -1,4 +1,5 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type postgres from 'postgres'
 import { POST as postNumber } from '@/app/api/log/number/route'
 import { POST as postBodyWeight } from '@/app/api/log/body/weight/route'
 import { POST as postTodo } from '@/app/api/log/todo/route'
@@ -16,8 +17,8 @@ import { closeDb } from '@/db'
 import {
   assertSafeTestDatabaseUrl,
   migrateTestDatabase,
+  openTestAdminClient,
   SAFE_TEST_DATABASE_HINT,
-  truncateRecords,
 } from '../helpers/db'
 import { jsonGet, jsonPatch, jsonPost, multipartPost } from '../helpers/http'
 import { reservedTagError } from '@/lib/tags'
@@ -38,15 +39,24 @@ function shouldRunApiIntegration(): boolean {
 const runApiIntegration = shouldRunApiIntegration()
 
 describe.skipIf(!runApiIntegration)('API integration', () => {
+  /**
+   * 与 Go 对齐：用 DELETE 清理，不用每测 TRUNCATE + 新建连接。
+   * Node 有 summary/tags/pagination/export 全表断言，且 transaction 批量插入不回传 id，
+   * 故用例后 `DELETE FROM records`（共享 admin 连接）；Go 冒烟测则按 marker 定向删。
+   */
+  let admin: postgres.Sql
+
   beforeAll(async () => {
     await migrateTestDatabase()
+    admin = openTestAdminClient()
   }, 60_000)
 
-  beforeEach(async () => {
-    await truncateRecords()
+  afterEach(async () => {
+    await admin`DELETE FROM records`
   })
 
   afterAll(async () => {
+    await admin.end({ timeout: 5 })
     await closeDb()
   }, 60_000)
 
@@ -1478,7 +1488,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const ndjson = await exported.text()
       expect(ndjson.trim()).not.toBe('')
 
-      await truncateRecords()
+      // 清空该行再导入（共享连接 DELETE，非整表 TRUNCATE 重建）
+      await admin`DELETE FROM records WHERE id = ${rec.id}`
 
       const imported = await importRecords(
         multipartPost('http://localhost/api/admin/import/records', ndjson),
