@@ -172,3 +172,4 @@ cd faas && go test ./...
 - `20260803-records-import-export.md` — Records JSONL 导入 / 导出（已落地）
 - `20260803-utc-offset.md` — 隐列 `utc_offset` 还原带区 `happened_at`（已落地）
 - `20260803-suppress-bot-notification.md` — `SUPPRESS_BOT_NOTIFICATION` 门闸（已落地）
+- `20260803-api-parity-audit.md` — 双后端 API 一致性审计：边界差异清单（**未修复**）
