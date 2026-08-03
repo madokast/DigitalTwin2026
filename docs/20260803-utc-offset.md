@@ -7,7 +7,7 @@
 
 ## 0. 一句话结论
 
-`happened_at` **继续**用 `timestamptz` 存绝对瞬间；另加服务端私有列 **`utc_offset`**（offset **字面量**，非 IANA）。对外 JSON / JSONL **永远只有**带区的 `happened_at`，**看不到** `utc_offset`。读路径用「瞬间 + `utc_offset`」格式化，**停止**默认统一成 `…Z`。
+`happened_at` **继续**用 `timestamptz` 存绝对瞬间；另加服务端私有列 **`utc_offset`**（offset **字面量**，非 IANA）。对外 JSON / JSONL **看不到** `utc_offset`；时间值用「瞬间 + `utc_offset`」格式化，**停止**默认统一成 `…Z`。键名因域而异（默认 `happened_at`；Todo 等变形为 `created_at`），**时区逻辑同一套**（见 §6.1）。
 
 ---
 
@@ -16,14 +16,15 @@
 | # | 决策 |
 |---|------|
 | 1 | **`happened_at` 列**仍为 `timestamptz`；落库绝对瞬间行为**不变**（排序、`from`/`to`、比较语义不变）。 |
-| 2 | **新列名 `utc_offset`**（**不要**用 `time_zone`）：存录入时从 `happened_at` **字符串**解析出的 **UTC offset 字面量**，**不是** IANA。 |
-| 3 | **对外完全不可见**：请求体、响应体、OpenAPI `Record`、import/export JSONL **均无** `utc_offset` 键；仅服务端读写隐列。 |
-| 4 | **导入 / 导出**：文件里只有带时区的 `happened_at`；导入时拆 offset → 写 `utc_offset`；导出时用 `utc_offset` 格式化 `happened_at`。 |
+| 2 | **新列名 `utc_offset`**（**不要**用 `time_zone`）：存录入时从**时间 ISO 字符串**解析出的 **UTC offset 字面量**，**不是** IANA。 |
+| 3 | **对外完全不可见**：请求体、响应体、OpenAPI `Record` / `TodoRecord`、import/export JSONL **均无** `utc_offset` 键；仅服务端读写隐列。 |
+| 4 | **导入 / 导出**：文件里只有带时区的 `happened_at`（Record 形，无 Todo deform）；导入时拆 offset → 写 `utc_offset`；导出时用 `utc_offset` 格式化 `happened_at`。 |
 | 5 | **规范化（易解析 / 易还原）**：见 §3。紧凑 `+0800` → `+08:00`；**`Z` ≠ `+00:00`**，禁止互相折叠。 |
-| 6 | **无历史数据**可迁；空库 / 新库即可。手改 DB **不管**。 |
-| 7 | **读路径**：停用默认 `toISOString()` / 一律 `Z`；对外 `happened_at` = 瞬间按 `utc_offset` 格式化。 |
+| 6 | **无历史数据**可迁；空库 / 新库即可。手改 DB **不管**。Schema 变更：**不加**增量 Migration；**改基准建表 SQL / Drizzle schema 后 drop 表重建**（见 §11）。 |
+| 7 | **读路径**：停用默认 `toISOString()` / 一律 `Z`；对外时间串 = 瞬间按 `utc_offset` 格式化——无论 JSON 键是 `happened_at` 还是变形后的 `created_at`。 |
 | 8 | **复盘 API**仍暂停（见根 [`AGENTS.md`](../AGENTS.md)）。 |
 | 9 | **JSON 键名**一律 `snake_case`（见 AGENTS）；本隐列本就不进 JSON。 |
+| 10 | **键名变形 ≠ 时区例外**：Todo 等把库列时间对外叫 `created_at`（请求亦用 `created_at`），**仍**走同一套 extract / normalize / format；禁止 deform 路径偷偷改回一律 `Z`。 |
 
 ---
 
@@ -43,7 +44,7 @@ PostgreSQL `timestamptz` 只保证**绝对瞬间**。写入 `2026-08-03T08:00:00
 
 ### 2.3 洁癖友好的折中
 
-- **客户端契约**：仍然只有一个时间键 `happened_at`（写啥区、读回同规范区）。  
+- **客户端契约**：每条记录对外仍只有**一个**时间值键（默认 `happened_at`；Todo 行为 `created_at`），写啥区、读回同规范区；**从不**另给 `utc_offset`。  
 - **库内**：`timestamptz` 管瞬间 + **一列私有** `utc_offset` 管字面量；**不是**「正式时间 + raw 双胞胎」那种对外双字段。  
 - 隐列不进 OpenAPI / JSONL，避免 API 表面膨胀。
 
@@ -86,7 +87,8 @@ PostgreSQL `timestamptz` 只保证**绝对瞬间**。写入 `2026-08-03T08:00:00
 ## 5. 写入流程（POST log / 等价 draft）
 
 ```text
-请求 JSON：{ "happened_at": "<ISO 带区>", … }   // 无 utc_offset 键；若出现 → 未知键 400
+请求 JSON：时间键 = happened_at 或（Todo）created_at
+           值 = "<ISO 带区>"     // 无 utc_offset 键；若出现 → 未知键 400
         │
         ▼
 parseHappenedAt(str) → Date（绝对瞬间）
@@ -96,14 +98,15 @@ extract + normalize → utc_offset 字面量（§3）
 INSERT records (happened_at timestamptz, utc_offset text, …)
         │
         ▼
-响应：fromDB → happened_at 用瞬间 + utc_offset 格式化（§6）
+响应：fromDB / Todo deform → 时间值用瞬间 + utc_offset 格式化（§6）
 ```
 
 要点：
 
 - 仍只接受现网允许的带区 ISO；瞬间入库行为与今日相同。  
 - **禁止**客户端传 `utc_offset`（未知键拒绝，与其它隐字段策略一致）。  
-- Todo / 体重 / 账单等所有经 draft 写 `records` 的路径同一套拆分逻辑。
+- Todo 请求用 **`created_at`**（禁止同请求再带 `happened_at`）：从 **`created_at` 字符串**拆 offset，写入同一隐列 `utc_offset`。  
+- 体重 / 账单 / text / number 等用 **`happened_at`** 的路径：同一套拆分逻辑。
 
 ---
 
@@ -113,17 +116,33 @@ INSERT records (happened_at timestamptz, utc_offset text, …)
 SELECT …, happened_at, utc_offset, …
         │
         ▼
-formatHappenedAt(happened_at, utc_offset)
+formatHappenedAt(happened_at, utc_offset)   // 唯一格式化入口
   - utc_offset = 'Z'     → 该瞬间的 UTC 墙钟 + 'Z'
   - 否则                 → 该瞬间在该固定 offset 下的墙钟 + '±HH:MM'
         │
         ▼
-对外 Record.happened_at（及 Todo deform 的 created_at，若源自同一列）
+放入对外 JSON：
+  - 默认 Record / 导出 JSONL     → 键名 happened_at
+  - TodoRecord（创建成功 / query 待办行）→ 键名 created_at（值同上式，禁止改回一律 Z）
 ```
 
-**停止**：`Date.toISOString()` / Go 侧等价「一律 UTC Z」作为 Record 对外默认。
+**停止**：`Date.toISOString()` / Go 侧等价「一律 UTC Z」作为对外时间默认。
 
 查询参数 `from` / `to`、列表排序：仍只对 **瞬间** 比较；**不**因 `utc_offset` 改变区间语义。
+
+### 6.1 键名变形与时区（锁定）
+
+部分 API 把库列时间**换键名**对外（真源见 [`docs/20260802-todo-feature.md`](20260802-todo-feature.md)）：
+
+| 场景 | 请求时间键 | 响应时间键 | 库列 | `utc_offset` |
+|------|------------|------------|------|--------------|
+| 普通 Record（log/text、number、query 非待办、导出…） | `happened_at` | `happened_at` | `happened_at` | 读写同一套 |
+| Todo 创建 / query 待办行 deform | `created_at` | `created_at` | `happened_at` | **同一套**；值带区，逻辑与 `happened_at` 响应一致 |
+| Todo transition 审计等非待办行 | （各 API 自有） | 默认 `happened_at` | 同上 | 同上 |
+
+**硬规则：** deform **只改 JSON 键名**（及 Todo 的 `content` 等），**不改**「瞬间 + `utc_offset` → 带区 ISO」的格式化。实现上 `toTodoRecordJson` / Go `TodoRecordJSON` 必须调用与 `fromDB` **同一** `formatHappenedAt(…, utc_offset)`，禁止 Todo 路径单独 `toISOString()`。
+
+若将来复盘等再引入「时间键别名」，同样遵守本条，不另开时区语义。
 
 ---
 
@@ -157,8 +176,9 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 | 层 | 要求 |
 |----|------|
 | OpenAPI `Record` | **不**增加 `utc_offset`；`happened_at` 描述改为「带显式区的 ISO；读出保留录入规范区（`Z` 与 `±HH:MM`），**不再**承诺一律 `Z`」。 |
-| fixtures / 契约测 | 读路径样例可含 `+08:00`；写路径继续接受 `Z` / `±HH:MM` / `±HHMM`。 |
-| Next + Go | schema / migration、`formatHappenedAt`、draft、import/export、Admin PATCH **双端同构**（见 api-layering）。 |
+| OpenAPI `TodoRecord` | **不**增加 `utc_offset`；`created_at` 描述与上同语义（带区读出）；注明与库列 `happened_at` + 隐列 `utc_offset` 同源格式化。 |
+| fixtures / 契约测 | Record / TodoRecord 读路径样例可含 `+08:00`；写路径继续接受 `Z` / `±HH:MM` / `±HHMM`（Todo 写在 `created_at`）。 |
+| Next + Go | schema（基准建表，**无**增量 migration）、`formatHappenedAt`、draft、Todo deform、import/export、Admin PATCH **双端同构**（见 api-layering）。 |
 | JSON 键 | 仍一律 snake_case；隐列不序列化即可。 |
 
 ---
@@ -167,7 +187,7 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 
 - 不实现复盘 API。  
 - 不存 IANA；不根据 offset 反推时区名。  
-- 不做历史行回填 / 猜测旧数据的录入区。  
+- 不做历史行回填 / 猜测旧数据的录入区；**不做** `ALTER TABLE … ADD COLUMN` 式增量 Migration。  
 - 不把 `utc_offset` 暴露给前端 Settings 或 AI tool schema。  
 - 不改变 `from`/`to` 必须带区的查询校验。
 
@@ -175,7 +195,8 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 
 ## 11. 实现时注意（本篇不落地代码）
 
-1. Migration：`records.utc_offset text NOT NULL` + 可选 CHECK；空库直接加。  
-2. 收敛所有 `formatHappenedAt` / `FormatHappenedAt` / Notify 内联格式化，避免漏网 `toISOString()`。  
-3. 更新 import-export 文档中「读出 UTC Z」句子；可选在 AGENTS「Neon / 数据库」旁加 pointer（见根 AGENTS）。  
-4. 单测：`Z` vs `+00:00` 不折叠；`+0800` → 存 `+08:00`；export/import round-trip；未知键 `utc_offset` → 400。
+1. **Schema：不要加新的 drizzle Migration 文件。** 直接改基准定义（如 `src/db/schema.ts` + `drizzle/0000_*.sql` 或仓库约定的唯一建表源），为 `records` 增加 `utc_offset text NOT NULL` + 可选 CHECK；本地 / 测试库 **DROP `records`（或整库）后按基准重建**。无生产数据、无回填。  
+2. 收敛所有 `formatHappenedAt` / `FormatHappenedAt` / Notify / **Todo deform** 内联格式化，避免漏网 `toISOString()`。  
+3. 更新 import-export、todo 规格中「读出 UTC Z」句子；可选在 AGENTS「Neon / 数据库」旁加 pointer（见根 AGENTS）。  
+4. 单测：`Z` vs `+00:00` 不折叠；`+0800` → 存 `+08:00`；export/import round-trip；未知键 `utc_offset` → 400；**Todo `201.record.created_at` 与 query 待办行带区且与隐列一致**。  
+5. 部署/collect 若仍提示 `db:migrate`：本变更语境下等同「用更新后的基准 schema 重建空库」，**不要**指望只跑一条 ADD COLUMN migration。
