@@ -26,9 +26,9 @@
 - `POST /api/qqbot/probe`（普通 API Token；校验 QQ Bot 配置并试发消息）
 - `POST /api/db/probe`（普通 API Token；短命连接测 Postgres + `public.records`）
 - `GET /api/query`、`/api/query/summary`、`/api/query/tags`、`/api/query/transaction/summary`
-- `GET /api/export/records`（ApiToken；`from?` + 必填 `limit`；NDJSON / JSONL 文件流）
+- `GET /api/export/records`（ApiToken；`from?` + 必填 `limit`；NDJSON 有界缓冲下载，非 DB cursor 无限流）
 - `POST /api/admin/tags/rename`、`PATCH /api/admin/records/{id}`
-- `POST /api/admin/import/records`（AdminToken；multipart 字段 `file`；JSONL upsert）
+- `POST /api/admin/import/records`（AdminToken；multipart `file`≤4MiB 读入后逐行 upsert）
 
 鉴权：`Authorization: Bearer …`；`/api/admin/*` 仅 Admin Token；其余 AI 或 Admin。备份 / 迁移 JSONL 决策真源：[`docs/20260803-records-import-export.md`](../docs/20260803-records-import-export.md)。
 

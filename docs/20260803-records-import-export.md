@@ -9,8 +9,8 @@
 
 **目标**
 
-- 按 **`id ASC` 游标**分块导出 `records` 为 **JSONL 文件流**（下载）。
-- 用同形状 JSONL **文件上传** + **按 `id` upsert** 写回。
+- 按 **`id ASC` 游标**分块导出 `records` 为 **JSONL 文件下载**（有界缓冲，见 §4.5）。
+- 用同形状 JSONL **文件上传** + **按 `id` upsert** 写回（file part ≤4MiB 有界读入后逐行处理，见 §5.4）。
 - 形状 = OpenAPI **`Record` camelCase**：**禁止** Todo deform（`created_at` / `content`）。
 - 成功后 **一律 Notify**（导出每页含 0 行；导入含空文件全 0）；**无**请求体 `suppress_notification`。真发与否仅看进程 env `SUPPRESS_BOT_NOTIFICATION`（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。
 - 双端（Next + Go）+ OpenAPI 同构已落地；本篇为决策真源。
@@ -31,13 +31,13 @@
 | # | 决策 |
 |---|------|
 | 1 | **无 JSON deform**；JSONL ↔ `Record` camelCase（§2）。 |
-| 2 | **导出** = 文件下载流（NDJSON）；**导入** = multipart 文件上传。 |
+| 2 | **导出** = NDJSON 文件下载（有界缓冲）；**导入** = multipart 文件上传。 |
 | 3 | **导入 = upsert on `id`**；可重复导入。 |
 | 4 | **导出鉴权** = `ApiToken`；**导入** = `AdminToken` only（`/api/admin/...`）。 |
 | 5 | **Admin import 必须允许保留 tag**（跳过 `assertNoReservedTags`；PATCH 仍拒绝）。 |
 | 6 | **始终 Notify**（含空导出 / 空导入）；本两 API **不**暴露 body `suppress_notification`；静音仅 env（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。 |
-| 7 | **一期无压缩**；`MAX_HTTP_BODY_BYTES`（256KiB）**不**约束本两路由（须独立流式读，禁止误接 `readJsonBody` / 默认 `readBody`）。 |
-| 8 | **流式 + 单事务**：边读边写均在**同一 DB 事务**内；**全部成功才 commit**；失败 **rollback** 且 **不** Notify。 |
+| 7 | **一期无压缩**；`MAX_HTTP_BODY_BYTES`（256KiB）**不**约束本两路由（须独立有界读；禁止误接 `readJsonBody` / 默认 `readBody`）。 |
+| 8 | **行级处理 + 有界缓冲 + 单事务**（**不是** DB cursor 边读边 chunk 刷 HTTP 的无限流）：导出先 `LIMIT` 查询再组 NDJSON；导入 file part ≤4MiB 读入后同一 tx 逐行 upsert；**全部成功才 commit**；失败 **rollback** 且 **不** Notify。 |
 | 9 | 产品决策已定；**§11** 阶段 1–4 已全部完成。 |
 
 鉴权真源：`ApiToken` = `DIGITAL_TWIN_TOKEN` 或 `DIGITAL_TWIN_ADMIN_TOKEN`；`AdminToken` = 仅后者。见 `src/proxy.ts` / Go `httpx`。
@@ -110,7 +110,7 @@ API **不**规定官方结束协议。常用启发：行数 `< limit` 可视为�
 
 ### 4.3 响应
 
-- **200**：JSONL 流（可 0 行空 body）；空库无 `from` 亦然。  
+- **200**：NDJSON 正文（可 0 行空 body）；空库无 `from` 亦然。  
 - 空 body 仍带 `Content-Type: application/x-ndjson` 与 `Content-Disposition`。  
 - `Content-Disposition: attachment; filename="…"`  
 - **不要** `X-Export-*` 头；**不要** JSON 信封。
@@ -136,23 +136,27 @@ API **不**规定官方结束协议。常用启发：行数 `< limit` 可视为�
 **单页保证：** 一次请求内 `id >= from` 的查询结果，不漏该窗口内当时可见行。  
 **多页 LOOP：** 在「仅追加更大 id」假设下可覆盖全表；存在自定义/乱序 id 或跨页 UPDATE 时，只保证尽力备份，**不**宣称「绝不丢数据 / 完美快照」。
 
-### 4.5 流式与错误
+### 4.5 有界缓冲与错误（非真 chunk 流）
 
-1. 先鉴权 + 校验 `from`/`limit`（失败 → JSON `{ "error" }`，**不**开 JSONL，**不** Notify）。  
-2. 再查库开流写 NDJSON。  
-3. **开流后**若 DB/写失败：无法再改为 JSON 错误信封；结束响应；**不**发成功 Notify（截断不视为成功备份）。
+实现是 **行级处理 + 有界缓冲**，**不是**「DB cursor 边读边按 chunk 刷 HTTP」的无限流：
+
+1. 先鉴权 + 校验 `from`/`limit`（失败 → JSON `{ "error" }`，**不**写 NDJSON，**不** Notify）。  
+2. 再 `ORDER BY id ASC LIMIT :limit`（≤1000）一次查出本页行，在内存组完整 NDJSON，再写出响应体。  
+3. **响应体写出成功之后**才 Notify。若写出失败（或此前校验/查库失败）：**不**发成功 Notify（截断 / 失败不视为成功备份）。  
+   - Go：`Write` 返回错误则 return，不调 `NotifyUser`。  
+   - Next：构造成功 `NextResponse` 后再 `scheduleBestEffortNotify`（框架写失败不可在 handler 内观测，语义对齐「成功响应已就绪才 schedule」）。
 
 ### 4.6 Notify
 
-每次导出请求成功结束（含 **0 行**）→ **Notify 一次**。文案含行数、`from` 或 start、`limit`（实现期润色）。**无** body suppress；静音见 `SUPPRESS_BOT_NOTIFICATION`。
+每次导出请求**响应体成功写出后**（含 **0 行**）→ **Notify 一次**。文案含行数、`from` 或 start、`limit`。**无** body suppress；静音见 `SUPPRESS_BOT_NOTIFICATION`。
 
 ---
 
-## 5. 导入（multipart + 单事务流式 upsert）
+## 5. 导入（multipart + 有界读入 + 单事务逐行 upsert）
 
 ### 5.1 请求
 
-- `multipart/form-data`，字段名 **`file`**。忽略未知字段；多个 `file` → 400。  
+- `multipart/form-data`，字段名 **`file`**。忽略未知字段（Go：非 `file` part 丢弃时有 **per-part 字节上限**，与 4MiB 同量级；超限 → 400）；多个 `file` → 400。  
 - 接受：`application/x-ndjson`、`application/jsonl`，以及 `application/octet-stream`（filename 以 `.jsonl` 结尾）。  
 - UTF-8 JSONL；**1-based 行号**；忽略空行；可选 strip UTF-8 BOM；忽略空行后 0 行 ≡ 空文件。
 
@@ -162,10 +166,16 @@ API **不**规定官方结束协议。常用启发：行数 `< limit` 可视为�
 |------|-----|------|
 | 最大行数 | **1000**（非空行计数） | 超限 400，提示拆分 |
 | 最大字节 | **4 MiB** = **`file` part 原始字节**（不含 multipart 外壳） | 超限 400，提示拆分 |
+| 非 file part（Go） | **≤4 MiB**（`LimitReader` 丢弃） | 超限 400：`multipart non-file part exceeds size limit (max 4 MiB)` |
 
-建议英文（双端终稿一致）：  
+建议英文（file/行超限，双端一致）：  
 `import exceeds limits (max 1000 lines or 4 MiB); split the file`。  
-校验顺序：实现时写死（建议先累计字节，再累计行；发现即报）。接近平台 body 上限，一期勿再加大。
+校验顺序：
+
+- **Next**：`formData` 取 `file` 后先判 **`file.size`**（`> 4MiB` → 400），再 `file.text()` / 逐行 upsert（避免超限仍无界读全文）。  
+- **Go**：`file` part 用 `LimitReader(…, 4MiB+1)`；非 `file` part 丢弃同样有界。  
+
+接近平台 body 上限，一期勿再加大。
 
 ### 5.3 Upsert 与保留 tag
 
@@ -173,9 +183,12 @@ API **不**规定官方结束协议。常用启发：行数 `< limit` 可视为�
 - **可写保留 tag**；格式仍须合法。  
 - **不**因 import 自动插审计或走专用 API 副作用。
 
-### 5.4 流式 + 单事务（定稿）
+### 5.4 有界缓冲 + 单事务（定稿）
+
+**不是**边从 HTTP 无限流边 upsert 的真 chunk 流：先把 **`file` part（≤4MiB）**读入有界缓冲，再在**同一 DB 事务**内逐行处理。
 
 ```
+读入 file part（≤4MiB；超限 400）
 BEGIN
   按行：parse → 字段校验 → seen 查重 → upsert（同一 tx）
   全部成功 → COMMIT → 200 JSON 计数 → Notify
@@ -183,8 +196,9 @@ BEGIN
 ```
 
 - **禁止**逐行自动提交。  
-- **禁止**整文件 `[]` 进内存；`seen` ≤ 1000 个 id。  
-- 重复 `id` → 400，文案含该 uuid（可含行号）。
+- **禁止**把整文件解析成 `Record[]` 再一次性写库；允许 ≤4MiB 原文缓冲 + `seen` ≤ 1000 个 id。  
+- 重复 `id` → 400，文案含该 uuid（可含行号）。  
+- **失败 rollback 不 Notify**（与导出写出失败不 Notify 对称）。
 
 ### 5.5 成功响应与 Notify
 
@@ -226,8 +240,8 @@ BEGIN
 
 1. OpenAPI + 双端 stem（`recordjsonl` / `exportapi` / `importapi`）；错误字符串双端字节一致。  
 2. 导入/导出路由 **bypass** 256KiB JSON body 门闸。  
-3. 测试覆盖：游标重叠；from 400/404；limit；空导出/空导入均 Notify；事务失败无 Notify；重复 id；行级错误；保留 tag；鉴权矩阵；误接 readJsonBody 不得 413。  
-4. FC 64MB：流式 + seen≤1000 + 4MiB。
+3. 测试覆盖：游标重叠；from 400/404；limit；空导出/空导入均 Notify；事务失败无 Notify；重复 id；行级错误；保留 tag；鉴权矩阵；误接 readJsonBody 不得 413；file size 超限早退；Go 非 file part 有界丢弃。  
+4. FC 64MB：有界缓冲（导出 ≤1000 行 NDJSON；导入 ≤4MiB + seen≤1000）。
 
 ---
 
@@ -242,8 +256,8 @@ BEGIN
 ## 9. 已拍板摘要
 
 1. Path / 鉴权 / 无 deform / Admin 可写保留 tag / 无 body suppress（静音见 env）。  
-2. 导出：`from?` + `limit`∈[1,1000]；非法 from→400、不存在→404；文件流；每页 Notify（含 0 行）。  
-3. 导入：multipart；≤1000 行且 file part≤4MiB；**单事务流式** upsert；成功才 commit+Notify（**含空文件**）；失败回滚不 Notify。  
+2. 导出：`from?` + `limit`∈[1,1000]；非法 from→400、不存在→404；有界组 NDJSON 下载；**写出成功后**每页 Notify（含 0 行）。  
+3. 导入：multipart；≤1000 行且 file part≤4MiB 有界读入后**单事务逐行** upsert；成功才 commit+Notify（**含空文件**）；失败回滚不 Notify。  
 4. 校验：表示层 Record；语义对齐 draft；跳过保留 tag 拒绝。  
 5. 并发：见 §4.4 表；不夸大「LOOP 绝不丢」。
 
@@ -305,7 +319,7 @@ BEGIN
 
 **状态：已完成**（stem `exportapi`；OpenAPI `paths/export.yaml`；Next `src/app/api/export/records`；Go `handleExportRecords`）
 
-**目标：** ApiToken；`from?` + 必填 `limit`∈[1,1000]；NDJSON 文件流；成功（含 0 行）一律 Notify；开流前错误 JSON、开流后失败不 Notify。
+**目标：** ApiToken；`from?` + 必填 `limit`∈[1,1000]；`LIMIT` 查询后有界组 NDJSON 下载；成功写出（含 0 行）一律 Notify；写出前错误 JSON、写出失败不 Notify。
 
 **范围：**
 - OpenAPI path + components（仅导出）+ fixtures / `openapi:lint` / `test:openapi`
@@ -321,13 +335,13 @@ BEGIN
 
 **验收标准：**
 - [x] OpenAPI 与双端行为一致；未知/非法 query → 约定英文错误
-- [x] 200 为 NDJSON 流；0 行仍带正确头并 Notify 一次
+- [x] 200 为 NDJSON 正文；0 行仍带正确头；**写出成功后** Notify 一次
 - [x] from 非法 400、不存在 404、文案可区分
 - [x] 相关契约 / httpx / route 测绿
 
 **依赖 / 可并行：** **依赖阶段 1**。与阶段 3 **文件面可并行开发**，但建议 **先合 2 再合 3**（round-trip 与对外叙事更顺）；若并行开 PR，勿合并「仅一端导出」。
 
-**落地备注：** 错误终稿：`Invalid record id`（400）/ `export from id not found`（404）/ `limit must be an integer between 1 and 1000`（400）；Notify：`Exported N records (from {uuid|start}, limit L)`；GET 不调用 `readJsonBody` / `readBody`。
+**落地备注：** 错误终稿：`Invalid record id`（400）/ `export from id not found`（404）/ `limit must be an integer between 1 and 1000`（400）；Notify：`Exported N records (from {uuid|start}, limit L)`；GET 不调用 `readJsonBody` / `readBody`；实现为有界缓冲而非 DB cursor 真 chunk 流。
 
 ---
 
@@ -335,11 +349,11 @@ BEGIN
 
 **状态：已完成**（stem `importapi`；OpenAPI `paths/admin.yaml` import；Next `src/app/api/admin/import/records`；Go `handleImportRecords`）
 
-**目标：** AdminToken；multipart 字段 `file`；≤1000 行且 file part≤4MiB；单事务流式 upsert；可写保留 tag；成功（含空文件）commit + Notify；失败 rollback、不 Notify。
+**目标：** AdminToken；multipart 字段 `file`；≤1000 行且 file part≤4MiB 有界读入后单事务逐行 upsert；可写保留 tag；成功（含空文件）commit + Notify；失败 rollback、不 Notify。
 
 **范围：**
 - OpenAPI path + schemas（导入请求/响应/错误）+ fixtures
-- Next + Go：流式读 part、行号、seen 查重、upsert、计数 `inserted`/`updated`/`total`
+- Next + Go：有界读 part（Next 先 `file.size`；Go `LimitReader` + 非 file part 有界 Discard）、行号、seen 查重、upsert、计数 `inserted`/`updated`/`total`
 - 使用阶段 1 parse；**跳过** `assertNoReservedTags`
 - **bypass** `MAX_HTTP_BODY_BYTES` / 禁止误接 `readJsonBody`（验收：大 file 不因 256KiB 门闸 413）
 - 测试：超限、重复 id、行级错误、空文件 Notify、事务失败无 Notify、鉴权、保留 tag

@@ -133,11 +133,11 @@ d2efdd7  Add Tencent SCF Web provider scaffold with scf login flow
 
 | 项 | 状态 |
 |----|------|
-| 规划文 | ✅ [`docs/20260803-records-import-export.md`](20260803-records-import-export.md)（定稿 + 审查 errata：空导入 Notify、单事务流式、校验对齐 draft、from 400/404、并发表） |
+| 规划文 | ✅ [`docs/20260803-records-import-export.md`](20260803-records-import-export.md)（定稿 + 审查 errata：空导入 Notify、有界缓冲+单事务、校验对齐 draft、from 400/404、并发表） |
 | 形状 | **无 deform**：JSONL = OpenAPI `Record` camelCase；取消 Todo §5.3 旧「双认变形」 |
 | 鉴权 | Export = ApiToken；Import = AdminToken only |
-| 导出 | `from?` + 必填 `limit`∈[1,1000]；文件流；每页 Notify；无 suppress |
-| 导入 | multipart ≤1000 行且 ≤4MiB；流式 upsert；行级详细错误；始终 Notify |
+| 导出 | `from?` + 必填 `limit`∈[1,1000]；有界组 NDJSON 下载；写出后每页 Notify；无 suppress |
+| 导入 | multipart ≤1000 行且 ≤4MiB 有界读入后逐行 upsert；行级详细错误；始终 Notify |
 | Todo 回链 | ✅ `20260802-todo-feature.md` §5.3 / §8#15 / §9 |
 | 实现 | 当时 **未做**（仅规划）；**已落地**见 §10 |
 

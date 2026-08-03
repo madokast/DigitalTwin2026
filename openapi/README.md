@@ -72,7 +72,7 @@ npm run openapi:preview
 
 鉴权：`Authorization: Bearer …`；普通路由接受 AI Token 或 Admin Token；`/api/admin/*` 仅 Admin Token。
 
-Records 备份 / 迁移：`GET /api/export/records`（ApiToken；JSONL 游标文件流）、`POST /api/admin/import/records`（AdminToken；multipart JSONL upsert）。决策真源：[`docs/20260803-records-import-export.md`](../docs/20260803-records-import-export.md)。
+Records 备份 / 迁移：`GET /api/export/records`（ApiToken；JSONL 游标、有界缓冲下载）、`POST /api/admin/import/records`（AdminToken；multipart JSONL upsert）。决策真源：[`docs/20260803-records-import-export.md`](../docs/20260803-records-import-export.md)。
 
 ## 开发边界（定死）
 
