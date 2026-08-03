@@ -1,7 +1,7 @@
 # DigitalTwin2026：Records 导入 / 导出（规划）
 
 > 创建日期：2026-08-03  
-> 状态：**规划已定稿**（含审查 errata）；**实现阶段见 §11**（未落地）  
+> 状态：**规划已定稿**（含审查 errata）；**实现阶段见 §11**（阶段 1 已落地；2–4 未落地）  
 > 性质：分块备份 / 迁移；**不做**前端 UI；**一期无 gzip**  
 > 相关：[`docs/20260802-todo-feature.md`](20260802-todo-feature.md) §5.3、[`docs/20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)、OpenAPI `Record` / `ApiToken`·`AdminToken`、`src/proxy.ts`、写路径 `draft` / `logapi`
 
@@ -276,7 +276,7 @@ BEGIN
 
 ### 阶段 1：共享 Record JSONL 行编解码 / 校验
 
-**状态：未开始**
+**状态：已完成**（stem `recordjsonl`；共享 fixture `testdata/record-jsonl-cases.json`）
 
 **目标：** 双端同构「一行 ↔ 领域行」：表示层 Record camelCase、禁止 deform 键、字段/tags 语义对齐 draft（**import 侧跳过保留 tag 拒绝**的开关可放本阶段参数，或 import 阶段再包一层——须在 stem 注释写清）。
 
@@ -291,11 +291,13 @@ BEGIN
 - 不写 README 大段
 
 **验收标准：**
-- [ ] 双端单测覆盖 §2.1 / §2.2 表示层与语义要点（保留 tag：校验格式可通过；`assertNoReservedTags` 由调用方决定是否调用——测清边界）
-- [ ] 错误文案双端一致（或本阶段锁定初稿字符串表）
-- [ ] `npm test`（相关）与 `cd faas && go test`（相关包）绿
+- [x] 双端单测覆盖 §2.1 / §2.2 表示层与语义要点（保留 tag：校验格式可通过；`assertNoReservedTags` 由调用方决定是否调用——测清边界）
+- [x] 错误文案双端一致（或本阶段锁定初稿字符串表）
+- [x] `npm test`（相关）与 `cd faas && go test`（相关包）绿
 
 **依赖 / 可并行：** 无前置。阶段 2、3 依赖本阶段。
+
+**落地备注：** `parseLine` / `ParseLine` **不**调用 `assertNoReservedTags`（包注释已写清）；语义错误复用 draft 文案（snake_case，如 `value_number must be a decimal string`）；表示层错误用 camelCase 缺键 / `tags must be a stringified JSON array` / `Invalid JSON line`。
 
 ---
 

@@ -1,0 +1,85 @@
+{
+  "comment": "Shared Record JSONL line cases for recordjsonl ParseLine/SerializeLine. Next src/lib/recordjsonl.test.ts and Go faas/internal/recordjsonl load this file. Semantic errors from draft keep snake_case field names; representation errors use camelCase keys / JSONL-specific strings.",
+  "valid": [
+    {
+      "name": "number-with-offset",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happenedAt\":\"2026-07-30T08:00:00+08:00\",\"valueNumber\":\"75.5\",\"valueText\":null,\"tags\":\"[\\\"weight\\\"]\",\"objectiveContext\":\"morning weigh-in\",\"subjectiveInterpretation\":\"a bit heavy\"}",
+      "expectTags": ["weight"],
+      "expectValueNumber": "75.5",
+      "expectValueText": null,
+      "expectObjectiveContext": "morning weigh-in",
+      "expectSubjectiveInterpretation": "a bit heavy",
+      "expectHappenedAtUtcMs": 1785369600000,
+      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happenedAt\":\"2026-07-30T00:00:00.000Z\",\"valueNumber\":\"75.5\",\"valueText\":null,\"tags\":\"[\\\"weight\\\"]\",\"objectiveContext\":\"morning weigh-in\",\"subjectiveInterpretation\":\"a bit heavy\"}"
+    },
+    {
+      "name": "text-only",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000002\",\"happenedAt\":\"2026-07-30T00:00:00.000Z\",\"valueNumber\":null,\"valueText\":\"hello\",\"tags\":\"[\\\"note\\\"]\",\"objectiveContext\":\"memo\",\"subjectiveInterpretation\":null}",
+      "expectTags": ["note"],
+      "expectValueNumber": null,
+      "expectValueText": "hello",
+      "expectObjectiveContext": "memo",
+      "expectSubjectiveInterpretation": null,
+      "expectHappenedAtUtcMs": 1785369600000,
+      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000002\",\"happenedAt\":\"2026-07-30T00:00:00.000Z\",\"valueNumber\":null,\"valueText\":\"hello\",\"tags\":\"[\\\"note\\\"]\",\"objectiveContext\":\"memo\",\"subjectiveInterpretation\":null}"
+    },
+    {
+      "name": "reserved-todo-tag-passes-parse",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000003\",\"happenedAt\":\"2026-08-02T02:00:00.000Z\",\"valueNumber\":null,\"valueText\":\"Buy milk\",\"tags\":\"[\\\"todo:in_progress\\\",\\\"errand\\\"]\",\"objectiveContext\":\"weekend grocery list\",\"subjectiveInterpretation\":\"need it for breakfast\"}",
+      "expectTags": ["todo:in_progress", "errand"],
+      "expectValueNumber": null,
+      "expectValueText": "Buy milk",
+      "expectObjectiveContext": "weekend grocery list",
+      "expectSubjectiveInterpretation": "need it for breakfast",
+      "expectHappenedAtUtcMs": 1785636000000,
+      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000003\",\"happenedAt\":\"2026-08-02T02:00:00.000Z\",\"valueNumber\":null,\"valueText\":\"Buy milk\",\"tags\":\"[\\\"todo:in_progress\\\",\\\"errand\\\"]\",\"objectiveContext\":\"weekend grocery list\",\"subjectiveInterpretation\":\"need it for breakfast\"}"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "valueNumber-as-json-number",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happenedAt\":\"2026-07-30T00:00:00.000Z\",\"valueNumber\":75.5,\"valueText\":null,\"tags\":\"[\\\"weight\\\"]\",\"objectiveContext\":\"x\",\"subjectiveInterpretation\":null}",
+      "error": "value_number must be a decimal string"
+    },
+    {
+      "name": "tags-as-array",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happenedAt\":\"2026-07-30T00:00:00.000Z\",\"valueNumber\":\"1\",\"valueText\":null,\"tags\":[\"weight\"],\"objectiveContext\":\"x\",\"subjectiveInterpretation\":null}",
+      "error": "tags must be a stringified JSON array"
+    },
+    {
+      "name": "deform-created_at",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"created_at\":\"2026-07-30T00:00:00.000Z\",\"happenedAt\":\"2026-07-30T00:00:00.000Z\",\"valueNumber\":\"1\",\"valueText\":null,\"tags\":\"[\\\"weight\\\"]\",\"objectiveContext\":\"x\",\"subjectiveInterpretation\":null}",
+      "error": "Unknown JSON key: created_at"
+    },
+    {
+      "name": "deform-content",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happenedAt\":\"2026-07-30T00:00:00.000Z\",\"valueNumber\":null,\"valueText\":\"hi\",\"content\":\"hi\",\"tags\":\"[\\\"note\\\"]\",\"objectiveContext\":\"x\",\"subjectiveInterpretation\":null}",
+      "error": "Unknown JSON key: content"
+    },
+    {
+      "name": "both-values-null",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happenedAt\":\"2026-07-30T00:00:00.000Z\",\"valueNumber\":null,\"valueText\":null,\"tags\":\"[\\\"weight\\\"]\",\"objectiveContext\":\"x\",\"subjectiveInterpretation\":null}",
+      "error": "value_number and value_text cannot both be null"
+    },
+    {
+      "name": "invalid-id",
+      "line": "{\"id\":\"not-a-uuid\",\"happenedAt\":\"2026-07-30T00:00:00.000Z\",\"valueNumber\":\"1\",\"valueText\":null,\"tags\":\"[\\\"weight\\\"]\",\"objectiveContext\":\"x\",\"subjectiveInterpretation\":null}",
+      "error": "Invalid record id"
+    },
+    {
+      "name": "invalid-json",
+      "line": "{not json",
+      "error": "Invalid JSON line"
+    },
+    {
+      "name": "tags-json-not-array",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happenedAt\":\"2026-07-30T00:00:00.000Z\",\"valueNumber\":\"1\",\"valueText\":null,\"tags\":\"{\\\"a\\\":1}\",\"objectiveContext\":\"x\",\"subjectiveInterpretation\":null}",
+      "error": "tags field is not a JSON array"
+    }
+  ],
+  "withLineNumber": {
+    "lineNumber": 3,
+    "line": "{not json",
+    "error": "line 3: Invalid JSON line"
+  }
+}
