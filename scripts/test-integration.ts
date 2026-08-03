@@ -29,8 +29,8 @@ try {
   process.exit(1)
 }
 
-// 与 vitest setup 一致：测试态跳过 notify
-process.env.DIGITAL_TWIN_TEST ??= '1'
+// 与 vitest setup 一致：业务 notify_user 静音
+process.env.SUPPRESS_BOT_NOTIFICATION ??= '1'
 
 const binDir = resolve(REPO_ROOT, 'node_modules/.bin')
 const env: NodeJS.ProcessEnv = {

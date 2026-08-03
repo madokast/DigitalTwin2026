@@ -44,7 +44,7 @@ SELECT EXISTS (
 	}
 
 	srv := httpx.NewServer(pool, auth.Tokens{AI: "ai-tok", Admin: "admin-tok"})
-	// 集成测不打扰真实通知渠道（DIGITAL_TWIN_TEST 也会跳过；双保险）
+	// 集成测不打扰真实通知渠道（SUPPRESS_BOT_NOTIFICATION=1 也会跳过；双保险）
 	srv.Telegram = &telegram.Sender{Getenv: func(string) string { return "" }}
 	srv.Qqbot = &qqbot.Sender{Getenv: func(string) string { return "" }}
 	h := srv.Handler()

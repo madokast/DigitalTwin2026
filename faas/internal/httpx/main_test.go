@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// 集成/路由测共用：录入后 Notify 在 DIGITAL_TWIN_TEST 下静默跳过。
+// 集成/路由测共用：录入后 Notify 在 SUPPRESS_BOT_NOTIFICATION=1 下静默跳过。
 func TestMain(m *testing.M) {
-	_ = os.Setenv("DIGITAL_TWIN_TEST", "1")
-	_ = os.Unsetenv("NOTIFY_ALLOW_IN_TEST")
+	_ = os.Setenv("SUPPRESS_BOT_NOTIFICATION", "1")
 	os.Exit(m.Run())
 }

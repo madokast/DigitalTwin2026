@@ -17,34 +17,43 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	_ = os.Setenv("DIGITAL_TWIN_TEST", "1")
-	_ = os.Unsetenv("NOTIFY_ALLOW_IN_TEST")
+	_ = os.Setenv("SUPPRESS_BOT_NOTIFICATION", "1")
 	os.Exit(m.Run())
 }
 
-func TestShouldSkipNotifyInTest(t *testing.T) {
-	if !ShouldSkipNotifyInTest(func(k string) string {
-		if k == "DIGITAL_TWIN_TEST" {
-			return "1"
-		}
-		return ""
-	}) {
-		t.Fatal("expected skip")
+func TestShouldSuppressBotNotification(t *testing.T) {
+	cases := []struct {
+		name string
+		val  string
+		want bool
+	}{
+		{name: "one", val: "1", want: true},
+		{name: "trimmed_one", val: " 1 ", want: true},
+		{name: "zero", val: "0", want: false},
+		{name: "true", val: "true", want: false},
+		{name: "yes", val: "yes", want: false},
 	}
-	if ShouldSkipNotifyInTest(func(k string) string {
-		switch k {
-		case "DIGITAL_TWIN_TEST":
-			return "1"
-		case "NOTIFY_ALLOW_IN_TEST":
-			return "1"
-		}
-		return ""
-	}) {
-		t.Fatal("expected allow")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ShouldSuppressBotNotification(func(k string) string {
+				if k == "SUPPRESS_BOT_NOTIFICATION" {
+					return tc.val
+				}
+				return ""
+			})
+			if got != tc.want {
+				t.Fatalf("val=%q got=%v want=%v", tc.val, got, tc.want)
+			}
+		})
+	}
+
+	// 空注入回退 process.env（TestMain 设 SUPPRESS=1）
+	if !ShouldSuppressBotNotification(func(string) string { return "" }) {
+		t.Fatal("expected fallback to process.env SUPPRESS=1")
 	}
 }
 
-func TestNotifyUserSkipsInTestMode(t *testing.T) {
+func TestNotifyUserSkipsWhenSuppressed(t *testing.T) {
 	called := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
@@ -57,7 +66,7 @@ func TestNotifyUserSkipsInTestMode(t *testing.T) {
 			APIBase:    srv.URL,
 			Getenv: func(k string) string {
 				switch k {
-				case "DIGITAL_TWIN_TEST":
+				case "SUPPRESS_BOT_NOTIFICATION":
 					return "1"
 				case "TELEGRAM_BOT_TOKEN":
 					return "tok"
@@ -71,15 +80,15 @@ func TestNotifyUserSkipsInTestMode(t *testing.T) {
 	}
 	n.NotifyUser("hello")
 	if called {
-		t.Fatal("should not call channels in test mode")
+		t.Fatal("should not call channels when SUPPRESS_BOT_NOTIFICATION=1")
 	}
 }
 
 func TestNotifyUserWarnsWhenNoChannels(t *testing.T) {
 	n := &Notifier{
 		Getenv: func(k string) string {
-			if k == "NOTIFY_ALLOW_IN_TEST" {
-				return "1"
+			if k == "SUPPRESS_BOT_NOTIFICATION" {
+				return "0"
 			}
 			return ""
 		},
@@ -104,8 +113,8 @@ func TestNotifyUserTelegramOnly(t *testing.T) {
 			APIBase:    srv.URL,
 			Getenv: func(k string) string {
 				switch k {
-				case "NOTIFY_ALLOW_IN_TEST":
-					return "1"
+				case "SUPPRESS_BOT_NOTIFICATION":
+					return "0"
 				case "TELEGRAM_BOT_TOKEN":
 					return "tok"
 				case "TELEGRAM_USER_ID":
@@ -138,8 +147,8 @@ func TestNotifyUserQQOnly(t *testing.T) {
 
 	env := func(k string) string {
 		switch k {
-		case "NOTIFY_ALLOW_IN_TEST":
-			return "1"
+		case "SUPPRESS_BOT_NOTIFICATION":
+			return "0"
 		case "QQBOT_APP_ID":
 			return "a"
 		case "QQBOT_APP_SECRET":
@@ -203,8 +212,8 @@ func TestNotifyUserBothParallel(t *testing.T) {
 
 	env := func(k string) string {
 		switch k {
-		case "NOTIFY_ALLOW_IN_TEST":
-			return "1"
+		case "SUPPRESS_BOT_NOTIFICATION":
+			return "0"
 		case "TELEGRAM_BOT_TOKEN":
 			return "tok"
 		case "TELEGRAM_USER_ID":
@@ -252,8 +261,8 @@ func TestNotifyUserTimeout(t *testing.T) {
 			APIBase: "http://example.invalid",
 			Getenv: func(k string) string {
 				switch k {
-				case "NOTIFY_ALLOW_IN_TEST":
-					return "1"
+				case "SUPPRESS_BOT_NOTIFICATION":
+					return "0"
 				case "TELEGRAM_BOT_TOKEN":
 					return "tok"
 				case "TELEGRAM_USER_ID":
@@ -288,8 +297,8 @@ func TestNotifyUserLogsFailureWithoutPanic(t *testing.T) {
 			APIBase:    srv.URL,
 			Getenv: func(k string) string {
 				switch k {
-				case "NOTIFY_ALLOW_IN_TEST":
-					return "1"
+				case "SUPPRESS_BOT_NOTIFICATION":
+					return "0"
 				case "TELEGRAM_BOT_TOKEN":
 					return "t"
 				case "TELEGRAM_USER_ID":
@@ -318,8 +327,8 @@ func TestNotifyRecordInsertedFormats(t *testing.T) {
 			APIBase:    srv.URL,
 			Getenv: func(k string) string {
 				switch k {
-				case "NOTIFY_ALLOW_IN_TEST":
-					return "1"
+				case "SUPPRESS_BOT_NOTIFICATION":
+					return "0"
 				case "TELEGRAM_BOT_TOKEN":
 					return "t"
 				case "TELEGRAM_USER_ID":
@@ -356,15 +365,15 @@ func TestNotifySkipsWhenUnconfigured(t *testing.T) {
 			HTTPClient: srv.Client(),
 			APIBase:    srv.URL,
 			Getenv: func(k string) string {
-				if k == "NOTIFY_ALLOW_IN_TEST" {
-					return "1"
+				if k == "SUPPRESS_BOT_NOTIFICATION" {
+					return "0"
 				}
 				return ""
 			},
 		},
 		Qqbot: &qqbot.Sender{Getenv: func(k string) string {
-			if k == "NOTIFY_ALLOW_IN_TEST" {
-				return "1"
+			if k == "SUPPRESS_BOT_NOTIFICATION" {
+				return "0"
 			}
 			return ""
 		}},

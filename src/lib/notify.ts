@@ -24,8 +24,7 @@ export const NOTIFY_PARALLEL_TIMEOUT_MS = 15_000
 
 export type EnvLike = TelegramEnvLike &
   QqbotEnvLike & {
-    DIGITAL_TWIN_TEST?: string
-    NOTIFY_ALLOW_IN_TEST?: string
+    SUPPRESS_BOT_NOTIFICATION?: string
   }
 
 type FetchLike = TelegramFetchLike
@@ -37,10 +36,10 @@ function envFlagOn(value: string | undefined): boolean {
   return (value ?? '').trim() === '1'
 }
 
-/** 注入值非空优先；空则回退 process.env（与 Go ShouldSkipNotifyInTest 一致） */
+/** 注入值非空优先；空则回退 process.env（与 Go ShouldSuppressBotNotification 一致） */
 function envOrProcess(
   env: EnvLike,
-  key: 'DIGITAL_TWIN_TEST' | 'NOTIFY_ALLOW_IN_TEST',
+  key: 'SUPPRESS_BOT_NOTIFICATION',
 ): string {
   const injected = (env[key] ?? '').trim()
   if (injected !== '') return injected
@@ -48,16 +47,14 @@ function envOrProcess(
 }
 
 /**
- * 测试态下跳过录入后自动通知。
- * NOTIFY_ALLOW_IN_TEST=1 可放行（单测注入 mock 时用）。
+ * SUPPRESS_BOT_NOTIFICATION trim 后严格等于 '1' 时跳过业务自动 notify。
  * probe 走各渠道 send*，不受此限制。
- * 同时看注入 env 与 process.env（Vitest setup / TestMain 设的 DIGITAL_TWIN_TEST）。
+ * 同时看注入 env 与 process.env（Vitest setup / TestMain 设的 SUPPRESS_BOT_NOTIFICATION）。
  */
-export function shouldSkipNotifyInTest(env: EnvLike = processEnvLike()): boolean {
-  if (envFlagOn(envOrProcess(env, 'NOTIFY_ALLOW_IN_TEST'))) {
-    return false
-  }
-  return envFlagOn(envOrProcess(env, 'DIGITAL_TWIN_TEST'))
+export function shouldSuppressBotNotification(
+  env: EnvLike = processEnvLike(),
+): boolean {
+  return envFlagOn(envOrProcess(env, 'SUPPRESS_BOT_NOTIFICATION'))
 }
 
 /**
@@ -92,7 +89,7 @@ export async function notify_user(
   options?: { env?: EnvLike; fetch?: FetchLike; timeoutMs?: number },
 ): Promise<void> {
   const env = options?.env ?? processEnvLike()
-  if (shouldSkipNotifyInTest(env)) {
+  if (shouldSuppressBotNotification(env)) {
     return
   }
 
@@ -141,7 +138,7 @@ export async function notify_user(
   ])
 }
 
-/** 录入成功后 best-effort：测试态 / 未配置跳过；失败只打日志 */
+/** 录入成功后 best-effort：suppress / 未配置跳过；失败只打日志 */
 export async function notifyRecordInserted(
   record: NotifyRecord,
   options?: { env?: EnvLike; fetch?: FetchLike; timeoutMs?: number },

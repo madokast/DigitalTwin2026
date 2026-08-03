@@ -86,7 +86,7 @@ func envFlagOn(value string) bool {
 	return strings.TrimSpace(value) == "1"
 }
 
-// envOrProcess：注入值非空优先；空则回退 os.Getenv（与 Next ShouldSkipNotifyInTest 一致）。
+// envOrProcess：注入值非空优先；空则回退 os.Getenv（与 Next ShouldSuppressBotNotification 一致）。
 func envOrProcess(getenv func(string) string, key string) string {
 	if getenv == nil {
 		getenv = os.Getenv
@@ -98,14 +98,10 @@ func envOrProcess(getenv func(string) string, key string) string {
 	return strings.TrimSpace(os.Getenv(key))
 }
 
-// ShouldSkipNotifyInTest 测试态下跳过录入后自动通知。
-// NOTIFY_ALLOW_IN_TEST=1 可放行（单测注入 mock 时用）。
+// ShouldSuppressBotNotification：SUPPRESS_BOT_NOTIFICATION trim 后严格等于 "1" 时跳过业务自动 notify。
 // probe 走各渠道 SendMessage，不受此限制。
-func ShouldSkipNotifyInTest(getenv func(string) string) bool {
-	if envFlagOn(envOrProcess(getenv, "NOTIFY_ALLOW_IN_TEST")) {
-		return false
-	}
-	return envFlagOn(envOrProcess(getenv, "DIGITAL_TWIN_TEST"))
+func ShouldSuppressBotNotification(getenv func(string) string) bool {
+	return envFlagOn(envOrProcess(getenv, "SUPPRESS_BOT_NOTIFICATION"))
 }
 
 // NotifyUser 已配置渠道并行发送；总等待约 Timeout 后返回。失败只打英文日志，不含密钥。
@@ -114,7 +110,7 @@ func ShouldSkipNotifyInTest(getenv func(string) string) bool {
 // Go 导出 NotifyUser；TS 为 notify_user（snake_case）。同一 stem，语义对齐。
 func (n *Notifier) NotifyUser(text string) {
 	getenv := n.getenv()
-	if ShouldSkipNotifyInTest(getenv) {
+	if ShouldSuppressBotNotification(getenv) {
 		return
 	}
 

@@ -3,7 +3,7 @@ import {
   notify_user,
   notifyRecordInserted,
   scheduleBestEffortNotify,
-  shouldSkipNotifyInTest,
+  shouldSuppressBotNotification,
 } from './notify'
 import { clearAccessTokenCacheForTests } from './qqbot'
 
@@ -12,21 +12,34 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('shouldSkipNotifyInTest', () => {
-  it('skips when DIGITAL_TWIN_TEST=1 unless allow flag', () => {
-    expect(shouldSkipNotifyInTest({ DIGITAL_TWIN_TEST: '1' })).toBe(true)
+describe('shouldSuppressBotNotification', () => {
+  it('skips only when SUPPRESS_BOT_NOTIFICATION trim equals 1', () => {
     expect(
-      shouldSkipNotifyInTest({
-        DIGITAL_TWIN_TEST: '1',
-        NOTIFY_ALLOW_IN_TEST: '1',
-      }),
+      shouldSuppressBotNotification({ SUPPRESS_BOT_NOTIFICATION: '1' }),
+    ).toBe(true)
+    expect(
+      shouldSuppressBotNotification({ SUPPRESS_BOT_NOTIFICATION: ' 1 ' }),
+    ).toBe(true)
+    expect(
+      shouldSuppressBotNotification({ SUPPRESS_BOT_NOTIFICATION: '0' }),
+    ).toBe(false)
+    expect(
+      shouldSuppressBotNotification({ SUPPRESS_BOT_NOTIFICATION: 'true' }),
+    ).toBe(false)
+    expect(
+      shouldSuppressBotNotification({ SUPPRESS_BOT_NOTIFICATION: 'yes' }),
     ).toBe(false)
   })
 
   it('falls back to process.env when injected flag is empty', () => {
-    // tests/setup.ts 设 DIGITAL_TWIN_TEST=1；空注入应回退到 process.env
-    expect(shouldSkipNotifyInTest({})).toBe(true)
-    expect(shouldSkipNotifyInTest({ NOTIFY_ALLOW_IN_TEST: '1' })).toBe(false)
+    // tests/setup.ts 设 SUPPRESS_BOT_NOTIFICATION=1；空注入应回退到 process.env
+    expect(shouldSuppressBotNotification({})).toBe(true)
+    expect(
+      shouldSuppressBotNotification({ SUPPRESS_BOT_NOTIFICATION: '' }),
+    ).toBe(true)
+    expect(
+      shouldSuppressBotNotification({ SUPPRESS_BOT_NOTIFICATION: '0' }),
+    ).toBe(false)
   })
 })
 
@@ -49,7 +62,7 @@ describe('scheduleBestEffortNotify', () => {
 })
 
 describe('notify_user', () => {
-  it('skips in test mode even when channels are configured', async () => {
+  it('skips when SUPPRESS_BOT_NOTIFICATION=1 even when channels are configured', async () => {
     const fetchMock = vi.fn()
     await notify_user('hello', {
       env: {
@@ -58,7 +71,7 @@ describe('notify_user', () => {
         QQBOT_APP_ID: 'a',
         QQBOT_APP_SECRET: 's',
         QQBOT_USER_OPENID: 'o',
-        DIGITAL_TWIN_TEST: '1',
+        SUPPRESS_BOT_NOTIFICATION: '1',
       },
       fetch: fetchMock,
     })
@@ -69,7 +82,7 @@ describe('notify_user', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const fetchMock = vi.fn()
     await notify_user('hello', {
-      env: { NOTIFY_ALLOW_IN_TEST: '1' },
+      env: { SUPPRESS_BOT_NOTIFICATION: '0' },
       fetch: fetchMock,
     })
     expect(fetchMock).not.toHaveBeenCalled()
@@ -86,7 +99,7 @@ describe('notify_user', () => {
       env: {
         TELEGRAM_BOT_TOKEN: 'tok',
         TELEGRAM_USER_ID: '9',
-        NOTIFY_ALLOW_IN_TEST: '1',
+        SUPPRESS_BOT_NOTIFICATION: '0',
       },
       fetch: fetchMock,
     })
@@ -113,7 +126,7 @@ describe('notify_user', () => {
         QQBOT_APP_ID: 'a',
         QQBOT_APP_SECRET: 's',
         QQBOT_USER_OPENID: 'o',
-        NOTIFY_ALLOW_IN_TEST: '1',
+        SUPPRESS_BOT_NOTIFICATION: '0',
       },
       fetch: fetchMock,
     })
@@ -162,7 +175,7 @@ describe('notify_user', () => {
         QQBOT_APP_ID: 'a',
         QQBOT_APP_SECRET: 's',
         QQBOT_USER_OPENID: 'o',
-        NOTIFY_ALLOW_IN_TEST: '1',
+        SUPPRESS_BOT_NOTIFICATION: '0',
       },
       fetch: fetchMock,
     })
@@ -186,7 +199,7 @@ describe('notify_user', () => {
         env: {
           TELEGRAM_BOT_TOKEN: 'tok',
           TELEGRAM_USER_ID: '9',
-          NOTIFY_ALLOW_IN_TEST: '1',
+          SUPPRESS_BOT_NOTIFICATION: '0',
         },
         fetch: fetchMock,
         timeoutMs: 50,
@@ -207,7 +220,7 @@ describe('notify_user', () => {
         env: {
           TELEGRAM_BOT_TOKEN: 't',
           TELEGRAM_USER_ID: '1',
-          NOTIFY_ALLOW_IN_TEST: '1',
+          SUPPRESS_BOT_NOTIFICATION: '0',
         },
         fetch: fetchMock,
       }),
@@ -221,7 +234,7 @@ describe('notifyRecordInserted', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const fetchMock = vi.fn()
     await notifyRecordInserted(sampleNumber, {
-      env: { NOTIFY_ALLOW_IN_TEST: '1' },
+      env: { SUPPRESS_BOT_NOTIFICATION: '0' },
       fetch: fetchMock,
     })
     expect(fetchMock).not.toHaveBeenCalled()
@@ -238,7 +251,7 @@ describe('notifyRecordInserted', () => {
       env: {
         TELEGRAM_BOT_TOKEN: 't',
         TELEGRAM_USER_ID: '1',
-        NOTIFY_ALLOW_IN_TEST: '1',
+        SUPPRESS_BOT_NOTIFICATION: '0',
       },
       fetch: fetchMock,
     })

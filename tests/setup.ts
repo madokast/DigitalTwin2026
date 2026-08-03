@@ -3,10 +3,8 @@ import { loadTestEnv } from '../scripts/lib/test-env'
 // 始终以 .env.test 为准，避免 shell 里残留的旧 DATABASE_URL / Token 覆盖文件
 loadTestEnv({ override: true })
 
-// 显式测试态：notifyRecordInserted 以此跳过（即便后续 dotenv 写回渠道密钥）
-process.env.DIGITAL_TWIN_TEST = '1'
-delete process.env.NOTIFY_ALLOW_IN_TEST
-delete process.env.TELEGRAM_ALLOW_IN_TEST
+// 业务 notify_user 静音（与 .env.test 双保险；probe 不受此约束）
+process.env.SUPPRESS_BOT_NOTIFICATION = '1'
 
 // 集成测门闸只认 DATABASE_URL（须通过 assertSafeTestDatabaseUrl）
 
