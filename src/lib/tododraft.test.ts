@@ -4,10 +4,19 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { reservedTagError } from './tags'
 import {
+  auditObjectiveContext,
+  auditValueText,
+  ERR_INVALID_TARGET,
+  isTodoAuditRecordTags,
   parseTodo,
+  parseTodoTransition,
+  replaceTodoStateInTags,
   toTodoRecordJson,
   TODO_TAG_IN_PROGRESS,
+  TODO_TAG_TRANSITION,
+  todoStateFromTags,
   type TodoRecordJson,
+  type TodoState,
 } from './tododraft'
 import type { Record } from './record'
 
@@ -109,5 +118,89 @@ describe('parseTodo', () => {
         value_text: string
       }),
     ).toEqual({ error: 'Unknown JSON key: value_text' })
+  })
+})
+
+const auditFixture = JSON.parse(
+  readFileSync(
+    path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../testdata/todo-transition-audit.json',
+    ),
+    'utf8',
+  ),
+) as {
+  cases: Array<{
+    target: TodoState
+    todoHappenedAt: string
+    todoValueText: string
+    valueText: string
+  }>
+}
+
+describe('auditValueText shared fixture', () => {
+  it('matches §4.1 templates for all targets', () => {
+    for (const c of auditFixture.cases) {
+      expect(auditValueText(c.target, c.todoHappenedAt, c.todoValueText)).toBe(
+        c.valueText,
+      )
+    }
+  })
+
+  it('builds audit objective_context with todo id', () => {
+    expect(auditObjectiveContext('01900000-0000-7000-8000-000000000003')).toBe(
+      'The index of the to-do is 01900000-0000-7000-8000-000000000003',
+    )
+  })
+})
+
+describe('todo transition tag helpers', () => {
+  it('detects audit vs strict todo and replaces state', () => {
+    expect(isTodoAuditRecordTags([TODO_TAG_TRANSITION])).toBe(true)
+    expect(isTodoAuditRecordTags([TODO_TAG_IN_PROGRESS])).toBe(false)
+    expect(todoStateFromTags([TODO_TAG_IN_PROGRESS, 'errand'])).toBe(
+      'in_progress',
+    )
+    expect(
+      replaceTodoStateInTags([TODO_TAG_IN_PROGRESS, 'errand'], 'completed'),
+    ).toEqual(['todo:completed', 'errand'])
+  })
+})
+
+describe('parseTodoTransition', () => {
+  const base = {
+    id: '01900000-0000-7000-8000-000000000003',
+    target: 'completed',
+    happened_at: '2026-08-02T12:00:00+08:00',
+  }
+
+  it('accepts valid transition body', () => {
+    const parsed = parseTodoTransition(base)
+    expect('error' in parsed).toBe(false)
+    if ('error' in parsed) return
+    expect(parsed.id).toBe(base.id)
+    expect(parsed.target).toBe('completed')
+    expect(parsed.happenedAt.toISOString()).toBe('2026-08-02T04:00:00.000Z')
+  })
+
+  it('rejects missing fields / invalid target / unknown keys', () => {
+    expect(parseTodoTransition({ ...base, id: undefined })).toEqual({
+      error: 'Missing required field: id',
+    })
+    expect(parseTodoTransition({ ...base, target: undefined })).toEqual({
+      error: 'Missing required field: target',
+    })
+    expect(parseTodoTransition({ ...base, happened_at: undefined })).toEqual({
+      error: 'Missing required field: happened_at',
+    })
+    expect(parseTodoTransition({ ...base, target: 'done' })).toEqual({
+      error: ERR_INVALID_TARGET,
+    })
+    expect(
+      parseTodoTransition({
+        ...base,
+        created_at: base.happened_at,
+      } as typeof base & { created_at: string }),
+    ).toEqual({ error: 'Unknown JSON key: created_at' })
   })
 })

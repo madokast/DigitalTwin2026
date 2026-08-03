@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { POST as postNumber } from '@/app/api/log/number/route'
 import { POST as postBodyWeight } from '@/app/api/log/body/weight/route'
 import { POST as postTodo } from '@/app/api/log/todo/route'
+import { POST as postTodoTransition } from '@/app/api/log/todo/transition/route'
 import { POST as postText } from '@/app/api/log/text/route'
 import { POST as postTransaction } from '@/app/api/log/transaction/route'
 import { GET as queryRecords } from '@/app/api/query/route'
@@ -410,6 +411,166 @@ describe.skipIf(!hasTestDatabaseUrl)('API integration', () => {
       }))
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe('Unknown JSON key: happened_at')
+    })
+  })
+
+  describe('POST /api/log/todo/transition', () => {
+    async function createTodoRow(content = 'Buy milk') {
+      const res = await postTodo(jsonPost('http://localhost/api/log/todo', {
+        created_at: '2026-08-02T10:00:00+08:00',
+        content,
+        objective_context: 'weekend grocery list',
+        tags: ['errand'],
+        suppress_notification: true,
+      }))
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      return body.record as { id: string; created_at: string; content: string; tags: string }
+    }
+
+    it('transitions in_progress → completed with 200 shape and audit row', async () => {
+      const todo = await createTodoRow()
+      const res = await postTodoTransition(jsonPost(
+        'http://localhost/api/log/todo/transition',
+        {
+          id: todo.id,
+          target: 'completed',
+          happened_at: '2026-08-02T12:00:00+08:00',
+          suppress_notification: true,
+        },
+      ))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body).toEqual({
+        success: true,
+        id: todo.id,
+        transition: { from: 'in_progress', to: 'completed' },
+      })
+      expect(body).not.toHaveProperty('record')
+      expect(body).not.toHaveProperty('audit_record')
+
+      const qTodo = await queryRecords(jsonGet(
+        `http://localhost/api/query?id=${todo.id}`,
+      ))
+      expect(qTodo.status).toBe(200)
+      const todoRows = (await qTodo.json()).records as Array<{ tags: string }>
+      expect(todoRows[0].tags).toBe(JSON.stringify(['todo:completed', 'errand']))
+
+      const qAudit = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=todo:transition',
+      ))
+      const audits = (await qAudit.json()).records as Array<{
+        valueText: string
+        tags: string
+        objectiveContext: string
+        happenedAt: string
+      }>
+      const audit = audits.find((r) => r.objectiveContext === `The index of the to-do is ${todo.id}`)
+      expect(audit).toBeTruthy()
+      expect(audit!.tags).toBe(JSON.stringify(['todo:transition']))
+      expect(audit!.happenedAt).toBe('2026-08-02T04:00:00.000Z')
+      expect(audit!.valueText).toBe(
+        `Complete a to-do created at ${todo.created_at}: ${todo.content}`,
+      )
+    })
+
+    it('returns four distinct English errors', async () => {
+      const todo = await createTodoRow('Distinct errors')
+
+      const missing = await postTodoTransition(jsonPost(
+        'http://localhost/api/log/todo/transition',
+        {
+          id: '01900000-0000-7000-8000-000000000099',
+          target: 'completed',
+          happened_at: '2026-08-02T12:00:00+08:00',
+          suppress_notification: true,
+        },
+      ))
+      expect(missing.status).toBe(404)
+      expect((await missing.json()).error).toBe('to-do not found')
+
+      const text = await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-08-02T10:00:00+08:00',
+        value_text: 'plain note',
+        tags: ['note'],
+        objective_context: 'x',
+        suppress_notification: true,
+      }))
+      expect(text.status).toBe(201)
+      const textId = (await text.json()).record.id as string
+      const notTodo = await postTodoTransition(jsonPost(
+        'http://localhost/api/log/todo/transition',
+        {
+          id: textId,
+          target: 'completed',
+          happened_at: '2026-08-02T12:00:00+08:00',
+          suppress_notification: true,
+        },
+      ))
+      expect(notTodo.status).toBe(400)
+      expect((await notTodo.json()).error).toBe('record is not a to-do')
+
+      const done = await postTodoTransition(jsonPost(
+        'http://localhost/api/log/todo/transition',
+        {
+          id: todo.id,
+          target: 'completed',
+          happened_at: '2026-08-02T12:00:00+08:00',
+          suppress_notification: true,
+        },
+      ))
+      expect(done.status).toBe(200)
+      const auditQ = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=todo:transition',
+      ))
+      const audits = (await auditQ.json()).records as Array<{
+        id: string
+        objectiveContext: string
+      }>
+      const auditId = audits.find(
+        (r) => r.objectiveContext === `The index of the to-do is ${todo.id}`,
+      )!.id
+      const onAudit = await postTodoTransition(jsonPost(
+        'http://localhost/api/log/todo/transition',
+        {
+          id: auditId,
+          target: 'paused',
+          happened_at: '2026-08-02T13:00:00+08:00',
+          suppress_notification: true,
+        },
+      ))
+      expect(onAudit.status).toBe(400)
+      expect((await onAudit.json()).error).toBe(
+        'cannot transition a to-do audit record',
+      )
+
+      const already = await postTodoTransition(jsonPost(
+        'http://localhost/api/log/todo/transition',
+        {
+          id: todo.id,
+          target: 'completed',
+          happened_at: '2026-08-02T14:00:00+08:00',
+          suppress_notification: true,
+        },
+      ))
+      expect(already.status).toBe(400)
+      expect((await already.json()).error).toBe(
+        'to-do is already in target state',
+      )
+    })
+
+    it('rejects created_at as unknown key', async () => {
+      const res = await postTodoTransition(jsonPost(
+        'http://localhost/api/log/todo/transition',
+        {
+          id: '01900000-0000-7000-8000-000000000003',
+          target: 'completed',
+          happened_at: '2026-08-02T12:00:00+08:00',
+          created_at: '2026-08-02T12:00:00+08:00',
+        },
+      ))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('Unknown JSON key: created_at')
     })
   })
 

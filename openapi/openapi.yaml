@@ -53,6 +53,8 @@ paths:
     $ref: './paths/log.yaml#/~1api~1log~1body~1weight'
   /api/log/todo:
     $ref: './paths/log.yaml#/~1api~1log~1todo'
+  /api/log/todo/transition:
+    $ref: './paths/log.yaml#/~1api~1log~1todo~1transition'
   /api/log/text:
     $ref: './paths/log.yaml#/~1api~1log~1text'
   /api/log/transaction:
@@ -162,6 +164,10 @@ components:
       $ref: './components/schemas.yaml#/TodoRecordSuccess'
     LogTodoRequest:
       $ref: './components/schemas.yaml#/LogTodoRequest'
+    LogTodoTransitionRequest:
+      $ref: './components/schemas.yaml#/LogTodoTransitionRequest'
+    TodoTransitionSuccess:
+      $ref: './components/schemas.yaml#/TodoTransitionSuccess'
     LogTextRequest:
       $ref: './components/schemas.yaml#/LogTextRequest'
     RecordDraftRequest:

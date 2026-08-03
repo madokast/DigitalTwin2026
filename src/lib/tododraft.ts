@@ -88,24 +88,167 @@ export function toTodoRecordJson(rec: Record): TodoRecordJson {
   }
 }
 
+/** Transition 四类可区分英文错误（双端字节一致） */
+export const ERR_TODO_NOT_FOUND = 'to-do not found'
+export const ERR_NOT_A_TODO = 'record is not a to-do'
+export const ERR_AUDIT_TRANSITION = 'cannot transition a to-do audit record'
+export const ERR_ALREADY_TARGET = 'to-do is already in target state'
+export const ERR_INVALID_TARGET =
+  'target must be one of: in_progress, completed, cancelled, paused'
+
+export const LOG_TODO_TRANSITION_KEYS = [
+  'id',
+  'target',
+  'happened_at',
+  'suppress_notification',
+] as const
+
+export type LogTodoTransitionBody = {
+  id?: unknown
+  target?: unknown
+  happened_at?: unknown
+  suppress_notification?: unknown
+}
+
+export type NormalizedTodoTransition = {
+  id: string
+  target: TodoState
+  happenedAt: Date
+}
+
+function isStateTag(tag: string): boolean {
+  return (
+    tag === TODO_TAG_IN_PROGRESS ||
+    tag === TODO_TAG_COMPLETED ||
+    tag === TODO_TAG_CANCELLED ||
+    tag === TODO_TAG_PAUSED
+  )
+}
+
+/** `todo:{state}` → TodoState；非状态 tag → null */
+export function todoStateFromTag(tag: string): TodoState | null {
+  switch (tag) {
+    case TODO_TAG_IN_PROGRESS:
+      return 'in_progress'
+    case TODO_TAG_COMPLETED:
+      return 'completed'
+    case TODO_TAG_CANCELLED:
+      return 'cancelled'
+    case TODO_TAG_PAUSED:
+      return 'paused'
+    default:
+      return null
+  }
+}
+
+export function todoTagForState(state: TodoState): string {
+  return `todo:${state}`
+}
+
 /**
  * 录入侧严判定：恰好一个四态 tag，且不含 todo:transition。
- * Phase 2 创建路径不依赖；供后续 transition / 测试复用。
  */
 export function isStrictTodoRecordTags(tagList: string[]): boolean {
   let stateCount = 0
   for (const tag of tagList) {
     if (tag === TODO_TAG_TRANSITION) return false
-    if (
-      tag === TODO_TAG_IN_PROGRESS ||
-      tag === TODO_TAG_COMPLETED ||
-      tag === TODO_TAG_CANCELLED ||
-      tag === TODO_TAG_PAUSED
-    ) {
+    if (isStateTag(tag)) {
       stateCount++
     }
   }
   return stateCount === 1
+}
+
+/** 审计行：含 todo:transition 且无四态代表 tag */
+export function isTodoAuditRecordTags(tagList: string[]): boolean {
+  let hasTransition = false
+  let hasState = false
+  for (const tag of tagList) {
+    if (tag === TODO_TAG_TRANSITION) hasTransition = true
+    if (isStateTag(tag)) hasState = true
+  }
+  return hasTransition && !hasState
+}
+
+/** 严待办行上的唯一代表状态；否则 null */
+export function todoStateFromTags(tagList: string[]): TodoState | null {
+  if (!isStrictTodoRecordTags(tagList)) return null
+  for (const tag of tagList) {
+    const state = todoStateFromTag(tag)
+    if (state) return state
+  }
+  return null
+}
+
+/** 仅替换唯一四态 tag；其余 tags 原样保留（调用方须先严判定） */
+export function replaceTodoStateInTags(
+  tagList: string[],
+  target: TodoState,
+): string[] {
+  const targetTag = todoTagForState(target)
+  return tagList.map((tag) => (isStateTag(tag) ? targetTag : tag))
+}
+
+/**
+ * §4.1 审计 value_text；happenedAt / valueText 为流转前待办行字段全文。
+ */
+export function auditValueText(
+  target: TodoState,
+  todoHappenedAt: string,
+  todoValueText: string,
+): string {
+  const verb =
+    target === 'completed'
+      ? 'Complete'
+      : target === 'cancelled'
+        ? 'Cancel'
+        : target === 'paused'
+          ? 'Pause'
+          : 'Resume'
+  return `${verb} a to-do created at ${todoHappenedAt}: ${todoValueText}`
+}
+
+/** 审计行 objective_context 备查 id */
+export function auditObjectiveContext(todoId: string): string {
+  return `The index of the to-do is ${todoId}`
+}
+
+/**
+ * 校验 transition 请求体（未知键 / 必填 / target 枚举 / happened_at）。
+ * id 格式由 logapi 用 isValidRecordId 再判。
+ */
+export function parseTodoTransition(
+  body: LogTodoTransitionBody,
+): NormalizedTodoTransition | DraftValidationError {
+  const unknown = rejectUnknownKeys(body, LOG_TODO_TRANSITION_KEYS)
+  if (unknown) {
+    return { error: unknown.error }
+  }
+
+  if (!body.id || typeof body.id !== 'string') {
+    return { error: 'Missing required field: id' }
+  }
+
+  if (body.target === undefined || body.target === null || body.target === '') {
+    return { error: 'Missing required field: target' }
+  }
+  if (typeof body.target !== 'string') {
+    return { error: ERR_INVALID_TARGET }
+  }
+  if (!(TODO_STATES as readonly string[]).includes(body.target)) {
+    return { error: ERR_INVALID_TARGET }
+  }
+
+  const happened = parseHappenedAt(body.happened_at)
+  if ('error' in happened) {
+    return { error: happened.error }
+  }
+
+  return {
+    id: body.id,
+    target: body.target as TodoState,
+    happenedAt: happened.value,
+  }
 }
 
 /** created_at 校验：语义同 parseHappenedAt，错误文案用 created_at */

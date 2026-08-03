@@ -81,6 +81,64 @@ func ToTodoRecordJSON(rec record.Record) TodoRecordJSON {
 	}
 }
 
+// Transition 四类可区分英文错误（与 TS tododraft 字节一致）。
+const (
+	ErrTodoNotFound     = "to-do not found"
+	ErrNotATodo         = "record is not a to-do"
+	ErrAuditTransition  = "cannot transition a to-do audit record"
+	ErrAlreadyTarget    = "to-do is already in target state"
+	ErrInvalidTarget    = "target must be one of: in_progress, completed, cancelled, paused"
+)
+
+// LogTodoTransitionBody POST /api/log/todo/transition 请求体。
+type LogTodoTransitionBody struct {
+	ID                   any `json:"id"`
+	Target               any `json:"target"`
+	HappenedAt           any `json:"happened_at"`
+	SuppressNotification any `json:"suppress_notification"`
+}
+
+var logTodoTransitionKeys = []string{
+	"id", "target", "happened_at", "suppress_notification",
+}
+
+// NormalizedTodoTransition 校验后的流转请求。
+type NormalizedTodoTransition struct {
+	ID         string
+	Target     string // TodoState 字面量
+	HappenedAt time.Time
+}
+
+func isStateTag(tag string) bool {
+	switch tag {
+	case TodoTagInProgress, TodoTagCompleted, TodoTagCancelled, TodoTagPaused:
+		return true
+	default:
+		return false
+	}
+}
+
+// TodoStateFromTag `todo:{state}` → TodoState；非状态 tag → ""。
+func TodoStateFromTag(tag string) string {
+	switch tag {
+	case TodoTagInProgress:
+		return TodoStateInProgress
+	case TodoTagCompleted:
+		return TodoStateCompleted
+	case TodoTagCancelled:
+		return TodoStateCancelled
+	case TodoTagPaused:
+		return TodoStatePaused
+	default:
+		return ""
+	}
+}
+
+// TodoTagForState TodoState → `todo:{state}`。
+func TodoTagForState(state string) string {
+	return "todo:" + state
+}
+
 // IsStrictTodoRecordTags 录入侧严判定：恰好一个四态 tag，且不含 todo:transition。
 func IsStrictTodoRecordTags(tagList []string) bool {
 	stateCount := 0
@@ -88,12 +146,127 @@ func IsStrictTodoRecordTags(tagList []string) bool {
 		if tag == TodoTagTransition {
 			return false
 		}
-		switch tag {
-		case TodoTagInProgress, TodoTagCompleted, TodoTagCancelled, TodoTagPaused:
+		if isStateTag(tag) {
 			stateCount++
 		}
 	}
 	return stateCount == 1
+}
+
+// IsTodoAuditRecordTags 审计行：含 todo:transition 且无四态代表 tag。
+func IsTodoAuditRecordTags(tagList []string) bool {
+	hasTransition := false
+	hasState := false
+	for _, tag := range tagList {
+		if tag == TodoTagTransition {
+			hasTransition = true
+		}
+		if isStateTag(tag) {
+			hasState = true
+		}
+	}
+	return hasTransition && !hasState
+}
+
+// TodoStateFromTags 严待办行上的唯一代表状态；否则 ""。
+func TodoStateFromTags(tagList []string) string {
+	if !IsStrictTodoRecordTags(tagList) {
+		return ""
+	}
+	for _, tag := range tagList {
+		if s := TodoStateFromTag(tag); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+// ReplaceTodoStateInTags 仅替换唯一四态 tag；其余原样保留。
+func ReplaceTodoStateInTags(tagList []string, target string) []string {
+	targetTag := TodoTagForState(target)
+	out := make([]string, len(tagList))
+	for i, tag := range tagList {
+		if isStateTag(tag) {
+			out[i] = targetTag
+		} else {
+			out[i] = tag
+		}
+	}
+	return out
+}
+
+// AuditValueText §4.1 审计 value_text。
+func AuditValueText(target, todoHappenedAt, todoValueText string) string {
+	verb := "Resume"
+	switch target {
+	case TodoStateCompleted:
+		verb = "Complete"
+	case TodoStateCancelled:
+		verb = "Cancel"
+	case TodoStatePaused:
+		verb = "Pause"
+	}
+	return verb + " a to-do created at " + todoHappenedAt + ": " + todoValueText
+}
+
+// AuditObjectiveContext 审计行 objective_context 备查 id。
+func AuditObjectiveContext(todoID string) string {
+	return "The index of the to-do is " + todoID
+}
+
+func isValidTodoState(s string) bool {
+	switch s {
+	case TodoStateInProgress, TodoStateCompleted, TodoStateCancelled, TodoStatePaused:
+		return true
+	default:
+		return false
+	}
+}
+
+// ParseTodoTransition 校验 transition 请求体。
+func ParseTodoTransition(raw []byte) (NormalizedTodoTransition, error) {
+	if err := jsonutil.RejectUnknownObjectKeys(raw, logTodoTransitionKeys); err != nil {
+		return NormalizedTodoTransition{}, err
+	}
+	var body LogTodoTransitionBody
+	if err := jsonutil.DecodeUseNumber(raw, &body); err != nil {
+		return NormalizedTodoTransition{}, err
+	}
+
+	id, ok := body.ID.(string)
+	if !ok || id == "" {
+		return NormalizedTodoTransition{}, fmt.Errorf("Missing required field: id")
+	}
+
+	if body.Target == nil {
+		return NormalizedTodoTransition{}, fmt.Errorf("Missing required field: target")
+	}
+	target, ok := body.Target.(string)
+	if !ok || target == "" {
+		if !ok {
+			return NormalizedTodoTransition{}, fmt.Errorf("%s", ErrInvalidTarget)
+		}
+		return NormalizedTodoTransition{}, fmt.Errorf("Missing required field: target")
+	}
+	if !isValidTodoState(target) {
+		return NormalizedTodoTransition{}, fmt.Errorf("%s", ErrInvalidTarget)
+	}
+
+	happenedAt, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
+	if err != nil {
+		return NormalizedTodoTransition{}, err
+	}
+
+	return NormalizedTodoTransition{
+		ID:         id,
+		Target:     target,
+		HappenedAt: happenedAt,
+	}, nil
+}
+
+func happenedAtString(raw any) string {
+	s, _ := raw.(string)
+	return s
 }
 
 func parseCreatedAt(raw any) (time.Time, error) {

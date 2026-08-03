@@ -139,6 +139,57 @@
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
+/api/log/todo/transition:
+  post:
+    operationId: logTodoTransition
+    tags: [log]
+    summary: Transition a to-do state
+    description: |
+      Atomically replaces the to-do's representative `todo:{state}` tag with
+      `todo:{target}` and inserts an audit text row tagged `todo:transition`
+      (value_text per feature spec §4.1). Success is HTTP **200** with
+      `{ success, id, transition: { from, to } }` (TodoState literals; no
+      `record` / `audit_record`). Notify exactly once with the audit
+      value_text unless `suppress_notification: true`. Four distinct English
+      errors: not found (404), not a to-do / audit / already target (400).
+      Auth: ApiToken (AI token or Admin token).
+    security:
+      - ApiToken: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/LogTodoTransitionRequest'
+          example:
+            id: '01900000-0000-7000-8000-000000000003'
+            target: completed
+            happened_at: '2026-08-02T12:00:00+08:00'
+            suppress_notification: false
+    responses:
+      '200':
+        description: To-do transitioned (no record payloads)
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/TodoTransitionSuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        description: No to-do row with this id
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Error'
+            example:
+              error: to-do not found
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
 /api/log/text:
   post:
     operationId: logText

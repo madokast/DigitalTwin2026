@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -40,6 +41,10 @@ type Server struct {
 	Telegram *telegram.Sender
 	Qqbot    *qqbot.Sender
 	Notify   *notify.Notifier
+	// TransitionTodo 可选；nil → logapi.TransitionTodo（单测注入成功/域错误结果，无需 Neon）。
+	TransitionTodo func(ctx context.Context, pool *pgxpool.Pool, raw []byte) (logapi.TransitionResult, int, error)
+	// NotifyUser 可选；非 nil 时同步调用（单测 spy）；nil → go notify().NotifyUser（生产路径）。
+	NotifyUser func(text string)
 }
 
 func NewServer(pool *pgxpool.Pool, tokens auth.Tokens) *Server {
@@ -58,6 +63,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/log/number", s.handleLogNumber)
 	mux.HandleFunc("POST /api/log/body/weight", s.handleLogBodyWeight)
 	mux.HandleFunc("POST /api/log/todo", s.handleLogTodo)
+	mux.HandleFunc("POST /api/log/todo/transition", s.handleLogTodoTransition)
 	mux.HandleFunc("POST /api/log/text", s.handleLogText)
 	mux.HandleFunc("POST /api/log/transaction", s.handleLogTransaction)
 	mux.HandleFunc("POST /api/telegram/probe", s.handleTelegramProbe)
@@ -106,9 +112,13 @@ func withJSONErrorPages(next http.Handler) http.Handler {
 		if code == 0 {
 			code = http.StatusOK
 		}
+		// 仅改写框架 404（无路由，通常 text/plain）；业务 404（application/json，如 to-do not found）原样透传。
 		if code == http.StatusNotFound {
-			writeError(w, http.StatusNotFound, "Not found")
-			return
+			ct := buf.Header().Get("Content-Type")
+			if !strings.Contains(ct, "application/json") {
+				writeError(w, http.StatusNotFound, "Not found")
+				return
+			}
 		}
 		if code == http.StatusMethodNotAllowed {
 			if allow := buf.Header().Get("Allow"); allow != "" {
@@ -290,6 +300,52 @@ func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, status, map[string]any{
 		"success": true,
 		"record":  tododraft.ToTodoRecordJSON(rec),
+	})
+}
+
+func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request) {
+	raw, ok := readBodyOrError(w, r)
+	if !ok {
+		return
+	}
+	suppress, err := notify.ReadSuppressNotification(raw)
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+	var (
+		result logapi.TransitionResult
+		status int
+	)
+	if s.TransitionTodo != nil {
+		result, status, err = s.TransitionTodo(r.Context(), s.Pool, raw)
+	} else {
+		result, status, err = logapi.TransitionTodo(r.Context(), s.Pool, raw)
+	}
+	if err != nil {
+		if status >= 500 {
+			log.Printf("Error transitioning to-do: %v", err)
+			writeInternalError(w, err)
+			return
+		}
+		writeError(w, status, err.Error())
+		return
+	}
+	// §4.2：恰好一次 notify，正文 = 审计 value_text
+	if !suppress {
+		if s.NotifyUser != nil {
+			s.NotifyUser(result.AuditValueText)
+		} else {
+			go s.notify().NotifyUser(result.AuditValueText)
+		}
+	}
+	writeJSON(w, status, map[string]any{
+		"success": true,
+		"id":      result.ID,
+		"transition": map[string]string{
+			"from": result.From,
+			"to":   result.To,
+		},
 	})
 }
 

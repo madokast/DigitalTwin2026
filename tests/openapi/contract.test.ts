@@ -134,6 +134,29 @@ describe('OpenAPI contract (Phase 2)', () => {
     )
   })
 
+  it('accepts LogTodoTransitionRequest / TodoTransitionSuccess and rejects created_at', async () => {
+    await assertValidSchema(
+      'LogTodoTransitionRequest',
+      readFixture('log-todo-transition-request-valid.json'),
+    )
+    await assertValidSchema(
+      'TodoTransitionSuccess',
+      readFixture('todo-transition-success.json'),
+    )
+    const ok = readFixture('todo-transition-success.json') as {
+      id: string
+      transition: { from: string; to: string }
+    }
+    expect(ok.transition.from).toBe('in_progress')
+    expect(ok.transition.to).toBe('completed')
+    expect(ok).not.toHaveProperty('record')
+    expect(ok).not.toHaveProperty('audit_record')
+    await assertInvalidSchema(
+      'LogTodoTransitionRequest',
+      readFixture('log-todo-transition-request-unknown-created-at.json'),
+    )
+  })
+
   it('rejects LogTransactionRequest empty entries / JSON number amount / missing type', async () => {
     await assertInvalidSchema(
       'LogTransactionRequest',

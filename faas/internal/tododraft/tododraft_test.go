@@ -143,3 +143,96 @@ func TestIsStrictTodoRecordTags(t *testing.T) {
 		t.Fatal("no state must fail")
 	}
 }
+
+func TestAuditValueTextSharedFixture(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), "testdata", "todo-transition-audit.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fx struct {
+		Cases []struct {
+			Target         string `json:"target"`
+			TodoHappenedAt string `json:"todoHappenedAt"`
+			TodoValueText  string `json:"todoValueText"`
+			ValueText      string `json:"valueText"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(b, &fx); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range fx.Cases {
+		got := AuditValueText(c.Target, c.TodoHappenedAt, c.TodoValueText)
+		if got != c.ValueText {
+			t.Fatalf("target=%s got=%q want=%q", c.Target, got, c.ValueText)
+		}
+	}
+	wantObj := "The index of the to-do is 01900000-0000-7000-8000-000000000003"
+	if AuditObjectiveContext("01900000-0000-7000-8000-000000000003") != wantObj {
+		t.Fatalf("objective=%q", AuditObjectiveContext("01900000-0000-7000-8000-000000000003"))
+	}
+}
+
+func TestReplaceTodoStateInTags(t *testing.T) {
+	got := ReplaceTodoStateInTags([]string{TodoTagInProgress, "errand"}, TodoStateCompleted)
+	if len(got) != 2 || got[0] != TodoTagCompleted || got[1] != "errand" {
+		t.Fatalf("got=%v", got)
+	}
+	if !IsTodoAuditRecordTags([]string{TodoTagTransition}) {
+		t.Fatal("expected audit")
+	}
+	if TodoStateFromTags([]string{TodoTagInProgress, "errand"}) != TodoStateInProgress {
+		t.Fatal("expected in_progress")
+	}
+}
+
+func TestParseTodoTransition(t *testing.T) {
+	raw := []byte(`{
+		"id": "01900000-0000-7000-8000-000000000003",
+		"target": "completed",
+		"happened_at": "2026-08-02T12:00:00+08:00"
+	}`)
+	got, err := ParseTodoTransition(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != "01900000-0000-7000-8000-000000000003" || got.Target != TodoStateCompleted {
+		t.Fatalf("got=%+v", got)
+	}
+	if record.FormatHappenedAt(got.HappenedAt) != "2026-08-02T04:00:00.000Z" {
+		t.Fatalf("happenedAt=%s", record.FormatHappenedAt(got.HappenedAt))
+	}
+}
+
+func TestParseTodoTransitionRejects(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want string
+	}{
+		{
+			`{"target":"completed","happened_at":"2026-08-02T12:00:00+08:00"}`,
+			"Missing required field: id",
+		},
+		{
+			`{"id":"01900000-0000-7000-8000-000000000003","happened_at":"2026-08-02T12:00:00+08:00"}`,
+			"Missing required field: target",
+		},
+		{
+			`{"id":"01900000-0000-7000-8000-000000000003","target":"completed"}`,
+			"Missing required field: happened_at",
+		},
+		{
+			`{"id":"01900000-0000-7000-8000-000000000003","target":"done","happened_at":"2026-08-02T12:00:00+08:00"}`,
+			ErrInvalidTarget,
+		},
+		{
+			`{"id":"01900000-0000-7000-8000-000000000003","target":"completed","happened_at":"2026-08-02T12:00:00+08:00","created_at":"x"}`,
+			"Unknown JSON key: created_at",
+		},
+	}
+	for _, tc := range cases {
+		_, err := ParseTodoTransition([]byte(tc.raw))
+		if err == nil || err.Error() != tc.want {
+			t.Fatalf("raw=%s err=%v want=%q", tc.raw, err, tc.want)
+		}
+	}
+}

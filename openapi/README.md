@@ -128,7 +128,7 @@ npm run openapi:preview
 
 ## 契约测覆盖
 
-Fixtures 覆盖：RecordSuccess（number/text）、TodoRecordSuccess、Error、Query/Summary/TagsSuccess、LogNumber/LogBodyWeight/LogTodo/LogText 请求、Rename 请求/成功、RecordDraft、Telegram probe 请求/成功、LogTransaction（含 `type`）；非法：JSON number、`1e3`、无时区 `happened_at`、todo 未知键 `happened_at`、transaction 缺 `type` / 空 entries。
+Fixtures 覆盖：RecordSuccess（number/text）、TodoRecordSuccess、TodoTransitionSuccess、Error、Query/Summary/TagsSuccess、LogNumber/LogBodyWeight/LogTodo/LogTodoTransition/LogText 请求、Rename 请求/成功、RecordDraft、Telegram probe 请求/成功、LogTransaction（含 `type`）；非法：JSON number、`1e3`、无时区 `happened_at`、todo 未知键 `happened_at`、todo transition 未知键 `created_at`、transaction 缺 `type` / 空 entries。
 
 存量：若库中仍有裸 tag `transaction_entry`（无 `:type` 后缀），测试/生产库需手工 truncate/清理；契约与测试已按前缀语义对齐。保留前缀另含 `body:weight`（专用 `POST /api/log/body/weight`）与 `todo`（专用 `POST /api/log/todo`，Phase 2 起可写入；Phase 1 起通用路径拒写）。
 

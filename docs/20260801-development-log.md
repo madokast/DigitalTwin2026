@@ -1,7 +1,7 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-08-01（续至 2026-08-03）
-> 状态：transaction 录入 + summary；金额 `MoneyAmountString` 收紧；body weight 写入；Todo Phase 1 保留前缀 + Phase 2 创建；双端 API 对齐；统一 `notify_user` + QQ Bot；契约收紧（未知键 / `suppress_notification`）
+> 状态：transaction 录入 + summary；金额 `MoneyAmountString` 收紧；body weight 写入；Todo Phase 1 保留前缀 + Phase 2 创建 + Phase 3 transition；双端 API 对齐；统一 `notify_user` + QQ Bot；契约收紧（未知键 / `suppress_notification`）
 
 ## 0. 今日做成了什么（总览）
 
@@ -13,12 +13,13 @@
 | Body weight | `POST /api/log/body/weight`：保留 tag `body:weight`；`WeightAmountString` 1.00–500.00；无专用趋势 API |
 | Todo Phase 1 | 保留前缀 `todo` / `todo:*`：通用 log + Admin rename 拒写；错误指向 `/api/log/todo` |
 | Todo Phase 2 | `POST /api/log/todo` 创建：`created_at`/`content` 别名；落库 `todo:in_progress`；`201.record` 变形；notify + suppress |
+| Todo Phase 3 | `POST /api/log/todo/transition`：同事务改状态 tag + 审计 `todo:transition`；`200` 仅 `id`+`transition`；notify 一次=审计文案 |
 | 双端对齐 | 大量 Next ↔ Go 契约/语义对齐（JSON、时区、UUID、鉴权路径、Telegram、query 等）；见 §2 |
 | 分层文档 | [`docs/20260801-api-layering.md`](20260801-api-layering.md)：模块同构、§1.1 允许差异、§7 通知 |
 | 通知统一 | `notify_user` / `NotifyUser`：Telegram + QQ 并行 timed await；`NOTIFY_ALLOW_IN_TEST` |
 | QQ Bot | `POST /api/qqbot/probe`；运行时 C2C 主动发；本地 `npm run qqbot:listen-openid` |
 | 部署 UX | `secrets:refresh-prod` / FC deploy：先问是否开启 TG/QQ，否→空串，是→填齐并探测 |
-| 录入开关 | 五个 log 写入 API（number / text / transaction / body/weight / todo）可选 `suppress_notification`（默认 false；true 跳过 notify） |
+| 录入开关 | 六个 log 写入 API（number / text / transaction / body/weight / todo / todo/transition）可选 `suppress_notification`（默认 false；true 跳过 notify） |
 | 契约收紧 | 请求体未知 JSON 键 → 400 `Unknown JSON key: …`（`additionalProperties: false`） |
 | Query 排序 | `GET /api/query` 固定 `happened_at ASC, id ASC`（无 `order` 参数；双端常量 + `testdata/query-records-list-order.json`） |
 | 构建 | FC `go build -trimpath -ldflags="-s -w"`；tags→`tagsdb` 修 Vercel Client 打进 postgres |
@@ -107,6 +108,19 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 | Notify | 成功后 best-effort `notify_user`（与其它 log 同）；`suppress_notification: true` 跳过 |
 | 模块 | `tododraft`（`parseTodo` / `toTodoRecordJson`）+ `logapi.createTodo` / `CreateTodo`；分层表已补 |
 | Query 变形 | **未做**（Phase 4）；期内 query 待办行仍可能是默认 Record 键 |
+
+### 1b3. Todo Phase 3 — Transition + 审计（2026-08-03）
+
+| 项 | 约定 |
+|----|------|
+| 路径 | `POST /api/log/todo/transition`（ApiToken：AI 或 Admin） |
+| 请求 | `id` + `target`（TodoState）+ `happened_at`（审计时间）必填；可选 `suppress_notification` |
+| 禁键 | 不得带 `created_at` / `content`（未知键 400） |
+| 事务 | UPDATE 仅替换代表状态 tag；INSERT 审计行 `todo:transition`（§4.1 `value_text`） |
+| 成功 | `200` + `{ success, id, transition: { from, to } }`；**无** `record` / `audit_record` |
+| 错误 | 四类英文：`to-do not found` / `record is not a to-do` / `cannot transition a to-do audit record` / `to-do is already in target state` |
+| Notify | 成功后恰好一次，正文 = 审计 `value_text`；`suppress_notification: true` 跳过 |
+| 模块 | `tododraft`（`parseTodoTransition` / `auditValueText`）+ `logapi.transitionTodo` / `TransitionTodo` |
 
 ---
 

@@ -434,8 +434,8 @@ TodoState:
   type: string
   description: |
     To-do state literal (not the full `todo:{state}` tag). Create always
-    starts as `in_progress`. Transition API (later phase) uses these values
-    for `target` / response `from`/`to`.
+    starts as `in_progress`. Transition uses these values for request
+    `target` and response `transition.from` / `transition.to`.
   enum: [in_progress, completed, cancelled, paused]
 
 TodoRecord:
@@ -532,6 +532,58 @@ LogTodoRequest:
         When true, skip notify_user after a successful insert.
         Omitted / null → false. Non-boolean → 400
         (`Invalid suppress_notification`). Not stored on the record.
+
+LogTodoTransitionRequest:
+  type: object
+  required: [id, target, happened_at]
+  additionalProperties: false
+  description: |
+    Transition a to-do's representative state tag. Does not accept
+    `created_at` / `content` (unknown keys → 400). Only replaces the
+    `todo:{state}` tag; other fields and extra tags are unchanged.
+    Same transaction inserts an audit text row tagged `todo:transition`.
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: To-do row UUID
+    target:
+      $ref: '#/TodoState'
+    happened_at:
+      $ref: '#/HappenedAtInput'
+      description: Time anchor for the audit row (not the to-do's created_at)
+    suppress_notification:
+      type: [boolean, 'null']
+      default: false
+      description: |
+        When true, skip notify_user after a successful transition.
+        Omitted / null → false. Non-boolean → 400
+        (`Invalid suppress_notification`). Not stored on the record.
+
+TodoTransitionSuccess:
+  type: object
+  required: [success, id, transition]
+  additionalProperties: false
+  description: |
+    HTTP 200 body after a successful transition. No `record` /
+    `audit_record` — fetch via GET /api/query if needed.
+  properties:
+    success:
+      type: boolean
+      const: true
+    id:
+      type: string
+      format: uuid
+      description: Transitioned to-do UUID (same as request `id`)
+    transition:
+      type: object
+      required: [from, to]
+      additionalProperties: false
+      properties:
+        from:
+          $ref: '#/TodoState'
+        to:
+          $ref: '#/TodoState'
 
 LogTextRequest:
   type: object

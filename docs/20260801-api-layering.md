@@ -101,7 +101,7 @@ flowchart LR
 | `draft` | `faas/internal/draft` | `src/lib/draft.ts` | TS 已由 `record-draft.ts` 改名 |
 | `transactiondraft` | `faas/internal/transactiondraft` | `src/lib/transactiondraft.ts` | **独立成包**（已落地）；TS 已由 `transaction-draft.ts` 改名；Go 已从 `logapi` 抽出纯解析 |
 | `bodyweightdraft` | `faas/internal/bodyweightdraft` | `src/lib/bodyweightdraft.ts` | **独立成包**；体重 `value_number` 解析/规范化；落库 tags 组装含 `body:weight` |
-| `tododraft` | `faas/internal/tododraft` | `src/lib/tododraft.ts` | **独立成包**；待办创建（及后续 transition）纯解析；`todo:in_progress` tags 组装；待办行 HTTP JSON 变形（`created_at`/`content`） |
+| `tododraft` | `faas/internal/tododraft` | `src/lib/tododraft.ts` | **独立成包**；待办创建 / transition 纯解析；状态 tag 组装与替换；审计 `value_text` 模板；待办行 HTTP JSON 变形（`created_at`/`content`） |
 | `query` | `faas/internal/query` | `src/lib/query.ts` | TS 已由 `query-records.ts` 改名 |
 | `logapi` | `faas/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` / `bodyweightdraft` / `tododraft` |
 | `record` | `faas/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `Update` / `FromDB` / `TagsJSON` / type `Record` |
@@ -120,7 +120,7 @@ flowchart LR
 
 **`bodyweightdraft` 独立**：体重纯解析不得长期留在 `logapi`；`logapi.CreateBodyWeight` / `createBodyWeight` 只做校验结果落库。
 
-**`tododraft` 独立**：待办纯解析与对外 JSON 变形不得长期留在 `logapi` / HTTP；`logapi.CreateTodo` / `createTodo` 只做校验结果落库；HTTP 成功响应用 `ToTodoRecordJSON` / `toTodoRecordJson` 变形。
+**`tododraft` 独立**：待办纯解析与对外 JSON 变形不得长期留在 `logapi` / HTTP；`logapi.CreateTodo` / `createTodo` 与 `TransitionTodo` / `transitionTodo` 只做校验结果落库 / 事务；HTTP 创建成功响应用 `ToTodoRecordJSON` / `toTodoRecordJson` 变形；transition 成功体无 record。
 
 ---
 
@@ -130,10 +130,10 @@ flowchart LR
 
 | Stem | Go | TS |
 |------|----|----|
-| logapi | `CreateNumber` / `CreateText` / `CreateTransactionBatch` / `CreateBodyWeight` / `CreateTodo` | `createNumber` / `createText` / `createTransactionBatch` / `createBodyWeight` / `createTodo` |
+| logapi | `CreateNumber` / `CreateText` / `CreateTransactionBatch` / `CreateBodyWeight` / `CreateTodo` / `TransitionTodo` | `createNumber` / `createText` / `createTransactionBatch` / `createBodyWeight` / `createTodo` / `transitionTodo` |
 | transactiondraft | `ParseTransactionBatch`（及同包输入 / 归一化类型） | `parseTransactionBatch` |
 | bodyweightdraft | `ParseBodyWeight` / `ParseWeightAmount` | `parseBodyWeight` / `parseWeightAmount` |
-| tododraft | `ParseTodo` / `ToTodoRecordJSON` / type `TodoRecordJSON` | `parseTodo` / `toTodoRecordJson` / type `TodoRecordJson` |
+| tododraft | `ParseTodo` / `ParseTodoTransition` / `ToTodoRecordJSON` / `AuditValueText` / type `TodoRecordJSON` | `parseTodo` / `parseTodoTransition` / `toTodoRecordJson` / `auditValueText` / type `TodoRecordJson` |
 | tags | `RenameAcrossRecords` / `ValidateRename` | `renameAcrossRecords`（`tagsdb`）/ `validateRename`（`tags`） |
 | record | `Update` | `update` |
 | record | `FromDB` / `TagsJSON` / type `Record` | `fromDB` / `tagsJSON` / type `Record`（已取代 `toApiRecord` / `ApiRecord`，或薄包装同名） |

@@ -2,14 +2,37 @@
  * log 录入：校验 + Drizzle 写入；与 Go `faas/internal/logapi` 同构。
  * Telegram 不在此包——由 HTTP route 在成功后 best-effort 调用。
  */
+import { eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
 import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
 import { parseHappenedAt, parseValueNumber } from '@/lib/draft'
-import { fromDB, tagsJSON, type Record } from '@/lib/record'
+import {
+  fromDB,
+  isValidRecordId,
+  INVALID_RECORD_ID,
+  tagsJSON,
+  type Record,
+} from '@/lib/record'
 import { assertNoReservedTags, validateTags } from '@/lib/tags'
-import { parseTodo, type LogTodoBody } from '@/lib/tododraft'
+import {
+  auditObjectiveContext,
+  auditValueText,
+  ERR_ALREADY_TARGET,
+  ERR_AUDIT_TRANSITION,
+  ERR_NOT_A_TODO,
+  ERR_TODO_NOT_FOUND,
+  isTodoAuditRecordTags,
+  parseTodo,
+  parseTodoTransition,
+  replaceTodoStateInTags,
+  TODO_TAG_TRANSITION,
+  todoStateFromTags,
+  type LogTodoBody,
+  type LogTodoTransitionBody,
+  type TodoState,
+} from '@/lib/tododraft'
 import { parseTransactionBatch } from '@/lib/transactiondraft'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
 
@@ -219,6 +242,100 @@ export async function createTodo(
     return { record, status: 201 }
   } catch (err) {
     console.error('Error creating to-do record:', err)
+    return { error: 'Internal server error', status: 500 }
+  }
+}
+
+export type TransitionTodoOk = {
+  id: string
+  from: TodoState
+  to: TodoState
+  auditValueText: string
+  status: 200
+}
+export type TransitionTodoResult = TransitionTodoOk | LogApiError
+
+function parseTagsList(tagsField: string): string[] {
+  const parsed: unknown = JSON.parse(tagsField)
+  if (!Array.isArray(parsed)) {
+    throw new Error('tags field is not a JSON array')
+  }
+  return parsed.filter((t): t is string => typeof t === 'string')
+}
+
+/**
+ * 与 Go `logapi.TransitionTodo` 对齐：同事务 UPDATE 状态 tag + INSERT 审计。
+ */
+export async function transitionTodo(
+  body: LogTodoTransitionBody,
+): Promise<TransitionTodoResult> {
+  const parsed = parseTodoTransition(body)
+  if ('error' in parsed) {
+    return { error: parsed.error, status: 400 }
+  }
+  if (!isValidRecordId(parsed.id)) {
+    return { error: INVALID_RECORD_ID, status: 400 }
+  }
+
+  try {
+    const existing = await db
+      .select()
+      .from(records)
+      .where(eq(records.id, parsed.id))
+      .limit(1)
+    if (existing.length === 0) {
+      return { error: ERR_TODO_NOT_FOUND, status: 404 }
+    }
+
+    const todoRec = fromDB(existing[0])
+    let tagList: string[]
+    try {
+      tagList = parseTagsList(todoRec.tags)
+    } catch {
+      console.error('Error parsing to-do tags for transition')
+      return { error: 'Internal server error', status: 500 }
+    }
+
+    if (isTodoAuditRecordTags(tagList)) {
+      return { error: ERR_AUDIT_TRANSITION, status: 400 }
+    }
+    const from = todoStateFromTags(tagList)
+    if (!from) {
+      return { error: ERR_NOT_A_TODO, status: 400 }
+    }
+    if (from === parsed.target) {
+      return { error: ERR_ALREADY_TARGET, status: 400 }
+    }
+
+    const content = todoRec.valueText ?? ''
+    const auditText = auditValueText(parsed.target, todoRec.happenedAt, content)
+    const newTags = replaceTodoStateInTags(tagList, parsed.target)
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(records)
+        .set({ tags: tagsJSON(newTags) })
+        .where(eq(records.id, parsed.id))
+      await tx.insert(records).values({
+        id: uuidv7(),
+        happenedAt: parsed.happenedAt,
+        valueNumber: null,
+        valueText: auditText,
+        tags: tagsJSON([TODO_TAG_TRANSITION]),
+        objectiveContext: auditObjectiveContext(parsed.id),
+        subjectiveInterpretation: null,
+      })
+    })
+
+    return {
+      id: parsed.id,
+      from,
+      to: parsed.target,
+      auditValueText: auditText,
+      status: 200,
+    }
+  } catch (err) {
+    console.error('Error transitioning to-do:', err)
     return { error: 'Internal server error', status: 500 }
   }
 }

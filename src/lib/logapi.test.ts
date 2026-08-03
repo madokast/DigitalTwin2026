@@ -6,9 +6,12 @@ import {
   createNumber,
   createText,
   createTodo,
+  transitionTodo,
   createTransactionBatch,
 } from '@/lib/logapi'
+import { INVALID_RECORD_ID } from '@/lib/record'
 import { reservedTagError } from '@/lib/tags'
+import { ERR_INVALID_TARGET } from '@/lib/tododraft'
 import { AMOUNT_MUST_BE_STRING, INVALID_AMOUNT } from '@/lib/transactiondraft'
 
 describe('createNumber', () => {
@@ -239,6 +242,33 @@ describe('createTodo', () => {
       error: 'Unknown JSON key: happened_at',
       status: 400,
     })
+  })
+})
+
+describe('transitionTodo', () => {
+  it('rejects missing id / invalid target / invalid uuid without DB', async () => {
+    expect(
+      await transitionTodo({
+        target: 'completed',
+        happened_at: '2026-08-02T12:00:00+08:00',
+      }),
+    ).toEqual({ error: 'Missing required field: id', status: 400 })
+
+    expect(
+      await transitionTodo({
+        id: '01900000-0000-7000-8000-000000000003',
+        target: 'done',
+        happened_at: '2026-08-02T12:00:00+08:00',
+      }),
+    ).toEqual({ error: ERR_INVALID_TARGET, status: 400 })
+
+    expect(
+      await transitionTodo({
+        id: 'not-a-uuid',
+        target: 'completed',
+        happened_at: '2026-08-02T12:00:00+08:00',
+      }),
+    ).toEqual({ error: INVALID_RECORD_ID, status: 400 })
   })
 })
 

@@ -87,6 +87,8 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"log-body-weight-request-valid.json", "LogBodyWeightRequest"},
 		{"log-todo-request-valid.json", "LogTodoRequest"},
 		{"record-todo-success.json", "TodoRecordSuccess"},
+		{"log-todo-transition-request-valid.json", "LogTodoTransitionRequest"},
+		{"todo-transition-success.json", "TodoTransitionSuccess"},
 		{"log-text-request-valid.json", "LogTextRequest"},
 		{"tags-success.json", "TagsSuccess"},
 		{"rename-tags-request-valid.json", "RenameTagsRequest"},
@@ -155,6 +157,15 @@ func TestLogTodoRequestRejectsUnknownHappenedAt(t *testing.T) {
 		t.Fatal(err)
 	}
 	visitJSONExpectFail(t, schema(t, doc, "LogTodoRequest"), data)
+}
+
+func TestLogTodoTransitionRequestRejectsUnknownCreatedAt(t *testing.T) {
+	doc := loadDoc(t)
+	var data any
+	if err := json.Unmarshal(readFixture(t, "log-todo-transition-request-unknown-created-at.json"), &data); err != nil {
+		t.Fatal(err)
+	}
+	visitJSONExpectFail(t, schema(t, doc, "LogTodoTransitionRequest"), data)
 }
 
 func TestLogNumberRequestRejectsNoTzAndScientific(t *testing.T) {
