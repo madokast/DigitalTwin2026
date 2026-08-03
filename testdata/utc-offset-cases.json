@@ -1,0 +1,109 @@
+{
+  "comment": "Shared extractUtcOffsetLiteral / FormatHappenedAt(instant, utc_offset) cases. Next src/lib/utcoffset.test.ts and Go faas/internal/utcoffset load this file. Z ≠ +00:00; compact ±HHMM → ±HH:MM.",
+  "extract": [
+    {
+      "name": "Z-upper",
+      "input": "2026-08-03T08:00:00Z",
+      "utc_offset": "Z"
+    },
+    {
+      "name": "Z-lower",
+      "input": "2026-08-03T08:00:00z",
+      "utc_offset": "Z"
+    },
+    {
+      "name": "Z-with-ms",
+      "input": "2026-08-03T08:00:00.123Z",
+      "utc_offset": "Z"
+    },
+    {
+      "name": "plus-zero-colon",
+      "input": "2026-08-03T08:00:00+00:00",
+      "utc_offset": "+00:00"
+    },
+    {
+      "name": "minus-zero-colon",
+      "input": "2026-08-03T08:00:00-00:00",
+      "utc_offset": "-00:00"
+    },
+    {
+      "name": "compact-plus-0800",
+      "input": "2026-08-03T08:00:00+0800",
+      "utc_offset": "+08:00"
+    },
+    {
+      "name": "compact-minus-0430",
+      "input": "2026-08-03T08:00:00-0430",
+      "utc_offset": "-04:30"
+    },
+    {
+      "name": "already-colon-plus",
+      "input": "2026-08-03T08:00:00+08:00",
+      "utc_offset": "+08:00"
+    },
+    {
+      "name": "already-colon-minus",
+      "input": "2026-08-03T08:00:00-04:30",
+      "utc_offset": "-04:30"
+    },
+    {
+      "name": "reject-no-suffix",
+      "input": "2026-08-03T08:00:00",
+      "error": "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)"
+    },
+    {
+      "name": "reject-bare-date",
+      "input": "2026-08-03",
+      "error": "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)"
+    },
+    {
+      "name": "reject-empty",
+      "input": "",
+      "error": "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)"
+    }
+  ],
+  "format": [
+    {
+      "name": "Z",
+      "instant_utc": "2026-08-03T00:00:00.000Z",
+      "utc_offset": "Z",
+      "want": "2026-08-03T00:00:00.000Z"
+    },
+    {
+      "name": "plus-00-not-Z",
+      "instant_utc": "2026-08-03T00:00:00.000Z",
+      "utc_offset": "+00:00",
+      "want": "2026-08-03T00:00:00.000+00:00"
+    },
+    {
+      "name": "minus-00",
+      "instant_utc": "2026-08-03T00:00:00.000Z",
+      "utc_offset": "-00:00",
+      "want": "2026-08-03T00:00:00.000-00:00"
+    },
+    {
+      "name": "plus-08",
+      "instant_utc": "2026-08-03T00:00:00.000Z",
+      "utc_offset": "+08:00",
+      "want": "2026-08-03T08:00:00.000+08:00"
+    },
+    {
+      "name": "minus-04-30",
+      "instant_utc": "2026-08-03T00:00:00.000Z",
+      "utc_offset": "-04:30",
+      "want": "2026-08-02T19:30:00.000-04:30"
+    },
+    {
+      "name": "same-instant-Z-vs-plus08-wall",
+      "instant_utc": "2026-08-03T00:00:00.000Z",
+      "utc_offset": "+08:00",
+      "want": "2026-08-03T08:00:00.000+08:00"
+    },
+    {
+      "name": "with-ms",
+      "instant_utc": "2026-08-03T00:00:00.123Z",
+      "utc_offset": "+08:00",
+      "want": "2026-08-03T08:00:00.123+08:00"
+    }
+  ]
+}

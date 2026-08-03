@@ -227,7 +227,7 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 
 ### 阶段 1：双端 offset helper + 单测（尚无 schema）
 
-**状态：未开始**
+**状态：已完成**
 
 **目标：** 双端同构 `extract`/`normalize` 与 `formatHappenedAt(instant, offset)`，用单测锁住 §3 规则（含 `Z` ≠ `+00:00`、`+0800`→`+08:00`）。
 
@@ -236,17 +236,22 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 - 共享或镜像 fixture：`Z`、`+00:00`、`-00:00`（若接受）、紧凑 `±HHMM`、已是 `±HH:MM`、非法/无后缀
 - 纯函数单测；**不**改 DB schema、**不**改 HTTP handler 默认行为（可暂未接线）
 
+**落地：**
+- Next：`src/lib/utcoffset.ts`（`extractUtcOffsetLiteral` / `formatHappenedAt(instant, utcOffset)`）
+- Go：`faas/internal/utcoffset`（`ExtractUtcOffsetLiteral` / `FormatHappenedAt`）
+- 共享 fixture：`testdata/utc-offset-cases.json`；尚未接线 `record` / draft / route
+
 **不做什么：**
 - 不加 `utc_offset` 列；不改 draft / route / OpenAPI
 - 不实现复盘；不引入 IANA
 - 不借机大改 import/export / PATCH
 
 **验收标准：**
-- [ ] `Z` 与 `+00:00` **不**互相折叠（存与 format 往返各自保留）
-- [ ] 紧凑 `+0800` / `-0430` → 规范 `+08:00` / `-04:30`
-- [ ] `formatHappenedAt`：同一瞬间 + 不同 offset 产出对应墙钟后缀（含 `…Z`）
-- [ ] 非法 / 无时区后缀：与现网 draft 拒绝语义对齐（或本阶段明确抛错类型，由阶段 3 接到 400）
-- [ ] `npm test`（相关）与 `cd faas && go test`（相关包）绿
+- [x] `Z` 与 `+00:00` **不**互相折叠（存与 format 往返各自保留）
+- [x] 紧凑 `+0800` / `-0430` → 规范 `+08:00` / `-04:30`
+- [x] `formatHappenedAt`：同一瞬间 + 不同 offset 产出对应墙钟后缀（含 `…Z`）
+- [x] 非法 / 无时区后缀：与现网 draft 拒绝语义对齐（或本阶段明确抛错类型，由阶段 3 接到 400）
+- [x] `npm test`（相关）与 `cd faas && go test`（相关包）绿
 
 **依赖 / 可并行：** 无前置。与**阶段 2 可并行**开发/开 PR（文件面基本不重叠）。阶段 3+ 依赖本阶段。
 
