@@ -1,9 +1,9 @@
 /**
  * Records 导入（与 Go `importapi` 同构）。
  *
- * POST /api/admin/import/records：multipart `file` → 流式 parse（recordjsonl）→
- * 单事务 upsert；可写保留 tag（不调 assertNoReservedTags）。成功 commit + Notify；
- * 失败 rollback、不 Notify。勿接 `readJsonBody`（须 bypass 256KiB 门闸）。
+ * POST /api/admin/import/records：multipart `file`（≤4MiB 有界读入）→ 逐行 parse
+ * （recordjsonl）→ 单事务 upsert；可写保留 tag（不调 assertNoReservedTags）。
+ * 成功 commit + Notify；失败 rollback、不 Notify。勿接 `readJsonBody`（须 bypass 256KiB）。
  */
 
 import { eq } from 'drizzle-orm'

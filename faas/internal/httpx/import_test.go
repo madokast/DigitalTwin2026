@@ -162,3 +162,40 @@ func TestImportRecordsDoesNotUseMaxBodyGate(t *testing.T) {
 		t.Fatalf("must not use body-too-large gate")
 	}
 }
+
+func TestImportRecordsRejectsOversizedNonFilePart(t *testing.T) {
+	h := importTestServer().Handler()
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	// 先写超大非 file 字段，须 400 且有界丢弃（不得无界 Copy）。
+	if err := w.WriteField("noise", strings.Repeat("x", importapi.MaxImportFileBytes+1)); err != nil {
+		t.Fatal(err)
+	}
+	hPart := make(textproto.MIMEHeader)
+	hPart.Set("Content-Disposition", `form-data; name="file"; filename="records.jsonl"`)
+	hPart.Set("Content-Type", "application/x-ndjson")
+	part, err := w.CreatePart(hPart)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write([]byte("")); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/import/records", &body)
+	req.Header.Set("Authorization", "Bearer admin-tok")
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var errBody map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &errBody)
+	if errBody["error"] != importapi.ErrMultipartPartTooLarge.Error() {
+		t.Fatalf("error %v", errBody)
+	}
+}

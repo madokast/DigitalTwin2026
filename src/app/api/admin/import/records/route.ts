@@ -7,8 +7,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   formatImportNotifyMessage,
+  IMPORT_LIMITS_ERROR,
   importRecordsJsonl,
   isAcceptedImportFilePart,
+  MAX_IMPORT_FILE_BYTES,
   MULTIPART_CONTENT_TYPE,
   MULTIPART_FILE_REQUIRED,
   MULTIPART_MULTIPLE_FILE,
@@ -56,6 +58,14 @@ export async function POST(request: NextRequest) {
     if (!isAcceptedImportFilePart(partType, filename)) {
       return NextResponse.json(
         { error: UNSUPPORTED_FILE_CONTENT_TYPE },
+        { status: 400 },
+      )
+    }
+
+    // 与 Go LimitReader(…, 4MiB+1) 对齐：先判 size，避免超限仍无界 file.text()。
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      return NextResponse.json(
+        { error: IMPORT_LIMITS_ERROR },
         { status: 400 },
       )
     }

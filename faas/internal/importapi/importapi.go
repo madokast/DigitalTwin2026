@@ -1,8 +1,8 @@
 // Package importapi：Records 导入（与 Next `src/lib/importapi.ts` 同构）。
 //
-// POST /api/admin/import/records：multipart file → 流式 parse（recordjsonl）→
-// 单事务 upsert；可写保留 tag（不调 AssertNoReservedTags）。成功 commit + Notify；
-// 失败 rollback、不 Notify。勿接 readBody（须 bypass MaxBodyBytes 门闸）。
+// POST /api/admin/import/records：multipart file（≤4MiB 有界读入）→ 逐行 parse
+// （recordjsonl）→ 单事务 upsert；可写保留 tag（不调 AssertNoReservedTags）。
+// 成功 commit + Notify；失败 rollback、不 Notify。勿接 readBody（须 bypass MaxBodyBytes）。
 package importapi
 
 import (
@@ -39,6 +39,11 @@ var ErrMultipartContentType = errors.New("expected Content-Type multipart/form-d
 // ErrUnsupportedFileContentType 与 Next UNSUPPORTED_FILE_CONTENT_TYPE 同文案。
 var ErrUnsupportedFileContentType = errors.New(
 	"unsupported file Content-Type; use application/x-ndjson, application/jsonl, or application/octet-stream with a .jsonl filename",
+)
+
+// ErrMultipartPartTooLarge 非 file part 丢弃超限（与 MaxImportFileBytes 同量级）。
+var ErrMultipartPartTooLarge = errors.New(
+	"multipart non-file part exceeds size limit (max 4 MiB)",
 )
 
 // Counts 成功计数（与 Next ImportCounts 对齐）。
@@ -94,7 +99,8 @@ func StatusOf(err error) int {
 		errors.Is(err, ErrMultipartRequired) ||
 		errors.Is(err, ErrMultipartMultipleFile) ||
 		errors.Is(err, ErrMultipartContentType) ||
-		errors.Is(err, ErrUnsupportedFileContentType) {
+		errors.Is(err, ErrUnsupportedFileContentType) ||
+		errors.Is(err, ErrMultipartPartTooLarge) {
 		return 400
 	}
 	return 0

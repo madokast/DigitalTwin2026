@@ -66,7 +66,7 @@ beforeEach(() => {
 })
 
 describe('GET /api/export/records notify schedule', () => {
-  it('schedules notify on success including empty export', async () => {
+  it('schedules notify only after successful 200 response is built', async () => {
     fetchExportRecords.mockResolvedValue({ records: [], status: 200 })
     buildExportNdjson.mockReturnValue('')
     formatExportNotifyMessage.mockReturnValue(
@@ -78,6 +78,7 @@ describe('GET /api/export/records notify schedule', () => {
     expect(res.headers.get('Content-Type')).toBe('application/x-ndjson')
     expect(res.headers.get('Content-Disposition')).toContain('attachment')
     expect(await res.text()).toBe('')
+    // 响应已构造成功后才 schedule（对齐 §4.5）
     expect(scheduleBestEffortNotify).toHaveBeenCalledTimes(1)
     const task = scheduleBestEffortNotify.mock.calls[0][0] as () => void
     task()

@@ -633,14 +633,18 @@ func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 	now := s.Now()
 	w.Header().Set("Content-Type", "application/x-ndjson")
 	w.Header().Set("Content-Disposition", exportapi.ExportContentDisposition(parsed.From, parsed.Limit, now))
+	w.WriteHeader(200)
+	// §4.5：响应体写出成功后再 Notify；Write 失败不视为成功备份。
+	if _, err := w.Write([]byte(body)); err != nil {
+		log.Printf("Error writing export body: %v", err)
+		return
+	}
 	msg := exportapi.FormatExportNotifyMessage(len(recs), parsed.From, parsed.Limit)
 	if s.NotifyUser != nil {
 		s.NotifyUser(msg)
 	} else {
 		go s.notify().NotifyUser(msg)
 	}
-	w.WriteHeader(200)
-	_, _ = w.Write([]byte(body))
 }
 
 // handleImportRecords：勿走 readBody（MaxBodyBytes）；MultipartReader 取 file part（≤4MiB）。
@@ -674,8 +678,17 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if part.FormName() != "file" {
-			_, _ = io.Copy(io.Discard, part)
+			// 非 file part 丢弃也加上限，避免恶意大字段占满内存。
+			n, copyErr := io.Copy(io.Discard, io.LimitReader(part, int64(importapi.MaxImportFileBytes)+1))
 			_ = part.Close()
+			if copyErr != nil {
+				writeError(w, 400, importapi.ErrMultipartContentType.Error())
+				return
+			}
+			if n > int64(importapi.MaxImportFileBytes) {
+				writeError(w, 400, importapi.ErrMultipartPartTooLarge.Error())
+				return
+			}
 			continue
 		}
 		fileCount++

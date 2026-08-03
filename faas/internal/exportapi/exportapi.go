@@ -1,8 +1,8 @@
 // Package exportapi：Records 导出（与 Next `src/lib/exportapi.ts` 同构）。
 //
-// GET /api/export/records：解析 from?/limit、按 id ASC 游标拉取、组 NDJSON /
-// Content-Disposition 文件名 / Notify 文案。HTTP 层负责响应头与 notify 调度。
-// 本路由无 JSON body，勿接 readBody（MaxBodyBytes 仅约束该读法）。
+// GET /api/export/records：解析 from?/limit、按 id ASC LIMIT 拉取、有界组 NDJSON /
+// Content-Disposition 文件名 / Notify 文案。HTTP 层负责响应头与 notify 调度
+// （写出成功后再 Notify）。本路由无 JSON body，勿接 readBody。
 package exportapi
 
 import (

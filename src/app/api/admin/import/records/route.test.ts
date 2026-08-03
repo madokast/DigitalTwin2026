@@ -27,6 +27,8 @@ vi.mock('@/lib/notify', () => ({
 
 import { POST } from './route'
 import {
+  IMPORT_LIMITS_ERROR,
+  MAX_IMPORT_FILE_BYTES,
   MULTIPART_CONTENT_TYPE,
   MULTIPART_FILE_REQUIRED,
 } from '@/lib/importapi'
@@ -123,5 +125,15 @@ describe('POST /api/admin/import/records notify schedule', () => {
     const res = await POST(multipartRequest('', { omitFile: true }))
     expect(res.status).toBe(400)
     expect((await res.json()).error).toBe(MULTIPART_FILE_REQUIRED)
+  })
+
+  it('rejects oversized file by size before importRecordsJsonl', async () => {
+    // 真实 size > 4MiB：须 400 且不得先无界交给 importRecordsJsonl。
+    const big = 'a'.repeat(MAX_IMPORT_FILE_BYTES + 1)
+    const res = await POST(multipartRequest(big))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe(IMPORT_LIMITS_ERROR)
+    expect(importRecordsJsonl).not.toHaveBeenCalled()
+    expect(scheduleBestEffortNotify).not.toHaveBeenCalled()
   })
 })
