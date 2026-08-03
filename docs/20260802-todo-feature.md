@@ -81,7 +81,7 @@
 
 | JSON 字段 | 必填 | 落库列 | 说明 |
 |-----------|------|--------|------|
-| `created_at` | 是 | `happened_at` | 格式与其它 API 的 `happened_at` 相同（ISO 8601 带时区）；**不传 → 400**。请求里**不要**再传 `happened_at`（未知键拒绝） |
+| `created_at` | 是 | `happened_at` | 格式与其它 API 的 `happened_at` 相同（ISO 8601 带时区）；**不传 → 400**。请求里**不要**再传 `happened_at`（未知键拒绝）。读出保留录入规范区（`Z` / `±HH:MM`），与隐列 `utc_offset` 同源格式化——见 [`docs/20260803-utc-offset.md`](20260803-utc-offset.md) §6.1 |
 | `content` | 是 | `value_text` | 待办正文（清单内容）；非空字符串。请求里**不要**再传 `value_text` |
 | `objective_context` | 是 | `objective_context` | 创建时的客观背景；**不传 → 400** |
 | `subjective_interpretation` | 否 | 同名 | 主观解释 |
@@ -230,7 +230,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 
 | 行判定 | JSON 行为 |
 |--------|-----------|
-| **待办行**（查询侧判定见 §1.3「略宽」规则） | 对外键名：`happened_at` → **`created_at`**，`value_text` → **`content`**；其余字段默认序列化不变。响应中**不再出现**该行的 `happened_at` / `value_text` 键（避免双键并存）。 |
+| **待办行**（查询侧判定见 §1.3「略宽」规则） | 对外键名：`happened_at` → **`created_at`**，`value_text` → **`content`**；其余字段默认序列化不变。响应中**不再出现**该行的 `happened_at` / `value_text` 键（避免双键并存）。时间值仍按隐列 `utc_offset` 带区格式化（deform **只改键名**，不改回一律 `Z`；见 [`docs/20260803-utc-offset.md`](20260803-utc-offset.md) §6.1）。 |
 | **审计行**（`todo:transition`）及其它非待办行 | **默认 toJSON**，仍为 `happened_at` / `value_text`（与现网 Record 契约一致），**不做**别名。 |
 
 **对外变形范围（已拍板）**：凡 HTTP 响应里出现的**待办行**——含 `GET /api/query` 的 `records[]`、`POST /api/log/todo` 的 `201.record`——**都必须**使用 `created_at` / `content`，双端一致。审计行始终默认形状。**`POST /api/log/todo/transition` 成功响应不含 `record`**（见 §3.5），故无待办行变形问题。

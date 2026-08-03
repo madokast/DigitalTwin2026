@@ -136,8 +136,8 @@ components:
       $ref: './components/schemas.yaml#/WeightAmountString'
     HappenedAtInput:
       $ref: './components/schemas.yaml#/HappenedAtInput'
-    HappenedAtUtcZ:
-      $ref: './components/schemas.yaml#/HappenedAtUtcZ'
+    HappenedAtOutput:
+      $ref: './components/schemas.yaml#/HappenedAtOutput'
     Record:
       $ref: './components/schemas.yaml#/Record'
     RecordSuccess:

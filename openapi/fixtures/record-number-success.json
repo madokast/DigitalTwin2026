@@ -2,7 +2,7 @@
   "success": true,
   "record": {
     "id": "01900000-0000-7000-8000-000000000001",
-    "happened_at": "2026-07-30T00:00:00.000Z",
+    "happened_at": "2026-07-30T08:00:00.000+08:00",
     "value_number": "75.5",
     "value_text": null,
     "tags": "[\"weight\"]",

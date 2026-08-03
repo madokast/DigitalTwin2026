@@ -141,7 +141,7 @@ flowchart LR
 | tags | `RenameAcrossRecords` / `ValidateRename` | `renameAcrossRecords`（`tagsdb`）/ `validateRename`（`tags`） |
 | record | `Update` | `update` |
 | record | `FromDB` / `TagsJSON` / type `Record` | `fromDB` / `tagsJSON` / type `Record`（已取代 `toApiRecord` / `ApiRecord`，或薄包装同名） |
-| record | `FormatHappenedAt` | `formatHappenedAt`（与现有 UTC Z 语义对齐；已收敛 `formatHappenedAtUtc`） |
+| record | `FormatHappenedAt` | `formatHappenedAt`（读路径：瞬间 + 隐列 `utc_offset` 带区；无 offset 重载仅作损坏回退。见 [`docs/20260803-utc-offset.md`](20260803-utc-offset.md)） |
 | record | `IsValidID` / `InvalidID` | `isValidRecordId` / `INVALID_RECORD_ID` |
 | recordjsonl | `ParseLine` / `SerializeLine` / `SerializeRecord` / `FormatLineError` / type `Row` | `parseLine` / `serializeLine` / `serializeRecord` / `formatLineError` / type `RecordJsonlRow` |
 | exportapi | `ParseExportRecordsParams` / `FetchExportRecords` / `BuildExportNdjson` / `ExportFilename` / `FormatExportNotifyMessage` / type `ParsedExport` | `parseExportRecordsParams` / `fetchExportRecords` / `buildExportNdjson` / `exportFilename` / `formatExportNotifyMessage` / type `ParsedExport` |

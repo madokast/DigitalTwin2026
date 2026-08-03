@@ -1,7 +1,7 @@
 # DigitalTwin2026：用隐列 `utc_offset` 还原带区的 `happened_at`
 
 > 创建日期：2026-08-03  
-> 状态：**已锁定；实现阶段见 §12**（规格已定；按阶段落地代码，勿一次巨型 PR）  
+> 状态：**已落地**（§12 阶段 1–6 全部完成）  
 > 性质：Diataxis **explanation** + 锁定表  
 > 相关：[`docs/20260729-schema-v1.md`](20260729-schema-v1.md)、[`docs/20260803-records-import-export.md`](20260803-records-import-export.md)、[`docs/20260801-api-layering.md`](20260801-api-layering.md)、OpenAPI `Record`、`src/lib/record.ts` / Go `record.FormatHappenedAt`
 
@@ -407,7 +407,7 @@ deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「
 
 ### 阶段 6：OpenAPI 描述 + 文档收尾
 
-**状态：未开始**
+**状态：已完成**
 
 **目标：** OpenAPI `Record` / `TodoRecord` 时间字段描述改为「带显式区；读出保留规范区，**不再**承诺一律 `Z`」；import-export / todo 等旧句改正；本篇状态与 §12 勾选对齐终态。
 
@@ -423,15 +423,18 @@ deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「
 - 不新增大段重复规格
 
 **验收标准：**
-- [ ] OpenAPI：无 `utc_offset` 属性；`happened_at` / `created_at` 描述符合 §9
-- [ ] import-export / todo 文档无「对外时间一律 Z」现行承诺
-- [ ] `openapi:lint` + `test:openapi` + 契约相关测绿
-- [ ] 本篇标记阶段 1–6 完成 / 状态与终态一致
+- [x] OpenAPI：无 `utc_offset` 属性；`happened_at` / `created_at` 描述符合 §9
+- [x] import-export / todo 文档无「对外时间一律 Z」现行承诺
+- [x] `openapi:lint` + `test:openapi` + 契约相关测绿
+- [x] 本篇标记阶段 1–6 完成 / 状态与终态一致
 
 **依赖 / 可并行：** **依赖阶段 1–5 均已合**（文档描述终态）。不可与行为阶段并行作为「唯一真源」提前合入。
 
+**本阶段落地摘要：**
+- OpenAPI：`HappenedAtUtcZ` → `HappenedAtOutput`；读出 pattern 允许 `Z` / `±HH:MM`；fixtures 样例含 `+08:00`
+- 修正 import-export / todo / schema-v1 / layering / README / openapi README 旧「一律 Z」句；pointer 本篇
+- 本篇状态 → **已落地**
 ---
-
 ### 建议落地顺序（总表）
 
 | 顺序 | 阶段 | 可独立验收 | 依赖 | 与其它并行 |

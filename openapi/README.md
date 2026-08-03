@@ -113,7 +113,7 @@ Records 备份 / 迁移：`GET /api/export/records`（ApiToken；JSONL 游标、
 | Schema | 规则 |
 |--------|------|
 | `HappenedAtInput` | ISO 日期时间 + 必填时区后缀 `Z` / `±HH:MM` / `±HHMM` |
-| `HappenedAtUtcZ` | 输出专用：`…sssZ` |
+| `HappenedAtOutput` | 读出专用：毫秒三位 + 显式区（`Z` 或 `±HH:MM`）；保留录入规范区，**不再**一律 `Z`（见 [`docs/20260803-utc-offset.md`](../docs/20260803-utc-offset.md)） |
 | `DecimalString` | `^-?(?:0\|[1-9]\d*)(?:\.\d+)?$`，`maxLength` 40 |
 | `MoneyAmountString` | `^-?(?:0\|[1-9]\d{0,11})(?:\.\d{1,2})?$`；运行时拒零；绝对值 ≤ `999999999999.99`；禁 trim / `+`；通过后规范为两位小数入库；交易 `entries[].amount` |
 | `WeightAmountString` | `^(?:0\|[1-9]\d{0,2})(?:\.\d{1,2})?$`；运行时限 **1.00–500.00**（kg）；禁 trim / `+` / 负号；JSON number → 400；通过后规范为两位小数；`LogBodyWeightRequest.value_number` |
@@ -126,7 +126,7 @@ Records 备份 / 迁移：`GET /api/export/records`（ApiToken；JSONL 游标、
 | 项 | 规则 |
 |----|------|
 | `happened_at` / query `from`/`to` | 一律带时区；裸日期 → 400 |
-| `Record.happened_at` 输出 | UTC `…sssZ` |
+| `Record.happened_at` / Todo `created_at` 输出 | 带显式区 ISO（毫秒 + `Z` 或 `±HH:MM`）；读出保留录入规范区，**不再**承诺一律 `Z` |
 | `Record.value_number` | 仅十进制字符串 / null；JSON **number → 400**；字面量入库 |
 
 ## 契约测覆盖

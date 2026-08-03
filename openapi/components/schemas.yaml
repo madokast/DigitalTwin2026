@@ -112,15 +112,21 @@ HappenedAtInput:
     - '2026-07-30T08:00:00+0800'
     - '2026-07-30T00:00:00.000Z'
 
-HappenedAtUtcZ:
+HappenedAtOutput:
   type: string
   description: |
-    Instant as UTC ISO-8601 with millisecond precision and `Z`
-    (`YYYY-MM-DDTHH:mm:ss.sssZ`). Both backends normalize this way
-    (Go `record.FormatHappenedAt`; Next `record.fromDB` / `formatHappenedAt`).
-  pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$'
+    Event timestamp as ISO 8601 **with explicit timezone** and millisecond
+    precision (`YYYY-MM-DDTHH:mm:ss.sss` + `Z` or `±HH:MM`). Read paths
+    preserve the canonical offset captured at write time (`Z` stays `Z`;
+    `+08:00` stays `+08:00`); **not** normalized to UTC `Z`. Both backends
+    format via instant + private `utc_offset` (Go / Next `formatHappenedAt`;
+    see `docs/20260803-utc-offset.md`). The private column is **not** a
+    JSON property.
+  pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}(Z|[+-]\d{2}:\d{2})$'
   examples:
+    - '2026-07-30T08:00:00.000+08:00'
     - '2026-07-30T00:00:00.000Z'
+    - '2026-08-03T00:00:00.000+00:00'
 
 Record:
   type: object
@@ -141,7 +147,7 @@ Record:
       format: uuid
       description: UUIDv7 primary key
     happened_at:
-      $ref: '#/HappenedAtUtcZ'
+      $ref: '#/HappenedAtOutput'
     value_number:
       description: |
         Decimal as string, or null for text-only records.
@@ -483,7 +489,13 @@ TodoRecord:
       format: uuid
       description: UUIDv7 primary key
     created_at:
-      $ref: '#/HappenedAtUtcZ'
+      allOf:
+        - $ref: '#/HappenedAtOutput'
+      description: |
+        Same formatted instant as `Record.happened_at` (DB column
+        `happened_at` + private `utc_offset`); JSON key only. Alias does
+        **not** change timezone semantics — still preserves canonical
+        offset (`Z` / `±HH:MM`), never forced to UTC `Z`.
     value_number:
       type: 'null'
     content:

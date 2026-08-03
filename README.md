@@ -148,7 +148,7 @@ cd faas && go test ./...
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | UUID (v7) | 主键，时间有序 |
-| happened_at | TIMESTAMPTZ | 事件时间 |
+| happened_at | TIMESTAMPTZ | 事件时间（读出带录入规范区；隐列 `utc_offset` 见 [`docs/20260803-utc-offset.md`](docs/20260803-utc-offset.md)） |
 | value_number | TEXT | 十进制数字符串字面量（可空；JSON/API 一律 string，禁止 number） |
 | value_text | TEXT | 文本（可空；与数值至少填一） |
 | tags | TEXT | JSON 数组 |
@@ -170,4 +170,5 @@ cd faas && go test ./...
 - `20260802-db-probe-multi-cloud.md` — 双云延迟对比（probe / summary）
 - `20260802-development-log.md` — 多云落地、SCF Go1、可选 migrate
 - `20260803-records-import-export.md` — Records JSONL 导入 / 导出（已落地）
+- `20260803-utc-offset.md` — 隐列 `utc_offset` 还原带区 `happened_at`（已落地）
 - `20260803-suppress-bot-notification.md` — `SUPPRESS_BOT_NOTIFICATION` 门闸（已落地）

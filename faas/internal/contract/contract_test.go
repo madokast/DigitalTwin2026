@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -222,7 +221,7 @@ func TestGoFromDBMatchesNumberSuccessFixture(t *testing.T) {
 	got := record.FromDB(
 		fixture.Record.ID,
 		time.Date(2026, 7, 30, 0, 0, 0, 0, time.UTC),
-		"Z",
+		"+08:00",
 		&vn,
 		nil,
 		`["weight"]`,
@@ -235,7 +234,7 @@ func TestGoFromDBMatchesNumberSuccessFixture(t *testing.T) {
 	if got.ValueNumber == nil || *got.ValueNumber != "75.5" {
 		t.Fatalf("valueNumber: %#v", got.ValueNumber)
 	}
-	if !strings.HasSuffix(got.HappenedAt, "Z") || len(got.HappenedAt) != len("2006-01-02T15:04:05.000Z") {
+	if got.HappenedAt != "2026-07-30T08:00:00.000+08:00" {
 		t.Fatalf("happenedAt format: %q", got.HappenedAt)
 	}
 

@@ -12,9 +12,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const openapiPath = path.join(root, 'openapi/openapi.yaml')
 export const fixturesDir = path.join(root, 'openapi/fixtures')
 
-/** Record.happened_at：UTC、毫秒三位、`Z`（与双端 FormatHappenedAt / toISOString 对齐） */
-export const HAPPENED_AT_UTC_Z =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+/** Record.happened_at / Todo created_at 读出：毫秒三位 + 显式区（Z 或 ±HH:MM） */
+export const HAPPENED_AT_OUTPUT =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}(Z|[+-]\d{2}:\d{2})$/
 
 /** value_number 十进制字符串（与实现 / 契约描述一致；schema 本身仅 type:string） */
 export const VALUE_NUMBER_DECIMAL =

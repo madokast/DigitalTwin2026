@@ -3,7 +3,7 @@
 > 创建日期：2026-08-03  
 > 状态：**已落地**（阶段 1–4 全部完成：共享 `recordjsonl` + `GET /api/export/records` + `POST /api/admin/import/records` + 文档收尾）  
 > 性质：分块备份 / 迁移；**不做**前端 UI；**一期无 gzip**  
-> 相关：[`docs/20260802-todo-feature.md`](20260802-todo-feature.md) §5.3、[`docs/20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)、OpenAPI `Record` / `ApiToken`·`AdminToken`、`src/proxy.ts`、写路径 `draft` / `logapi`
+> 相关：[`docs/20260802-todo-feature.md`](20260802-todo-feature.md) §5.3、[`docs/20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)、[`docs/20260803-utc-offset.md`](20260803-utc-offset.md)、OpenAPI `Record` / `ApiToken`·`AdminToken`、`src/proxy.ts`、写路径 `draft` / `logapi`
 
 ## 0. 目标与非目标
 
@@ -53,7 +53,7 @@
 | JSON 键 | 要点 |
 |---------|------|
 | `id` | UUID 字符串 |
-| `happened_at` | 可解析为带时区时间；**写入语义对齐 draft/log**（允许 `+08:00` 等；存库后再按现网规范读出为 UTC `…Z`） |
+| `happened_at` | 可解析为带时区时间；**写入语义对齐 draft/log**（允许 `Z` / `±HH:MM` / `±HHMM`）。读出按隐列 `utc_offset` 保留录入规范区（`Z` 与 `±HH:MM`），**不再**一律 UTC `…Z`——见 [`docs/20260803-utc-offset.md`](20260803-utc-offset.md)。文件中**无** `utc_offset` 键 |
 | `value_number` | decimal **字符串**或 `null`；JSON **number 类型 → 400**（详细错误） |
 | `value_text` | `string` 或 `null` |
 | `tags` | **字符串**（JSON 数组字面量）；误传数组类型 → 400 |

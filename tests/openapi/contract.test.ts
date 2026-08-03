@@ -6,7 +6,7 @@ import {
   assertInvalidSchema,
   assertValidSchema,
   fixturesDir,
-  HAPPENED_AT_UTC_Z,
+  HAPPENED_AT_OUTPUT,
   loadOpenApi,
   VALUE_NUMBER_DECIMAL,
 } from './helpers'
@@ -31,7 +31,7 @@ describe('OpenAPI contract (Phase 2)', () => {
 
     const numRec = (numberOk as { record: { happened_at: string; valueNumber: string } })
       .record
-    expect(numRec.happened_at).toMatch(HAPPENED_AT_UTC_Z)
+    expect(numRec.happened_at).toMatch(HAPPENED_AT_OUTPUT)
     expect(numRec.value_number).toMatch(VALUE_NUMBER_DECIMAL)
   })
 
@@ -148,7 +148,7 @@ describe('OpenAPI contract (Phase 2)', () => {
     const todoOk = readFixture('record-todo-success.json') as {
       record: { created_at: string; content: string }
     }
-    expect(todoOk.record.created_at).toMatch(HAPPENED_AT_UTC_Z)
+    expect(todoOk.record.created_at).toMatch(HAPPENED_AT_OUTPUT)
     expect(todoOk.record.content).toBe('Buy milk')
     await assertInvalidSchema(
       'LogTodoRequest',
@@ -236,11 +236,11 @@ describe('OpenAPI contract (Phase 2)', () => {
     })
   })
 
-  it('Next fromDB output matches Record schema + UTC Z', async () => {
+  it('Next fromDB output matches Record schema + preserved offset', async () => {
     const rec = fromDB({
       id: '01900000-0000-7000-8000-000000000001',
       happenedAt: new Date('2026-07-30T08:00:00+08:00'),
-      utcOffset: 'Z',
+      utcOffset: '+08:00',
       valueNumber: '1.0',
       valueText: null,
       tags: '["weight"]',
@@ -248,8 +248,8 @@ describe('OpenAPI contract (Phase 2)', () => {
       subjectiveInterpretation: null,
     })
     await assertValidSchema('Record', rec)
-    expect(rec.happened_at).toBe('2026-07-30T00:00:00.000Z')
-    expect(rec.happened_at).toMatch(HAPPENED_AT_UTC_Z)
+    expect(rec.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
+    expect(rec.happened_at).toMatch(HAPPENED_AT_OUTPUT)
     expect(rec.value_number).toBe('1.0')
   })
 })
