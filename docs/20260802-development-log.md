@@ -1,8 +1,8 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-08-02（续至 2026-08-03）  
-> 状态：多云 FaaS（FC + SCF）落地；deploy / collect 分离；SCF Web **Go1** 打包；prod 可选 drizzle migrate；续记集成门闸（`DATABASE_URL` only）+ `test:integration` + Todo Phase 4  
-> 相关：[`docs/20260802-faas-multi-cloud.md`](20260802-faas-multi-cloud.md)、[`docs/20260802-db-probe-multi-cloud.md`](20260802-db-probe-multi-cloud.md)、[`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md)、[`faas/providers/tencent-scf/README.md`](../faas/providers/tencent-scf/README.md)
+> 状态：多云 FaaS（FC + SCF）落地；deploy / collect 分离；SCF Web **Go1** 打包；prod 可选 drizzle migrate；续记集成门闸（`DATABASE_URL` only）+ `test:integration` + Todo Phase 4；**Records 导入/导出仅规划文档**  
+> 相关：[`docs/20260802-faas-multi-cloud.md`](20260802-faas-multi-cloud.md)、[`docs/20260802-db-probe-multi-cloud.md`](20260802-db-probe-multi-cloud.md)、[`docs/20260803-records-import-export.md`](20260803-records-import-export.md)、[`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md)、[`faas/providers/tencent-scf/README.md`](../faas/providers/tencent-scf/README.md)
 
 ## 0. 今日做成了什么（总览）
 
@@ -129,9 +129,23 @@ d2efdd7  Add Tencent SCF Web provider scaffold with scf login flow
 | `npm run test:integration` | ✅ `eeaf760`：本地一键跑 Node `tests/api` + Go httpx/dbprobe（读 `.env.test`） |
 | CI 可选集成 job | ✅ `.github/workflows/ci.yml` 用 `secrets.DATABASE_URL`（及可选 Token）；未配置则跳过 |
 
-## 8. 仍待办 / 开放
+## 8. 续记（2026-08-03）：Records 导入/导出规划（仅文档）
+
+| 项 | 状态 |
+|----|------|
+| 规划文 | ✅ [`docs/20260803-records-import-export.md`](20260803-records-import-export.md)（定稿 + 审查 errata：空导入 Notify、单事务流式、校验对齐 draft、from 400/404、并发表） |
+| 形状 | **无 deform**：JSONL = OpenAPI `Record` camelCase；取消 Todo §5.3 旧「双认变形」 |
+| 鉴权 | Export = ApiToken；Import = AdminToken only |
+| 导出 | `from?` + 必填 `limit`∈[1,1000]；文件流；每页 Notify；无 suppress |
+| 导入 | multipart ≤1000 行且 ≤4MiB；流式 upsert；行级详细错误；始终 Notify |
+| Todo 回链 | ✅ `20260802-todo-feature.md` §5.3 / §8#15 / §9 |
+| 实现 | **未做**（无 API / 无 OpenAPI 改动） |
+
+## 9. 仍待办 / 开放
 
 - [ ] 手动验收清单续跑；用户确认 SCF 内存档是否可再降  
 - [ ] （可选）Settings placeholder 补 SCF 域名示例  
 - [ ] Dashboard 支出组件 / 网页录入 UI（与多云无关，沿自既有待办）
+- [ ] Records 导入/导出 API（规划已定稿；见 [`20260803-records-import-export.md`](20260803-records-import-export.md)）
 - [x] Todo Phase 4 / `test:integration` / `DATABASE_URL`-only 门闸（见 §7）
+- [x] 导入/导出规划文档定稿（见 §8）
