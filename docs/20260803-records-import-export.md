@@ -1,9 +1,9 @@
 # DigitalTwin2026：Records 导入 / 导出（规划）
 
 > 创建日期：2026-08-03  
-> 状态：**规划已定稿**（含审查 errata）；**实现未排期**  
+> 状态：**规划已定稿**（含审查 errata）；**实现阶段见 §11**（未落地）  
 > 性质：分块备份 / 迁移；**不做**前端 UI；**一期无 gzip**  
-> 相关：[`docs/20260802-todo-feature.md`](20260802-todo-feature.md) §5.3、OpenAPI `Record` / `ApiToken`·`AdminToken`、`src/proxy.ts`、写路径 `draft` / `logapi`
+> 相关：[`docs/20260802-todo-feature.md`](20260802-todo-feature.md) §5.3、[`docs/20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)、OpenAPI `Record` / `ApiToken`·`AdminToken`、`src/proxy.ts`、写路径 `draft` / `logapi`
 
 ## 0. 目标与非目标
 
@@ -38,7 +38,7 @@
 | 6 | **始终 Notify**（含空导出 / 空导入）；本两 API **不**暴露 body `suppress_notification`；静音仅 env（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。 |
 | 7 | **一期无压缩**；`MAX_HTTP_BODY_BYTES`（256KiB）**不**约束本两路由（须独立流式读，禁止误接 `readJsonBody` / 默认 `readBody`）。 |
 | 8 | **流式 + 单事务**：边读边写均在**同一 DB 事务**内；**全部成功才 commit**；失败 **rollback** 且 **不** Notify。 |
-| 9 | 本阶段只文档；实现另排期。 |
+| 9 | 产品决策已定；实现按 **§11** 分阶段落地。 |
 
 鉴权真源：`ApiToken` = `DIGITAL_TWIN_TOKEN` 或 `DIGITAL_TWIN_ADMIN_TOKEN`；`AdminToken` = 仅后者。见 `src/proxy.ts` / Go `httpx`。
 
@@ -253,4 +253,140 @@ BEGIN
 
 **无。**（含 2026-08-03 审查 errata。）
 
-实现期仅定错误字符串终稿与模块名。
+实现期仅定错误字符串终稿与模块名（见各阶段验收）。
+
+---
+
+## 11. 实现阶段
+
+> 把 §7 拆成可独立 merge / 验收的阶段。**不写**逐文件实现细节。  
+> **顺序理由：** 先共享「一行 Record JSONL」编解码/校验（export 写行、import 读行共用）→ 再导出 API → 再导入 API → 文档收尾。导出与导入契约不同、鉴权不同，**分阶段合入**，避免一个巨型 PR；OpenAPI **按端点随实现同 PR 落地**（禁止长期「仅有 schema、路由 501」）。
+
+### 过渡窗口
+
+| 窗口 | 行为 | 说明 |
+|------|------|------|
+| 阶段 1 已合、2/3 未合 | 仅有库函数；**无** HTTP 路径 | 可单独测行级校验；对外契约不变 |
+| 阶段 2 已合、3 未合 | 仅能导出 | 合法；备份可用、恢复不可用——勿对外宣称「导入导出齐」 |
+| 阶段 3 合并后 | 双 API 可用 | 可跑 round-trip；再进阶段 4 收文档 |
+
+禁止：只合 OpenAPI 不改双端；或只合 Next 不合 Go。
+
+---
+
+### 阶段 1：共享 Record JSONL 行编解码 / 校验
+
+**状态：未开始**
+
+**目标：** 双端同构「一行 ↔ 领域行」：表示层 Record camelCase、禁止 deform 键、字段/tags 语义对齐 draft（**import 侧跳过保留 tag 拒绝**的开关可放本阶段参数，或 import 阶段再包一层——须在 stem 注释写清）。
+
+**范围：**
+- Next / Go 共享 stem（如 `recordjsonl` / 等价名）：parse 一行、serialize 一行、详细英文错误（含可选行号参数）
+- 最小 fixture（合法行、非法 number 类型、tags 数组类型、deform 键、双 null 等）双端同测
+- **不**挂 HTTP；**不**改 OpenAPI paths
+
+**不做什么：**
+- 不做 multipart / 游标查询 / upsert / Notify
+- 不 bypass `MAX_HTTP_BODY_BYTES`
+- 不写 README 大段
+
+**验收标准：**
+- [ ] 双端单测覆盖 §2.1 / §2.2 表示层与语义要点（保留 tag：校验格式可通过；`assertNoReservedTags` 由调用方决定是否调用——测清边界）
+- [ ] 错误文案双端一致（或本阶段锁定初稿字符串表）
+- [ ] `npm test`（相关）与 `cd faas && go test`（相关包）绿
+
+**依赖 / 可并行：** 无前置。阶段 2、3 依赖本阶段。
+
+---
+
+### 阶段 2：导出 `GET /api/export/records`
+
+**状态：未开始**
+
+**目标：** ApiToken；`from?` + 必填 `limit`∈[1,1000]；NDJSON 文件流；成功（含 0 行）一律 Notify；开流前错误 JSON、开流后失败不 Notify。
+
+**范围：**
+- OpenAPI path + components（仅导出）+ fixtures / `openapi:lint` / `test:openapi`
+- Next route + Go httpx；查询 `id ASC`；`Content-Type` / `Content-Disposition` 文件名规则 §4.3
+- 使用阶段 1 serialize；鉴权矩阵；from 400 vs 404；limit 校验
+- 路由 **bypass** 256KiB JSON body 门闸（本路由无 JSON body，但须确认中间件不误伤）
+- 双端测试：空导出、分页重叠启发、Notify schedule（`SUPPRESS_BOT_NOTIFICATION=1` 下不实发）
+
+**不做什么：**
+- 不做 import / multipart / upsert
+- 不做 gzip / 前端 / `X-Export-*` / JSON 信封
+- 不改阶段 1 校验语义（除非测出 bug）
+
+**验收标准：**
+- [ ] OpenAPI 与双端行为一致；未知/非法 query → 约定英文错误
+- [ ] 200 为 NDJSON 流；0 行仍带正确头并 Notify 一次
+- [ ] from 非法 400、不存在 404、文案可区分
+- [ ] 相关契约 / httpx / route 测绿
+
+**依赖 / 可并行：** **依赖阶段 1**。与阶段 3 **文件面可并行开发**，但建议 **先合 2 再合 3**（round-trip 与对外叙事更顺）；若并行开 PR，勿合并「仅一端导出」。
+
+---
+
+### 阶段 3：导入 `POST /api/admin/import/records`
+
+**状态：未开始**
+
+**目标：** AdminToken；multipart 字段 `file`；≤1000 行且 file part≤4MiB；单事务流式 upsert；可写保留 tag；成功（含空文件）commit + Notify；失败 rollback、不 Notify。
+
+**范围：**
+- OpenAPI path + schemas（导入请求/响应/错误）+ fixtures
+- Next + Go：流式读 part、行号、seen 查重、upsert、计数 `inserted`/`updated`/`total`
+- 使用阶段 1 parse；**跳过** `assertNoReservedTags`
+- **bypass** `MAX_HTTP_BODY_BYTES` / 禁止误接 `readJsonBody`（验收：大 file 不因 256KiB 门闸 413）
+- 测试：超限、重复 id、行级错误、空文件 Notify、事务失败无 Notify、鉴权、保留 tag
+- **Round-trip（本阶段或紧随）：** 阶段 2 已合前提下，最小「export 一行 → import」双端测（§2 要求）
+
+**不做什么：**
+- 不 mirror 删除文件中未出现的行
+- 不自动插审计 / 走专用 log API 副作用
+- 不做前端
+
+**验收标准：**
+- [ ] 成功响应形状 §5.5；空文件全 0 + Notify
+- [ ] 任一行失败 → 整单 rollback + 400 含行号/字段；无 Notify
+- [ ] 保留 tag 可写入；Admin PATCH 行为不变（仍拒保留 tag）
+- [ ] openapi + 双端测绿；误接小 body 门闸的回归测存在
+- [ ] round-trip fixture 绿（若阶段 2 已合；否则本项 defer 到 2+3 均合后的立即补测，不得拖到阶段 4 才发现语义裂）
+
+**依赖 / 可并行：** **依赖阶段 1**；**强依赖阶段 2 已合**才宣称 round-trip 验收完毕（实现可与 2 并行写，合入顺序建议 `2 → 3`）。
+
+---
+
+### 阶段 4：文档与指针收尾
+
+**状态：未开始**
+
+**目标：** 规格状态改为已落地；README / layering / 发展日志与终态一致；错误字符串若有润色则双端已对齐。
+
+**范围：**
+- 本篇状态行、§11 勾选
+- `faas/README.md` / 根 README / `openapi/README.md` 若需提及两路径
+- `docs/20260801-api-layering.md` 若有 API 面列表则补指针
+- 发展日志一句
+
+**不做什么：**
+- 不夹带行为变更；发现遗漏回 1–3 修
+
+**验收标准：**
+- [ ] 文档无「实现未排期」冲突句；对外路径/鉴权与 OpenAPI 一致
+- [ ] 本篇标记阶段 1–4 完成
+
+**依赖 / 可并行：** **依赖阶段 1–3 均已合**。
+
+---
+
+### 建议落地顺序（总表）
+
+| 顺序 | 阶段 | 可独立验收 | 依赖 | 与其它并行 |
+|------|------|------------|------|------------|
+| 1 | **阶段 1** 共享 JSONL 行编解码 | 是（单测） | — | 先合 |
+| 2 | **阶段 2** 导出 API | 是（openapi + 双端） | 阶段 1 | 可与 3 **并行开发**；建议先合 2 |
+| 3 | **阶段 3** 导入 API + round-trip | 是（openapi + 双端） | 阶段 1；（round-trip 要 2） | 同上 |
+| 4 | **阶段 4** 文档收尾 | 是（审阅） | 阶段 1–3 | 不并行 |
+
+**推荐合入节奏：** `1 → 2 → 3 → 4`。若两人并行：`1` 后 `2`∥`3` 开发，**合入仍先 2 后 3**，再立刻补 round-trip（若 3 的 PR 已含则更好）。
