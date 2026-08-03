@@ -259,7 +259,7 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 
 ### 阶段 2：基准 Schema 加列 + drop 重建说明（无 ADD migration）
 
-**状态：未开始**
+**状态：已完成**
 
 **目标：** 在基准建表源为 `records` 增加 `utc_offset text NOT NULL`（可选 CHECK）；文档写清 drop 重建步骤；**零**增量 Migration 文件。
 
@@ -268,15 +268,44 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 - 本篇 / schema-v1 / 开发者向说明：本地与测试库 **DROP `records`（或整库）后按基准重建**；无历史回填；deploy/collect 语境下「migrate」= 重建空库，**不要**指望 ADD COLUMN
 - 确认**未**新增 `drizzle/000N_*.sql` 之类增量文件
 
+**落地：**
+- Next：`src/db/schema.ts` + 基准 `drizzle/0000_many_invaders.sql` + 同版本 `drizzle/meta/0000_snapshot.json`（**无** `0001_*`）
+- 列：`utc_offset text NOT NULL`；CHECK `chk_utc_offset`（`Z` 或 `^[+-][0-9]{2}:[0-9]{2}$`）
+- 写入路径仍未显式写该列（阶段 3）；TS insert 仅用类型断言过编译——**须紧接阶段 3**
+
+#### Drop 重建步骤（本地 / 测试库；无历史回填）
+
+> **禁止** `ALTER TABLE … ADD COLUMN` 与新增量 drizzle migration。已跑过旧 `0000` 的库不会因改基准 SQL 自动变列；必须 drop 后按更新后的 `0000` 重建。
+
+```bash
+# 1) 指向测试库（host/库名须含 test / TestDigitalTwin）
+export DATABASE_URL='…'   # 或依赖 .env.test
+
+# 2) 丢掉旧表（无生产数据；可整库 drop 再建）
+psql "$DATABASE_URL" -c 'DROP TABLE IF EXISTS records CASCADE;'
+# 若 drizzle 元表也需重跑 0000：一并清 journal
+psql "$DATABASE_URL" -c 'DROP TABLE IF EXISTS drizzle.__drizzle_migrations CASCADE;'
+# 部分环境 schema 名为 drizzle；若上面失败可：
+# psql "$DATABASE_URL" -c 'DROP SCHEMA IF EXISTS drizzle CASCADE;'
+
+# 3) 按仓库唯一基准建表源重建
+npm run db:migrate
+
+# 4) 可选核对
+npm run db:check
+```
+
+deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「空库用更新后的 `0000` 起表」，**不要**指望一条 ADD COLUMN migration。
+
 **不做什么：**
 - 不做 `ALTER TABLE … ADD COLUMN` migration
 - 不改运行时 format 接线（留给 3–4）；不改 OpenAPI 描述（留给 6）
 - 不要求本阶段单独把生产写路径跑绿（见过渡窗口：须紧接阶段 3）
 
 **验收标准：**
-- [ ] 基准 schema / `0000` 含 `utc_offset text NOT NULL`（+ 可选 CHECK）；**无**新增量 migration
-- [ ] 文档明确 drop 重建步骤与「无 ADD migration」禁令（可指向本篇 §11 / 本阶段）
-- [ ] 空库按基准重建可起表（手工或现有 db 脚本验证）
+- [x] 基准 schema / `0000` 含 `utc_offset text NOT NULL`（+ 可选 CHECK）；**无**新增量 migration
+- [x] 文档明确 drop 重建步骤与「无 ADD migration」禁令（可指向本篇 §11 / 本阶段）
+- [x] 空库按基准重建可起表（手工或现有 db 脚本验证）
 
 **依赖 / 可并行：** 与**阶段 1 可并行**。**合入后必须紧接阶段 3**（或同 PR 含写入）；勿在「仅有列、无写入」上对外停留。
 

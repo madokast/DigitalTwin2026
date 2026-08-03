@@ -134,7 +134,10 @@ function defaultStore(): ImportStore {
             return rows.length > 0
           },
           async insert(row) {
-            await tx.insert(records).values(rowValues(row))
+            // 阶段 2：utc_offset 写入留给阶段 3（此处仅过编译）
+            await tx
+              .insert(records)
+              .values(rowValues(row) as typeof records.$inferInsert)
           },
           async update(row) {
             const v = rowValues(row)

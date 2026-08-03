@@ -20,6 +20,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "utc_offset": {
+          "name": "utc_offset",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "value_number": {
           "name": "value_number",
           "type": "text",
@@ -64,6 +70,10 @@
         "chk_tags": {
           "name": "chk_tags",
           "value": "\"records\".\"tags\" ~ '^\\[.+\\]$'"
+        },
+        "chk_utc_offset": {
+          "name": "chk_utc_offset",
+          "value": "\"records\".\"utc_offset\" = 'Z' OR \"records\".\"utc_offset\" ~ '^[+-][0-9]{2}:[0-9]{2}$'"
         }
       },
       "isRLSEnabled": false

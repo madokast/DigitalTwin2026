@@ -111,7 +111,11 @@ async function insertReturning(
   executor: InsertExecutor,
   values: InsertValues,
 ): Promise<Record> {
-  const result = await executor.insert(records).values(values).returning()
+  // 阶段 2：schema 已要求 utc_offset；写入接线留给阶段 3（此处仅过编译）
+  const result = await executor
+    .insert(records)
+    .values(values as typeof records.$inferInsert)
+    .returning()
   return fromDB(result[0])
 }
 
@@ -312,6 +316,7 @@ export async function transitionTodo(
         .update(records)
         .set({ tags: tagsJSON(newTags) })
         .where(eq(records.id, parsed.id))
+      // 阶段 2：utc_offset 写入留给阶段 3
       await tx.insert(records).values({
         id: uuidv7(),
         happenedAt: parsed.happenedAt,
@@ -320,7 +325,7 @@ export async function transitionTodo(
         tags: tagsJSON([TODO_TAG_TRANSITION]),
         objectiveContext: auditObjectiveContext(parsed.id),
         subjectiveInterpretation: null,
-      })
+      } as typeof records.$inferInsert)
     })
 
     return {
@@ -414,6 +419,7 @@ export async function createTransactionBatch(
     const out = await db.transaction(async (tx) => {
       const rows: Record[] = []
       for (const entry of parsed.entries) {
+        // 阶段 2：utc_offset 写入留给阶段 3
         const result = await tx
           .insert(records)
           .values({
@@ -424,7 +430,7 @@ export async function createTransactionBatch(
             tags: tagsJSON(entry.tags),
             objectiveContext: entry.memo,
             subjectiveInterpretation: null,
-          })
+          } as typeof records.$inferInsert)
           .returning()
         rows.push(fromDB(result[0]))
       }

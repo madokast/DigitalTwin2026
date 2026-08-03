@@ -28,7 +28,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **生产代码**：只用标准 PostgreSQL，不依赖 Neon 特色（branching、serverless driver 等），便于日后切国内云数据库。
 - **测试环境**：可用独立测试库或 Neon 临时能力跑测，测完不污染主库。
 - Next（Vercel）与国内 FaaS **共用同一套库**：test 对测试库，prod 对生产库（与 Vercel 生产 `DATABASE_URL` 相同）。
-- **`happened_at` 读出区**：隐列 `utc_offset`（对外 JSON 不可见）— 见 [`docs/20260803-utc-offset.md`](docs/20260803-utc-offset.md)。
+- **`happened_at` 读出区**：隐列 `utc_offset`（对外 JSON 不可见）— 见 [`docs/20260803-utc-offset.md`](docs/20260803-utc-offset.md)。Schema 加列：**改基准 `0000` / Drizzle schema 后 drop 重建**；**禁止**增量 `ADD COLUMN` migration。
 
 # 双后端（必须同时维护）
 
