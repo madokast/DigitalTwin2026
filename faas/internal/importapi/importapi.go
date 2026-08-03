@@ -2,7 +2,7 @@
 //
 // POST /api/admin/import/records：multipart file（≤4MiB 有界读入）→ 逐行 parse
 // （recordjsonl）→ 单事务 upsert；可写保留 tag（不调 AssertNoReservedTags）。
-// 成功 commit + Notify；失败 rollback、不 Notify。勿接 readBody（须 bypass MaxBodyBytes）。
+// 成功 commit 且 200 写出后再 Notify；失败 rollback、不 Notify。勿接 readBody。
 package importapi
 
 import (

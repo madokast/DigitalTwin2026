@@ -191,14 +191,17 @@ API **不**规定官方结束协议。常用启发：行数 `< limit` 可视为�
 读入 file part（≤4MiB；超限 400）
 BEGIN
   按行：parse → 字段校验 → seen 查重 → upsert（同一 tx）
-  全部成功 → COMMIT → 200 JSON 计数 → Notify
+  全部成功 → COMMIT → 写出 200 JSON 计数 →（写出成功后）Notify
   任一步失败 → ROLLBACK → 400/5xx JSON 错误 → 不 Notify
 ```
 
 - **禁止**逐行自动提交。  
 - **禁止**把整文件解析成 `Record[]` 再一次性写库；允许 ≤4MiB 原文缓冲 + `seen` ≤ 1000 个 id。  
 - 重复 `id` → 400，文案含该 uuid（可含行号）。  
-- **失败 rollback 不 Notify**（与导出写出失败不 Notify 对称）。
+- **失败 rollback 不 Notify**（与导出写出失败不 Notify 对称）。  
+- **Notify 时机（与导出对齐）：** DB commit 成功且 **200 响应体写出成功之后**再 Notify。  
+  - Go：`Encode` 成功后再 `NotifyUser`；写出失败则不 Notify（此时库已 commit，属极端网络失败）。  
+  - Next：构造成功 `NextResponse.json` 后再 `scheduleBestEffortNotify`（框架层写出失败 handler 内不可观测，与 §4.5 导出相同）。
 
 ### 5.5 成功响应与 Notify
 
@@ -222,6 +225,15 @@ BEGIN
 | JSON/结构损坏 | 400 | **行号** + 原因 |
 | 字段级 | 400 | **行号** + 字段 + 原因（越细越好） |
 | multipart | 400 | 写明期望 |
+| 非 file part 超限（**仅 Go**） | 400 | `multipart non-file part exceeds size limit (max 4 MiB)` |
+
+### 5.7 平台限制（无法在应用层消除；契约已写明）
+
+| 限制 | 说明 |
+|------|------|
+| **Next `formData()`** | 运行时可能先缓冲**整包** multipart；handler 内 `file.size` 门闸只避免随后无界 `file.text()` / 业务读入，**不**限制平台解析峰值内存。 |
+| **Next 导出/导入写出** | 构造成功 `NextResponse` 后 schedule Notify；框架把 body 写给客户端失败时 handler **观测不到**，无法像 Go `Write`/`Encode` 那样取消 Notify。 |
+| **非 file part 有界 Discard** | **仅 Go** `MultipartReader` 路径；Next 无对等 per-part Discard（依赖 `formData`）。恶意超大非 file 字段在 Next 上仍可能由运行时吃满。 |
 
 ---
 

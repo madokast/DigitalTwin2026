@@ -87,6 +87,7 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"error-import-limits.json", "Error"},
 		{"error-import-duplicate-id.json", "Error"},
 		{"error-import-multipart.json", "Error"},
+		{"error-import-non-file-part-too-large.json", "Error"},
 		{"query-success.json", "QuerySuccess"},
 		{"summary-success.json", "SummarySuccess"},
 		{"transaction-summary-success.json", "TransactionSummarySuccess"},

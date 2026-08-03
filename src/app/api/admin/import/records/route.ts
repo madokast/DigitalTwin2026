@@ -81,16 +81,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    scheduleBestEffortNotify(() =>
-      notify_user(formatImportNotifyMessage(result.counts)),
-    )
-
-    return NextResponse.json({
+    // commit 已成功：先构造成功 200 JSON，再 schedule Notify（对齐导出写出后 Notify）。
+    const response = NextResponse.json({
       success: true,
       inserted: result.counts.inserted,
       updated: result.counts.updated,
       total: result.counts.total,
     })
+    scheduleBestEffortNotify(() =>
+      notify_user(formatImportNotifyMessage(result.counts)),
+    )
+    return response
   } catch (error) {
     console.error('Error importing records:', error)
     return NextResponse.json(

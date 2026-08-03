@@ -50,6 +50,8 @@ type Server struct {
 	TransitionTodo func(ctx context.Context, pool *pgxpool.Pool, raw []byte) (logapi.TransitionResult, int, error)
 	// NotifyUser 可选；非 nil 时同步调用（单测 spy）；nil → go notify().NotifyUser（生产路径）。
 	NotifyUser func(text string)
+	// FetchExportRecords 可选；nil → exportapi.FetchExportRecords（单测注入空页，无需 Neon）。
+	FetchExportRecords func(ctx context.Context, pool *pgxpool.Pool, p *exportapi.ParsedExport) ([]record.Record, int, error)
 }
 
 func NewServer(pool *pgxpool.Pool, tokens auth.Tokens) *Server {
@@ -614,7 +616,13 @@ func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, err.Error())
 		return
 	}
-	recs, status, err := exportapi.FetchExportRecords(r.Context(), s.Pool, parsed)
+	var recs []record.Record
+	var status int
+	if s.FetchExportRecords != nil {
+		recs, status, err = s.FetchExportRecords(r.Context(), s.Pool, parsed)
+	} else {
+		recs, status, err = exportapi.FetchExportRecords(r.Context(), s.Pool, parsed)
+	}
 	if err != nil {
 		if status >= 500 {
 			log.Printf("Error exporting records: %v", err)
@@ -731,16 +739,24 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// commit 已成功：先写出 200 JSON，Encode 成功后再 Notify（与导出 §4.5 对齐）。
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(map[string]any{
+		"success":  true,
+		"inserted": counts.Inserted,
+		"updated":  counts.Updated,
+		"total":    counts.Total,
+	}); err != nil {
+		log.Printf("Error writing import success body: %v", err)
+		return
+	}
 	msg := importapi.FormatImportNotifyMessage(counts)
 	if s.NotifyUser != nil {
 		s.NotifyUser(msg)
 	} else {
 		go s.notify().NotifyUser(msg)
 	}
-	writeJSON(w, 200, map[string]any{
-		"success":  true,
-		"inserted": counts.Inserted,
-		"updated":  counts.Updated,
-		"total":    counts.Total,
-	})
 }

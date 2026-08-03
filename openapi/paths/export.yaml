@@ -4,8 +4,10 @@
     tags: [export]
     summary: Export records as NDJSON file (id cursor pagination)
     description: |
-      Downloads a chunk of `records` as **NDJSON** (`application/x-ndjson`)
-      attachment. Rows are OpenAPI `Record` camelCase (no Todo deform).
+      Downloads one **bounded page** of `records` as **NDJSON**
+      (`application/x-ndjson`) attachment (query `LIMIT` ≤1000, then build the
+      full response body — **not** a DB-cursor chunked HTTP stream). Rows are
+      OpenAPI `Record` camelCase (no Todo deform).
 
       Query: optional `from` (inclusive UUID cursor) + required `limit`
       (1…1000). With `from`: `WHERE id >= :from ORDER BY id ASC LIMIT :limit`.
@@ -16,9 +18,10 @@
       next `from` (one-row overlap; upsert-friendly). A request after the last
       page often returns 1 overlapping row and triggers Notify again — expected.
 
-      Success (including **0 rows**) always schedules Notify once. Pre-stream
-      validation errors return JSON `{ "error" }` and do **not** Notify.
-      Auth: ApiToken. No gzip; no `X-Export-*` headers; no JSON envelope.
+      After the response body is successfully written (including **0 rows**),
+      Notify once. Query/validation errors return JSON `{ "error" }` and do
+      **not** Notify. Auth: ApiToken. No gzip; no `X-Export-*` headers; no
+      JSON envelope.
     security:
       - ApiToken: []
     parameters:

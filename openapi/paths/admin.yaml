@@ -105,14 +105,20 @@
     summary: Import records from NDJSON multipart upload (upsert by id)
     description: |
       Uploads a Record JSONL file and **upserts by `id`** in a **single DB
-      transaction** (stream parse → validate → upsert). Reserved tags are
-      allowed (skips `assertNoReservedTags`); Admin PATCH still rejects them.
+      transaction**: read the **`file` part into a ≤4 MiB buffer**, then
+      line-by-line parse → validate → upsert (not an unbounded HTTP chunk
+      stream). Reserved tags are allowed (skips `assertNoReservedTags`);
+      Admin PATCH still rejects them.
 
       Multipart field name **`file`** (exactly one). Accept
       `application/x-ndjson`, `application/jsonl`, or `application/octet-stream`
       with a `.jsonl` filename. Limits: ≤1000 non-empty lines and ≤4 MiB for
-      the file part bytes. Empty file / only blank lines → 200 with all zeros
-      and still Notify. Any failure → rollback and no Notify.
+      the file part bytes. On Go, non-`file` parts are discarded with the same
+      4 MiB cap (`multipart non-file part exceeds size limit (max 4 MiB)`);
+      Next relies on runtime `formData()` (platform may buffer the whole
+      multipart before handlers run). Empty file / only blank lines → 200 with
+      all zeros and still Notify after a successful 200 body. Any failure →
+      rollback and no Notify.
 
       Auth: **AdminToken only**. Does **not** use the 256 KiB JSON body gate
       (`readJsonBody` / `readBody`); large file parts must not return 413 from
@@ -167,6 +173,10 @@
               multipart:
                 value:
                   error: multipart form field "file" is required
+              nonFilePartTooLarge:
+                summary: Go only — oversized non-file multipart part
+                value:
+                  error: multipart non-file part exceeds size limit (max 4 MiB)
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
       '500':

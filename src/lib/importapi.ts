@@ -166,8 +166,8 @@ class ImportDomainError extends Error {
 }
 
 /**
- * 从 UTF-8 JSONL 文本流式 upsert（单事务）。
- * `fileBytes` 为 file part 原始字节数（超限直接 400，不读内容）。
+ * 从已读入的 UTF-8 JSONL 文本做单事务逐行 upsert（有界缓冲，非 HTTP chunk 流）。
+ * `fileBytes` 为 file part 原始字节数（超限直接 400）。
  * 空文件 / 仅空行 → 全 0 成功。
  */
 export async function importRecordsJsonl(
