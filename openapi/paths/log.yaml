@@ -89,6 +89,56 @@
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
+/api/log/todo:
+  post:
+    operationId: logTodo
+    tags: [log]
+    summary: Create a to-do record
+    description: |
+      Inserts a text-like record with `value_text` from request `content` and
+      `happened_at` from request `created_at` (`value_number` null). Server
+      always prepends reserved state tag `todo:in_progress` (optional client
+      `tags` follow). Clients must not send reserved tags
+      (`todo` / `todo:*`, `transaction_entry` / `transaction_entry:*`,
+      `body:weight` / `body:weight:*`) and must not send `happened_at` /
+      `value_text` / `value_number` keys (use aliases). Success `201.record`
+      is a **TodoRecord** (`created_at` / `content`, not `happenedAt` /
+      `valueText`). On success, notification via notify_user is best-effort
+      and does not change the 201 response. Optional
+      `suppress_notification: true` skips notify after insert (default false).
+      Auth: ApiToken (AI token or Admin token).
+      Query later with `GET /api/query?tag=todo:in_progress` (list-item JSON
+      deform for query is a later phase).
+    security:
+      - ApiToken: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/LogTodoRequest'
+          example:
+            created_at: '2026-08-02T10:00:00+08:00'
+            content: Buy milk
+            objective_context: weekend grocery list
+            tags: [errand]
+            suppress_notification: false
+    responses:
+      '201':
+        description: To-do created (record uses TodoRecord aliases)
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/TodoRecordSuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
 /api/log/text:
   post:
     operationId: logText

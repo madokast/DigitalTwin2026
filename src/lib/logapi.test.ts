@@ -5,6 +5,7 @@ import {
   createBodyWeight,
   createNumber,
   createText,
+  createTodo,
   createTransactionBatch,
 } from '@/lib/logapi'
 import { reservedTagError } from '@/lib/tags'
@@ -199,6 +200,43 @@ describe('createBodyWeight', () => {
     })
     expect(result).toEqual({
       error: reservedTagError('body:weight'),
+      status: 400,
+    })
+  })
+})
+
+describe('createTodo', () => {
+  it('rejects missing created_at and reserved tags', async () => {
+    const missing = await createTodo({
+      content: 'Buy milk',
+      objective_context: 'x',
+    })
+    expect(missing).toEqual({
+      error: 'Missing required field: created_at',
+      status: 400,
+    })
+
+    const reserved = await createTodo({
+      created_at: '2026-08-02T10:00:00+08:00',
+      content: 'Buy milk',
+      objective_context: 'x',
+      tags: ['todo:in_progress'],
+    })
+    expect(reserved).toEqual({
+      error: reservedTagError('todo:in_progress'),
+      status: 400,
+    })
+  })
+
+  it('rejects happened_at alias key', async () => {
+    const result = await createTodo({
+      created_at: '2026-08-02T10:00:00+08:00',
+      happened_at: '2026-08-02T10:00:00+08:00',
+      content: 'Buy milk',
+      objective_context: 'x',
+    } as Parameters<typeof createTodo>[0] & { happened_at: string })
+    expect(result).toEqual({
+      error: 'Unknown JSON key: happened_at',
       status: 400,
     })
   })

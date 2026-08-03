@@ -430,6 +430,109 @@ LogBodyWeightRequest:
         Omitted / null → false. Non-boolean → 400
         (`Invalid suppress_notification`). Not stored on the record.
 
+TodoState:
+  type: string
+  description: |
+    To-do state literal (not the full `todo:{state}` tag). Create always
+    starts as `in_progress`. Transition API (later phase) uses these values
+    for `target` / response `from`/`to`.
+  enum: [in_progress, completed, cancelled, paused]
+
+TodoRecord:
+  type: object
+  description: |
+    To-do row as returned on create success (`201.record`) and, in a later
+    phase, on query list items. Alias keys: `created_at` (DB `happened_at`)
+    and `content` (DB `value_text`). Response **must not** also include
+    `happenedAt` / `valueText` for this shape. Other fields match `Record`
+    camelCase. `valueNumber` is always null for to-dos.
+  required:
+    - id
+    - created_at
+    - valueNumber
+    - content
+    - tags
+    - objectiveContext
+    - subjectiveInterpretation
+  additionalProperties: false
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: UUIDv7 primary key
+    created_at:
+      $ref: '#/HappenedAtUtcZ'
+    valueNumber:
+      type: 'null'
+    content:
+      type: string
+      minLength: 1
+      description: To-do body text (stored as `value_text`)
+    tags:
+      type: string
+      description: |
+        JSON array of strings, stored as text. Normal create shape starts
+        with `todo:in_progress`, then optional client tags.
+      examples:
+        - '["todo:in_progress"]'
+        - '["todo:in_progress","errand"]'
+    objectiveContext:
+      type: string
+    subjectiveInterpretation:
+      type: [string, 'null']
+
+TodoRecordSuccess:
+  type: object
+  required: [success, record]
+  additionalProperties: false
+  properties:
+    success:
+      type: boolean
+      const: true
+    record:
+      $ref: '#/TodoRecord'
+
+LogTodoRequest:
+  type: object
+  required: [created_at, content, objective_context]
+  additionalProperties: false
+  description: |
+    Create one to-do. Request uses aliases `created_at` → DB `happened_at`
+    and `content` → DB `value_text`. Do not send `happened_at` /
+    `value_text` / `value_number` (unknown keys → 400). Server stores tags
+    with `todo:in_progress` first, then any optional client `tags`. Clients
+    must not send reserved tags (`todo` / `todo:*`, `transaction_entry` /
+    `transaction_entry:*`, `body:weight` / `body:weight:*`).
+  properties:
+    created_at:
+      $ref: '#/HappenedAtInput'
+    content:
+      type: string
+      minLength: 1
+      description: To-do body text
+    objective_context:
+      type: string
+      minLength: 1
+    subjective_interpretation:
+      type: string
+      description: |
+        Optional; empty / omitted / null → null. Non-string JSON → 400
+        (`Invalid subjective_interpretation`).
+    tags:
+      type: array
+      items:
+        $ref: '#/TagName'
+      description: |
+        Optional extra non-reserved tags (e.g. `errand`). Omitted or `[]`
+        → only `todo:in_progress` is stored.
+    suppress_notification:
+      type: [boolean, 'null']
+      default: false
+      description: |
+        When true, skip notify_user after a successful insert.
+        Omitted / null → false. Non-boolean → 400
+        (`Invalid suppress_notification`). Not stored on the record.
+
 LogTextRequest:
   type: object
   required: [happened_at, value_text, tags, objective_context]

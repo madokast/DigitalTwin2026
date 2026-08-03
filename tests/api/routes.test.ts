@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST as postNumber } from '@/app/api/log/number/route'
 import { POST as postBodyWeight } from '@/app/api/log/body/weight/route'
+import { POST as postTodo } from '@/app/api/log/todo/route'
 import { POST as postText } from '@/app/api/log/text/route'
 import { POST as postTransaction } from '@/app/api/log/transaction/route'
 import { GET as queryRecords } from '@/app/api/query/route'
@@ -357,6 +358,58 @@ describe.skipIf(!hasTestDatabaseUrl)('API integration', () => {
       expect((await res.json()).error).toBe(
         'Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50',
       )
+    })
+  })
+
+  describe('POST /api/log/todo', () => {
+    it('creates a to-do with todo:in_progress and deformed record keys', async () => {
+      const res = await postTodo(jsonPost('http://localhost/api/log/todo', {
+        created_at: '2026-08-02T10:00:00+08:00',
+        content: 'Buy milk',
+        objective_context: 'weekend grocery list',
+        subjective_interpretation: 'need it for breakfast',
+        tags: ['errand'],
+        suppress_notification: true,
+      }))
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body.success).toBe(true)
+      expect(body.record.content).toBe('Buy milk')
+      expect(body.record.created_at).toBe('2026-08-02T02:00:00.000Z')
+      expect(body.record.valueNumber).toBeNull()
+      expect(body.record.tags).toBe(JSON.stringify(['todo:in_progress', 'errand']))
+      expect(body.record.objectiveContext).toBe('weekend grocery list')
+      expect(body.record).not.toHaveProperty('happenedAt')
+      expect(body.record).not.toHaveProperty('valueText')
+    })
+
+    it('rejects missing content and reserved client tags', async () => {
+      const missing = await postTodo(jsonPost('http://localhost/api/log/todo', {
+        created_at: '2026-08-02T10:00:00+08:00',
+        objective_context: 'x',
+      }))
+      expect(missing.status).toBe(400)
+      expect((await missing.json()).error).toBe('Missing required field: content')
+
+      const reserved = await postTodo(jsonPost('http://localhost/api/log/todo', {
+        created_at: '2026-08-02T10:00:00+08:00',
+        content: 'x',
+        objective_context: 'x',
+        tags: ['todo'],
+      }))
+      expect(reserved.status).toBe(400)
+      expect((await reserved.json()).error).toBe(reservedTagError('todo'))
+    })
+
+    it('rejects happened_at as unknown key', async () => {
+      const res = await postTodo(jsonPost('http://localhost/api/log/todo', {
+        created_at: '2026-08-02T10:00:00+08:00',
+        happened_at: '2026-08-02T10:00:00+08:00',
+        content: 'Buy milk',
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('Unknown JSON key: happened_at')
     })
   })
 

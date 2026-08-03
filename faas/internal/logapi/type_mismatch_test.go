@@ -45,6 +45,33 @@ func TestCreateBodyWeightRejectsJSONNumber(t *testing.T) {
 	}
 }
 
+func TestCreateTodoRejects(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		raw  string
+		want string
+	}{
+		{
+			`{"content":"Buy milk","objective_context":"x"}`,
+			"Missing required field: created_at",
+		},
+		{
+			`{"created_at":"2026-08-02T10:00:00+08:00","content":"Buy milk","objective_context":"x","tags":["todo:in_progress"]}`,
+			`tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries`,
+		},
+		{
+			`{"created_at":"2026-08-02T10:00:00+08:00","happened_at":"2026-08-02T10:00:00+08:00","content":"Buy milk","objective_context":"x"}`,
+			"Unknown JSON key: happened_at",
+		},
+	}
+	for _, c := range cases {
+		_, status, err := CreateTodo(context.Background(), nil, []byte(c.raw))
+		if status != 400 || err == nil || err.Error() != c.want {
+			t.Fatalf("%s: status=%d err=%v want %q", c.raw, status, err, c.want)
+		}
+	}
+}
+
 func TestCreateNumberRejectsBodyWeightTag(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{

@@ -1,7 +1,7 @@
 # DigitalTwin2026：任务清单 / Todo（GTD）
 
 > 创建日期：2026-08-02  
-> 状态：讨论定稿；**Phase 1（保留前缀 `todo`）已落地**；Phase 2–4 尚未开发（§9 中 transition 成功响应形状与 notify 范围两项**已收**；实现分期见 **§10**）  
+> 状态：讨论定稿；**Phase 1（保留前缀 `todo`）已落地**；**Phase 2（创建 `POST /api/log/todo`）已落地（2026-08-03）**；Phase 3–4 尚未开发（§9 中 transition 成功响应形状与 notify 范围两项**已收**；实现分期见 **§10**）  
 > 性质：个人项目；偏 GTD 个人待办  
 > 相关：`docs/20260729-schema-v1.md`（append-only / tags）、账单与体重的「保留 tag + 专用 API」先例（`transaction_entry` / `body:weight`）
 
@@ -340,7 +340,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 
 > 期内 `/api/log/todo` 尚不存在；错误文案可先指向该 path（与体重先例一致，短空窗可接受）。
 
-### Phase 2 — 创建 `POST /api/log/todo`（中）
+### Phase 2 — 创建 `POST /api/log/todo`（中）✅ 已完成（2026-08-03）
 
 | | |
 |--|--|
@@ -350,6 +350,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 | **交付** | 新 path + 双端实现 + 创建/校验/notify/变形 fixture；分层对照表补 `tododraft` / `CreateTodo`（实现时改 `docs/20260801-api-layering.md`）。 |
 | **依赖** | Phase 1。 |
 | **验证** | `openapi:lint` + `test:openapi` + `faas` contract；创建 201 键为 `created_at`/`content`；缺字段/保留 tag/未知键 400；suppress 跳过 notify。 |
+| **落地** | Next `src/lib/tododraft.ts` + `logapi.createTodo` + `src/app/api/log/todo`；Go `faas/internal/tododraft` + `logapi.CreateTodo` + `httpx`；OpenAPI `LogTodoRequest` / `TodoRecord` / `TodoRecordSuccess` / `TodoState`；变形 fixture `testdata/todo-record-deform.json`。 |
 
 ### Phase 3 — Transition + 审计 + notify（大）
 

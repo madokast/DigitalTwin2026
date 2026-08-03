@@ -1,0 +1,8 @@
+{
+  "created_at": "2026-08-02T10:00:00+08:00",
+  "content": "Buy milk",
+  "objective_context": "weekend grocery list",
+  "subjective_interpretation": "need it for breakfast",
+  "tags": ["errand"],
+  "suppress_notification": false
+}

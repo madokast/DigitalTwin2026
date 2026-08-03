@@ -9,6 +9,7 @@ import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
 import { parseHappenedAt, parseValueNumber } from '@/lib/draft'
 import { fromDB, tagsJSON, type Record } from '@/lib/record'
 import { assertNoReservedTags, validateTags } from '@/lib/tags'
+import { parseTodo, type LogTodoBody } from '@/lib/tododraft'
 import { parseTransactionBatch } from '@/lib/transactiondraft'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
 
@@ -189,6 +190,35 @@ export async function createBodyWeight(
     return { record, status: 201 }
   } catch (err) {
     console.error('Error creating body weight record:', err)
+    return { error: 'Internal server error', status: 500 }
+  }
+}
+
+/**
+ * 与 Go `logapi.CreateTodo` 对齐：
+ * 解析委托 `parseTodo`，落库强制含 `todo:in_progress`；返回内部 Record（HTTP 层再变形）。
+ */
+export async function createTodo(
+  body: LogTodoBody,
+): Promise<CreateRecordResult> {
+  const parsed = parseTodo(body)
+  if ('error' in parsed) {
+    return { error: parsed.error, status: 400 }
+  }
+
+  try {
+    const record = await insertReturning(db, {
+      id: uuidv7(),
+      happenedAt: parsed.happenedAt,
+      valueNumber: null,
+      valueText: parsed.valueText,
+      tags: tagsJSON(parsed.tags),
+      objectiveContext: parsed.objectiveContext,
+      subjectiveInterpretation: parsed.subjectiveInterpretation,
+    })
+    return { record, status: 201 }
+  } catch (err) {
+    console.error('Error creating to-do record:', err)
     return { error: 'Internal server error', status: 500 }
   }
 }

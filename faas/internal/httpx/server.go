@@ -22,6 +22,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
+	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
 
 // MaxBodyBytes 与 Next MAX_HTTP_BODY_BYTES（256 KiB）对齐。
@@ -56,6 +57,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/log/number", s.handleLogNumber)
 	mux.HandleFunc("POST /api/log/body/weight", s.handleLogBodyWeight)
+	mux.HandleFunc("POST /api/log/todo", s.handleLogTodo)
 	mux.HandleFunc("POST /api/log/text", s.handleLogText)
 	mux.HandleFunc("POST /api/log/transaction", s.handleLogTransaction)
 	mux.HandleFunc("POST /api/telegram/probe", s.handleTelegramProbe)
@@ -260,6 +262,35 @@ func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
 		go s.notify().NotifyRecordInserted(rec)
 	}
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
+}
+
+func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
+	raw, ok := readBodyOrError(w, r)
+	if !ok {
+		return
+	}
+	suppress, err := notify.ReadSuppressNotification(raw)
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+	rec, status, err := logapi.CreateTodo(r.Context(), s.Pool, raw)
+	if err != nil {
+		if status >= 500 {
+			log.Printf("Error creating to-do record: %v", err)
+			writeInternalError(w, err)
+			return
+		}
+		writeError(w, status, err.Error())
+		return
+	}
+	if !suppress {
+		go s.notify().NotifyRecordInserted(rec)
+	}
+	writeJSON(w, status, map[string]any{
+		"success": true,
+		"record":  tododraft.ToTodoRecordJSON(rec),
+	})
 }
 
 func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {

@@ -51,6 +51,8 @@ paths:
     $ref: './paths/log.yaml#/~1api~1log~1number'
   /api/log/body/weight:
     $ref: './paths/log.yaml#/~1api~1log~1body~1weight'
+  /api/log/todo:
+    $ref: './paths/log.yaml#/~1api~1log~1todo'
   /api/log/text:
     $ref: './paths/log.yaml#/~1api~1log~1text'
   /api/log/transaction:
@@ -152,6 +154,14 @@ components:
       $ref: './components/schemas.yaml#/LogNumberRequest'
     LogBodyWeightRequest:
       $ref: './components/schemas.yaml#/LogBodyWeightRequest'
+    TodoState:
+      $ref: './components/schemas.yaml#/TodoState'
+    TodoRecord:
+      $ref: './components/schemas.yaml#/TodoRecord'
+    TodoRecordSuccess:
+      $ref: './components/schemas.yaml#/TodoRecordSuccess'
+    LogTodoRequest:
+      $ref: './components/schemas.yaml#/LogTodoRequest'
     LogTextRequest:
       $ref: './components/schemas.yaml#/LogTextRequest'
     RecordDraftRequest:

@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "record": {
+    "id": "01900000-0000-7000-8000-000000000003",
+    "created_at": "2026-08-02T02:00:00.000Z",
+    "valueNumber": null,
+    "content": "Buy milk",
+    "tags": "[\"todo:in_progress\",\"errand\"]",
+    "objectiveContext": "weekend grocery list",
+    "subjectiveInterpretation": "need it for breakfast"
+  }
+}

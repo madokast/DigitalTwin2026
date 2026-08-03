@@ -114,6 +114,26 @@ describe('OpenAPI contract (Phase 2)', () => {
     )
   })
 
+  it('accepts valid LogTodoRequest / TodoRecordSuccess and rejects unknown happened_at', async () => {
+    await assertValidSchema(
+      'LogTodoRequest',
+      readFixture('log-todo-request-valid.json'),
+    )
+    await assertValidSchema(
+      'TodoRecordSuccess',
+      readFixture('record-todo-success.json'),
+    )
+    const todoOk = readFixture('record-todo-success.json') as {
+      record: { created_at: string; content: string }
+    }
+    expect(todoOk.record.created_at).toMatch(HAPPENED_AT_UTC_Z)
+    expect(todoOk.record.content).toBe('Buy milk')
+    await assertInvalidSchema(
+      'LogTodoRequest',
+      readFixture('log-todo-request-unknown-happened-at.json'),
+    )
+  })
+
   it('rejects LogTransactionRequest empty entries / JSON number amount / missing type', async () => {
     await assertInvalidSchema(
       'LogTransactionRequest',
