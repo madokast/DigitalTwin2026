@@ -6,11 +6,11 @@ import postgres from 'postgres'
 
 export type DbProbeResult = {
   ok: boolean
-  databaseReachable: true
-  recordsTableExists: boolean
-  connectMs: number
-  select1FirstMs: number
-  select1SecondMs: number
+  database_reachable: true
+  records_table_exists: boolean
+  connect_ms: number
+  select1_first_ms: number
+  select1_second_ms: number
 }
 
 export type DbProbeFailure = {
@@ -73,11 +73,11 @@ export async function probeDatabase(
 
       return {
         ok: recordsTableExists,
-        databaseReachable: true,
-        recordsTableExists,
-        connectMs,
-        select1FirstMs,
-        select1SecondMs,
+        database_reachable: true,
+        records_table_exists: recordsTableExists,
+        connect_ms: connectMs,
+        select1_first_ms: select1FirstMs,
+        select1_second_ms: select1SecondMs,
       }
     } finally {
       conn.release()

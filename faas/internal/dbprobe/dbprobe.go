@@ -20,11 +20,11 @@ const (
 // Result 成功探测体（HTTP 200）；ok = reachable ∧ records 存在。
 type Result struct {
 	Ok                   bool    `json:"ok"`
-	DatabaseReachable    bool    `json:"databaseReachable"`
-	RecordsTableExists   bool    `json:"recordsTableExists"`
-	ConnectMs            float64 `json:"connectMs"`
-	Select1FirstMs       float64 `json:"select1FirstMs"`
-	Select1SecondMs      float64 `json:"select1SecondMs"`
+	DatabaseReachable    bool    `json:"database_reachable"`
+	RecordsTableExists   bool    `json:"records_table_exists"`
+	ConnectMs            float64 `json:"connect_ms"`
+	Select1FirstMs       float64 `json:"select1_first_ms"`
+	Select1SecondMs      float64 `json:"select1_second_ms"`
 }
 
 func roundMs(d time.Duration) float64 {

@@ -29,10 +29,10 @@ describe('OpenAPI contract (Phase 2)', () => {
     await assertValidSchema('RecordSuccess', numberOk)
     await assertValidSchema('RecordSuccess', textOk)
 
-    const numRec = (numberOk as { record: { happenedAt: string; valueNumber: string } })
+    const numRec = (numberOk as { record: { happened_at: string; valueNumber: string } })
       .record
-    expect(numRec.happenedAt).toMatch(HAPPENED_AT_UTC_Z)
-    expect(numRec.valueNumber).toMatch(VALUE_NUMBER_DECIMAL)
+    expect(numRec.happened_at).toMatch(HAPPENED_AT_UTC_Z)
+    expect(numRec.value_number).toMatch(VALUE_NUMBER_DECIMAL)
   })
 
   it('validates Error / QuerySuccess / SummarySuccess fixtures', async () => {
@@ -219,12 +219,12 @@ describe('OpenAPI contract (Phase 2)', () => {
   it('rejects Record with JSON number valueNumber (drift guard)', async () => {
     await assertInvalidSchema('Record', {
       id: '01900000-0000-7000-8000-000000000001',
-      happenedAt: '2026-07-30T00:00:00.000Z',
-      valueNumber: 75.5,
-      valueText: null,
+      happened_at: '2026-07-30T00:00:00.000Z',
+      value_number: 75.5,
+      value_text: null,
       tags: '["weight"]',
-      objectiveContext: 'x',
-      subjectiveInterpretation: null,
+      objective_context: 'x',
+      subjective_interpretation: null,
     })
   })
 
@@ -247,8 +247,8 @@ describe('OpenAPI contract (Phase 2)', () => {
       subjectiveInterpretation: null,
     })
     await assertValidSchema('Record', rec)
-    expect(rec.happenedAt).toBe('2026-07-30T00:00:00.000Z')
-    expect(rec.happenedAt).toMatch(HAPPENED_AT_UTC_Z)
-    expect(rec.valueNumber).toBe('1.0')
+    expect(rec.happened_at).toBe('2026-07-30T00:00:00.000Z')
+    expect(rec.happened_at).toMatch(HAPPENED_AT_UTC_Z)
+    expect(rec.value_number).toBe('1.0')
   })
 })

@@ -15,22 +15,22 @@ afterEach(() => {
 
 const sampleNumber = {
   id: '01900000-0000-7000-8000-000000000001',
-  happenedAt: '2026-07-31T12:00:00.000Z',
-  valueNumber: '72.5',
-  valueText: null,
+  happened_at: '2026-07-31T12:00:00.000Z',
+  value_number: '72.5',
+  value_text: null,
   tags: JSON.stringify(['weight', 'morning']),
-  objectiveContext: 'Scale reading',
-  subjectiveInterpretation: 'Feeling lighter',
+  objective_context: 'Scale reading',
+  subjective_interpretation: 'Feeling lighter',
 }
 
 const sampleText = {
   id: '01900000-0000-7000-8000-000000000002',
-  happenedAt: new Date('2026-07-31T13:00:00.000Z'),
-  valueNumber: null,
-  valueText: 'Ran 5k',
+  happened_at: new Date('2026-07-31T13:00:00.000Z'),
+  value_number: null,
+  value_text: 'Ran 5k',
   tags: JSON.stringify(['run']),
-  objectiveContext: 'Park loop',
-  subjectiveInterpretation: null as string | null,
+  objective_context: 'Park loop',
+  subjective_interpretation: null as string | null,
 }
 
 describe('loadConfig / isTelegramConfigured', () => {

@@ -67,15 +67,15 @@ describe('toQueryRecordJson', () => {
   it('deforms todo rows and keeps audit / plain as Record', () => {
     const todo = toQueryRecordJson(deformFixture.inputRecord)
     expect(todo).toEqual(deformFixture.todoRecordJson)
-    expect('happenedAt' in todo).toBe(false)
-    expect('valueText' in todo).toBe(false)
+    expect('happened_at' in todo).toBe(false)
+    expect('value_text' in todo).toBe(false)
 
     const audit: Record = {
       ...deformFixture.inputRecord,
-      valueText: 'Complete a to-do created at 2026-08-02T02:00:00.000Z: Buy milk',
+      value_text: 'Complete a to-do created at 2026-08-02T02:00:00.000Z: Buy milk',
       tags: JSON.stringify([TODO_TAG_TRANSITION]),
-      objectiveContext: 'The index of the to-do is 01900000-0000-7000-8000-000000000003',
-      subjectiveInterpretation: null,
+      objective_context: 'The index of the to-do is 01900000-0000-7000-8000-000000000003',
+      subjective_interpretation: null,
     }
     const auditJson = toQueryRecordJson(audit)
     expect(auditJson).toEqual(audit)
@@ -88,10 +88,10 @@ describe('toQueryRecordJson', () => {
     }
     const dirtyJson = toQueryRecordJson(dirty)
     expect(dirtyJson).toMatchObject({
-      created_at: dirty.happenedAt,
-      content: dirty.valueText,
+      created_at: dirty.happened_at,
+      content: dirty.value_text,
     })
-    expect('happenedAt' in dirtyJson).toBe(false)
+    expect('happened_at' in dirtyJson).toBe(false)
   })
 })
 
@@ -188,7 +188,7 @@ const auditFixture = JSON.parse(
     target: TodoState
     todoHappenedAt: string
     todoValueText: string
-    valueText: string
+    value_text: string
   }>
 }
 
@@ -196,7 +196,7 @@ describe('auditValueText shared fixture', () => {
   it('matches §4.1 templates for all targets', () => {
     for (const c of auditFixture.cases) {
       expect(auditValueText(c.target, c.todoHappenedAt, c.todoValueText)).toBe(
-        c.valueText,
+        c.value_text,
       )
     }
   })

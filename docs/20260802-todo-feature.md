@@ -252,7 +252,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 
 导入/导出见 **[`docs/20260803-records-import-export.md`](20260803-records-import-export.md)**（**已落地**）：
 
-- **禁止** JSON deform：JSONL 仅 OpenAPI `Record` camelCase；**不**接受/不产出 `created_at`/`content`。
+- **禁止** JSON deform：JSONL 仅 OpenAPI `Record` snake_case；**不**接受/不产出 `created_at`/`content`。
 - 导出 = `from?`+`limit` 游标 **文件下载**（ApiToken）；导入 = multipart **upsert**（Admin）；双端有界缓冲（非真 chunk 流）；行级详细错误；始终 Notify（无 body suppress；静音见 `SUPPRESS_BOT_NOTIFICATION`）。
 - 查询/创建路径的 Todo 变形（§5.1）**保持不变**；与 I/O 文件格式解耦。
 

@@ -11,7 +11,7 @@
 
 - 按 **`id ASC` 游标**分块导出 `records` 为 **JSONL 文件下载**（有界缓冲，见 §4.5）。
 - 用同形状 JSONL **文件上传** + **按 `id` upsert** 写回（file part ≤4MiB 有界读入后逐行处理，见 §5.4）。
-- 形状 = OpenAPI **`Record` camelCase**：**禁止** Todo deform（`created_at` / `content`）。
+- 形状 = OpenAPI **`Record` snake_case**：**禁止** Todo deform（`created_at` / `content`）。
 - 成功后 **一律 Notify**（导出每页含 0 行；导入含空文件全 0）；**无**请求体 `suppress_notification`。真发与否仅看进程 env `SUPPRESS_BOT_NOTIFICATION`（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。
 - 双端（Next + Go）+ OpenAPI 同构已落地；本篇为决策真源。
 
@@ -30,7 +30,7 @@
 
 | # | 决策 |
 |---|------|
-| 1 | **无 JSON deform**；JSONL ↔ `Record` camelCase（§2）。 |
+| 1 | **无 JSON deform**；JSONL ↔ `Record` snake_case（§2）。 |
 | 2 | **导出** = NDJSON 文件下载（有界缓冲）；**导入** = multipart 文件上传。 |
 | 3 | **导入 = upsert on `id`**；可重复导入。 |
 | 4 | **导出鉴权** = `ApiToken`；**导入** = `AdminToken` only（`/api/admin/...`）。 |
@@ -48,17 +48,17 @@
 
 ### 2.1 表示层（文件中的键）
 
-与 OpenAPI `Record` 一致（camelCase）：
+与 OpenAPI `Record` 一致（snake_case）：
 
 | JSON 键 | 要点 |
 |---------|------|
 | `id` | UUID 字符串 |
-| `happenedAt` | 可解析为带时区时间；**写入语义对齐 draft/log**（允许 `+08:00` 等；存库后再按现网规范读出为 UTC `…Z`） |
-| `valueNumber` | decimal **字符串**或 `null`；JSON **number 类型 → 400**（详细错误） |
-| `valueText` | `string` 或 `null` |
+| `happened_at` | 可解析为带时区时间；**写入语义对齐 draft/log**（允许 `+08:00` 等；存库后再按现网规范读出为 UTC `…Z`） |
+| `value_number` | decimal **字符串**或 `null`；JSON **number 类型 → 400**（详细错误） |
+| `value_text` | `string` 或 `null` |
 | `tags` | **字符串**（JSON 数组字面量）；误传数组类型 → 400 |
-| `objectiveContext` | 非空 string |
-| `subjectiveInterpretation` | `string` 或 `null` |
+| `objective_context` | 非空 string |
+| `subjective_interpretation` | `string` 或 `null` |
 
 出现 `created_at` / `content` / 未知键 → **字段级详细英文错误**（含行号）。
 
@@ -304,7 +304,7 @@ BEGIN
 
 **状态：已完成**（stem `recordjsonl`；共享 fixture `testdata/record-jsonl-cases.json`）
 
-**目标：** 双端同构「一行 ↔ 领域行」：表示层 Record camelCase、禁止 deform 键、字段/tags 语义对齐 draft（**import 侧跳过保留 tag 拒绝**的开关可放本阶段参数，或 import 阶段再包一层——须在 stem 注释写清）。
+**目标：** 双端同构「一行 ↔ 领域行」：表示层 Record snake_case、禁止 deform 键、字段/tags 语义对齐 draft（**import 侧跳过保留 tag 拒绝**的开关可放本阶段参数，或 import 阶段再包一层——须在 stem 注释写清）。
 
 **范围：**
 - Next / Go 共享 stem（如 `recordjsonl` / 等价名）：parse 一行、serialize 一行、详细英文错误（含可选行号参数）
@@ -323,7 +323,7 @@ BEGIN
 
 **依赖 / 可并行：** 无前置。阶段 2、3 依赖本阶段。
 
-**落地备注：** `parseLine` / `ParseLine` **不**调用 `assertNoReservedTags`（包注释已写清）；语义错误复用 draft 文案（snake_case，如 `value_number must be a decimal string`）；表示层错误用 camelCase 缺键 / `tags must be a stringified JSON array` / `Invalid JSON line`。
+**落地备注：** `parseLine` / `ParseLine` **不**调用 `assertNoReservedTags`（包注释已写清）；语义错误复用 draft 文案（snake_case，如 `value_number must be a decimal string`）；表示层错误用 snake_case 缺键 / `tags must be a stringified JSON array` / `Invalid JSON line`。
 
 ---
 

@@ -196,12 +196,12 @@ func TestRecordRejectsNumericValueNumber(t *testing.T) {
 	doc := loadDoc(t)
 	bad := map[string]any{
 		"id":                       "01900000-0000-7000-8000-000000000001",
-		"happenedAt":               "2026-07-30T00:00:00.000Z",
-		"valueNumber":              75.5,
-		"valueText":                nil,
+		"happened_at":               "2026-07-30T00:00:00.000Z",
+		"value_number":              75.5,
+		"value_text":                nil,
 		"tags":                     `["weight"]`,
-		"objectiveContext":         "x",
-		"subjectiveInterpretation": nil,
+		"objective_context":         "x",
+		"subjective_interpretation": nil,
 	}
 	visitJSONExpectFail(t, schema(t, doc, "Record"), bad)
 }

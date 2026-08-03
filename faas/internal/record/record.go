@@ -13,15 +13,15 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 )
 
-// Record matches Next/Drizzle JSON shape (camelCase).
+// Record matches Next JSON shape（snake_case HTTP JSON）。
 type Record struct {
 	ID                       string  `json:"id"`
-	HappenedAt               string  `json:"happenedAt"`
-	ValueNumber              *string `json:"valueNumber"`
-	ValueText                *string `json:"valueText"`
+	HappenedAt               string  `json:"happened_at"`
+	ValueNumber              *string `json:"value_number"`
+	ValueText                *string `json:"value_text"`
 	Tags                     string  `json:"tags"`
-	ObjectiveContext         string  `json:"objectiveContext"`
-	SubjectiveInterpretation *string `json:"subjectiveInterpretation"`
+	ObjectiveContext         string  `json:"objective_context"`
+	SubjectiveInterpretation *string `json:"subjective_interpretation"`
 }
 
 func FormatHappenedAt(t time.Time) string {

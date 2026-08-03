@@ -9,12 +9,12 @@
       `_` / `%` / `\` in tag are escaped for literal match (tag names may contain `_`).
       `q` searches `value_text`, `objective_context`, `subjective_interpretation`, and `tags` (LIKE, same escaping).
       When `id` is set, pagination is ignored; returns 0–1 rows with `page: 1`
-      and `pageSize` equal to the result length (or 1 if empty).
+      and `page_size` equal to the result length (or 1 if empty).
       Results ordered by `happened_at` ascending, then `id` ascending
       (UUIDv7 write order) for stable ties. No `order` query parameter.
       To-do rows in `records[]` use `TodoRecord` aliases (`created_at` /
       `content`) when tags include a todo state tag; audit / other rows stay
-      as `Record` (`happenedAt` / `valueText`). See `QuerySuccess.records`.
+      as `Record` (`happened_at` / `value_text`). See `QuerySuccess.records`.
       Auth: ApiToken.
     security:
       - ApiToken: []

@@ -119,15 +119,15 @@ Records 备份 / 迁移：`GET /api/export/records`（ApiToken；JSONL 游标、
 | `WeightAmountString` | `^(?:0\|[1-9]\d{0,2})(?:\.\d{1,2})?$`；运行时限 **1.00–500.00**（kg）；禁 trim / `+` / 负号；JSON number → 400；通过后规范为两位小数；`LogBodyWeightRequest.value_number` |
 | `TagName` | 标识符 + 可选 `:` 分段 |
 
-`Record.valueNumber` / `LogNumberRequest.value_number` / PATCH draft 等均 `$ref` 上述组件（nullable 用 `oneOf`）。
+`Record.value_number` / `LogNumberRequest.value_number` / PATCH draft 等均 `$ref` 上述组件（nullable 用 `oneOf`）。
 
 ## 已对齐约定（摘要）
 
 | 项 | 规则 |
 |----|------|
 | `happened_at` / query `from`/`to` | 一律带时区；裸日期 → 400 |
-| `Record.happenedAt` 输出 | UTC `…sssZ` |
-| `Record.valueNumber` | 仅十进制字符串 / null；JSON **number → 400**；字面量入库 |
+| `Record.happened_at` 输出 | UTC `…sssZ` |
+| `Record.value_number` | 仅十进制字符串 / null；JSON **number → 400**；字面量入库 |
 
 ## 契约测覆盖
 

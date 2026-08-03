@@ -14,21 +14,21 @@ import (
 
 // RECORD JSONL 行编解码 / 校验（与 Next src/lib/recordjsonl.ts 同构）。
 //
-// 表示层 = OpenAPI Record camelCase；禁止 Todo deform 键（created_at / content）。
+// 表示层 = OpenAPI Record snake_case；禁止 Todo deform 键（created_at / content）。
 // 语义对齐 draft（时间 / 小数 / 双 null / tags 格式），但 tags 在文件中为字符串化 JSON 数组。
 //
 // 不调用 tags.AssertNoReservedTags：import 须可写保留 tag；若调用方需拒绝保留 tag，
 // 自行在 ParseLine 成功后调用 AssertNoReservedTags(row.Tags)。
 
-// RecordJSONLKeys OpenAPI Record 键（camelCase）。
+// RecordJSONLKeys OpenAPI Record 键（snake_case）。
 var RecordJSONLKeys = []string{
 	"id",
-	"happenedAt",
-	"valueNumber",
-	"valueText",
+	"happened_at",
+	"value_number",
+	"value_text",
 	"tags",
-	"objectiveContext",
-	"subjectiveInterpretation",
+	"objective_context",
+	"subjective_interpretation",
 }
 
 // InvalidJSONLine 非法 JSON 行（与 HTTP Invalid JSON body 区分）。
@@ -102,20 +102,20 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 		return nil, wrapErr(record.InvalidID.Error(), lineNumber)
 	}
 
-	happenedRaw, _ := m["happenedAt"].(string)
+	happenedRaw, _ := m["happened_at"].(string)
 	happenedAt, err := draft.ParseHappenedAt(happenedRaw)
 	if err != nil {
 		return nil, wrapErr(err.Error(), lineNumber)
 	}
 
-	valueNumber, err := draft.ParseValueNumber(m["valueNumber"])
+	valueNumber, err := draft.ParseValueNumber(m["value_number"])
 	if err != nil {
 		return nil, wrapErr(err.Error(), lineNumber)
 	}
 
 	var valueText *string
-	if m["valueText"] != nil {
-		s, ok := m["valueText"].(string)
+	if m["value_text"] != nil {
+		s, ok := m["value_text"].(string)
 		if !ok {
 			return nil, wrapErr("Invalid value_text", lineNumber)
 		}
@@ -157,14 +157,14 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	}
 	// 故意不调用 AssertNoReservedTags（见包注释）
 
-	objCtx, ok := m["objectiveContext"].(string)
+	objCtx, ok := m["objective_context"].(string)
 	if !ok || objCtx == "" {
-		return nil, wrapErr("Missing required field: objectiveContext", lineNumber)
+		return nil, wrapErr("Missing required field: objective_context", lineNumber)
 	}
 
 	var subjective *string
-	if m["subjectiveInterpretation"] != nil {
-		s, ok := m["subjectiveInterpretation"].(string)
+	if m["subjective_interpretation"] != nil {
+		s, ok := m["subjective_interpretation"].(string)
 		if !ok {
 			return nil, wrapErr("Invalid subjective_interpretation", lineNumber)
 		}
@@ -182,7 +182,7 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	}, nil
 }
 
-// SerializeLine 领域行 → 一行 JSONL（无尾换行；happenedAt UTC Z；tags 字符串化）。
+// SerializeLine 领域行 → 一行 JSONL（无尾换行；happened_at UTC Z；tags 字符串化）。
 // 键序固定，与 Next serializeLine 一致。
 func SerializeLine(row *Row) (string, error) {
 	tagsJSON, err := record.TagsJSON(row.Tags)
@@ -222,10 +222,10 @@ func SerializeRecord(rec record.Record) (string, error) {
 // orderedRecord 字段声明序 = JSONL 键序。
 type orderedRecord struct {
 	ID                       string  `json:"id"`
-	HappenedAt               string  `json:"happenedAt"`
-	ValueNumber              *string `json:"valueNumber"`
-	ValueText                *string `json:"valueText"`
+	HappenedAt               string  `json:"happened_at"`
+	ValueNumber              *string `json:"value_number"`
+	ValueText                *string `json:"value_text"`
 	Tags                     string  `json:"tags"`
-	ObjectiveContext         string  `json:"objectiveContext"`
-	SubjectiveInterpretation *string `json:"subjectiveInterpretation"`
+	ObjectiveContext         string  `json:"objective_context"`
+	SubjectiveInterpretation *string `json:"subjective_interpretation"`
 }

@@ -150,7 +150,7 @@ SELECT EXISTS (
 	if overlap["id"] != ids[1] || last["id"] != ids[2] {
 		t.Fatalf("page2 ids %v %v want %s %s", overlap["id"], last["id"], ids[1], ids[2])
 	}
-	if _, ok := overlap["happenedAt"]; !ok {
+	if _, ok := overlap["happened_at"]; !ok {
 		t.Fatal("missing happenedAt")
 	}
 	if _, ok := overlap["created_at"]; ok {

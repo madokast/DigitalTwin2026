@@ -19,12 +19,12 @@ import { POST } from './route'
 
 const sampleRecord = {
   id: '01900000-0000-7000-8000-000000000001',
-  happenedAt: '2026-07-31T12:00:00.000Z',
-  valueNumber: '72.5',
-  valueText: null,
+  happened_at: '2026-07-31T12:00:00.000Z',
+  value_number: '72.5',
+  value_text: null,
   tags: '["weight"]',
-  objectiveContext: 'Scale',
-  subjectiveInterpretation: null,
+  objective_context: 'Scale',
+  subjective_interpretation: null,
 }
 
 function post(body: unknown): NextRequest {

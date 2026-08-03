@@ -303,8 +303,8 @@ export async function transitionTodo(
       return { error: ERR_ALREADY_TARGET, status: 400 }
     }
 
-    const content = todoRec.valueText ?? ''
-    const auditText = auditValueText(parsed.target, todoRec.happenedAt, content)
+    const content = todoRec.value_text ?? ''
+    const auditText = auditValueText(parsed.target, todoRec.happened_at, content)
     const newTags = replaceTodoStateInTags(tagList, parsed.target)
 
     await db.transaction(async (tx) => {

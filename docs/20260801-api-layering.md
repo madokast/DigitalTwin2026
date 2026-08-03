@@ -84,7 +84,7 @@ flowchart LR
 
 1. **同 stem**：`CreateNumber` ↔ `createNumber`；`RenameAcrossRecords` ↔ `renameAcrossRecords`；`FetchFilteredRecords` ↔ `fetchFilteredRecords`。
 2. **同参数语义顺序**：Go 为 `(ctx, db, …)`；TS 用模块内默认 `db`，其余参数顺序与 Go 去掉 `ctx` / pool 后一致。写库路径：`RenameAcrossRecords` 接受 `*pgxpool.Pool`（内开事务 + `pg_advisory_xact_lock`）；TS `renameAcrossRecords` 生产同语义，可选末参 `store` 注入同构边界供单测（无真实锁）。`Update` 等仍可用 `db.Querier`。
-3. **同结构体字段名**：JSON / API 已是 camelCase；内部 DTO 字段名两端相同（Go struct tag 与 TS type 对齐）。API 记录类型两端都叫 **`Record`**（TS 已收敛原 `ApiRecord` / `TwinRecord` 到共享后端域的 `Record`；前端 `api-client` 可再导出别名）。
+3. **同结构体字段名**：对外 JSON / JSONL 键一律 **snake_case**（见根 [`AGENTS.md`](../AGENTS.md)）；内部 DTO / Drizzle / Go struct 字段名可仍用惯用 camelCase / PascalCase，经 `json:"…"` 或显式序列化映射。API 记录类型两端都叫 **`Record`**（TS 已收敛原 `ApiRecord` / `TwinRecord` 到共享后端域的 `Record`；前端 `api-client` 可再导出别名）。
 4. **同错误文案**：用户可见英文错误字符串必须字节级一致（契约测继续守）。
 5. **先表后码**：本轮新建 / 迁移的符号必须先写入本文对照表再实现；禁止「Go 叫 `Update`、TS 叫 `updateRecord`」这类不对齐命名。
 6. **包级函数 + 普通类型**：不用 class 承载业务。
@@ -105,7 +105,7 @@ flowchart LR
 | `query` | `faas/internal/query` | `src/lib/query.ts` | 列表过滤 / 分页 / summary / tags / transaction summary；`ToQueryRecordJSON` / `toQueryRecordJson`（query `records[]` 待办变形） |
 | `logapi` | `faas/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` / `bodyweightdraft` / `tododraft` |
 | `record` | `faas/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `Update` / `FromDB` / `TagsJSON` / type `Record` |
-| `recordjsonl` | `faas/internal/recordjsonl` | `src/lib/recordjsonl.ts` | Record JSONL 行 parse / serialize；表示层 camelCase；**不**调用 `assertNoReservedTags`（由调用方决定）；规格 [`docs/20260803-records-import-export.md`](20260803-records-import-export.md) |
+| `recordjsonl` | `faas/internal/recordjsonl` | `src/lib/recordjsonl.ts` | Record JSONL 行 parse / serialize；表示层 snake_case；**不**调用 `assertNoReservedTags`（由调用方决定）；规格 [`docs/20260803-records-import-export.md`](20260803-records-import-export.md) |
 | `exportapi` | `faas/internal/exportapi` | `src/lib/exportapi.ts` | `GET /api/export/records`：游标参数解析、按 `id ASC` `LIMIT` 拉取、有界组 NDJSON / 文件名 / Notify 文案；HTTP 层写出成功后再 Notify；规格同上 |
 | `importapi` | `faas/internal/importapi` | `src/lib/importapi.ts` | `POST /api/admin/import/records`：multipart 校验、file≤4MiB 有界读入后 JSONL 单事务逐行 upsert、计数 / Notify 文案；HTTP 层负责 multipart 与 200 写出后再 Notify；**bypass** 256KiB JSON body 门闸；规格同上 |
 | `telegram` | `faas/internal/telegram` | `src/lib/telegram.ts` | 渠道：配置 / 排版 / 发送；probe 直调；录入路径经 `notify` |

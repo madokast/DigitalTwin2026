@@ -2,11 +2,11 @@
   "success": true,
   "record": {
     "id": "01900000-0000-7000-8000-000000000002",
-    "happenedAt": "2026-07-30T02:00:00.000Z",
-    "valueNumber": null,
-    "valueText": "studied 50 words",
+    "happened_at": "2026-07-30T02:00:00.000Z",
+    "value_number": null,
+    "value_text": "studied 50 words",
     "tags": "[\"study\",\"vocabulary\"]",
-    "objectiveContext": "afternoon study",
-    "subjectiveInterpretation": null
+    "objective_context": "afternoon study",
+    "subjective_interpretation": null
   }
 }

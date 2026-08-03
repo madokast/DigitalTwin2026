@@ -53,12 +53,12 @@ function parseTags(raw: string): string[] {
 
 function recordToDraft(record: TwinRecord, tz: string): Draft {
   return {
-    happenedLocal: isoToDatetimeLocalValue(record.happenedAt, tz),
-    valueNumber: record.valueNumber ?? '',
-    valueText: record.valueText,
+    happenedLocal: isoToDatetimeLocalValue(record.happened_at, tz),
+    valueNumber: record.value_number ?? '',
+    valueText: record.value_text,
     tags: parseTags(record.tags),
-    objectiveContext: record.objectiveContext,
-    subjectiveInterpretation: record.subjectiveInterpretation,
+    objectiveContext: record.objective_context,
+    subjectiveInterpretation: record.subjective_interpretation,
   }
 }
 
@@ -369,7 +369,7 @@ export default function RecordDetailPage() {
                         tz,
                       )
                     } catch {
-                      return formatHappenedAt(record.happenedAt, tz)
+                      return formatHappenedAt(record.happened_at, tz)
                     }
                   })()}
                 </span>
@@ -414,10 +414,10 @@ export default function RecordDetailPage() {
                       requestEdit('valueNumber')
                     }}
                   >
-                    {record.valueNumber === null ? (
+                    {record.value_number === null ? (
                       <NullBadge />
                     ) : (
-                      record.valueNumber
+                      record.value_number
                     )}
                   </span>
                 )}

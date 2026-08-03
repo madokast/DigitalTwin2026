@@ -2,16 +2,16 @@
   "success": true,
   "count": 1,
   "page": 1,
-  "pageSize": 50,
+  "page_size": 50,
   "records": [
     {
       "id": "01900000-0000-7000-8000-000000000001",
-      "happenedAt": "2026-07-30T00:00:00.000Z",
-      "valueNumber": "75.5",
-      "valueText": null,
+      "happened_at": "2026-07-30T00:00:00.000Z",
+      "value_number": "75.5",
+      "value_text": null,
       "tags": "[\"weight\"]",
-      "objectiveContext": "morning weigh-in",
-      "subjectiveInterpretation": "a bit heavy"
+      "objective_context": "morning weigh-in",
+      "subjective_interpretation": "a bit heavy"
     }
   ]
 }

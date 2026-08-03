@@ -1,7 +1,7 @@
 /**
  * Record JSONL 行编解码 / 校验（与 Go `recordjsonl` 同构）。
  *
- * 表示层 = OpenAPI Record camelCase；禁止 Todo deform 键（created_at / content）。
+ * 表示层 = OpenAPI Record snake_case；禁止 Todo deform 键（created_at / content）。
  * 语义对齐 draft（时间 / 小数 / 双 null / tags 格式），但 tags 在文件中为**字符串化** JSON 数组。
  *
  * **不**调用 `assertNoReservedTags`：import 须可写保留 tag；若调用方（如未来非 import 路径）
@@ -27,15 +27,15 @@ import {
   UNKNOWN_JSON_KEY_PREFIX,
 } from '@/lib/unknown-keys'
 
-/** OpenAPI Record 键（camelCase）；未知键含 deform → Unknown JSON key */
+/** OpenAPI Record 键（snake_case）；未知键含 deform → Unknown JSON key */
 export const RECORD_JSONL_KEYS = [
   'id',
-  'happenedAt',
-  'valueNumber',
-  'valueText',
+  'happened_at',
+  'value_number',
+  'value_text',
   'tags',
-  'objectiveContext',
-  'subjectiveInterpretation',
+  'objective_context',
+  'subjective_interpretation',
 ] as const
 
 /** 非法 JSON 行（与 HTTP `Invalid JSON body` 区分） */
@@ -50,7 +50,7 @@ export const INVALID_TAGS_JSON = 'Invalid tags JSON'
 
 const UTF8_BOM = '\uFEFF'
 
-/** 领域行：parse 产出；serialize 输入 */
+/** 领域行：parse 产出；serialize 输入（内部字段名可 camelCase） */
 export type RecordJsonlRow = {
   id: string
   happenedAt: Date
@@ -133,23 +133,23 @@ export function parseLine(
     return fail(INVALID_RECORD_ID, lineNumber)
   }
 
-  const happenedResult = parseHappenedAt(body.happenedAt)
+  const happenedResult = parseHappenedAt(body.happened_at)
   if ('error' in happenedResult) {
     return fail(happenedResult.error, lineNumber)
   }
 
-  const numberResult = parseValueNumber(body.valueNumber)
+  const numberResult = parseValueNumber(body.value_number)
   if ('error' in numberResult) {
     return fail(numberResult.error, lineNumber)
   }
   const valueNumber = numberResult.value
 
   let valueText: string | null = null
-  if (body.valueText !== null) {
-    if (typeof body.valueText !== 'string') {
+  if (body.value_text !== null) {
+    if (typeof body.value_text !== 'string') {
       return fail('Invalid value_text', lineNumber)
     }
-    valueText = emptyStringToNull(body.valueText)
+    valueText = emptyStringToNull(body.value_text)
   }
 
   if (valueNumber === null && valueText === null) {
@@ -186,19 +186,19 @@ export function parseLine(
   // 故意不调用 assertNoReservedTags（见文件头注释）
 
   if (
-    typeof body.objectiveContext !== 'string' ||
-    body.objectiveContext === ''
+    typeof body.objective_context !== 'string' ||
+    body.objective_context === ''
   ) {
-    return fail('Missing required field: objectiveContext', lineNumber)
+    return fail('Missing required field: objective_context', lineNumber)
   }
 
   let subjectiveInterpretation: string | null = null
-  if (body.subjectiveInterpretation !== null) {
-    if (typeof body.subjectiveInterpretation !== 'string') {
+  if (body.subjective_interpretation !== null) {
+    if (typeof body.subjective_interpretation !== 'string') {
       return fail('Invalid subjective_interpretation', lineNumber)
     }
     subjectiveInterpretation = emptyStringToNull(
-      body.subjectiveInterpretation,
+      body.subjective_interpretation,
     )
   }
 
@@ -208,24 +208,24 @@ export function parseLine(
     valueNumber,
     valueText,
     tags,
-    objectiveContext: body.objectiveContext,
+    objectiveContext: body.objective_context,
     subjectiveInterpretation,
   }
 }
 
 /**
- * 领域行 → 一行 JSONL（无尾换行；happenedAt 为 UTC Z；tags 为字符串化数组）。
+ * 领域行 → 一行 JSONL（无尾换行；happened_at 为 UTC Z；tags 为字符串化数组）。
  * 键序固定，与 Go SerializeLine 一致。
  */
 export function serializeLine(row: RecordJsonlRow): string {
   return serializeRecord({
     id: row.id,
-    happenedAt: formatHappenedAt(row.happenedAt),
-    valueNumber: row.valueNumber,
-    valueText: row.valueText,
+    happened_at: formatHappenedAt(row.happenedAt),
+    value_number: row.valueNumber,
+    value_text: row.valueText,
     tags: tagsJSON(row.tags),
-    objectiveContext: row.objectiveContext,
-    subjectiveInterpretation: row.subjectiveInterpretation,
+    objective_context: row.objectiveContext,
+    subjective_interpretation: row.subjectiveInterpretation,
   })
 }
 
@@ -235,12 +235,12 @@ export function serializeLine(row: RecordJsonlRow): string {
 export function serializeRecord(rec: ApiRecord): string {
   return JSON.stringify({
     id: rec.id,
-    happenedAt: rec.happenedAt,
-    valueNumber: rec.valueNumber,
-    valueText: rec.valueText,
+    happened_at: rec.happened_at,
+    value_number: rec.value_number,
+    value_text: rec.value_text,
     tags: rec.tags,
-    objectiveContext: rec.objectiveContext,
-    subjectiveInterpretation: rec.subjectiveInterpretation,
+    objective_context: rec.objective_context,
+    subjective_interpretation: rec.subjective_interpretation,
   })
 }
 

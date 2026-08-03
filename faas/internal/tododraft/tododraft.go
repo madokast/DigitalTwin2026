@@ -52,18 +52,18 @@ type NormalizedTodo struct {
 	SubjectiveInterpretation any // string or nil
 }
 
-// TodoRecordJSON 待办行 HTTP JSON（别名键；其余与 Record camelCase 一致）。
+// TodoRecordJSON 待办行 HTTP JSON（别名键；其余与 Record snake_case 一致）。
 type TodoRecordJSON struct {
 	ID                       string  `json:"id"`
 	CreatedAt                string  `json:"created_at"`
-	ValueNumber              *string `json:"valueNumber"`
+	ValueNumber              *string `json:"value_number"`
 	Content                  string  `json:"content"`
 	Tags                     string  `json:"tags"`
-	ObjectiveContext         string  `json:"objectiveContext"`
-	SubjectiveInterpretation *string `json:"subjectiveInterpretation"`
+	ObjectiveContext         string  `json:"objective_context"`
+	SubjectiveInterpretation *string `json:"subjective_interpretation"`
 }
 
-// ToTodoRecordJSON 将内部 Record 变形为待办对外形状（去掉 happenedAt / valueText）。
+// ToTodoRecordJSON 将内部 Record 变形为待办对外形状（去掉 happened_at / value_text）。
 func ToTodoRecordJSON(rec record.Record) TodoRecordJSON {
 	content := ""
 	if rec.ValueText != nil {

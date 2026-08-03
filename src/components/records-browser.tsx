@@ -32,7 +32,7 @@ function RecordsPageInner({ lockedTag }: { lockedTag?: string }) {
         setRecords(data.records)
         setCount(data.count)
         setPage(data.page)
-        setPageSize(data.pageSize)
+        setPageSize(data.page_size)
       } catch (err) {
         if (cancelled) return
         setError(err instanceof Error ? err.message : 'Failed to load')

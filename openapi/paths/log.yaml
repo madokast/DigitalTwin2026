@@ -99,8 +99,8 @@
       (`todo` / `todo:*`, `transaction_entry` / `transaction_entry:*`,
       `body:weight` / `body:weight:*`) and must not send `happened_at` /
       `value_text` / `value_number` keys (use aliases). Success `201.record`
-      is a **TodoRecord** (`created_at` / `content`, not `happenedAt` /
-      `valueText`). On success, notification via notify_user is always
+      is a **TodoRecord** (`created_at` / `content`, not `happened_at` /
+      `value_text`). On success, notification via notify_user is always
       scheduled (best-effort) and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
       Query later with `GET /api/query?tag=todo:in_progress` (list items also

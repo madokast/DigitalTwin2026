@@ -194,13 +194,13 @@ func TestSerializeRoundTrip(t *testing.T) {
 				t.Fatal("id")
 			}
 			if !twice.HappenedAt.Equal(once.HappenedAt) {
-				t.Fatal("happenedAt")
+				t.Fatal("happened_at")
 			}
 			if !ptrStrEq(twice.ValueNumber, once.ValueNumber) {
-				t.Fatal("valueNumber")
+				t.Fatal("value_number")
 			}
 			if !ptrStrEq(twice.ValueText, once.ValueText) {
-				t.Fatal("valueText")
+				t.Fatal("value_text")
 			}
 			if len(twice.Tags) != len(once.Tags) {
 				t.Fatal("tags len")
@@ -211,7 +211,7 @@ func TestSerializeRoundTrip(t *testing.T) {
 				}
 			}
 			if twice.ObjectiveContext != once.ObjectiveContext {
-				t.Fatal("objectiveContext")
+				t.Fatal("objective_context")
 			}
 			if !ptrStrEq(twice.SubjectiveInterpretation, once.SubjectiveInterpretation) {
 				t.Fatal("subjective")

@@ -4,25 +4,25 @@
       "target": "completed",
       "todoHappenedAt": "2026-08-02T02:00:00.000Z",
       "todoValueText": "Buy milk",
-      "valueText": "Complete a to-do created at 2026-08-02T02:00:00.000Z: Buy milk"
+      "value_text": "Complete a to-do created at 2026-08-02T02:00:00.000Z: Buy milk"
     },
     {
       "target": "cancelled",
       "todoHappenedAt": "2026-08-02T02:00:00.000Z",
       "todoValueText": "Buy milk",
-      "valueText": "Cancel a to-do created at 2026-08-02T02:00:00.000Z: Buy milk"
+      "value_text": "Cancel a to-do created at 2026-08-02T02:00:00.000Z: Buy milk"
     },
     {
       "target": "paused",
       "todoHappenedAt": "2026-08-02T02:00:00.000Z",
       "todoValueText": "Buy milk",
-      "valueText": "Pause a to-do created at 2026-08-02T02:00:00.000Z: Buy milk"
+      "value_text": "Pause a to-do created at 2026-08-02T02:00:00.000Z: Buy milk"
     },
     {
       "target": "in_progress",
       "todoHappenedAt": "2026-08-02T02:00:00.000Z",
       "todoValueText": "Buy milk",
-      "valueText": "Resume a to-do created at 2026-08-02T02:00:00.000Z: Buy milk"
+      "value_text": "Resume a to-do created at 2026-08-02T02:00:00.000Z: Buy milk"
     }
   ]
 }

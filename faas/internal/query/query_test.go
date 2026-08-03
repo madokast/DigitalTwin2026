@@ -28,7 +28,7 @@ func TestParseRecordQueryParamsErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("page 0")
 	}
-	_, err = ParseRecordQueryParams(url.Values{"pageSize": {"101"}})
+	_, err = ParseRecordQueryParams(url.Values{"page_size": {"101"}})
 	if err == nil {
 		t.Fatal("pageSize 101")
 	}
@@ -159,10 +159,10 @@ func TestToQueryRecordJSON(t *testing.T) {
 	if _, ok := m["content"]; !ok {
 		t.Fatalf("todo missing content: %s", b)
 	}
-	if _, ok := m["happenedAt"]; ok {
+	if _, ok := m["happened_at"]; ok {
 		t.Fatalf("todo must not have happenedAt: %s", b)
 	}
-	if _, ok := m["valueText"]; ok {
+	if _, ok := m["value_text"]; ok {
 		t.Fatalf("todo must not have valueText: %s", b)
 	}
 
@@ -183,10 +183,10 @@ func TestToQueryRecordJSON(t *testing.T) {
 	if err := json.Unmarshal(ab, &am); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := am["happenedAt"]; !ok {
+	if _, ok := am["happened_at"]; !ok {
 		t.Fatalf("audit missing happenedAt: %s", ab)
 	}
-	if _, ok := am["valueText"]; !ok {
+	if _, ok := am["value_text"]; !ok {
 		t.Fatalf("audit missing valueText: %s", ab)
 	}
 	if _, ok := am["created_at"]; ok {
@@ -207,7 +207,7 @@ func TestToQueryRecordJSON(t *testing.T) {
 	if _, ok := dm["created_at"]; !ok {
 		t.Fatalf("dirty state+transition should deform: %s", db)
 	}
-	if _, ok := dm["happenedAt"]; ok {
+	if _, ok := dm["happened_at"]; ok {
 		t.Fatalf("dirty must not keep happenedAt: %s", db)
 	}
 

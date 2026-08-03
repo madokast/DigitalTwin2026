@@ -44,13 +44,13 @@ describe('probeDatabase', () => {
 
     expect(result).toMatchObject({
       ok: true,
-      databaseReachable: true,
-      recordsTableExists: true,
+      database_reachable: true,
+      records_table_exists: true,
     })
     if ('status' in result) throw new Error('expected success')
-    expect(result.connectMs).toBeGreaterThanOrEqual(0)
-    expect(result.select1FirstMs).toBeGreaterThanOrEqual(0)
-    expect(result.select1SecondMs).toBeGreaterThanOrEqual(0)
+    expect(result.connect_ms).toBeGreaterThanOrEqual(0)
+    expect(result.select1_first_ms).toBeGreaterThanOrEqual(0)
+    expect(result.select1_second_ms).toBeGreaterThanOrEqual(0)
     expect(release).toHaveBeenCalled()
     expect(end).toHaveBeenCalled()
   })
@@ -73,8 +73,8 @@ describe('probeDatabase', () => {
     const result = await probeDatabase(() => 'postgresql://u:p@test-host/db', createSql as never)
     expect(result).toMatchObject({
       ok: false,
-      databaseReachable: true,
-      recordsTableExists: false,
+      database_reachable: true,
+      records_table_exists: false,
     })
   })
 

@@ -125,24 +125,24 @@ HappenedAtUtcZ:
 Record:
   type: object
   description: |
-    Persisted row as returned by both backends (camelCase JSON).
-    `tags` is a stringified JSON array. `valueNumber` is a decimal string.
+    Persisted row as returned by both backends (snake_case JSON).
+    `tags` is a stringified JSON array. `value_number` is a decimal string.
   required:
     - id
-    - happenedAt
-    - valueNumber
-    - valueText
+    - happened_at
+    - value_number
+    - value_text
     - tags
-    - objectiveContext
-    - subjectiveInterpretation
+    - objective_context
+    - subjective_interpretation
   properties:
     id:
       type: string
       format: uuid
       description: UUIDv7 primary key
-    happenedAt:
+    happened_at:
       $ref: '#/HappenedAtUtcZ'
-    valueNumber:
+    value_number:
       description: |
         Decimal as string, or null for text-only records.
         On write (log/number and PATCH), JSON **number is rejected** (400:
@@ -151,7 +151,7 @@ Record:
       oneOf:
         - $ref: '#/DecimalString'
         - type: 'null'
-    valueText:
+    value_text:
       type: [string, 'null']
     tags:
       type: string
@@ -159,9 +159,9 @@ Record:
       examples:
         - '["weight"]'
         - '["study","vocabulary"]'
-    objectiveContext:
+    objective_context:
       type: string
-    subjectiveInterpretation:
+    subjective_interpretation:
       type: [string, 'null']
 
 RecordSuccess:
@@ -177,7 +177,7 @@ RecordSuccess:
 
 QuerySuccess:
   type: object
-  required: [success, count, page, pageSize, records]
+  required: [success, count, page, page_size, records]
   additionalProperties: false
   properties:
     success:
@@ -190,18 +190,18 @@ QuerySuccess:
     page:
       type: integer
       minimum: 1
-    pageSize:
+    page_size:
       type: integer
       minimum: 1
     records:
       type: array
       description: |
-        Page of matching rows. Default shape is `Record` (`happenedAt` /
-        `valueText` camelCase), including audit rows tagged only
+        Page of matching rows. Default shape is `Record` (`happened_at` /
+        `value_text` snake_case), including audit rows tagged only
         `todo:transition` and all non-todo rows. When a row's tags contain
         at least one todo state tag (`todo:in_progress` | `todo:completed` |
         `todo:cancelled` | `todo:paused`), that item is a `TodoRecord`
-        (`created_at` / `content` instead of `happenedAt` / `valueText`).
+        (`created_at` / `content` instead of `happened_at` / `value_text`).
         Dirty rows with both a state tag and `todo:transition` deform as
         `TodoRecord`. Not modeled as a strict oneOf (see todo feature §9);
         see `TodoRecord` for the alternate shape.
@@ -465,17 +465,17 @@ TodoRecord:
     tag (`todo:in_progress` | `todo:completed` | `todo:cancelled` |
     `todo:paused`; query-side wide rule). Alias keys: `created_at`
     (DB `happened_at`) and `content` (DB `value_text`). Response **must not**
-    also include `happenedAt` / `valueText` for this shape. Other fields match
-    `Record` camelCase. `valueNumber` is always null for to-dos.
+    also include `happened_at` / `value_text` for this shape. Other fields match
+    `Record` snake_case. `value_number` is always null for to-dos.
     Audit rows (`todo:transition` without a state tag) stay as `Record`.
   required:
     - id
     - created_at
-    - valueNumber
+    - value_number
     - content
     - tags
-    - objectiveContext
-    - subjectiveInterpretation
+    - objective_context
+    - subjective_interpretation
   additionalProperties: false
   properties:
     id:
@@ -484,7 +484,7 @@ TodoRecord:
       description: UUIDv7 primary key
     created_at:
       $ref: '#/HappenedAtUtcZ'
-    valueNumber:
+    value_number:
       type: 'null'
     content:
       type: string
@@ -498,9 +498,9 @@ TodoRecord:
       examples:
         - '["todo:in_progress"]'
         - '["todo:in_progress","errand"]'
-    objectiveContext:
+    objective_context:
       type: string
-    subjectiveInterpretation:
+    subjective_interpretation:
       type: [string, 'null']
 
 TodoRecordSuccess:
@@ -664,32 +664,32 @@ DbProbeSuccess:
   type: object
   required:
     - ok
-    - databaseReachable
-    - recordsTableExists
-    - connectMs
-    - select1FirstMs
-    - select1SecondMs
+    - database_reachable
+    - records_table_exists
+    - connect_ms
+    - select1_first_ms
+    - select1_second_ms
   additionalProperties: false
   properties:
     ok:
       type: boolean
-      description: true only when databaseReachable and public.records exists
-    databaseReachable:
+      description: true only when database_reachable and public.records exists
+    database_reachable:
       type: boolean
       const: true
       description: Always true on HTTP 200 (unreachable → 503)
-    recordsTableExists:
+    records_table_exists:
       type: boolean
       description: Whether to_regclass('public.records') is non-null
-    connectMs:
+    connect_ms:
       type: number
       minimum: 0
       description: Milliseconds to open the dedicated connection (one decimal typical)
-    select1FirstMs:
+    select1_first_ms:
       type: number
       minimum: 0
       description: Milliseconds for the first SELECT 1 on that connection
-    select1SecondMs:
+    select1_second_ms:
       type: number
       minimum: 0
       description: Milliseconds for the second SELECT 1 on the same connection

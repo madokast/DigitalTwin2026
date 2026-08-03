@@ -24,15 +24,15 @@ export type TelegramConfig = {
   missing: string[]
 }
 
-/** 与 Drizzle returning / Go record JSON 对齐的录入行 */
+/** 与 API Record / Go `record.Record` 对齐（snake_case JSON 字段） */
 export type NotifyRecord = {
   id: string
-  happenedAt: Date | string
-  valueNumber?: string | null
-  valueText?: string | null
+  happened_at: Date | string
+  value_number?: string | null
+  value_text?: string | null
   tags: string
-  objectiveContext: string
-  subjectiveInterpretation?: string | null
+  objective_context: string
+  subjective_interpretation?: string | null
 }
 
 export type SendResult = { ok: true } | { ok: false; error: string }
@@ -104,19 +104,19 @@ export function formatRecordMessage(record: NotifyRecord): string {
   const lines = [
     'New record',
     `id: ${record.id}`,
-    `happened_at: ${formatHappenedAt(record.happenedAt)}`,
+    `happened_at: ${formatHappenedAt(record.happened_at)}`,
   ]
 
-  if (record.valueNumber != null && record.valueNumber !== '') {
-    lines.push(`value_number: ${record.valueNumber}`)
+  if (record.value_number != null && record.value_number !== '') {
+    lines.push(`value_number: ${record.value_number}`)
   } else {
-    lines.push(`value_text: ${record.valueText ?? ''}`)
+    lines.push(`value_text: ${record.value_text ?? ''}`)
   }
 
   lines.push(`tags: ${formatTags(record.tags)}`)
-  lines.push(`objective: ${record.objectiveContext}`)
+  lines.push(`objective: ${record.objective_context}`)
 
-  const subj = record.subjectiveInterpretation
+  const subj = record.subjective_interpretation
   lines.push(
     `subjective: ${subj != null && subj !== '' ? subj : '(null)'}`,
   )
@@ -129,14 +129,14 @@ export function formatTransactionBatchMessage(rows: NotifyRecord[]): string {
   const n = rows.length
   let sumLabel = '(mixed)'
   const amounts = rows
-    .map((r) => r.valueNumber)
+    .map((r) => r.value_number)
     .filter((v): v is string => v != null && v !== '')
   if (amounts.length === n) {
     // 仅展示字符串拼接提示；不强制精确十进制求和（避免浮点）
     sumLabel = amounts.join(' + ')
   }
-  const firstMemo = rows[0]?.objectiveContext ?? ''
-  const happened = rows[0] ? formatHappenedAt(rows[0].happenedAt) : ''
+  const firstMemo = rows[0]?.objective_context ?? ''
+  const happened = rows[0] ? formatHappenedAt(rows[0].happened_at) : ''
   const typeLabel = transactionTypeFromTags(rows[0]?.tags) ?? '(unknown)'
   return [
     'New transaction batch',

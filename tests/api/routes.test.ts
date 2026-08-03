@@ -99,11 +99,11 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(201)
       const body = await res.json()
       expect(body.success).toBe(true)
-      expect(body.record.valueNumber).toBe('75.5')
-      expect(body.record.valueText).toBeNull()
+      expect(body.record.value_number).toBe('75.5')
+      expect(body.record.value_text).toBeNull()
       expect(body.record.tags).toBe(JSON.stringify(['weight']))
-      expect(body.record.objectiveContext).toBe('morning weigh-in')
-      expect(body.record.subjectiveInterpretation).toBe('a bit heavy')
+      expect(body.record.objective_context).toBe('morning weigh-in')
+      expect(body.record.subjective_interpretation).toBe('a bit heavy')
     })
 
     it('returns 400 when happened_at lacks timezone', async () => {
@@ -139,8 +139,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(res.status).toBe(201)
       const body = await res.json()
-      expect(body.record.valueNumber).toBe('1')
-      expect(body.record.happenedAt).toBe('2026-07-30T00:00:00.000Z')
+      expect(body.record.value_number).toBe('1')
+      expect(body.record.happened_at).toBe('2026-07-30T00:00:00.000Z')
     })
 
     it('rejects JSON number type for value_number', async () => {
@@ -216,8 +216,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(201)
       const body = await res.json()
       expect(body.success).toBe(true)
-      expect(body.record.valueText).toBe('studied 50 words')
-      expect(body.record.valueNumber).toBeNull()
+      expect(body.record.value_text).toBe('studied 50 words')
+      expect(body.record.value_number).toBeNull()
       expect(body.record.tags).toBe(JSON.stringify(['study', 'vocabulary']))
     })
 
@@ -269,7 +269,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.records).toBeUndefined()
 
       const q = await queryRecords(jsonGet(
-        'http://localhost/api/query?tag=transaction_entry:expense&pageSize=10',
+        'http://localhost/api/query?tag=transaction_entry:expense&page_size=10',
       ))
       expect(q.status).toBe(200)
       const qBody = await q.json()
@@ -366,10 +366,10 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(201)
       const body = await res.json()
       expect(body.success).toBe(true)
-      expect(body.record.valueNumber).toBe('75.50')
-      expect(body.record.valueText).toBeNull()
+      expect(body.record.value_number).toBe('75.50')
+      expect(body.record.value_text).toBeNull()
       expect(body.record.tags).toBe(JSON.stringify(['body:weight', 'morning']))
-      expect(body.record.objectiveContext).toBe('morning weigh-in')
+      expect(body.record.objective_context).toBe('morning weigh-in')
     })
 
     it('rejects JSON number value_number', async () => {
@@ -409,11 +409,11 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.success).toBe(true)
       expect(body.record.content).toBe('Buy milk')
       expect(body.record.created_at).toBe('2026-08-02T02:00:00.000Z')
-      expect(body.record.valueNumber).toBeNull()
+      expect(body.record.value_number).toBeNull()
       expect(body.record.tags).toBe(JSON.stringify(['todo:in_progress', 'errand']))
-      expect(body.record.objectiveContext).toBe('weekend grocery list')
-      expect(body.record).not.toHaveProperty('happenedAt')
-      expect(body.record).not.toHaveProperty('valueText')
+      expect(body.record.objective_context).toBe('weekend grocery list')
+      expect(body.record).not.toHaveProperty('happened_at')
+      expect(body.record).not.toHaveProperty('value_text')
     })
 
     it('rejects missing content and reserved client tags', async () => {
@@ -487,31 +487,31 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         tags: string
         created_at?: string
         content?: string
-        happenedAt?: string
-        valueText?: string
+        happened_at?: string
+        value_text?: string
       }>
       expect(todoRows[0].tags).toBe(JSON.stringify(['todo:completed', 'errand']))
       expect(todoRows[0].created_at).toBe(todo.created_at)
       expect(todoRows[0].content).toBe(todo.content)
-      expect(todoRows[0]).not.toHaveProperty('happenedAt')
-      expect(todoRows[0]).not.toHaveProperty('valueText')
+      expect(todoRows[0]).not.toHaveProperty('happened_at')
+      expect(todoRows[0]).not.toHaveProperty('value_text')
 
       const qAudit = await queryRecords(jsonGet(
         'http://localhost/api/query?tag=todo:transition',
       ))
       const audits = (await qAudit.json()).records as Array<{
-        valueText: string
+        value_text: string
         tags: string
-        objectiveContext: string
-        happenedAt: string
+        objective_context: string
+        happened_at: string
         created_at?: string
         content?: string
       }>
       const audit = audits.find((r) => r.objectiveContext === `The index of the to-do is ${todo.id}`)
       expect(audit).toBeTruthy()
       expect(audit!.tags).toBe(JSON.stringify(['todo:transition']))
-      expect(audit!.happenedAt).toBe('2026-08-02T04:00:00.000Z')
-      expect(audit!.valueText).toBe(
+      expect(audit!.happened_at).toBe('2026-08-02T04:00:00.000Z')
+      expect(audit!.value_text).toBe(
         `Complete a to-do created at ${todo.created_at}: ${todo.content}`,
       )
       expect(audit!).not.toHaveProperty('created_at')
@@ -565,7 +565,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       ))
       const audits = (await auditQ.json()).records as Array<{
         id: string
-        objectiveContext: string
+        objective_context: string
       }>
       const auditId = audits.find(
         (r) => r.objectiveContext === `The index of the to-do is ${todo.id}`,
@@ -731,15 +731,15 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(row).toBeTruthy()
       expect(row!.created_at).toBe(todo.created_at)
       expect(row!.content).toBe('Query deform smoke')
-      expect(row!).not.toHaveProperty('happenedAt')
-      expect(row!).not.toHaveProperty('valueText')
+      expect(row!).not.toHaveProperty('happened_at')
+      expect(row!).not.toHaveProperty('value_text')
 
       await seed()
       const plain = await queryRecords(jsonGet('http://localhost/api/query?tag=weight'))
       const weightRows = (await plain.json()).records as Array<Record<string, unknown>>
       expect(weightRows.length).toBeGreaterThan(0)
-      expect(weightRows[0]).toHaveProperty('happenedAt')
-      expect(weightRows[0]).toHaveProperty('valueText')
+      expect(weightRows[0]).toHaveProperty('happened_at')
+      expect(weightRows[0]).toHaveProperty('value_text')
       expect(weightRows[0]).not.toHaveProperty('created_at')
       expect(weightRows[0]).not.toHaveProperty('content')
     })
@@ -753,9 +753,9 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const body = await res.json()
       expect(body.count).toBe(2)
       expect(body.page).toBe(1)
-      expect(body.pageSize).toBe(20)
+      expect(body.page_size).toBe(20)
       // happenedAt ASC, id ASC
-      expect(body.records.map((r: { valueText: string | null }) => r.valueText)).toEqual([
+      expect(body.records.map((r: { value_text: string | null }) => r.valueText)).toEqual([
         null,
         'reviewed physics notes',
       ])
@@ -769,7 +769,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.count).toBe(1)
-      expect(body.records[0].valueText).toBe('reviewed physics notes')
+      expect(body.records[0].value_text).toBe('reviewed physics notes')
     })
 
     it('fuzzy-searches with q across text fields and tags', async () => {
@@ -778,16 +778,16 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.count).toBe(1)
-      expect(body.records[0].subjectiveInterpretation).toBe('felt productive')
+      expect(body.records[0].subjective_interpretation).toBe('felt productive')
 
       const byTag = await queryRecords(jsonGet('http://localhost/api/query?q=weight'))
       expect(byTag.status).toBe(200)
       const tagBody = await byTag.json()
       expect(tagBody.count).toBe(1)
-      expect(tagBody.records[0].valueNumber).toBe('75.5')
+      expect(tagBody.records[0].value_number).toBe('75.5')
     })
 
-    it('defaults to page=1 pageSize=20 and supports page 2', async () => {
+    it('defaults to page=1 page_size=20 and supports page 2', async () => {
       for (let i = 0; i < 25; i++) {
         await postText(jsonPost('http://localhost/api/log/text', {
           happened_at: `2026-07-30T${String(10 + Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}:00+08:00`,
@@ -802,18 +802,18 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const body1 = await page1.json()
       expect(body1.count).toBe(25)
       expect(body1.page).toBe(1)
-      expect(body1.pageSize).toBe(20)
+      expect(body1.page_size).toBe(20)
       expect(body1.records).toHaveLength(20)
-      expect(body1.records[0].valueText).toBe('row-0')
-      expect(body1.records[19].valueText).toBe('row-19')
+      expect(body1.records[0].value_text).toBe('row-0')
+      expect(body1.records[19].value_text).toBe('row-19')
 
       const page2 = await queryRecords(jsonGet('http://localhost/api/query?page=2'))
       const body2 = await page2.json()
       expect(body2.count).toBe(25)
       expect(body2.page).toBe(2)
       expect(body2.records).toHaveLength(5)
-      expect(body2.records[0].valueText).toBe('row-20')
-      expect(body2.records[4].valueText).toBe('row-24')
+      expect(body2.records[0].value_text).toBe('row-20')
+      expect(body2.records[4].value_text).toBe('row-24')
     }, 120_000)
 
     it('returns a single record by id and ignores pagination', async () => {
@@ -822,7 +822,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const target = (await list.json()).records[0]
 
       const res = await queryRecords(jsonGet(
-        `http://localhost/api/query?id=${target.id}&page=2&pageSize=1`,
+        `http://localhost/api/query?id=${target.id}&page=2&page_size=1`,
       ))
       expect(res.status).toBe(200)
       const body = await res.json()
@@ -835,7 +835,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const badPage = await queryRecords(jsonGet('http://localhost/api/query?page=0'))
       expect(badPage.status).toBe(400)
 
-      const badSize = await queryRecords(jsonGet('http://localhost/api/query?pageSize=101'))
+      const badSize = await queryRecords(jsonGet('http://localhost/api/query?page_size=101'))
       expect(badSize.status).toBe(400)
 
       const badFrom = await queryRecords(jsonGet('http://localhost/api/query?from=not-a-date'))
@@ -1045,10 +1045,10 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.success).toBe(true)
-      expect(body.record.valueNumber).toBe('76')
+      expect(body.record.value_number).toBe('76')
       expect(body.record.tags).toBe(JSON.stringify(['weight', 'source:device']))
-      expect(body.record.objectiveContext).toBe('updated context')
-      expect(body.record.subjectiveInterpretation).toBeNull()
+      expect(body.record.objective_context).toBe('updated context')
+      expect(body.record.subjective_interpretation).toBeNull()
     })
 
     it('returns 400 when both values are null', async () => {
@@ -1223,7 +1223,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(overlap.id).toBe(row2.id)
       expect(last.id).toBe(ids[2])
       // Record camelCase only (no Todo deform keys)
-      expect(overlap).toHaveProperty('happenedAt')
+      expect(overlap).toHaveProperty('happened_at')
       expect(overlap).not.toHaveProperty('created_at')
       expect(overlap).not.toHaveProperty('content')
     })
@@ -1247,12 +1247,12 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const id = '01900000-0000-7000-8000-0000000000aa'
       const line = JSON.stringify({
         id,
-        happenedAt: '2026-07-30T00:00:00.000Z',
-        valueNumber: '1',
-        valueText: null,
+        happened_at: '2026-07-30T00:00:00.000Z',
+        value_number: '1',
+        value_text: null,
         tags: '["weight"]',
-        objectiveContext: 'import-dup',
-        subjectiveInterpretation: null,
+        objective_context: 'import-dup',
+        subjective_interpretation: null,
       })
       const dup = await importRecords(
         multipartPost(
@@ -1287,12 +1287,12 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const id = '01900000-0000-7000-8000-0000000000bb'
       const line = JSON.stringify({
         id,
-        happenedAt: '2026-07-30T00:00:00.000Z',
-        valueNumber: '70.5',
-        valueText: null,
+        happened_at: '2026-07-30T00:00:00.000Z',
+        value_number: '70.5',
+        value_text: null,
         tags: '["body:weight"]',
-        objectiveContext: 'import-reserved',
-        subjectiveInterpretation: null,
+        objective_context: 'import-reserved',
+        subjective_interpretation: null,
       })
       const res = await importRecords(
         multipartPost('http://localhost/api/admin/import/records', line),
@@ -1330,10 +1330,10 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(created.status).toBe(201)
       const rec = (await created.json()).record as {
         id: string
-        happenedAt: string
-        valueNumber: string
+        happened_at: string
+        value_number: string
         tags: string
-        objectiveContext: string
+        objective_context: string
       }
 
       const exported = await exportRecords(
@@ -1364,8 +1364,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const body = await listed.json()
       expect(body.records).toHaveLength(1)
       expect(body.records[0].id).toBe(rec.id)
-      expect(body.records[0].valueNumber).toBe(rec.valueNumber)
-      expect(body.records[0].objectiveContext).toBe(rec.objectiveContext)
+      expect(body.records[0].value_number).toBe(rec.value_number)
+      expect(body.records[0].objective_context).toBe(rec.objective_context)
       expect(body.records[0].tags).toBe(rec.tags)
     })
 

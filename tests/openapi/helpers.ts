@@ -12,7 +12,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const openapiPath = path.join(root, 'openapi/openapi.yaml')
 export const fixturesDir = path.join(root, 'openapi/fixtures')
 
-/** Record.happenedAt：UTC、毫秒三位、`Z`（与双端 FormatHappenedAt / toISOString 对齐） */
+/** Record.happened_at：UTC、毫秒三位、`Z`（与双端 FormatHappenedAt / toISOString 对齐） */
 export const HAPPENED_AT_UTC_Z =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
 

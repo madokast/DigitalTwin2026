@@ -86,9 +86,9 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
 	if err != nil {
 		return nil, fmt.Errorf("page must be a positive integer")
 	}
-	pageSize, err := parsePositiveInt(q.Get("pageSize"), 20)
+	pageSize, err := parsePositiveInt(q.Get("page_size"), 20)
 	if err != nil || pageSize > 100 {
-		return nil, fmt.Errorf("pageSize must be an integer between 1 and 100")
+		return nil, fmt.Errorf("page_size must be an integer between 1 and 100")
 	}
 
 	from, err := parseIsoDate(q.Get("from"), "from")

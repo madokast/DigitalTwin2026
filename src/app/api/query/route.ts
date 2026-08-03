@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       success: true,
       count: result.total,
       page: result.page,
-      pageSize: result.pageSize,
+      page_size: result.pageSize,
       records: result.records.map(toQueryRecordJson),
     })
   } catch (error) {

@@ -25,11 +25,11 @@ describe('POST /api/db/probe', () => {
     vi.doMock('@/lib/dbprobe', () => ({
       probeDatabase: async () => ({
         ok: true,
-        databaseReachable: true,
-        recordsTableExists: true,
-        connectMs: 12.4,
-        select1FirstMs: 45.2,
-        select1SecondMs: 3.1,
+        database_reachable: true,
+        records_table_exists: true,
+        connect_ms: 12.4,
+        select1_first_ms: 45.2,
+        select1_second_ms: 3.1,
       }),
     }))
     const { POST } = await import('./route')
@@ -37,11 +37,11 @@ describe('POST /api/db/probe', () => {
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({
       ok: true,
-      databaseReachable: true,
-      recordsTableExists: true,
-      connectMs: 12.4,
-      select1FirstMs: 45.2,
-      select1SecondMs: 3.1,
+      database_reachable: true,
+      records_table_exists: true,
+      connect_ms: 12.4,
+      select1_first_ms: 45.2,
+      select1_second_ms: 3.1,
     })
   })
 
@@ -49,11 +49,11 @@ describe('POST /api/db/probe', () => {
     vi.doMock('@/lib/dbprobe', () => ({
       probeDatabase: async () => ({
         ok: false,
-        databaseReachable: true,
-        recordsTableExists: false,
-        connectMs: 1,
-        select1FirstMs: 2,
-        select1SecondMs: 3,
+        database_reachable: true,
+        records_table_exists: false,
+        connect_ms: 1,
+        select1_first_ms: 2,
+        select1_second_ms: 3,
       }),
     }))
     const { POST } = await import('./route')
@@ -61,6 +61,6 @@ describe('POST /api/db/probe', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.ok).toBe(false)
-    expect(body.recordsTableExists).toBe(false)
+    expect(body.records_table_exists).toBe(false)
   })
 })

@@ -9,7 +9,7 @@
       Does **not** inspect `__drizzle_migrations`.
 
       - **200** when the database is reachable: `ok` is true only if `public.records`
-        exists; missing table → still 200 with `ok: false` / `recordsTableExists: false`.
+        exists; missing table → still 200 with `ok: false` / `records_table_exists: false`.
       - **503** when `DATABASE_URL` is unset or the connection/query fails.
         Error messages are English and never echo the connection string.
 

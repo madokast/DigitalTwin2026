@@ -18,12 +18,12 @@ const ID2 = '01900000-0000-7000-8000-000000000002'
 function sampleLine(id: string, tags = '["weight"]'): string {
   return JSON.stringify({
     id,
-    happenedAt: '2026-07-30T00:00:00.000Z',
-    valueNumber: '1.5',
-    valueText: null,
+    happened_at: '2026-07-30T00:00:00.000Z',
+    value_number: '1.5',
+    value_text: null,
     tags,
-    objectiveContext: 'scale',
-    subjectiveInterpretation: null,
+    objective_context: 'scale',
+    subjective_interpretation: null,
   })
 }
 

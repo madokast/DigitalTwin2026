@@ -59,7 +59,7 @@ export async function fetchRecords(search: string): Promise<{
   success: boolean
   count: number
   page: number
-  pageSize: number
+  page_size: number
   records: TwinRecord[]
 }> {
   const qs = search.startsWith('?') ? search : search ? `?${search}` : ''

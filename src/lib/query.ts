@@ -80,9 +80,9 @@ export function parseRecordQueryParams(
     return { error: 'page must be a positive integer' }
   }
 
-  const pageSize = parsePositiveInt(searchParams.get('pageSize'), 20)
+  const pageSize = parsePositiveInt(searchParams.get('page_size'), 20)
   if (pageSize === null || pageSize > 100) {
-    return { error: 'pageSize must be an integer between 1 and 100' }
+    return { error: 'page_size must be an integer between 1 and 100' }
   }
 
   const from = parseIsoDate(searchParams.get('from'), 'from')

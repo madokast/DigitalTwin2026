@@ -51,7 +51,7 @@ export function RecordsFilters({
       if (to) params.set('to', to)
     }
     params.set('page', '1')
-    if (pageSize !== 20) params.set('pageSize', String(pageSize))
+    if (pageSize !== 20) params.set('page_size', String(pageSize))
     const base = lockedTag ? `/tags/${encodeURIComponent(lockedTag)}` : '/records'
     router.push(`${base}?${params.toString()}`)
   }

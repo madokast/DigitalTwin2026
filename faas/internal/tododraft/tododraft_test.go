@@ -177,7 +177,7 @@ func TestAuditValueTextSharedFixture(t *testing.T) {
 			Target         string `json:"target"`
 			TodoHappenedAt string `json:"todoHappenedAt"`
 			TodoValueText  string `json:"todoValueText"`
-			ValueText      string `json:"valueText"`
+			ValueText      string `json:"value_text"`
 		} `json:"cases"`
 	}
 	if err := json.Unmarshal(b, &fx); err != nil {

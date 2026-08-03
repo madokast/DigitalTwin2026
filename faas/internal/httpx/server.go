@@ -487,7 +487,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		"success":  true,
 		"count":    result.Total,
 		"page":     result.Page,
-		"pageSize": result.PageSize,
+		"page_size": result.PageSize,
 		"records":  query.RecordsForResponse(result.Records),
 	})
 }

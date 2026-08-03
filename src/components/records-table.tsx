@@ -43,22 +43,22 @@ export function RecordsTable({ records }: Props) {
               onClick={() => router.push(`/records/${record.id}`)}
             >
               <td className="px-3 py-2 text-xs whitespace-nowrap">
-                {formatHappenedAt(record.happenedAt, tz)}
+                {formatHappenedAt(record.happened_at, tz)}
               </td>
               <td className="px-3 py-2 text-xs whitespace-nowrap">
-                {record.valueNumber || '-'}
+                {record.value_number || '-'}
               </td>
               <td className="px-3 py-2 text-xs max-w-[160px] truncate whitespace-nowrap">
-                {record.valueText || '-'}
+                {record.value_text || '-'}
               </td>
               <td className="px-3 py-2 text-xs max-w-[160px] truncate whitespace-nowrap">
                 {parseTags(record.tags).join(', ') || '-'}
               </td>
               <td className="px-3 py-2 text-xs max-w-[160px] truncate whitespace-nowrap">
-                {record.objectiveContext}
+                {record.objective_context}
               </td>
               <td className="px-3 py-2 text-xs max-w-[160px] truncate whitespace-nowrap">
-                {record.subjectiveInterpretation || '-'}
+                {record.subjective_interpretation || '-'}
               </td>
             </tr>
           ))}

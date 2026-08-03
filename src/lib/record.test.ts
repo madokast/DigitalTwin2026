@@ -38,7 +38,7 @@ describe('formatHappenedAt', () => {
 })
 
 describe('fromDB', () => {
-  it('maps happenedAt to string and preserves other fields', () => {
+  it('maps DB row to snake_case API Record', () => {
     const rec = fromDB({
       id: '01900000-0000-7000-8000-000000000001',
       happenedAt: new Date('2026-07-30T10:00:00.000Z'),
@@ -48,9 +48,9 @@ describe('fromDB', () => {
       objectiveContext: 'morning',
       subjectiveInterpretation: null,
     })
-    expect(rec.happenedAt).toBe('2026-07-30T10:00:00.000Z')
-    expect(typeof rec.happenedAt).toBe('string')
-    expect(rec.valueNumber).toBe('75.5')
+    expect(rec.happened_at).toBe('2026-07-30T10:00:00.000Z')
+    expect(typeof rec.happened_at).toBe('string')
+    expect(rec.value_number).toBe('75.5')
   })
 })
 
@@ -98,12 +98,12 @@ describe('update (injected store)', () => {
       status: 200,
       record: {
         id: '01900000-0000-7000-8000-000000000001',
-        happenedAt: '2026-07-30T10:00:00.000Z',
-        valueNumber: '80.0',
-        valueText: null,
+        happened_at: '2026-07-30T10:00:00.000Z',
+        value_number: '80.0',
+        value_text: null,
         tags: '["weight"]',
-        objectiveContext: 'morning',
-        subjectiveInterpretation: null,
+        objective_context: 'morning',
+        subjective_interpretation: null,
       },
     })
     expect(updateReturning).toHaveBeenCalledWith(
@@ -131,7 +131,7 @@ describe('update (injected store)', () => {
   })
 
   it('rejects non-UUID id with 400 before DB', async () => {
-    const updateReturning = vi.fn(async () => undefined)
+    const updateReturning = vi.fn().mockResolvedValue(undefined)
     const result = await update('not-a-uuid', draft, { updateReturning })
     expect(result).toEqual({ error: INVALID_RECORD_ID, status: 400 })
     expect(updateReturning).not.toHaveBeenCalled()

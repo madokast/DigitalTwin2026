@@ -18,7 +18,7 @@ QueryPage:
     minimum: 1
     default: 1
 QueryPageSize:
-  name: pageSize
+  name: page_size
   in: query
   required: false
   description: Page size (default 20, max 100)

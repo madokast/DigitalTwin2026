@@ -4,16 +4,16 @@ import db from '@/db'
 import { records } from '@/db/schema'
 import type { NormalizedRecordDraft } from '@/lib/draft'
 
-/** API 响应 Record：与 Go `record.Record` JSON 对齐（camelCase + UTC Z） */
+/** API 响应 Record：与 Go `record.Record` JSON 对齐（snake_case + UTC Z） */
 
 export type Record = {
   id: string
-  happenedAt: string
-  valueNumber: string | null
-  valueText: string | null
+  happened_at: string
+  value_number: string | null
+  value_text: string | null
   tags: string
-  objectiveContext: string
-  subjectiveInterpretation: string | null
+  objective_context: string
+  subjective_interpretation: string | null
 }
 
 type RecordRow = {
@@ -41,16 +41,16 @@ export function formatHappenedAt(value: Date | string): string {
   return d.toISOString()
 }
 
-/** 与 Go `record.FromDB` 对齐：DB 行 → API Record（happenedAt 为 UTC Z 字符串） */
+/** 与 Go `record.FromDB` 对齐：DB 行 → API Record（happened_at 为 UTC Z 字符串） */
 export function fromDB(row: RecordRow): Record {
   return {
     id: row.id,
-    happenedAt: formatHappenedAt(row.happenedAt),
-    valueNumber: row.valueNumber,
-    valueText: row.valueText,
+    happened_at: formatHappenedAt(row.happenedAt),
+    value_number: row.valueNumber,
+    value_text: row.valueText,
     tags: row.tags,
-    objectiveContext: row.objectiveContext,
-    subjectiveInterpretation: row.subjectiveInterpretation,
+    objective_context: row.objectiveContext,
+    subjective_interpretation: row.subjectiveInterpretation,
   }
 }
 

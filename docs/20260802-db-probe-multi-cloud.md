@@ -22,7 +22,7 @@ Base URL：本地 **Aliyun FC test** / **Tencent SCF test**（**不进 git**）�
 
 ### A.1 语义
 
-每次开短命连接，两次 `SELECT 1`，`to_regclass('public.records')`。成功字段：`ok`、`databaseReachable`、`recordsTableExists`、`connectMs`、`select1FirstMs`、`select1SecondMs`。契约见 OpenAPI `DbProbeSuccess`、`faas/internal/dbprobe`、`src/lib/dbprobe.ts`。
+每次开短命连接，两次 `SELECT 1`，`to_regclass('public.records')`。成功字段：`ok`、`database_reachable`、`records_table_exists`、`connect_ms`、`select1_first_ms`、`select1_second_ms`。契约见 OpenAPI `DbProbeSuccess`、`faas/internal/dbprobe`、`src/lib/dbprobe.ts`。
 
 ```http
 POST /api/db/probe

@@ -10,6 +10,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **仅代码注释与文档用中文**（含 `*.md`、代码 `//` / `/* */` / `#` 注释）。
 - 测试数据里故意使用的非 ASCII（如非法 tag 样例）除外；断言文案须与英文运行时消息一致。
 
+# HTTP JSON / JSONL 键名（强制 snake_case）
+
+- **所有对外 HTTP JSON 与 JSONL 的键名一律 `snake_case`，无一例外**（请求体、响应体、success 包络、OpenAPI schema/fixtures、import/export JSONL）。
+- **禁止**再引入 camelCase JSON 键（例如不得出现 `happenedAt`、`valueNumber`、`pageSize`、`databaseReachable`）。
+- 示例（Record）：`happened_at`、`value_number`、`value_text`、`objective_context`、`subjective_interpretation`；包络示例：`page_size`；探测示例：`database_reachable`、`connect_ms`。
+- 内部 TS/Go **变量名、Drizzle 属性、struct 字段名**可仍用惯用 camelCase / PascalCase；**仅序列化到 JSON/JSONL 的键**必须 snake。Go 用 `json:"happened_at"`；TS 组装响应对象时用 snake 键字面量（或显式 serializer），禁止 `JSON.stringify` 直接 dump Drizzle 行导致驼峰漏网。
+- 查询串参数与 JSON 键对齐时也用 snake（如 `page_size`）；错误文案里的字段名与契约键一致。
+
+# 复盘 API（暂停）
+
+- **`POST /api/log/review`（复盘）暂停实现**——不要落地该路由或相关 OpenAPI/代码。
+- 若对话草稿或未提交文档仍有 review 规格，**不要继续写代码**；待 JSON 蛇形统一后再议。
+
 # Neon / 数据库
 
 - **生产代码**：只用标准 PostgreSQL，不依赖 Neon 特色（branching、serverless driver 等），便于日后切国内云数据库。
