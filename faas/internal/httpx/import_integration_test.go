@@ -204,9 +204,17 @@ SELECT EXISTS (
 	if len(notified) != 1 || !strings.Contains(notified[0], "Imported 1 records") {
 		t.Fatalf("import notify %v", notified)
 	}
-	var oc string
-	err = pool.QueryRow(ctx, `SELECT objective_context FROM records WHERE id = $1`, rid).Scan(&oc)
+	var oc, offset string
+	var happenedAt time.Time
+	err = pool.QueryRow(ctx, `SELECT objective_context, utc_offset, happened_at FROM records WHERE id = $1`, rid).Scan(&oc, &offset, &happenedAt)
 	if err != nil || oc != marker+"-rt" {
 		t.Fatalf("restored row oc=%q err=%v", oc, err)
+	}
+	if offset != "+08:00" {
+		t.Fatalf("utc_offset=%q want +08:00", offset)
+	}
+	wantInstant, _ := time.Parse(time.RFC3339, "2026-07-30T08:00:00+08:00")
+	if !happenedAt.Equal(wantInstant) {
+		t.Fatalf("happened_at=%v want %v", happenedAt, wantInstant)
 	}
 }

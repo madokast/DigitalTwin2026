@@ -375,7 +375,7 @@ deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「
 
 ### 阶段 5：PATCH + import / export
 
-**状态：未开始**
+**状态：已完成**
 
 **目标：** Admin PATCH 带/不带 `happened_at` 按 §7 更新隐列；导入拆 offset 写入、导出按隐列格式化；round-trip 瞬间与规范 offset 一致；文件/请求均无 `utc_offset` 键。
 
@@ -391,14 +391,18 @@ deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「
 - 不把「旧文档一律 Z」收尾当成本阶段唯一交付（阶段 6；测断言以本篇为准）
 
 **验收标准：**
-- [ ] PATCH 行为符合 §7；响应 `happened_at` 按更新后隐列 format
-- [ ] 导出 JSONL **无** `utc_offset`；`happened_at` 带区
-- [ ] 导入拒绝行内 `utc_offset`；成功路径写入两列；round-trip 绿
-- [ ] openapi 契约测若已断言时间形，与行为一致或本阶段同步改 fixture（描述句可留阶段 6）
-- [ ] 双端相关测绿
+- [x] PATCH 行为符合 §7；响应 `happened_at` 按更新后隐列 format
+- [x] 导出 JSONL **无** `utc_offset`；`happened_at` 带区
+- [x] 导入拒绝行内 `utc_offset`；成功路径写入两列；round-trip 绿
+- [x] openapi 契约测若已断言时间形，与行为一致或本阶段同步改 fixture（描述句可留阶段 6）
+- [x] 双端相关测绿
 
 **依赖 / 可并行：** **依赖阶段 1–3**（helper + 列 + 写入惯例）；**强依赖阶段 4** 才宣称「读出与导出全带区」无漏网（export 若仍绕过 fromDB 则本阶段必须自己接 format）。与阶段 4 **可并行开发**；合入建议 `4 → 5`。
 
+**本阶段落地摘要：**
+- Next / Go：`parseRecordDraft` 允许省略 `happened_at`；`record.Update` 带时间则 SET 瞬间 + `utc_offset`，省略则两列都不动；未知键 `utc_offset` → 400
+- import：`RECORD_JSONL_KEYS` 不含隐列（行内出现 → 字段级 400）；upsert 写两列（阶段 3 已有）
+- export / round-trip：阶段 4 serialize 带区；本阶段补强 offset 断言与拒绝键测
 ---
 
 ### 阶段 6：OpenAPI 描述 + 文档收尾

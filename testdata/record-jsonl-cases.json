@@ -57,6 +57,11 @@
       "error": "Unknown JSON key: content"
     },
     {
+      "name": "unknown-utc_offset",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"utc_offset\":\"+08:00\",\"value_number\":\"1\",\"value_text\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "error": "Unknown JSON key: utc_offset"
+    },
+    {
       "name": "both-values-null",
       "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"value_number\":null,\"value_text\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
       "error": "value_number and value_text cannot both be null"

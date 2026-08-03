@@ -1100,6 +1100,57 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.record.tags).toBe(JSON.stringify(['weight', 'source:device']))
       expect(body.record.objective_context).toBe('updated context')
       expect(body.record.subjective_interpretation).toBeNull()
+      expect(body.record.happened_at).toBe('2026-07-30T09:30:00.000+08:00')
+      expect(body.record).not.toHaveProperty('utc_offset')
+    })
+
+    it('recomputes utc_offset when happened_at changes offset', async () => {
+      const record = await createNumber()
+      const res = await patchRecord(
+        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
+          happened_at: '2026-07-30T00:00:00.000Z',
+          value_number: '75.5',
+          tags: ['weight'],
+          objective_context: 'morning weigh-in',
+        }),
+        { params: Promise.resolve({ id: record.id }) },
+      )
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.record.happened_at).toBe('2026-07-30T00:00:00.000Z')
+    })
+
+    it('leaves happened_at and utc_offset alone when time key omitted', async () => {
+      const record = await createNumber()
+      const res = await patchRecord(
+        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
+          value_number: '77',
+          tags: ['weight'],
+          objective_context: 'no-time-patch',
+        }),
+        { params: Promise.resolve({ id: record.id }) },
+      )
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.record.value_number).toBe('77')
+      expect(body.record.objective_context).toBe('no-time-patch')
+      expect(body.record.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
+    })
+
+    it('rejects utc_offset as unknown key', async () => {
+      const record = await createNumber()
+      const res = await patchRecord(
+        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          value_number: '1',
+          tags: ['weight'],
+          objective_context: 'x',
+          utc_offset: '+08:00',
+        }),
+        { params: Promise.resolve({ id: record.id }) },
+      )
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('Unknown JSON key: utc_offset')
     })
 
     it('returns 400 when both values are null', async () => {
@@ -1449,6 +1500,29 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.records[0].value_number).toBe(rec.value_number)
       expect(body.records[0].objective_context).toBe(rec.objective_context)
       expect(body.records[0].tags).toBe(rec.tags)
+      expect(body.records[0].happened_at).toBe('2026-07-30T08:00:00.000+08:00')
+      expect(body.records[0]).not.toHaveProperty('utc_offset')
+    })
+
+    it('rejects utc_offset key in import line', async () => {
+      const id = '01900000-0000-7000-8000-0000000000cc'
+      const line = JSON.stringify({
+        id,
+        happened_at: '2026-07-30T00:00:00.000Z',
+        utc_offset: '+08:00',
+        value_number: '1',
+        value_text: null,
+        tags: '["weight"]',
+        objective_context: 'import-utc-offset',
+        subjective_interpretation: null,
+      })
+      const res = await importRecords(
+        multipartPost('http://localhost/api/admin/import/records', line),
+      )
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        'line 1: Unknown JSON key: utc_offset',
+      )
     })
 
     it('route source bypasses readJsonBody', () => {

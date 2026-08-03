@@ -38,8 +38,9 @@ type RecordDraftBody struct {
 }
 
 type NormalizedRecordDraft struct {
-	HappenedAt               time.Time
-	UtcOffset                string // 从 happened_at 拆出；PATCH 写入留给阶段 5
+	// HappenedAt / UtcOffset：请求带 happened_at 时非 nil（一并写入）；省略则为 nil（§7 两列都不动）。
+	HappenedAt               *time.Time
+	UtcOffset                *string
 	ValueNumber              *string
 	ValueText                *string
 	Tags                     []string
@@ -55,7 +56,7 @@ func EmptyStringToNull(value *string) *string {
 }
 
 // ParseHappenedAt 校验 ISO 8601 且必须带显式时区（与 Next parseHappenedAt / query from|to 一致）。
-// 同时返回规范 utc_offset（阶段 3 写入隐列）。
+// 同时返回规范 utc_offset（创建路径写隐列；PATCH 见 ParseRecordDraft / Update §7）。
 func ParseHappenedAt(raw string) (time.Time, string, error) {
 	if raw == "" {
 		return time.Time{}, "", fmt.Errorf("Missing required field: happened_at")
@@ -129,15 +130,26 @@ func asStringPtr(raw any) (*string, error) {
 	return &s, nil
 }
 
-// ParseRecordDraft validates and normalizes an editable record snapshot.
+// ParseRecordDraft validates and normalizes an editable record snapshot（Admin PATCH）。
+// body.HappenedAt == nil → 省略时间键（§7）；非 nil 则解析瞬间并抽出 utc_offset。
 func ParseRecordDraft(body RecordDraftBody) (*NormalizedRecordDraft, error) {
-	happenedRaw, ok := body.HappenedAt.(string)
-	if !ok {
-		happenedRaw = ""
-	}
-	happenedAt, utcOffset, err := ParseHappenedAt(happenedRaw)
-	if err != nil {
-		return nil, err
+	return parseRecordDraft(body, body.HappenedAt != nil)
+}
+
+func parseRecordDraft(body RecordDraftBody, hasHappenedAt bool) (*NormalizedRecordDraft, error) {
+	var happenedAt *time.Time
+	var utcOffset *string
+	if hasHappenedAt {
+		happenedRaw, ok := body.HappenedAt.(string)
+		if !ok {
+			happenedRaw = ""
+		}
+		t, offset, err := ParseHappenedAt(happenedRaw)
+		if err != nil {
+			return nil, err
+		}
+		happenedAt = &t
+		utcOffset = &offset
 	}
 
 	valueNumber, err := ParseValueNumber(body.ValueNumber)
@@ -215,6 +227,7 @@ func ParseRecordDraft(body RecordDraftBody) (*NormalizedRecordDraft, error) {
 }
 
 // ParseRecordDraftJSON unmarshals JSON with UseNumber and parses.
+// happened_at 键缺席 → 省略；键在但值为 null/非 string → 走 ParseHappenedAt 校验。
 func ParseRecordDraftJSON(data []byte) (*NormalizedRecordDraft, error) {
 	allowed := []string{
 		"happened_at", "value_number", "value_text", "tags",
@@ -227,6 +240,7 @@ func ParseRecordDraftJSON(data []byte) (*NormalizedRecordDraft, error) {
 	if err := jsonutil.DecodeUseNumber(data, &raw); err != nil {
 		return nil, err
 	}
+	_, hasHappenedAt := raw["happened_at"]
 	body := RecordDraftBody{
 		HappenedAt:               raw["happened_at"],
 		ValueNumber:              raw["value_number"],
@@ -235,5 +249,5 @@ func ParseRecordDraftJSON(data []byte) (*NormalizedRecordDraft, error) {
 		ObjectiveContext:         raw["objective_context"],
 		SubjectiveInterpretation: raw["subjective_interpretation"],
 	}
-	return ParseRecordDraft(body)
+	return parseRecordDraft(body, hasHappenedAt)
 }

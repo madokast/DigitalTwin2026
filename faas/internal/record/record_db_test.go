@@ -69,9 +69,11 @@ func (r *fakeRow) Scan(dest ...any) error {
 
 func sampleDraft() *draft.NormalizedRecordDraft {
 	num := "80.0"
+	happened := time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC)
+	offset := "Z"
 	return &draft.NormalizedRecordDraft{
-		HappenedAt:               time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC),
-		UtcOffset:                "Z",
+		HappenedAt:               &happened,
+		UtcOffset:                &offset,
 		ValueNumber:              &num,
 		ValueText:                nil,
 		Tags:                     []string{"weight"},
@@ -105,6 +107,9 @@ func TestUpdate_successMapsReturning(t *testing.T) {
 	if !strings.Contains(q.sql, "UPDATE records SET") || !strings.Contains(q.sql, "RETURNING") {
 		t.Fatalf("unexpected QueryRow SQL: %q", q.sql)
 	}
+	if !strings.Contains(q.sql, "utc_offset = $2") {
+		t.Fatalf("expected utc_offset in SET: %q", q.sql)
+	}
 	if rec.ID != "01900000-0000-7000-8000-000000000001" {
 		t.Fatalf("id=%s", rec.ID)
 	}
@@ -117,15 +122,61 @@ func TestUpdate_successMapsReturning(t *testing.T) {
 	if rec.Tags != `["weight"]` || rec.ObjectiveContext != "morning" {
 		t.Fatalf("rec=%+v", rec)
 	}
-	// args: happenedAt, valueNumber, valueText, tagsJSON, objective, subjective, id
-	if len(q.args) != 7 {
-		t.Fatalf("args len=%d want 7", len(q.args))
+	// args: happenedAt, utcOffset, valueNumber, valueText, tagsJSON, objective, subjective, id
+	if len(q.args) != 8 {
+		t.Fatalf("args len=%d want 8", len(q.args))
 	}
-	if q.args[3] != `["weight"]` {
-		t.Fatalf("tags arg=%v", q.args[3])
+	if q.args[1] != "Z" {
+		t.Fatalf("utc_offset arg=%v", q.args[1])
 	}
-	if q.args[6] != "01900000-0000-7000-8000-000000000001" {
-		t.Fatalf("id arg=%v", q.args[6])
+	if q.args[4] != `["weight"]` {
+		t.Fatalf("tags arg=%v", q.args[4])
+	}
+	if q.args[7] != "01900000-0000-7000-8000-000000000001" {
+		t.Fatalf("id arg=%v", q.args[7])
+	}
+}
+
+func TestUpdate_omitHappenedAtLeavesTimeColumns(t *testing.T) {
+	outNum := "81"
+	happened := time.Date(2026, 7, 30, 0, 0, 0, 0, time.UTC)
+	q := &fakeUpdateQuerier{
+		scanVals: []any{
+			"01900000-0000-7000-8000-000000000001",
+			happened,
+			"+08:00",
+			outNum,
+			nil,
+			`["weight"]`,
+			"patched",
+			nil,
+		},
+	}
+	num := "81"
+	d := &draft.NormalizedRecordDraft{
+		HappenedAt:               nil,
+		UtcOffset:                nil,
+		ValueNumber:              &num,
+		ValueText:                nil,
+		Tags:                     []string{"weight"},
+		ObjectiveContext:         "patched",
+		SubjectiveInterpretation: nil,
+	}
+	rec, status, err := Update(context.Background(), q, "01900000-0000-7000-8000-000000000001", d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != 200 {
+		t.Fatalf("status=%d", status)
+	}
+	if strings.Contains(q.sql, "happened_at =") || strings.Contains(q.sql, "utc_offset =") {
+		t.Fatalf("SET must not touch time columns: %q", q.sql)
+	}
+	if rec.HappenedAt != "2026-07-30T08:00:00.000+08:00" {
+		t.Fatalf("happenedAt=%s", rec.HappenedAt)
+	}
+	if len(q.args) != 6 {
+		t.Fatalf("args len=%d want 6", len(q.args))
 	}
 }
 

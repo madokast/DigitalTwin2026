@@ -137,11 +137,32 @@ describe('parseRecordDraft', () => {
     expect('error' in parsed).toBe(false)
     if ('error' in parsed) return
     expect(parsed.valueNumber).toBe('75.5')
+    expect(parsed.happenedAt).toBeInstanceOf(Date)
     expect(parsed.utcOffset).toBe('+08:00')
     expect(parsed.valueText).toBeNull()
     expect(parsed.tags).toEqual(['weight'])
     expect(parsed.objectiveContext).toBe('morning weigh-in')
     expect(parsed.subjectiveInterpretation).toBeNull()
+  })
+
+  it('allows omitting happened_at (PATCH leaves time columns alone)', () => {
+    const { happened_at: _omit, ...withoutTime } = validBase
+    const parsed = parseRecordDraft(withoutTime)
+    expect('error' in parsed).toBe(false)
+    if ('error' in parsed) return
+    expect(parsed.happenedAt).toBeNull()
+    expect(parsed.utcOffset).toBeNull()
+    expect(parsed.valueNumber).toBe('75.5')
+  })
+
+  it('rejects utc_offset as unknown key', () => {
+    expect(
+      parseRecordDraft({
+        ...validBase,
+        // @ts-expect-error intentional unknown key
+        utc_offset: '+08:00',
+      }),
+    ).toEqual({ error: 'Unknown JSON key: utc_offset' })
   })
 
   it('rejects happened_at without timezone', () => {

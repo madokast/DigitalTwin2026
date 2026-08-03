@@ -66,6 +66,53 @@ func TestParseRecordDraftValid(t *testing.T) {
 	if parsed.ValueText != nil {
 		t.Fatal("valueText should be nil")
 	}
+	if parsed.HappenedAt == nil || parsed.UtcOffset == nil || *parsed.UtcOffset != "+08:00" {
+		t.Fatalf("time fields: happened=%v offset=%v", parsed.HappenedAt, parsed.UtcOffset)
+	}
+}
+
+func TestParseRecordDraftOmitsHappenedAt(t *testing.T) {
+	body := RecordDraftBody{
+		ValueNumber:      "75.5",
+		Tags:             []any{"weight"},
+		ObjectiveContext: "morning weigh-in",
+	}
+	parsed, err := ParseRecordDraft(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.HappenedAt != nil || parsed.UtcOffset != nil {
+		t.Fatalf("expected nil time fields, got happened=%v offset=%v", parsed.HappenedAt, parsed.UtcOffset)
+	}
+}
+
+func TestParseRecordDraftJSONRejectsUtcOffset(t *testing.T) {
+	raw := []byte(`{
+		"happened_at":"2026-07-30T08:00:00+08:00",
+		"value_number":"1",
+		"tags":["weight"],
+		"objective_context":"x",
+		"utc_offset":"+08:00"
+	}`)
+	_, err := ParseRecordDraftJSON(raw)
+	if err == nil || err.Error() != "Unknown JSON key: utc_offset" {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestParseRecordDraftJSONOmitsHappenedAt(t *testing.T) {
+	raw := []byte(`{
+		"value_number":"1",
+		"tags":["weight"],
+		"objective_context":"x"
+	}`)
+	parsed, err := ParseRecordDraftJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.HappenedAt != nil || parsed.UtcOffset != nil {
+		t.Fatalf("expected omit: %#v", parsed)
+	}
 }
 
 func TestParseHappenedAt(t *testing.T) {

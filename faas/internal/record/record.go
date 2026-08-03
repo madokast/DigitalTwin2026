@@ -81,6 +81,7 @@ func IsValidID(id string) bool {
 }
 
 // Update 按已归一化草稿更新一条记录；成功 (rec, 200, nil)；不存在 (空, 404, err)。
+// 带 HappenedAt → 重算写入 utc_offset；省略 → 两列都不动（§7）。
 // q 为可注入 Querier（*pgxpool.Pool 或测试假实现）。
 func Update(ctx context.Context, q db.Querier, id string, d *draft.NormalizedRecordDraft) (Record, int, error) {
 	if !IsValidID(id) {
@@ -96,19 +97,36 @@ func Update(ctx context.Context, q db.Querier, id string, d *draft.NormalizedRec
 		outHappened                       time.Time
 		outNum, outText, outSubj          *string
 	)
-	err = q.QueryRow(ctx, `
+
+	if d.HappenedAt != nil && d.UtcOffset != nil {
+		err = q.QueryRow(ctx, `
 UPDATE records SET
   happened_at = $1,
-  value_number = $2,
-  value_text = $3,
-  tags = $4,
-  objective_context = $5,
-  subjective_interpretation = $6
-WHERE id = $7
+  utc_offset = $2,
+  value_number = $3,
+  value_text = $4,
+  tags = $5,
+  objective_context = $6,
+  subjective_interpretation = $7
+WHERE id = $8
 RETURNING id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation
-`, d.HappenedAt, d.ValueNumber, d.ValueText, tagsJSON, d.ObjectiveContext, d.SubjectiveInterpretation, id).Scan(
-		&outID, &outHappened, &outOffset, &outNum, &outText, &outTags, &outObj, &outSubj,
-	)
+`, *d.HappenedAt, *d.UtcOffset, d.ValueNumber, d.ValueText, tagsJSON, d.ObjectiveContext, d.SubjectiveInterpretation, id).Scan(
+			&outID, &outHappened, &outOffset, &outNum, &outText, &outTags, &outObj, &outSubj,
+		)
+	} else {
+		err = q.QueryRow(ctx, `
+UPDATE records SET
+  value_number = $1,
+  value_text = $2,
+  tags = $3,
+  objective_context = $4,
+  subjective_interpretation = $5
+WHERE id = $6
+RETURNING id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation
+`, d.ValueNumber, d.ValueText, tagsJSON, d.ObjectiveContext, d.SubjectiveInterpretation, id).Scan(
+			&outID, &outHappened, &outOffset, &outNum, &outText, &outTags, &outObj, &outSubj,
+		)
+	}
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return Record{}, 404, ErrNotFound

@@ -93,7 +93,7 @@ describe('update (injected store)', () => {
     subjectiveInterpretation: null,
   }
 
-  it('maps returning row to Record with status 200', async () => {
+  it('maps returning row to Record with status 200 and writes utc_offset', async () => {
     const updateReturning = vi.fn(async () => ({
       id: '01900000-0000-7000-8000-000000000001',
       happenedAt: new Date('2026-07-30T10:00:00.000Z'),
@@ -127,10 +127,52 @@ describe('update (injected store)', () => {
       '01900000-0000-7000-8000-000000000001',
       {
         happenedAt: draft.happenedAt,
+        utcOffset: 'Z',
         valueNumber: '80.0',
         valueText: null,
         tags: '["weight"]',
         objectiveContext: 'morning',
+        subjectiveInterpretation: null,
+      },
+    )
+  })
+
+  it('omits happened_at and utc_offset when draft has null time fields', async () => {
+    const updateReturning = vi.fn(async () => ({
+      id: '01900000-0000-7000-8000-000000000001',
+      happenedAt: new Date('2026-07-30T00:00:00.000Z'),
+      utcOffset: '+08:00',
+      valueNumber: '81',
+      valueText: null,
+      tags: '["weight"]',
+      objectiveContext: 'patched',
+      subjectiveInterpretation: null,
+    }))
+    const omitDraft: NormalizedRecordDraft = {
+      happenedAt: null,
+      utcOffset: null,
+      valueNumber: '81',
+      valueText: null,
+      tags: ['weight'],
+      objectiveContext: 'patched',
+      subjectiveInterpretation: null,
+    }
+    const result = await update(
+      '01900000-0000-7000-8000-000000000001',
+      omitDraft,
+      { updateReturning },
+    )
+    expect(result).toMatchObject({
+      status: 200,
+      record: { happened_at: '2026-07-30T08:00:00.000+08:00', value_number: '81' },
+    })
+    expect(updateReturning).toHaveBeenCalledWith(
+      '01900000-0000-7000-8000-000000000001',
+      {
+        valueNumber: '81',
+        valueText: null,
+        tags: '["weight"]',
+        objectiveContext: 'patched',
         subjectiveInterpretation: null,
       },
     )

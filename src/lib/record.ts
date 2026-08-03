@@ -89,12 +89,14 @@ export function isValidRecordId(id: string): boolean {
 /**
  * update 可注入的写库边界（与 Go `db.Querier` 假实现对称）。
  * 返回更新后行；无匹配行返回 `undefined`（映射 404）。
+ * happenedAt / utcOffset 仅在请求带时间键时传入（§7）。
  */
 export type UpdateDb = {
   updateReturning: (
     id: string,
     values: {
-      happenedAt: Date
+      happenedAt?: Date
+      utcOffset?: string
       valueNumber: string | null
       valueText: string | null
       tags: string
@@ -118,6 +120,7 @@ const defaultUpdateDb: UpdateDb = {
 /**
  * 按已归一化草稿更新一条记录。
  * 与 Go `record.Update` 对齐：成功 `{ record, status: 200 }`；不存在 `{ error, status: 404 }`。
+ * 带 happenedAt → 重算写入 utc_offset；省略 → 两列都不动（§7）。
  * 可选 `store`：测试注入；生产调用方省略即可。
  */
 export async function update(
@@ -130,14 +133,19 @@ export async function update(
   }
 
   try {
-    const row = await store.updateReturning(id, {
-      happenedAt: d.happenedAt,
+    const values: Parameters<UpdateDb['updateReturning']>[1] = {
       valueNumber: d.valueNumber,
       valueText: d.valueText,
       tags: tagsJSON(d.tags),
       objectiveContext: d.objectiveContext,
       subjectiveInterpretation: d.subjectiveInterpretation,
-    })
+    }
+    if (d.happenedAt !== null && d.utcOffset !== null) {
+      values.happenedAt = d.happenedAt
+      values.utcOffset = d.utcOffset
+    }
+
+    const row = await store.updateReturning(id, values)
 
     if (!row) {
       return { error: RECORD_NOT_FOUND, status: 404 }

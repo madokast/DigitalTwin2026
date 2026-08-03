@@ -35,9 +35,13 @@ export type RecordDraftBody = {
 }
 
 export type NormalizedRecordDraft = {
-  happenedAt: Date
-  /** 从 happened_at 拆出的规范 utc_offset；PATCH 写入留给阶段 5 */
-  utcOffset: string
+  /**
+   * 请求带 `happened_at` 时为解析后的瞬间；省略则为 null。
+   * Update：非 null 时与 utcOffset 一并写入；null 时两列都不动（§7）。
+   */
+  happenedAt: Date | null
+  /** 与 happenedAt 同生同灭；规范 utc_offset 字面量 */
+  utcOffset: string | null
   valueNumber: string | null
   valueText: string | null
   tags: string[]
@@ -57,7 +61,7 @@ export function emptyStringToNull(
 
 /**
  * 校验 happened_at：必须带显式时区（Z 或 ±HH:MM / ±HHMM），与 PATCH / query 一致。
- * 同时抽出规范 utc_offset（阶段 3 写入隐列）。
+ * 同时抽出规范 utc_offset（创建路径写隐列；PATCH 见 parseRecordDraft / Update §7）。
  * log/number、log/text 与 parseRecordDraft 共用。
  */
 export function parseHappenedAt(
@@ -128,9 +132,14 @@ export function parseValueNumber(
   return { ok: true, value: trimmed }
 }
 
+function hasOwnKey(obj: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(obj, key)
+}
+
 /**
- * 校验并可编辑字段快照归一化（前后端共用）。
+ * 校验并可编辑字段快照归一化（前后端共用；Admin PATCH）。
  * 空串在可空字段上变为 null；objective_context 不允许空。
+ * `happened_at` 可省略（§7：两列都不动）；带则解析瞬间并抽出 utc_offset。
  */
 export function parseRecordDraft(
   body: RecordDraftBody,
@@ -138,9 +147,14 @@ export function parseRecordDraft(
   const unknown = rejectUnknownKeys(body, RECORD_DRAFT_KEYS)
   if (unknown) return unknown
 
-  const happenedResult = parseHappenedAt(body.happened_at)
-  if ('error' in happenedResult) return happenedResult
-  const happenedAt = happenedResult.value
+  let happenedAt: Date | null = null
+  let utcOffset: string | null = null
+  if (hasOwnKey(body, 'happened_at')) {
+    const happenedResult = parseHappenedAt(body.happened_at)
+    if ('error' in happenedResult) return happenedResult
+    happenedAt = happenedResult.value
+    utcOffset = happenedResult.utcOffset
+  }
 
   const numberResult = parseValueNumber(body.value_number)
   if ('error' in numberResult) return numberResult
@@ -193,7 +207,7 @@ export function parseRecordDraft(
 
   return {
     happenedAt,
-    utcOffset: happenedResult.utcOffset,
+    utcOffset,
     valueNumber,
     valueText,
     tags: body.tags,
