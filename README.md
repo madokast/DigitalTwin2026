@@ -116,11 +116,12 @@ npm run openapi:preview  # 生成 Redoc 静态页 openapi/redoc-static.html
 npm run test:openapi     # 契约 fixture（无 DB）
 npm test              # 使用 .env.test 测试库，勿对生产库执行
 npm run test:watch
+npm run test:integration # 双端 API 集成：Node tests/api + Go httpx/dbprobe（需安全 DATABASE_URL）
 cd faas && go test ./internal/contract/   # Go 契约（无 DB）
 cd faas && go test ./...
 ```
 
-单元测 `src/lib`、`src/proxy`；API 集成测连真实 PG（migrate → 用例间 TRUNCATE；**不再 DROP** schema）。门闸为安全的 `DATABASE_URL`（host/库名须含 `test` / `TestDigitalTwin`；无则 Skip；unsafe 则拒绝，不 wipe）。Go httptest / dbprobe 集成同规则。CI 默认可跑单元测；配置 GitHub secrets `DATABASE_URL`（及可选 Token）可启用 CI 集成测 job。契约测与 DB 无关，见 `openapi/README.md`。
+单元测 `src/lib`、`src/proxy`；API 集成测连真实 PG（migrate → 用例间 TRUNCATE；**不再 DROP** schema）。门闸为安全的 `DATABASE_URL`（host/库名须含 `test` / `TestDigitalTwin`；无则 Skip；unsafe 则拒绝，不 wipe）。Go httptest / dbprobe 集成同规则。本地一键双端：`npm run test:integration`（读 `.env.test`，缺/不安全则 fail-fast）。CI 默认可跑单元测；配置 GitHub secrets `DATABASE_URL`（及可选 Token）可启用 CI 集成测 job。契约测与 DB 无关，见 `openapi/README.md`。
 
 ## 项目结构
 

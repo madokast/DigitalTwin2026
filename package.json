@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "tsx scripts/test-integration.ts",
     "test:openapi": "vitest run tests/openapi",
     "openapi:lint": "redocly lint --config openapi/redocly.yaml openapi/openapi.yaml",
     "openapi:preview": "redocly build-docs --config openapi/redocly.yaml openapi/openapi.yaml -o openapi/redoc-static.html",
