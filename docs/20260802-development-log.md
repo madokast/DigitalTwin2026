@@ -1,7 +1,7 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-08-02（续至 2026-08-03）  
-> 状态：多云 FaaS（FC + SCF）落地；deploy / collect 分离；SCF Web **Go1** 打包；prod 可选 drizzle migrate；续记集成门闸（`DATABASE_URL` only）+ `test:integration` + Todo Phase 4；**Records 导入/导出仅规划文档**  
+> 状态：多云 FaaS（FC + SCF）落地；deploy / collect 分离；SCF Web **Go1** 打包；prod 可选 drizzle migrate；续记集成门闸（`DATABASE_URL` only）+ `test:integration` + Todo Phase 4；**Records 导入/导出已落地**（阶段 1–4）  
 > 相关：[`docs/20260802-faas-multi-cloud.md`](20260802-faas-multi-cloud.md)、[`docs/20260802-db-probe-multi-cloud.md`](20260802-db-probe-multi-cloud.md)、[`docs/20260803-records-import-export.md`](20260803-records-import-export.md)、[`faas/providers/aliyun-fc/README.md`](../faas/providers/aliyun-fc/README.md)、[`faas/providers/tencent-scf/README.md`](../faas/providers/tencent-scf/README.md)
 
 ## 0. 今日做成了什么（总览）
@@ -139,13 +139,24 @@ d2efdd7  Add Tencent SCF Web provider scaffold with scf login flow
 | 导出 | `from?` + 必填 `limit`∈[1,1000]；文件流；每页 Notify；无 suppress |
 | 导入 | multipart ≤1000 行且 ≤4MiB；流式 upsert；行级详细错误；始终 Notify |
 | Todo 回链 | ✅ `20260802-todo-feature.md` §5.3 / §8#15 / §9 |
-| 实现 | **未做**（无 API / 无 OpenAPI 改动） |
+| 实现 | 当时 **未做**（仅规划）；**已落地**见 §10 |
 
 ## 9. 仍待办 / 开放
 
 - [ ] 手动验收清单续跑；用户确认 SCF 内存档是否可再降  
 - [ ] （可选）Settings placeholder 补 SCF 域名示例  
 - [ ] Dashboard 支出组件 / 网页录入 UI（与多云无关，沿自既有待办）
-- [ ] Records 导入/导出 API（规划已定稿；见 [`20260803-records-import-export.md`](20260803-records-import-export.md)）
+- [x] Records 导入/导出 API（阶段 1–4 已落地；见 [`20260803-records-import-export.md`](20260803-records-import-export.md) 与 §10）
 - [x] Todo Phase 4 / `test:integration` / `DATABASE_URL`-only 门闸（见 §7）
 - [x] 导入/导出规划文档定稿（见 §8）
+
+## 10. 续记（2026-08-03）：Records 导入/导出落地
+
+阶段拆分见 [`20260803-records-import-export.md`](20260803-records-import-export.md) §11；双端 + OpenAPI 已齐。
+
+| 项 | 状态 |
+|----|------|
+| 阶段 1 `recordjsonl` | ✅ 共享行 parse / serialize |
+| 阶段 2 `exportapi` | ✅ `GET /api/export/records`（ApiToken；NDJSON 游标） |
+| 阶段 3 `importapi` | ✅ `POST /api/admin/import/records`（AdminToken；multipart upsert） |
+| 阶段 4 文档收尾 | ✅ 规格 / README / layering / 本日志与终态一致 |

@@ -98,6 +98,8 @@ HTTP API 由 **Next（Vercel）** 与 **Go（阿里云 FC / 腾讯云 SCF，同�
 
 鉴权：`Authorization: Bearer <token>`（`src/proxy.ts` / FC 同等逻辑）。普通 API：AI Token 或 Admin Token；`/api/admin/*`：仅 Admin Token。
 
+备份 / 迁移（无前端 UI）：`GET /api/export/records`（ApiToken；JSONL 游标导出）、`POST /api/admin/import/records`（AdminToken；multipart JSONL upsert）。详见 [`docs/20260803-records-import-export.md`](docs/20260803-records-import-export.md)。
+
 **接口契约**以 OpenAPI 3.1 为准：[`openapi/openapi.yaml`](openapi/openapi.yaml)（说明见 [`openapi/README.md`](openapi/README.md)）。根 README 不再维护接口表。契约基建已收口：`npm run openapi:lint` + `npm run test:openapi` + `cd faas && go test ./internal/contract/`。CI 另跑无 DB 单元测；集成测无库 Skip（可选 secrets 启用）。**不做** codegen / Schemathesis / 新 OpenAPI Phase。本地 Redoc：`npm run openapi:preview`。
 
 ## 数据库管理
@@ -165,3 +167,5 @@ cd faas && go test ./...
 - `20260802-faas-multi-cloud.md` — 多云 FaaS（FC + SCF）与 deploy/collect
 - `20260802-db-probe-multi-cloud.md` — 双云延迟对比（probe / summary）
 - `20260802-development-log.md` — 多云落地、SCF Go1、可选 migrate
+- `20260803-records-import-export.md` — Records JSONL 导入 / 导出（已落地）
+- `20260803-suppress-bot-notification.md` — `SUPPRESS_BOT_NOTIFICATION` 门闸（已落地）

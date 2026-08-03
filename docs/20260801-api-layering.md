@@ -105,9 +105,9 @@ flowchart LR
 | `query` | `faas/internal/query` | `src/lib/query.ts` | 列表过滤 / 分页 / summary / tags / transaction summary；`ToQueryRecordJSON` / `toQueryRecordJson`（query `records[]` 待办变形） |
 | `logapi` | `faas/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` / `bodyweightdraft` / `tododraft` |
 | `record` | `faas/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `Update` / `FromDB` / `TagsJSON` / type `Record` |
-| `recordjsonl` | `faas/internal/recordjsonl` | `src/lib/recordjsonl.ts` | Record JSONL 行 parse / serialize；表示层 camelCase；**不**调用 `assertNoReservedTags`（由调用方决定） |
-| `exportapi` | `faas/internal/exportapi` | `src/lib/exportapi.ts` | `GET /api/export/records`：游标参数解析、按 `id ASC` 拉取、NDJSON 文件名 / Notify 文案；HTTP 层负责流响应与 notify 调度 |
-| `importapi` | `faas/internal/importapi` | `src/lib/importapi.ts` | `POST /api/admin/import/records`：multipart 校验、JSONL 流式 upsert（单事务）、计数 / Notify 文案；HTTP 层负责 multipart 与 notify；**bypass** 256KiB JSON body 门闸 |
+| `recordjsonl` | `faas/internal/recordjsonl` | `src/lib/recordjsonl.ts` | Record JSONL 行 parse / serialize；表示层 camelCase；**不**调用 `assertNoReservedTags`（由调用方决定）；规格 [`docs/20260803-records-import-export.md`](20260803-records-import-export.md) |
+| `exportapi` | `faas/internal/exportapi` | `src/lib/exportapi.ts` | `GET /api/export/records`：游标参数解析、按 `id ASC` 拉取、NDJSON 文件名 / Notify 文案；HTTP 层负责流响应与 notify 调度；规格同上 |
+| `importapi` | `faas/internal/importapi` | `src/lib/importapi.ts` | `POST /api/admin/import/records`：multipart 校验、JSONL 流式 upsert（单事务）、计数 / Notify 文案；HTTP 层负责 multipart 与 notify；**bypass** 256KiB JSON body 门闸；规格同上 |
 | `telegram` | `faas/internal/telegram` | `src/lib/telegram.ts` | 渠道：配置 / 排版 / 发送；probe 直调；录入路径经 `notify` |
 | `qqbot` | `faas/internal/qqbot` | `src/lib/qqbot.ts` | 渠道：配置 / token / 发送；probe 直调；录入路径经 `notify`（函数 stem 见 §5.2） |
 | `notify` | `faas/internal/notify` | `src/lib/notify.ts` | 统一扇出入口；HTTP 成功后调用（函数 stem 见 §5.2；调度差异见 §1.1 / §7） |

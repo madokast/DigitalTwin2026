@@ -1,7 +1,7 @@
-# DigitalTwin2026：Records 导入 / 导出（规划）
+# DigitalTwin2026：Records 导入 / 导出
 
 > 创建日期：2026-08-03  
-> 状态：**规划已定稿**（含审查 errata）；**实现阶段见 §11**（阶段 1–3 已落地；4 未落地）  
+> 状态：**已落地**（阶段 1–4 全部完成：共享 `recordjsonl` + `GET /api/export/records` + `POST /api/admin/import/records` + 文档收尾）  
 > 性质：分块备份 / 迁移；**不做**前端 UI；**一期无 gzip**  
 > 相关：[`docs/20260802-todo-feature.md`](20260802-todo-feature.md) §5.3、[`docs/20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)、OpenAPI `Record` / `ApiToken`·`AdminToken`、`src/proxy.ts`、写路径 `draft` / `logapi`
 
@@ -13,7 +13,7 @@
 - 用同形状 JSONL **文件上传** + **按 `id` upsert** 写回。
 - 形状 = OpenAPI **`Record` camelCase**：**禁止** Todo deform（`created_at` / `content`）。
 - 成功后 **一律 Notify**（导出每页含 0 行；导入含空文件全 0）；**无**请求体 `suppress_notification`。真发与否仅看进程 env `SUPPRESS_BOT_NOTIFICATION`（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。
-- 实现时双端（Next + Go）+ OpenAPI 同构；本篇只规划。
+- 双端（Next + Go）+ OpenAPI 同构已落地；本篇为决策真源。
 
 **非目标**
 
@@ -38,7 +38,7 @@
 | 6 | **始终 Notify**（含空导出 / 空导入）；本两 API **不**暴露 body `suppress_notification`；静音仅 env（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。 |
 | 7 | **一期无压缩**；`MAX_HTTP_BODY_BYTES`（256KiB）**不**约束本两路由（须独立流式读，禁止误接 `readJsonBody` / 默认 `readBody`）。 |
 | 8 | **流式 + 单事务**：边读边写均在**同一 DB 事务**内；**全部成功才 commit**；失败 **rollback** 且 **不** Notify。 |
-| 9 | 产品决策已定；实现按 **§11** 分阶段落地。 |
+| 9 | 产品决策已定；**§11** 阶段 1–4 已全部完成。 |
 
 鉴权真源：`ApiToken` = `DIGITAL_TWIN_TOKEN` 或 `DIGITAL_TWIN_ADMIN_TOKEN`；`AdminToken` = 仅后者。见 `src/proxy.ts` / Go `httpx`。
 
@@ -222,9 +222,9 @@ BEGIN
 
 ---
 
-## 7. 实现约束（排期后）
+## 7. 实现约束（已落地）
 
-1. OpenAPI + 双端 stem；错误字符串双端字节一致。  
+1. OpenAPI + 双端 stem（`recordjsonl` / `exportapi` / `importapi`）；错误字符串双端字节一致。  
 2. 导入/导出路由 **bypass** 256KiB JSON body 门闸。  
 3. 测试覆盖：游标重叠；from 400/404；limit；空导出/空导入均 Notify；事务失败无 Notify；重复 id；行级错误；保留 tag；鉴权矩阵；误接 readJsonBody 不得 413。  
 4. FC 64MB：流式 + seen≤1000 + 4MiB。
@@ -253,7 +253,7 @@ BEGIN
 
 **无。**（含 2026-08-03 审查 errata。）
 
-实现期仅定错误字符串终稿与模块名（见各阶段验收）。
+错误字符串终稿与模块名见各阶段落地备注。
 
 ---
 
@@ -365,7 +365,7 @@ BEGIN
 
 ### 阶段 4：文档与指针收尾
 
-**状态：未开始**
+**状态：已完成**
 
 **目标：** 规格状态改为已落地；README / layering / 发展日志与终态一致；错误字符串若有润色则双端已对齐。
 
@@ -379,8 +379,8 @@ BEGIN
 - 不夹带行为变更；发现遗漏回 1–3 修
 
 **验收标准：**
-- [ ] 文档无「实现未排期」冲突句；对外路径/鉴权与 OpenAPI 一致
-- [ ] 本篇标记阶段 1–4 完成
+- [x] 文档无「实现未排期」冲突句；对外路径/鉴权与 OpenAPI 一致
+- [x] 本篇标记阶段 1–4 完成
 
 **依赖 / 可并行：** **依赖阶段 1–3 均已合**。
 

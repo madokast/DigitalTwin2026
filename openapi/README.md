@@ -24,8 +24,8 @@ openapi/
     telegram.yaml              # /api/telegram/probe
     qqbot.yaml                 # /api/qqbot/probe
     db.yaml                    # /api/db/probe
-    admin.yaml                 # /api/admin/*
-    export.yaml                # /api/export/records
+    admin.yaml                 # /api/admin/*（含 POST /api/admin/import/records）
+    export.yaml                # GET /api/export/records（NDJSON / JSONL）
   components/
     securitySchemes.yaml
     parameters.yaml
@@ -71,6 +71,8 @@ npm run openapi:preview
 5. 用户可见的 `error` / `description` 用英文；本 README 等文档可用中文。
 
 鉴权：`Authorization: Bearer …`；普通路由接受 AI Token 或 Admin Token；`/api/admin/*` 仅 Admin Token。
+
+Records 备份 / 迁移：`GET /api/export/records`（ApiToken；JSONL 游标文件流）、`POST /api/admin/import/records`（AdminToken；multipart JSONL upsert）。决策真源：[`docs/20260803-records-import-export.md`](../docs/20260803-records-import-export.md)。
 
 ## 开发边界（定死）
 

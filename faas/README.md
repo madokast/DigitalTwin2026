@@ -26,9 +26,11 @@
 - `POST /api/qqbot/probe`（普通 API Token；校验 QQ Bot 配置并试发消息）
 - `POST /api/db/probe`（普通 API Token；短命连接测 Postgres + `public.records`）
 - `GET /api/query`、`/api/query/summary`、`/api/query/tags`、`/api/query/transaction/summary`
+- `GET /api/export/records`（ApiToken；`from?` + 必填 `limit`；NDJSON / JSONL 文件流）
 - `POST /api/admin/tags/rename`、`PATCH /api/admin/records/{id}`
+- `POST /api/admin/import/records`（AdminToken；multipart 字段 `file`；JSONL upsert）
 
-鉴权：`Authorization: Bearer …`；`/api/admin/*` 仅 Admin Token；其余 AI 或 Admin。
+鉴权：`Authorization: Bearer …`；`/api/admin/*` 仅 Admin Token；其余 AI 或 Admin。备份 / 迁移 JSONL 决策真源：[`docs/20260803-records-import-export.md`](../docs/20260803-records-import-export.md)。
 
 ### 录入通知（Telegram / QQ Bot，可选）
 
@@ -36,7 +38,7 @@
   - Telegram：`TELEGRAM_BOT_TOKEN`、`TELEGRAM_USER_ID`（**两者皆非空**才启用）
   - QQ Bot：`QQBOT_APP_ID`、`QQBOT_APP_SECRET`、`QQBOT_USER_OPENID`（**三键皆非空**才启用）
   - 运行时经统一 `notify_user` 并行发送；未配置的渠道跳过。
-- 触发：`POST /api/log/number|text|body/weight|todo` INSERT 成功后推单条；`POST /api/log/todo/transition` 成功后推**审计文案**一条；`POST /api/log/transaction` 整单成功后推一条 batch 摘要；均为 best-effort，通知失败不影响成功响应。
+- 触发：`POST /api/log/number|text|body/weight|todo` INSERT 成功后推单条；`POST /api/log/todo/transition` 成功后推**审计文案**一条；`POST /api/log/transaction` 整单成功后推一条 batch 摘要；`GET /api/export/records` / `POST /api/admin/import/records` 成功（含空）各推一次；均为 best-effort，通知失败不影响成功响应。
 - 测试：`POST /api/telegram/probe`、`POST /api/qqbot/probe`（未配置 / 发送失败返回明确英文 `error`；成功 `{ success: true }`）。业务自动 notify 静音靠进程 env **`SUPPRESS_BOT_NOTIFICATION`**（trim 后严格 `'1'` 才跳过 `notify_user`）：本地 `.env.test` 写 `=1`；`deploy -- test` 强制注入 `=1`，`deploy -- prod` 强制 `=0`（不问用户）。**probe 不受该开关约束**，仍直调渠道发送。决策真源：[`docs/20260803-suppress-bot-notification.md`](../docs/20260803-suppress-bot-notification.md)。
 - 模板：根 [`.env.test.example`](../.env.test.example)；`s.yaml` 的 `environmentVariables`。
 - `secrets:rotate-test` **不**轮换通知渠道密钥。

@@ -250,7 +250,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 
 > **Superseded（2026-08-03）**：旧记「日后导入导出同时接受变形与不变形 JSON」**已作废**。
 
-导入/导出规划见 **[`docs/20260803-records-import-export.md`](20260803-records-import-export.md)**（**已定稿**，实现未排期）：
+导入/导出见 **[`docs/20260803-records-import-export.md`](20260803-records-import-export.md)**（**已落地**）：
 
 - **禁止** JSON deform：JSONL 仅 OpenAPI `Record` camelCase；**不**接受/不产出 `created_at`/`content`。
 - 导出 = `from?`+`limit` 游标 **文件下载**（ApiToken）；导入 = multipart **upsert**（Admin）；双端流式；行级详细错误；始终 Notify（无 body suppress；静音见 `SUPPRESS_BOT_NOTIFICATION`）。
@@ -306,8 +306,8 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 12. **对外待办行变形**：仅 **query** 的 `records[]` 与 **创建** 成功 `201.record` 使用 `created_at`+`content`；审计行默认 toJSON。**transition 成功响应无 `record`**（见第 17 条）。Go 用 `TodoRecordJSON` + `[]any`（或等价 Marshaler）。  
 13. **五 tag 闭集**定死；录入严、查询略宽，**Node/Go 宽松度必须一致**（共享判定 + fixture）。  
 14. **AI 手册预留（§5.4）**：必须向 AI 说明「对外别名 vs 库列 happened_at/value_text」；本阶段不写手册。  
-15. **导入/导出**（未实现 API）：**无 deform**；规划见 [`20260803-records-import-export.md`](20260803-records-import-export.md)（§5.3 已改链；旧「双认变形」取消）。  
-16. **本阶段只产出本文档，不开发。**（Todo 功能本身；导入导出另篇规划。）  
+15. **导入/导出**（**已落地**）：**无 deform**；真源 [`20260803-records-import-export.md`](20260803-records-import-export.md)（§5.3 已改链；旧「双认变形」取消）。  
+16. **本阶段只产出本文档，不开发。**（Todo 功能本身；导入导出另篇，现已落地。）  
 17. **transition 成功响应（已拍板）**：HTTP **`200`** + `{ success, id, transition: { from, to } }`；`from`/`to` 为 TodoState 字面量（与请求 `target` 同词汇，非 `todo:*` tag）；**无** `record`、**无** `audit_record`。
 
 ---
@@ -318,7 +318,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 - **【已收】** transition notify：成功时**恰好一次**（一律 schedule；静音仅 env）；正文 = 审计行 `value_text`（字节一致）；不另通知待办行。详见 §4.2、§8 第 8 条。  
 - Admin PATCH 是否允许改待办正文（库列 `value_text`；与保留 tag 的 PATCH 规则需对照现有 admin 行为）。  
 - OpenAPI 对 `records[]` oneOf 写到多严（严格 schema vs description-only）。  
-- **导入/导出**（未排期实现）：规划真源 [`20260803-records-import-export.md`](20260803-records-import-export.md)（§10 已收，无待拍板）；§5.3 仅回链。  
+- **【已收】** **导入/导出**：真源 [`20260803-records-import-export.md`](20260803-records-import-export.md)（阶段 1–4 已落地）；§5.3 仅回链。  
 - **AI 操作手册**（未排期）：按 §5.4 条目展开。
 
 ---
@@ -373,7 +373,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 |--|--|
 | **目标** | `GET /api/query` 的待办行与创建成功形状对齐（`created_at`/`content`）；审计行保持默认 Record JSON。 |
 | **范围内** | 查询侧**略宽**判定（§1.3）+ 共享 fixture（含脏数据边：四态+transition 并存等）；Next `toQueryRecordJson` / Go `TodoRecordJSON`+`[]any`；OpenAPI 对 `records[]` 说明（oneOf 严度按 §9 小项，可先 description）。 |
-| **范围外** | 新 query API；导入/导出（见 [`20260803-records-import-export.md`](20260803-records-import-export.md)，非本 Phase）；AI 手册（§5.4）。 |
+| **范围外** | 新 query API；导入/导出（见 [`20260803-records-import-export.md`](20260803-records-import-export.md)，非本 Phase；现已另篇落地）；AI 手册（§5.4）。 |
 | **交付** | query 序列化分支 + 双端同 fixture；复用 Phase 2 变形 helper。 |
 | **依赖** | Phase 2。**不依赖** Phase 3（可与 3 并行）；有 transition 数据时加审计行对照测更稳。 |
 | **验证** | `?tag=todo:in_progress` 等：待办行无 `happened_at`/`value_text` 键；`?tag=todo:transition` 仍为库契约键；Node/Go 宽松度一致。 |
@@ -382,5 +382,5 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 ### 刻意不分期 / 不排入上表
 
 - 前端清单 UI、due/优先级等（§0 非目标）。
-- Admin PATCH 改待办正文、导入导出（[`20260803-records-import-export.md`](20260803-records-import-export.md)）、AI 手册（§9 开放项）。
+- Admin PATCH 改待办正文、导入导出（[`20260803-records-import-export.md`](20260803-records-import-export.md)，**已另篇落地**）、AI 手册（§9 开放项）。
 - 勿把「仅 OpenAPI 无实现」或「只改一端」拆成独立期。
