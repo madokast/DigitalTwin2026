@@ -30,8 +30,9 @@ type RecordRow = {
 }
 
 /**
- * 与 Go `record.FormatHappenedAt`（无 offset 重载）对齐：一律 UTC Z。
- * 生产读路径请用 fromDB / utcoffset.formatHappenedAt；本函数留给尚未接线的路径。
+ * 一律 UTC Z（无 offset）。**仅**作隐列损坏时的 FromDB 回退；
+ * 生产读路径必须用 `fromDB` / `utcoffset.formatHappenedAt(instant, utc_offset)`。
+ * 与 Go `record.FormatHappenedAt`（无 offset 重载）对齐。
  */
 export function formatHappenedAt(value: Date | string): string {
   if (value instanceof Date) {

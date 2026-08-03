@@ -23,8 +23,8 @@ describe('isValidRecordId', () => {
   })
 })
 
-describe('formatHappenedAt', () => {
-  it('formats Date as UTC ISO with Z (matches Go FormatHappenedAt)', () => {
+describe('formatHappenedAt (UTC Z fallback only)', () => {
+  it('formats Date as UTC ISO with Z (corrupt-offset fallback)', () => {
     expect(formatHappenedAt(new Date('2026-07-30T08:00:00+08:00'))).toBe(
       '2026-07-30T00:00:00.000Z',
     )

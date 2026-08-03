@@ -48,6 +48,22 @@ func TestToTodoRecordJSONSharedFixture(t *testing.T) {
 	}
 }
 
+func TestToTodoRecordJSONPreservesOffset(t *testing.T) {
+	rec := record.Record{
+		ID:         "01900000-0000-7000-8000-000000000003",
+		HappenedAt: "2026-08-02T10:00:00.000+08:00",
+		ValueText:  strPtr("Buy milk"),
+		Tags:       `["todo:in_progress","errand"]`,
+		ObjectiveContext: "x",
+	}
+	got := ToTodoRecordJSON(rec)
+	if got.CreatedAt != "2026-08-02T10:00:00.000+08:00" {
+		t.Fatalf("created_at=%q", got.CreatedAt)
+	}
+}
+
+func strPtr(s string) *string { return &s }
+
 func TestShouldDeformTodoRecordTagsSharedFixture(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(repoRoot(t), "testdata", "todo-query-deform-cases.json"))
 	if err != nil {

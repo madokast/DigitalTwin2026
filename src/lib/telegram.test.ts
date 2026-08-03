@@ -25,7 +25,7 @@ const sampleNumber = {
 
 const sampleText = {
   id: '01900000-0000-7000-8000-000000000002',
-  happened_at: new Date('2026-07-31T13:00:00.000Z'),
+  happened_at: '2026-07-31T13:00:00.000Z',
   value_number: null,
   value_text: 'Ran 5k',
   tags: JSON.stringify(['run']),
@@ -123,6 +123,15 @@ describe('formatRecordMessage', () => {
         'subjective: (null)',
       ].join('\n'),
     )
+  })
+
+  it('keeps happened_at offset literal from fromDB (no toISOString)', () => {
+    expect(
+      formatRecordMessage({
+        ...sampleNumber,
+        happened_at: '2026-07-31T20:00:00.000+08:00',
+      }),
+    ).toContain('happened_at: 2026-07-31T20:00:00.000+08:00')
   })
 })
 

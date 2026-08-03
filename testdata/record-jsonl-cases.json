@@ -1,5 +1,5 @@
 {
-  "comment": "Shared Record JSONL line cases for recordjsonl ParseLine/SerializeLine. Next src/lib/recordjsonl.test.ts and Go faas/internal/recordjsonl load this file. Semantic errors from draft keep snake_case field names; representation errors use camelCase keys / JSONL-specific strings.",
+  "comment": "Shared Record JSONL line cases for recordjsonl ParseLine/SerializeLine. Next src/lib/recordjsonl.test.ts and Go faas/internal/recordjsonl load this file. Serialize uses utc_offset (Z vs ±HH:MM preserved). Semantic errors from draft keep snake_case field names; representation errors use camelCase keys / JSONL-specific strings.",
   "valid": [
     {
       "name": "number-with-offset",
@@ -10,7 +10,7 @@
       "expectObjectiveContext": "morning weigh-in",
       "expectSubjectiveInterpretation": "a bit heavy",
       "expectHappenedAtUtcMs": 1785369600000,
-      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"value_number\":\"75.5\",\"value_text\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"morning weigh-in\",\"subjective_interpretation\":\"a bit heavy\"}"
+      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T08:00:00.000+08:00\",\"value_number\":\"75.5\",\"value_text\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"morning weigh-in\",\"subjective_interpretation\":\"a bit heavy\"}"
     },
     {
       "name": "text-only",

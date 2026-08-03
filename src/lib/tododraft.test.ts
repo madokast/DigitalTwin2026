@@ -41,6 +41,16 @@ describe('toTodoRecordJson shared fixture', () => {
       deformFixture.todoRecordJson,
     )
   })
+
+  it('preserves offset on created_at (deform is key-only, §6.1)', () => {
+    const withOffset = {
+      ...deformFixture.inputRecord,
+      happened_at: '2026-08-02T10:00:00.000+08:00',
+    }
+    expect(toTodoRecordJson(withOffset).created_at).toBe(
+      '2026-08-02T10:00:00.000+08:00',
+    )
+  })
 })
 
 const queryDeformFixture = JSON.parse(

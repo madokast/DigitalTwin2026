@@ -780,6 +780,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const row = todos.find((r) => r.id === todo.id)
       expect(row).toBeTruthy()
       expect(row!.created_at).toBe(todo.created_at)
+      expect(row!.created_at).toBe('2026-08-02T10:00:00.000+08:00')
       expect(row!.content).toBe('Query deform smoke')
       expect(row!).not.toHaveProperty('happened_at')
       expect(row!).not.toHaveProperty('value_text')
@@ -788,7 +789,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const plain = await queryRecords(jsonGet('http://localhost/api/query?tag=weight'))
       const weightRows = (await plain.json()).records as Array<Record<string, unknown>>
       expect(weightRows.length).toBeGreaterThan(0)
-      expect(weightRows[0]).toHaveProperty('happened_at')
+      expect(weightRows[0].happened_at).toBe('2026-07-30T08:00:00.000+08:00')
       expect(weightRows[0]).toHaveProperty('value_text')
       expect(weightRows[0]).not.toHaveProperty('created_at')
       expect(weightRows[0]).not.toHaveProperty('content')
@@ -1272,10 +1273,41 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const last = JSON.parse(lines2[1]) as { id: string }
       expect(overlap.id).toBe(row2.id)
       expect(last.id).toBe(ids[2])
-      // Record camelCase only (no Todo deform keys)
+      // Record snake_case only (no Todo deform keys)
       expect(overlap).toHaveProperty('happened_at')
       expect(overlap).not.toHaveProperty('created_at')
       expect(overlap).not.toHaveProperty('content')
+    })
+
+    it('exports happened_at with utc_offset (no utc_offset key)', async () => {
+      const created = await postNumber(
+        jsonPost('http://localhost/api/log/number', {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          value_number: '1',
+          tags: ['export_offset'],
+          objective_context: 'phase4-export',
+        }),
+      )
+      expect(created.status).toBe(201)
+      const rec = (await created.json()).record as {
+        id: string
+        happened_at: string
+      }
+      expect(rec.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
+
+      const res = await exportRecords(
+        jsonGet(
+          `http://localhost/api/export/records?from=${rec.id}&limit=1`,
+        ),
+      )
+      expect(res.status).toBe(200)
+      const row = JSON.parse((await res.text()).trim()) as Record<
+        string,
+        unknown
+      >
+      expect(row.id).toBe(rec.id)
+      expect(row.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
+      expect(row).not.toHaveProperty('utc_offset')
     })
   })
 

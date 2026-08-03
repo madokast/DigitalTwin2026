@@ -24,10 +24,13 @@ export type TelegramConfig = {
   missing: string[]
 }
 
-/** 与 API Record / Go `record.Record` 对齐（snake_case JSON 字段） */
+/**
+ * 与 API Record / Go `record.Record` 对齐（snake_case）。
+ * `happened_at` 须为已按 utc_offset 格式化的带区串（fromDB 产出）；禁止再 toISOString。
+ */
 export type NotifyRecord = {
   id: string
-  happened_at: Date | string
+  happened_at: string
   value_number?: string | null
   value_text?: string | null
   tags: string
@@ -80,13 +83,6 @@ export function configError(env: EnvLike = processEnvLike()): string | null {
   return `Telegram is not configured (missing ${cfg.missing.join(', ')})`
 }
 
-function formatHappenedAt(value: Date | string): string {
-  if (value instanceof Date) {
-    return value.toISOString()
-  }
-  return value
-}
-
 function formatTags(tagsJson: string): string {
   try {
     const parsed: unknown = JSON.parse(tagsJson)
@@ -99,12 +95,12 @@ function formatTags(tagsJson: string): string {
   return tagsJson
 }
 
-/** 英文纯文本排版，非 JSON 倾倒 */
+/** 英文纯文本排版，非 JSON 倾倒；时间串原样（须已 format） */
 export function formatRecordMessage(record: NotifyRecord): string {
   const lines = [
     'New record',
     `id: ${record.id}`,
-    `happened_at: ${formatHappenedAt(record.happened_at)}`,
+    `happened_at: ${record.happened_at}`,
   ]
 
   if (record.value_number != null && record.value_number !== '') {
@@ -136,7 +132,7 @@ export function formatTransactionBatchMessage(rows: NotifyRecord[]): string {
     sumLabel = amounts.join(' + ')
   }
   const firstMemo = rows[0]?.objective_context ?? ''
-  const happened = rows[0] ? formatHappenedAt(rows[0].happened_at) : ''
+  const happened = rows[0]?.happened_at ?? ''
   const typeLabel = transactionTypeFromTags(rows[0]?.tags) ?? '(unknown)'
   return [
     'New transaction batch',

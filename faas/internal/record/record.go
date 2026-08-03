@@ -25,7 +25,8 @@ type Record struct {
 	SubjectiveInterpretation *string `json:"subjective_interpretation"`
 }
 
-// FormatHappenedAt 一律 UTC Z（无 offset 重载）。生产读路径用 FromDB / utcoffset.FormatHappenedAt。
+// FormatHappenedAt 一律 UTC Z（无 offset）。**仅**作隐列损坏时 FromDB / SerializeLine 回退；
+// 生产读路径必须用 FromDB / utcoffset.FormatHappenedAt(instant, utcOffset)。
 func FormatHappenedAt(t time.Time) string {
 	return t.UTC().Format("2006-01-02T15:04:05.000Z")
 }

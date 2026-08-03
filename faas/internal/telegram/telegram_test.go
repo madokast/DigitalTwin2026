@@ -82,6 +82,18 @@ func TestFormatRecordMessage(t *testing.T) {
 	if !strings.Contains(got2, "value_text: Ran 5k") || !strings.Contains(got2, "subjective: (null)") {
 		t.Fatalf("unexpected:\n%s", got2)
 	}
+
+	offsetRec := record.Record{
+		ID:         "id-3",
+		HappenedAt: "2026-07-31T20:00:00.000+08:00",
+		ValueText:  &text,
+		Tags:       `["run"]`,
+		ObjectiveContext: "Park loop",
+	}
+	got3 := FormatRecordMessage(offsetRec)
+	if !strings.Contains(got3, "happened_at: 2026-07-31T20:00:00.000+08:00") {
+		t.Fatalf("offset should pass through:\n%s", got3)
+	}
 }
 
 func TestSendMessageSuccessAndFailure(t *testing.T) {

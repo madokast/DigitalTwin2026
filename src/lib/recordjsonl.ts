@@ -14,12 +14,12 @@ import {
   parseValueNumber,
 } from '@/lib/draft'
 import {
-  formatHappenedAt,
   isValidRecordId,
   INVALID_RECORD_ID,
   tagsJSON,
   type Record as ApiRecord,
 } from '@/lib/record'
+import { formatHappenedAt } from '@/lib/utcoffset'
 import { TAGS_NOT_JSON_ARRAY, validateTags } from '@/lib/tags'
 import {
   BODY_MUST_BE_OBJECT,
@@ -216,13 +216,13 @@ export function parseLine(
 }
 
 /**
- * 领域行 → 一行 JSONL（无尾换行；happened_at 为 UTC Z；tags 为字符串化数组）。
+ * 领域行 → 一行 JSONL（无尾换行；happened_at 按 utc_offset 带区；tags 为字符串化数组）。
  * 键序固定，与 Go SerializeLine 一致。
  */
 export function serializeLine(row: RecordJsonlRow): string {
   return serializeRecord({
     id: row.id,
-    happened_at: formatHappenedAt(row.happenedAt),
+    happened_at: formatHappenedAt(row.happenedAt, row.utcOffset),
     value_number: row.valueNumber,
     value_text: row.valueText,
     tags: tagsJSON(row.tags),

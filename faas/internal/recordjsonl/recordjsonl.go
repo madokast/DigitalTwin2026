@@ -10,6 +10,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
+	"github.com/mdk/digitaltwin2026/faas/internal/utcoffset"
 )
 
 // RECORD JSONL 行编解码 / 校验（与 Next src/lib/recordjsonl.ts 同构）。
@@ -184,16 +185,21 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	}, nil
 }
 
-// SerializeLine 领域行 → 一行 JSONL（无尾换行；happened_at UTC Z；tags 字符串化）。
+// SerializeLine 领域行 → 一行 JSONL（无尾换行；happened_at 按 utc_offset 带区；tags 字符串化）。
 // 键序固定，与 Next serializeLine 一致。
 func SerializeLine(row *Row) (string, error) {
 	tagsJSON, err := record.TagsJSON(row.Tags)
 	if err != nil {
 		return "", err
 	}
+	happenedAt, err := utcoffset.FormatHappenedAt(row.HappenedAt, row.UtcOffset)
+	if err != nil {
+		// 隐列损坏时仍可序列化；正常路径有写入校验
+		happenedAt = record.FormatHappenedAt(row.HappenedAt)
+	}
 	rec := record.Record{
 		ID:                       row.ID,
-		HappenedAt:               record.FormatHappenedAt(row.HappenedAt),
+		HappenedAt:               happenedAt,
 		ValueNumber:              row.ValueNumber,
 		ValueText:                row.ValueText,
 		Tags:                     tagsJSON,

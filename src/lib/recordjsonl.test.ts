@@ -115,6 +115,7 @@ describe('serializeLine round-trip', () => {
       if ('error' in twice) return
       expect(twice.id).toBe(once.id)
       expect(twice.happenedAt.getTime()).toBe(once.happenedAt.getTime())
+      expect(twice.utcOffset).toBe(once.utcOffset)
       expect(twice.valueNumber).toBe(once.valueNumber)
       expect(twice.valueText).toBe(once.valueText)
       expect(twice.tags).toEqual(once.tags)

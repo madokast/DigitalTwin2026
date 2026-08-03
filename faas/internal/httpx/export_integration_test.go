@@ -130,6 +130,12 @@ SELECT EXISTS (
 	if first["id"] != ids[0] || second["id"] != ids[1] {
 		t.Fatalf("page1 ids %v %v want %s %s", first["id"], second["id"], ids[0], ids[1])
 	}
+	if first["happened_at"] != "2026-07-30T08:00:00.000+08:00" {
+		t.Fatalf("export happened_at %v", first["happened_at"])
+	}
+	if _, ok := first["utc_offset"]; ok {
+		t.Fatal("utc_offset must not appear in export JSONL")
+	}
 
 	notified = nil
 	q2 := httptest.NewRequest(http.MethodGet,

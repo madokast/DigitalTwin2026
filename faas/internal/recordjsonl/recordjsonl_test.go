@@ -196,6 +196,9 @@ func TestSerializeRoundTrip(t *testing.T) {
 			if !twice.HappenedAt.Equal(once.HappenedAt) {
 				t.Fatal("happened_at")
 			}
+			if twice.UtcOffset != once.UtcOffset {
+				t.Fatalf("utc_offset %q want %q", twice.UtcOffset, once.UtcOffset)
+			}
 			if !ptrStrEq(twice.ValueNumber, once.ValueNumber) {
 				t.Fatal("value_number")
 			}

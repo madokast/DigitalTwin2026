@@ -218,7 +218,7 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 | 仅阶段 1 已合 | 有 extract / format 单测；**写读仍旧**（多半一律 `Z`） | 对外契约不变；可单独 merge |
 | 阶段 2 已合、3 未合 | 基准 schema 含 `utc_offset NOT NULL`，但 INSERT 未写该列 | **危险中间态**：drop 重建后创建路径会炸。**禁止**长期停留；合入须 **2→3 紧耦合**（同日连续 PR，或同 PR） |
 | 阶段 3 已合、4 未合 | 创建响应已带区；列表 / Notify / 部分 deform 仍可能漏网 `Z` | 可测 POST；勿宣称「读路径全带区」 |
-| 阶段 4 已合、5 未合 | query / fromDB / Todo deform / Notify 已 format；PATCH / import/export 仍旧语义或漏隐列 | 主读路径 OK；Admin 改时间 / 备份恢复未齐 |
+| 阶段 4 已合、5 未合 | query / fromDB / Todo deform / Notify / 导出 serialize 已 format；PATCH 同步隐列与 import 拒绝行内 `utc_offset` 等仍留给 5 | 主读路径 OK；Admin 改时间 / import 未知键未齐 |
 | 阶段 5 已合、6 未合 | 行为与 round-trip 齐；OpenAPI / 旧文档句可能仍写「一律 Z」 | 以本篇规格为准；阶段 6 收口描述 |
 
 禁止：只合 Next 不合 Go；只改 schema 长期不接写入；加 `ALTER … ADD COLUMN` migration；把 `utc_offset` 暴露进 OpenAPI / JSONL。
@@ -342,7 +342,7 @@ deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「
 
 ### 阶段 4：读路径收敛（query / fromDB / Todo deform / Notify）
 
-**状态：未开始**
+**状态：已完成**
 
 **目标：** 一切对外时间串经 `formatHappenedAt(instant, utc_offset)`；禁漏网 `toISOString()` / Go 一律 `Z`；deform **只改键名**不改时区语义。
 
@@ -350,17 +350,24 @@ deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「
 - `fromDB` / query 列表与单条、Todo deform（待办行 `created_at`）、Notify 文案中的时间、其它内联序列化
 - 审计 grep / 双端测：生产读路径无默认 `toISOString`（或等价）作为对外时间
 - `from` / `to` 查询与排序仍只比瞬间（行为不变）
+- recordjsonl **导出** `SerializeLine` / `serializeLine` 按隐列带区（与规格读路径/导出格式化一致）
+
+**落地：**
+- Next / Go：`fromDB` / query / export（via fromDB）已按隐列 format；`serializeLine` 改为 `formatHappenedAt(instant, utc_offset)`
+- Todo deform：`toTodoRecordJson` / `ToTodoRecordJSON` 仅换键，时间值原样（与 fromDB 同源）
+- Notify / telegram：消息直接使用已 format 的 `happened_at` 字符串；TS 去掉 `Date.toISOString()` 漏网
+- `record.formatHappenedAt` / Go 无 offset 重载：仅作隐列损坏回退，非读路径默认
 
 **不做什么：**
-- 不改 PATCH / import/export 写入隐列（阶段 5；若 export 已走 fromDB 则本阶段顺带受益，但 upsert 写入留给 5）
+- 不改 Admin PATCH 同步改 `utc_offset`（阶段 5）；import 行内拒绝 `utc_offset` 键留给 5（阶段 3 upsert 已写隐列）
 - 不改 OpenAPI 描述长文（阶段 6）
 - 不把隐列暴露给客户端
 
 **验收标准：**
-- [ ] query 非待办行 `happened_at`、待办行 `created_at` 均带区且与隐列一致
-- [ ] Notify 所用时间串与 format 一致（`SUPPRESS_BOT_NOTIFICATION=1` 下可断言 schedule 载荷）
-- [ ] 双端无「读路径漏网一律 Z」；相关单测 / 契约测绿
-- [ ] §6.1：deform 仅键名；与 `fromDB` 共用同一 format 入口
+- [x] query 非待办行 `happened_at`、待办行 `created_at` 均带区且与隐列一致
+- [x] Notify 所用时间串与 format 一致（`SUPPRESS_BOT_NOTIFICATION=1` 下可断言 schedule 载荷；单测断言 format 文案）
+- [x] 双端无「读路径漏网一律 Z」；相关单测 / 契约测绿
+- [x] §6.1：deform 仅键名；与 `fromDB` 共用同一 format 入口
 
 **依赖 / 可并行：** **依赖阶段 3**（库内行已有可靠 `utc_offset`；创建路径已示范接线）。与阶段 5 **可并行开发**（读收敛 vs Admin/IO），合入建议先 4 后 5 或同迭代紧接。
 
