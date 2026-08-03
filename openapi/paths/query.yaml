@@ -12,6 +12,9 @@
       and `pageSize` equal to the result length (or 1 if empty).
       Results ordered by `happened_at` ascending, then `id` ascending
       (UUIDv7 write order) for stable ties. No `order` query parameter.
+      To-do rows in `records[]` use `TodoRecord` aliases (`created_at` /
+      `content`) when tags include a todo state tag; audit / other rows stay
+      as `Record` (`happenedAt` / `valueText`). See `QuerySuccess.records`.
       Auth: ApiToken.
     security:
       - ApiToken: []

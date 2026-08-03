@@ -521,7 +521,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		"count":    result.Total,
 		"page":     result.Page,
 		"pageSize": result.PageSize,
-		"records":  result.Records,
+		"records":  query.RecordsForResponse(result.Records),
 	})
 }
 

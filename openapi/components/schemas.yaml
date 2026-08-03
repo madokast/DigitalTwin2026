@@ -195,6 +195,16 @@ QuerySuccess:
       minimum: 1
     records:
       type: array
+      description: |
+        Page of matching rows. Default shape is `Record` (`happenedAt` /
+        `valueText` camelCase), including audit rows tagged only
+        `todo:transition` and all non-todo rows. When a row's tags contain
+        at least one todo state tag (`todo:in_progress` | `todo:completed` |
+        `todo:cancelled` | `todo:paused`), that item is a `TodoRecord`
+        (`created_at` / `content` instead of `happenedAt` / `valueText`).
+        Dirty rows with both a state tag and `todo:transition` deform as
+        `TodoRecord`. Not modeled as a strict oneOf (see todo feature §9);
+        see `TodoRecord` for the alternate shape.
       items:
         $ref: '#/Record'
 
@@ -441,11 +451,14 @@ TodoState:
 TodoRecord:
   type: object
   description: |
-    To-do row as returned on create success (`201.record`) and, in a later
-    phase, on query list items. Alias keys: `created_at` (DB `happened_at`)
-    and `content` (DB `value_text`). Response **must not** also include
-    `happenedAt` / `valueText` for this shape. Other fields match `Record`
-    camelCase. `valueNumber` is always null for to-dos.
+    To-do row as returned on create success (`201.record`) and on
+    `GET /api/query` list items when tags contain at least one todo state
+    tag (`todo:in_progress` | `todo:completed` | `todo:cancelled` |
+    `todo:paused`; query-side wide rule). Alias keys: `created_at`
+    (DB `happened_at`) and `content` (DB `value_text`). Response **must not**
+    also include `happenedAt` / `valueText` for this shape. Other fields match
+    `Record` camelCase. `valueNumber` is always null for to-dos.
+    Audit rows (`todo:transition` without a state tag) stay as `Record`.
   required:
     - id
     - created_at

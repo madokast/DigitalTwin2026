@@ -81,6 +81,17 @@ func ToTodoRecordJSON(rec record.Record) TodoRecordJSON {
 	}
 }
 
+// ShouldDeformTodoRecordTags 查询侧略宽（§1.3）：至少含一个四态 tag → 待办变形。
+// 四态与 todo:transition 并存时仍变形（有四态优先）。与 TS 同规则。
+func ShouldDeformTodoRecordTags(tagList []string) bool {
+	for _, tag := range tagList {
+		if isStateTag(tag) {
+			return true
+		}
+	}
+	return false
+}
+
 // Transition 四类可区分英文错误（与 TS tododraft 字节一致）。
 const (
 	ErrTodoNotFound     = "to-do not found"

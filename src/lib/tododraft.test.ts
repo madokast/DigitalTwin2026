@@ -11,6 +11,7 @@ import {
   parseTodo,
   parseTodoTransition,
   replaceTodoStateInTags,
+  shouldDeformTodoRecordTags,
   toTodoRecordJson,
   TODO_TAG_IN_PROGRESS,
   TODO_TAG_TRANSITION,
@@ -19,6 +20,7 @@ import {
   type TodoState,
 } from './tododraft'
 import type { Record } from './record'
+import { toQueryRecordJson } from './query'
 
 const deformFixture = JSON.parse(
   readFileSync(
@@ -38,6 +40,58 @@ describe('toTodoRecordJson shared fixture', () => {
     expect(toTodoRecordJson(deformFixture.inputRecord)).toEqual(
       deformFixture.todoRecordJson,
     )
+  })
+})
+
+const queryDeformFixture = JSON.parse(
+  readFileSync(
+    path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../testdata/todo-query-deform-cases.json',
+    ),
+    'utf8',
+  ),
+) as {
+  cases: Array<{ name: string; tags: string[]; deform: boolean }>
+}
+
+describe('shouldDeformTodoRecordTags shared fixture', () => {
+  it('matches query-side wide rule for all cases', () => {
+    for (const c of queryDeformFixture.cases) {
+      expect(shouldDeformTodoRecordTags(c.tags), c.name).toBe(c.deform)
+    }
+  })
+})
+
+describe('toQueryRecordJson', () => {
+  it('deforms todo rows and keeps audit / plain as Record', () => {
+    const todo = toQueryRecordJson(deformFixture.inputRecord)
+    expect(todo).toEqual(deformFixture.todoRecordJson)
+    expect('happenedAt' in todo).toBe(false)
+    expect('valueText' in todo).toBe(false)
+
+    const audit: Record = {
+      ...deformFixture.inputRecord,
+      valueText: 'Complete a to-do created at 2026-08-02T02:00:00.000Z: Buy milk',
+      tags: JSON.stringify([TODO_TAG_TRANSITION]),
+      objectiveContext: 'The index of the to-do is 01900000-0000-7000-8000-000000000003',
+      subjectiveInterpretation: null,
+    }
+    const auditJson = toQueryRecordJson(audit)
+    expect(auditJson).toEqual(audit)
+    expect('created_at' in auditJson).toBe(false)
+    expect('content' in auditJson).toBe(false)
+
+    const dirty: Record = {
+      ...deformFixture.inputRecord,
+      tags: JSON.stringify(['todo:completed', TODO_TAG_TRANSITION]),
+    }
+    const dirtyJson = toQueryRecordJson(dirty)
+    expect(dirtyJson).toMatchObject({
+      created_at: dirty.happenedAt,
+      content: dirty.valueText,
+    })
+    expect('happenedAt' in dirtyJson).toBe(false)
   })
 })
 

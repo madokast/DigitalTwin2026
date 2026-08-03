@@ -88,6 +88,17 @@ export function toTodoRecordJson(rec: Record): TodoRecordJson {
   }
 }
 
+/**
+ * 查询侧略宽判定（§1.3）：tags 至少含一个四态 tag → 按待办行变形。
+ * 四态与 `todo:transition` 并存时仍变形（有四态优先）。与 Go 同规则。
+ */
+export function shouldDeformTodoRecordTags(tagList: string[]): boolean {
+  for (const tag of tagList) {
+    if (isStateTag(tag)) return true
+  }
+  return false
+}
+
 /** Transition 四类可区分英文错误（双端字节一致） */
 export const ERR_TODO_NOT_FOUND = 'to-do not found'
 export const ERR_NOT_A_TODO = 'record is not a to-do'

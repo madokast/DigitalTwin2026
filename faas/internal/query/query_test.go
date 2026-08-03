@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/mdk/digitaltwin2026/faas/internal/record"
 )
 
 func TestParseRecordQueryParamsDefaults(t *testing.T) {
@@ -128,5 +130,89 @@ func TestRecordsListOrderBySharedFixture(t *testing.T) {
 	}
 	if strings.Contains(got, "DESC") {
 		t.Fatalf("order must not use DESC: %q", got)
+	}
+}
+
+func TestToQueryRecordJSON(t *testing.T) {
+	todoText := "Buy milk"
+	todo := record.Record{
+		ID:                       "01900000-0000-7000-8000-000000000003",
+		HappenedAt:               "2026-08-02T02:00:00.000Z",
+		ValueNumber:              nil,
+		ValueText:                &todoText,
+		Tags:                     `["todo:in_progress","errand"]`,
+		ObjectiveContext:         "weekend grocery list",
+		SubjectiveInterpretation: nil,
+	}
+	got := ToQueryRecordJSON(todo)
+	b, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m["created_at"]; !ok {
+		t.Fatalf("todo missing created_at: %s", b)
+	}
+	if _, ok := m["content"]; !ok {
+		t.Fatalf("todo missing content: %s", b)
+	}
+	if _, ok := m["happenedAt"]; ok {
+		t.Fatalf("todo must not have happenedAt: %s", b)
+	}
+	if _, ok := m["valueText"]; ok {
+		t.Fatalf("todo must not have valueText: %s", b)
+	}
+
+	auditText := "Complete a to-do created at 2026-08-02T02:00:00.000Z: Buy milk"
+	audit := record.Record{
+		ID:               "01900000-0000-7000-8000-000000000004",
+		HappenedAt:       "2026-08-02T04:00:00.000Z",
+		ValueText:        &auditText,
+		Tags:             `["todo:transition"]`,
+		ObjectiveContext: "The index of the to-do is 01900000-0000-7000-8000-000000000003",
+	}
+	gotAudit := ToQueryRecordJSON(audit)
+	ab, err := json.Marshal(gotAudit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var am map[string]any
+	if err := json.Unmarshal(ab, &am); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := am["happenedAt"]; !ok {
+		t.Fatalf("audit missing happenedAt: %s", ab)
+	}
+	if _, ok := am["valueText"]; !ok {
+		t.Fatalf("audit missing valueText: %s", ab)
+	}
+	if _, ok := am["created_at"]; ok {
+		t.Fatalf("audit must not have created_at: %s", ab)
+	}
+
+	dirty := todo
+	dirty.Tags = `["todo:completed","todo:transition"]`
+	gotDirty := ToQueryRecordJSON(dirty)
+	db, err := json.Marshal(gotDirty)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dm map[string]any
+	if err := json.Unmarshal(db, &dm); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := dm["created_at"]; !ok {
+		t.Fatalf("dirty state+transition should deform: %s", db)
+	}
+	if _, ok := dm["happenedAt"]; ok {
+		t.Fatalf("dirty must not keep happenedAt: %s", db)
+	}
+
+	out := RecordsForResponse([]record.Record{todo, audit})
+	if len(out) != 2 {
+		t.Fatalf("len=%d", len(out))
 	}
 }

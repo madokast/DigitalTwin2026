@@ -107,8 +107,8 @@
       and does not change the 201 response. Optional
       `suppress_notification: true` skips notify after insert (default false).
       Auth: ApiToken (AI token or Admin token).
-      Query later with `GET /api/query?tag=todo:in_progress` (list-item JSON
-      deform for query is a later phase).
+      Query later with `GET /api/query?tag=todo:in_progress` (list items also
+      use TodoRecord aliases when tags include a todo state tag).
     security:
       - ApiToken: []
     requestBody:

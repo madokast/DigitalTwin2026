@@ -48,6 +48,29 @@ func TestToTodoRecordJSONSharedFixture(t *testing.T) {
 	}
 }
 
+func TestShouldDeformTodoRecordTagsSharedFixture(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), "testdata", "todo-query-deform-cases.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fx struct {
+		Cases []struct {
+			Name   string   `json:"name"`
+			Tags   []string `json:"tags"`
+			Deform bool     `json:"deform"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(b, &fx); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range fx.Cases {
+		got := ShouldDeformTodoRecordTags(c.Tags)
+		if got != c.Deform {
+			t.Fatalf("%s: got=%v want=%v tags=%v", c.Name, got, c.Deform, c.Tags)
+		}
+	}
+}
+
 func TestParseTodo(t *testing.T) {
 	raw := []byte(`{
 		"created_at": "2026-08-02T10:00:00+08:00",

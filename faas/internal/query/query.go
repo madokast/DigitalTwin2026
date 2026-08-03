@@ -18,6 +18,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/timeutil"
+	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
 
 // ErrInvalidTZ 与 Next fetchSummary 文案一致；httpx 用 errors.Is 映射 400。
@@ -189,6 +190,43 @@ type FetchResult struct {
 	Page     int
 	PageSize int
 	Records  []record.Record
+}
+
+// tagStringsFromField 解析 records.tags；非法 / 非数组 → nil（不变形）。
+func tagStringsFromField(tagsField string) []string {
+	var parsed any
+	if err := json.Unmarshal([]byte(tagsField), &parsed); err != nil {
+		return nil
+	}
+	arr, ok := parsed.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(arr))
+	for _, item := range arr {
+		if s, ok := item.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// ToQueryRecordJSON 查询响应单行序列化（与 Next toQueryRecordJson 对齐）。
+// 查询侧略宽：至少一枚四态 tag → TodoRecordJSON；审计行与其它行保持默认 Record。
+func ToQueryRecordJSON(rec record.Record) any {
+	if tododraft.ShouldDeformTodoRecordTags(tagStringsFromField(rec.Tags)) {
+		return tododraft.ToTodoRecordJSON(rec)
+	}
+	return rec
+}
+
+// RecordsForResponse 将列表映射为 GET /api/query 的 records[]（[]any 以便混形）。
+func RecordsForResponse(recs []record.Record) []any {
+	out := make([]any, len(recs))
+	for i, rec := range recs {
+		out[i] = ToQueryRecordJSON(rec)
+	}
+	return out
 }
 
 func FetchFilteredRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedQuery) (*FetchResult, error) {

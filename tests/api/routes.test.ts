@@ -453,8 +453,18 @@ describe.skipIf(!hasTestDatabaseUrl)('API integration', () => {
         `http://localhost/api/query?id=${todo.id}`,
       ))
       expect(qTodo.status).toBe(200)
-      const todoRows = (await qTodo.json()).records as Array<{ tags: string }>
+      const todoRows = (await qTodo.json()).records as Array<{
+        tags: string
+        created_at?: string
+        content?: string
+        happenedAt?: string
+        valueText?: string
+      }>
       expect(todoRows[0].tags).toBe(JSON.stringify(['todo:completed', 'errand']))
+      expect(todoRows[0].created_at).toBe(todo.created_at)
+      expect(todoRows[0].content).toBe(todo.content)
+      expect(todoRows[0]).not.toHaveProperty('happenedAt')
+      expect(todoRows[0]).not.toHaveProperty('valueText')
 
       const qAudit = await queryRecords(jsonGet(
         'http://localhost/api/query?tag=todo:transition',
@@ -464,6 +474,8 @@ describe.skipIf(!hasTestDatabaseUrl)('API integration', () => {
         tags: string
         objectiveContext: string
         happenedAt: string
+        created_at?: string
+        content?: string
       }>
       const audit = audits.find((r) => r.objectiveContext === `The index of the to-do is ${todo.id}`)
       expect(audit).toBeTruthy()
@@ -472,6 +484,8 @@ describe.skipIf(!hasTestDatabaseUrl)('API integration', () => {
       expect(audit!.valueText).toBe(
         `Complete a to-do created at ${todo.created_at}: ${todo.content}`,
       )
+      expect(audit!).not.toHaveProperty('created_at')
+      expect(audit!).not.toHaveProperty('content')
     })
 
     it('returns four distinct English errors', async () => {
@@ -669,6 +683,43 @@ describe.skipIf(!hasTestDatabaseUrl)('API integration', () => {
         objective_context: 'park',
       }))
     }
+
+    it('deforms todo rows with created_at/content; keeps default keys for others', async () => {
+      const created = await postTodo(jsonPost('http://localhost/api/log/todo', {
+        created_at: '2026-08-02T10:00:00+08:00',
+        content: 'Query deform smoke',
+        objective_context: 'phase4',
+        tags: ['errand'],
+        suppress_notification: true,
+      }))
+      expect(created.status).toBe(201)
+      const todo = (await created.json()).record as {
+        id: string
+        created_at: string
+        content: string
+      }
+
+      const byTag = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=todo:in_progress',
+      ))
+      expect(byTag.status).toBe(200)
+      const todos = (await byTag.json()).records as Array<Record<string, unknown>>
+      const row = todos.find((r) => r.id === todo.id)
+      expect(row).toBeTruthy()
+      expect(row!.created_at).toBe(todo.created_at)
+      expect(row!.content).toBe('Query deform smoke')
+      expect(row!).not.toHaveProperty('happenedAt')
+      expect(row!).not.toHaveProperty('valueText')
+
+      await seed()
+      const plain = await queryRecords(jsonGet('http://localhost/api/query?tag=weight'))
+      const weightRows = (await plain.json()).records as Array<Record<string, unknown>>
+      expect(weightRows.length).toBeGreaterThan(0)
+      expect(weightRows[0]).toHaveProperty('happenedAt')
+      expect(weightRows[0]).toHaveProperty('valueText')
+      expect(weightRows[0]).not.toHaveProperty('created_at')
+      expect(weightRows[0]).not.toHaveProperty('content')
+    })
 
     it('filters by half-open happened_at range [from, to)', async () => {
       await seed()

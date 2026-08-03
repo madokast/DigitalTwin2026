@@ -1,7 +1,7 @@
 # DigitalTwin2026：任务清单 / Todo（GTD）
 
 > 创建日期：2026-08-02  
-> 状态：讨论定稿；**Phase 1（保留前缀 `todo`）已落地**；**Phase 2（创建 `POST /api/log/todo`）已落地（2026-08-03）**；**Phase 3（transition + 审计 + notify）已落地（2026-08-03）**；Phase 4 尚未开发（§9 中 transition 成功响应形状与 notify 范围两项**已收**；实现分期见 **§10**）  
+> 状态：讨论定稿；**Phase 1（保留前缀 `todo`）已落地**；**Phase 2（创建 `POST /api/log/todo`）已落地（2026-08-03）**；**Phase 3（transition + 审计 + notify）已落地（2026-08-03）**；**Phase 4（query 待办行 JSON 变形）已落地（2026-08-03）**（§9 中 transition 成功响应形状与 notify 范围两项**已收**；实现分期见 **§10**）  
 > 性质：个人项目；偏 GTD 个人待办  
 > 相关：`docs/20260729-schema-v1.md`（append-only / tags）、账单与体重的「保留 tag + 专用 API」先例（`transaction_entry` / `body:weight`）
 
@@ -364,7 +364,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 | **验证** | 四类错误全文双端断言；`target === current` 拒绝；事务失败回滚（无半更新/半审计）；成功无 `record`/`audit_record`；notify 一次且正文一致；`suppress_notification`。 |
 | **落地** | Next `tododraft.parseTodoTransition` + `logapi.transitionTodo` + `src/app/api/log/todo/transition`；Go `tododraft.ParseTodoTransition` + `logapi.TransitionTodo` + `httpx`；OpenAPI `LogTodoTransitionRequest` / `TodoTransitionSuccess`；审计模板 fixture `testdata/todo-transition-audit.json`。 |
 
-### Phase 4 — Query 待办行 JSON 变形（中）
+### Phase 4 — Query 待办行 JSON 变形（中）✅ 已完成（2026-08-03）
 
 | | |
 |--|--|
@@ -374,6 +374,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 | **交付** | query 序列化分支 + 双端同 fixture；复用 Phase 2 变形 helper。 |
 | **依赖** | Phase 2。**不依赖** Phase 3（可与 3 并行）；有 transition 数据时加审计行对照测更稳。 |
 | **验证** | `?tag=todo:in_progress` 等：待办行无 `happened_at`/`value_text` 键；`?tag=todo:transition` 仍为库契约键；Node/Go 宽松度一致。 |
+| **落地** | Next `shouldDeformTodoRecordTags` + `toQueryRecordJson`（`src/lib/query.ts` / route）；Go `ShouldDeformTodoRecordTags` + `ToQueryRecordJSON` / `RecordsForResponse`；共享判定 fixture `testdata/todo-query-deform-cases.json`；OpenAPI `QuerySuccess.records` description（未强制 oneOf）。 |
 
 ### 刻意不分期 / 不排入上表
 
