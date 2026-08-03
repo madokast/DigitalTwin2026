@@ -86,9 +86,8 @@
 | `objective_context` | 是 | `objective_context` | 创建时的客观背景；**不传 → 400** |
 | `subjective_interpretation` | 否 | 同名 | 主观解释 |
 | `tags` | 否 | `tags` | 额外 tags；省略或 `[]` 均可。**不得**含任何保留 tag（含 `todo` / `todo:*`） |
-| `suppress_notification` | 否 | （不落库） | 默认 `false`；语义同其它 log |
 
-`value_number`：**不接受**。`happened_at` / `value_text` 作为请求键名亦**不接受**（避免与别名混用）。
+`value_number`：**不接受**。`happened_at` / `value_text` 作为请求键名亦**不接受**（避免与别名混用）。**无**请求体 `suppress_notification`（未知键 → 400）；业务静音见进程 env `SUPPRESS_BOT_NOTIFICATION`（[`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。
 
 示例：
 
@@ -106,7 +105,7 @@
 - `happened_at` ← `created_at`；`value_text` ← `content`；`value_number` = null。
 - tags = `["todo:in_progress", ...clientTags]`（**保留状态 tag 在前**；额外 tags 顺序保持客户端顺序，双端固定同一算法）。
 - 成功：`201` + `{ success, record }`，其中 **`record` 必须按待办行对外形状变形**（`created_at` / `content`，见 §5.1），与 query 一致。
-- 通知：成功后 `notify_user`（best-effort）；`suppress_notification: true` 则跳过。
+- 通知：成功后一律 schedule `notify_user`（best-effort）；真发与否仅由 `SUPPRESS_BOT_NOTIFICATION` 决定。
 
 ### 2.4 与通用 text 的关系
 
@@ -130,9 +129,8 @@
 | `id` | 是 | 待办行 UUID |
 | `target` | 是 | ∈ TodoState：`in_progress` \| `completed` \| `cancelled` \| `paused` |
 | `happened_at` | 是 | 审计行与本次流转的时间锚点（ISO 8601 带时区）；**不传 → 400** |
-| `suppress_notification` | 否 | 默认 `false`；跳过本请求触发的 notify |
 
-**不**接受 `created_at`、`content`，也不接受改待办 `value_text` / `objective_context` / 额外 tags 的字段——流转**只**改代表状态 tag，其它字段（含其它 tags）一律不动。
+**不**接受 `created_at`、`content`，也不接受改待办 `value_text` / `objective_context` / 额外 tags 的字段——流转**只**改代表状态 tag，其它字段（含其它 tags）一律不动。**无**请求体 `suppress_notification`。
 
 ### 3.3 校验顺序与错误文案（英文，AI 可读；四类必须可区分）
 
@@ -163,7 +161,7 @@
 1. **UPDATE** 待办行：仅 tags 中的代表状态 tag 变为 `todo:{target}`；`value_text` / `happened_at`（原行）/ `objective_context` / 其它 tags / 等字段不变。
 2. **INSERT** 一条审计记录（见 §4）。
 
-任一步失败 → 整单回滚。成功后 HTTP 层再 best-effort `notify_user`（除非 suppress）；通知失败不影响已提交事务。
+任一步失败 → 整单回滚。成功后 HTTP 层再一律 schedule best-effort `notify_user`；通知失败不影响已提交事务。
 
 成功响应（**已拍板**）：HTTP **`200`**（不用 `201`）+ 下述 JSON；**无** `record`、**无** `audit_record`。更新后的待办行与审计行如需查看，分别用 `GET /api/query`（如 `?tag=todo:in_progress` 或对应态）与 `?tag=todo:transition`。
 
@@ -207,7 +205,7 @@
 
 ### 4.2 通知范围（**已拍板**）
 
-一次 transition **成功**后：`notify_user` **恰好一次**（除非 `suppress_notification: true` 则整次跳过）。
+一次 transition **成功**后：`notify_user` **恰好一次**（一律 schedule；真发与否仅看 `SUPPRESS_BOT_NOTIFICATION`）。
 
 - 通知正文与本次 **INSERT 的审计行** `value_text` **字节级完全一致**（即 §4.1 模板拼出的那串英文）。
 - **不**另就「更新后的待办行」再 notify 一次；双端（Next / Go）必须同一规则、同一文案。
@@ -255,7 +253,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 导入/导出规划见 **[`docs/20260803-records-import-export.md`](20260803-records-import-export.md)**（**已定稿**，实现未排期）：
 
 - **禁止** JSON deform：JSONL 仅 OpenAPI `Record` camelCase；**不**接受/不产出 `created_at`/`content`。
-- 导出 = `from?`+`limit` 游标 **文件下载**（ApiToken）；导入 = multipart **upsert**（Admin）；双端流式；行级详细错误；始终 Notify、无 suppress。
+- 导出 = `from?`+`limit` 游标 **文件下载**（ApiToken）；导入 = multipart **upsert**（Admin）；双端流式；行级详细错误；始终 Notify（无 body suppress；静音见 `SUPPRESS_BOT_NOTIFICATION`）。
 - 查询/创建路径的 Todo 变形（§5.1）**保持不变**；与 I/O 文件格式解耦。
 
 ### 5.4 给 AI 操作手册的硬性说明（未写手册，此处预留）
@@ -299,9 +297,9 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 3. 路径：`POST /api/log/todo`、`POST /api/log/todo/transition`。  
 4. 创建允许额外非保留 tags；服务端前缀加入 `todo:in_progress`。  
 5. transition **只**替换代表状态 tag，不动其它 tags / 字段。  
-6. **创建** JSON：`created_at`（→ 库 `happened_at`）、`content`（→ 库 `value_text`）、`objective_context` 必填；`subjective_interpretation` / `suppress_notification` 可选。请求禁止再传 `happened_at` / `value_text` 键名。  
+6. **创建** JSON：`created_at`（→ 库 `happened_at`）、`content`（→ 库 `value_text`）、`objective_context` 必填；`subjective_interpretation` / `tags` 可选。请求禁止再传 `happened_at` / `value_text` 键名；**无** body `suppress_notification`。  
 7. **流转** JSON：仍用 `happened_at`（审计时间），**不用** `created_at` / `content`。  
-8. **Notify**：创建成功走 `notify_user`（可 suppress）。transition **成功恰好 notify 一次**（可 `suppress_notification`）；正文与插入审计行的 `value_text` **字节级一致**；**不**就待办行再 notify。双端必须一致。  
+8. **Notify**：创建成功一律 schedule `notify_user`。transition **成功恰好 notify 一次**；正文与插入审计行的 `value_text` **字节级一致**；**不**就待办行再 notify。双端必须一致。真发与否仅看 `SUPPRESS_BOT_NOTIFICATION`（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。  
 9. AI 与 Admin 均可调 transition。  
 10. 审计必须重复待办原文，并带上待办创建时间（`created at {todo.happened_at}`）；`objective_context` 只备查 id。  
 11. 禁止对审计行 transition；uuid 不存在 / 非待办 / 审计 / target 相同 → **四类不同英文报错**。  
@@ -317,7 +315,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 ## 9. 开放小项（不阻塞定稿；已收两项保留备查）
 
 - **【已收】** transition 成功 HTTP：**`200`**；JSON 为 `{ success, id, transition: { from, to } }`（`from`/`to` = TodoState 字面量）；**无** `record` / **无** `audit_record`。详见 §3.5、§8 第 17 条。  
-- **【已收】** transition notify：成功时**恰好一次**（除非 `suppress_notification`）；正文 = 审计行 `value_text`（字节一致）；不另通知待办行。详见 §4.2、§8 第 8 条。  
+- **【已收】** transition notify：成功时**恰好一次**（一律 schedule；静音仅 env）；正文 = 审计行 `value_text`（字节一致）；不另通知待办行。详见 §4.2、§8 第 8 条。  
 - Admin PATCH 是否允许改待办正文（库列 `value_text`；与保留 tag 的 PATCH 规则需对照现有 admin 行为）。  
 - OpenAPI 对 `records[]` oneOf 写到多严（严格 schema vs description-only）。  
 - **导入/导出**（未排期实现）：规划真源 [`20260803-records-import-export.md`](20260803-records-import-export.md)（§10 已收，无待拍板）；§5.3 仅回链。  
@@ -350,11 +348,11 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 | | |
 |--|--|
 | **目标** | AI/Admin 可创建待办；落库 `todo:in_progress`；创建成功 notify；`201.record` 已按待办行变形。 |
-| **范围内** | OpenAPI：`LogTodoRequest`、TodoState（可先挂枚举）、`TodoRecord`、path；`tododraft` + `logapi.CreateTodo` / `createTodo`；Next/Go handler；tags 组装（状态 tag 在前）；`notify_user` + `suppress_notification`；共享变形 helper（供 `201.record`，Phase 4 复用）；录入侧严判定辅助可先落地。 |
+| **范围内** | OpenAPI：`LogTodoRequest`、TodoState（可先挂枚举）、`TodoRecord`、path；`tododraft` + `logapi.CreateTodo` / `createTodo`；Next/Go handler；tags 组装（状态 tag 在前）；成功后 schedule `notify_user`；共享变形 helper（供 `201.record`，Phase 4 复用）；录入侧严判定辅助可先落地。 |
 | **范围外** | transition；**query** `records[]` 变形（期内 query 待办行仍可能是 `happened_at`/`value_text`，已知短暂不一致）；审计行。 |
 | **交付** | 新 path + 双端实现 + 创建/校验/notify/变形 fixture；分层对照表补 `tododraft` / `CreateTodo`（实现时改 `docs/20260801-api-layering.md`）。 |
 | **依赖** | Phase 1。 |
-| **验证** | `openapi:lint` + `test:openapi` + `faas` contract；创建 201 键为 `created_at`/`content`；缺字段/保留 tag/未知键 400；suppress 跳过 notify。 |
+| **验证** | `openapi:lint` + `test:openapi` + `faas` contract；创建 201 键为 `created_at`/`content`；缺字段/保留 tag/未知键 400；成功 schedule notify（静音见 `SUPPRESS_BOT_NOTIFICATION`）。 |
 | **落地** | Next `src/lib/tododraft.ts` + `logapi.createTodo` + `src/app/api/log/todo`；Go `faas/internal/tododraft` + `logapi.CreateTodo` + `httpx`；OpenAPI `LogTodoRequest` / `TodoRecord` / `TodoRecordSuccess` / `TodoState`；变形 fixture `testdata/todo-record-deform.json`。 |
 
 ### Phase 3 — Transition + 审计 + notify（大）✅ 已完成（2026-08-03）
@@ -366,7 +364,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 | **范围外** | query 变形；改待办正文/额外 tags；状态机边约束；前端。 |
 | **交付** | path + 双端事务实现 + 错误/审计/notify/成功体 fixture（Node/Go 字节一致）。 |
 | **依赖** | Phase 2（待办行与 tag 闭集已存在）。**不依赖** Phase 4。 |
-| **验证** | 四类错误全文双端断言；`target === current` 拒绝；事务失败回滚（无半更新/半审计）；成功无 `record`/`audit_record`；notify 一次且正文一致；`suppress_notification`。 |
+| **验证** | 四类错误全文双端断言；`target === current` 拒绝；事务失败回滚（无半更新/半审计）；成功无 `record`/`audit_record`；notify 一次且正文一致（body 无 suppress；静音见 env）。 |
 | **落地** | Next `tododraft.parseTodoTransition` + `logapi.transitionTodo` + `src/app/api/log/todo/transition`；Go `tododraft.ParseTodoTransition` + `logapi.TransitionTodo` + `httpx`；OpenAPI `LogTodoTransitionRequest` / `TodoTransitionSuccess`；审计模板 fixture `testdata/todo-transition-audit.json`。 |
 
 ### Phase 4 — Query 待办行 JSON 变形（中）✅ 已完成（2026-08-03）

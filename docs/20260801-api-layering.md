@@ -183,9 +183,9 @@ flowchart LR
 
 ## 7. 通知与 HTTP
 
-- 通知触发点：**HTTP handler**，在 lib 返回成功之后，经统一入口 `notify`（`NotifyUser` / `notify_user`）。
-- 录入 body 可选 `suppress_notification`（boolean；省略/null → false）：为 true 时跳过 notify；probe 不适用。
-- `telegram` / `qqbot` 仅为渠道（配置、发送；TG 另含排版）；probe 走各渠道 `SendMessage`，**不**经 `notify`。
+- 通知触发点：**HTTP handler**，在 lib 返回成功之后，经统一入口 `notify`（`NotifyUser` / `notify_user`）。写路径成功后**一律** schedule；**无**请求体 `suppress_notification`（该键视为未知键 → 400）。
+- 是否真发 bot：仅看进程 env **`SUPPRESS_BOT_NOTIFICATION`**（trim 后严格 `'1'` 才在 `notify_user` 内早退）。`deploy -- test` 强制注入 `=1`，`deploy -- prod` 强制 `=0`。真源：[`docs/20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)。
+- `telegram` / `qqbot` 仅为渠道（配置、发送；TG 另含排版）；probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `SendMessage`，**不**经 `notify`，**不受** `SUPPRESS_BOT_NOTIFICATION` 约束。
 - **不**在 `CreateNumber` 等 DB 函数内部发送。
 - 失败 best-effort：不影响已成功写入的 HTTP 状态码（与现行为一致）。
 - **不阻塞写响应**：Next 用 `after()`（无 request scope 时退化为 fire-and-forget）；Go 用 `go` 协程。客户端 HTTP 超时两端均为 **15s**（Next `AbortSignal.timeout` / Go `http.Client.Timeout`）。

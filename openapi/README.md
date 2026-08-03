@@ -132,4 +132,4 @@ Fixtures 覆盖：RecordSuccess（number/text）、TodoRecordSuccess、TodoTrans
 
 存量：若库中仍有裸 tag `transaction_entry`（无 `:type` 后缀），测试/生产库需手工 truncate/清理；契约与测试已按前缀语义对齐。保留前缀另含 `body:weight`（专用 `POST /api/log/body/weight`）与 `todo`（专用 `POST /api/log/todo`，Phase 2 起可写入；Phase 1 起通用路径拒写）。
 
-Telegram **实发**在测试模式（`DIGITAL_TWIN_TEST`）下由 notify 路径跳过；probe 单测用 mock。
+业务自动 bot notify 由 `SUPPRESS_BOT_NOTIFICATION` 门闸（trim 后严格 `'1'` 才跳过 `notify_user`）；`deploy -- test`→`1`、`deploy -- prod`→`0`。probe 不受约束，单测可用 mock。真源：[`docs/20260803-suppress-bot-notification.md`](../docs/20260803-suppress-bot-notification.md)。

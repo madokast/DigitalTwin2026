@@ -12,7 +12,7 @@
 - 按 **`id ASC` 游标**分块导出 `records` 为 **JSONL 文件流**（下载）。
 - 用同形状 JSONL **文件上传** + **按 `id` upsert** 写回。
 - 形状 = OpenAPI **`Record` camelCase**：**禁止** Todo deform（`created_at` / `content`）。
-- 成功后 **一律 Notify**（导出每页含 0 行；导入含空文件全 0）；**无** `suppress_notification` 字段。
+- 成功后 **一律 Notify**（导出每页含 0 行；导入含空文件全 0）；**无**请求体 `suppress_notification`。真发与否仅看进程 env `SUPPRESS_BOT_NOTIFICATION`（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。
 - 实现时双端（Next + Go）+ OpenAPI 同构；本篇只规划。
 
 **非目标**
@@ -35,7 +35,7 @@
 | 3 | **导入 = upsert on `id`**；可重复导入。 |
 | 4 | **导出鉴权** = `ApiToken`；**导入** = `AdminToken` only（`/api/admin/...`）。 |
 | 5 | **Admin import 必须允许保留 tag**（跳过 `assertNoReservedTags`；PATCH 仍拒绝）。 |
-| 6 | **始终 Notify**（含空导出 / 空导入）；本两 API **不**暴露 `suppress_notification`。 |
+| 6 | **始终 Notify**（含空导出 / 空导入）；本两 API **不**暴露 body `suppress_notification`；静音仅 env（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。 |
 | 7 | **一期无压缩**；`MAX_HTTP_BODY_BYTES`（256KiB）**不**约束本两路由（须独立流式读，禁止误接 `readJsonBody` / 默认 `readBody`）。 |
 | 8 | **流式 + 单事务**：边读边写均在**同一 DB 事务**内；**全部成功才 commit**；失败 **rollback** 且 **不** Notify。 |
 | 9 | 本阶段只文档；实现另排期。 |
@@ -144,7 +144,7 @@ API **不**规定官方结束协议。常用启发：行数 `< limit` 可视为�
 
 ### 4.6 Notify
 
-每次导出请求成功结束（含 **0 行**）→ **Notify 一次**。文案含行数、`from` 或 start、`limit`（实现期润色）。**无** suppress。
+每次导出请求成功结束（含 **0 行**）→ **Notify 一次**。文案含行数、`from` 或 start、`limit`（实现期润色）。**无** body suppress；静音见 `SUPPRESS_BOT_NOTIFICATION`。
 
 ---
 
@@ -234,14 +234,14 @@ BEGIN
 ## 8. 非目标复查
 
 - 前端；gzip；无参全表；按 `happened_at` 切块。  
-- Export JSON 信封 / X-Export 头；suppress。  
+- Export JSON 信封 / X-Export 头；body suppress（已删；静音见 env）。  
 - Mirror 删除未出现在文件中的行。
 
 ---
 
 ## 9. 已拍板摘要
 
-1. Path / 鉴权 / 无 deform / Admin 可写保留 tag / 无 suppress。  
+1. Path / 鉴权 / 无 deform / Admin 可写保留 tag / 无 body suppress（静音见 env）。  
 2. 导出：`from?` + `limit`∈[1,1000]；非法 from→400、不存在→404；文件流；每页 Notify（含 0 行）。  
 3. 导入：multipart；≤1000 行且 file part≤4MiB；**单事务流式** upsert；成功才 commit+Notify（**含空文件**）；失败回滚不 Notify。  
 4. 校验：表示层 Record；语义对齐 draft；跳过保留 tag 拒绝。  

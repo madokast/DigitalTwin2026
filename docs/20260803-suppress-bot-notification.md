@@ -1,8 +1,8 @@
 # DigitalTwin2026：用 `SUPPRESS_BOT_NOTIFICATION` 替代请求体 suppress 与模糊测试 env
 
 > 创建日期：2026-08-03  
-> 状态：**设计已定稿**；**阶段 1–3 已完成**（门闸换键 + deploy 强制注入 + 删 body `suppress_notification`）；阶段 4 未开始  
-> 性质：Diataxis **explanation** + how-it-works；可独立验收阶段见 **§10**（完整逐任务 plan 另开会话）  
+> 状态：**已落地**（阶段 1–4 全部完成：门闸换键 + deploy 强制注入 + 删 body `suppress_notification` + 文档收尾）  
+> 性质：Diataxis **explanation** + how-it-works；实现阶段见 **§10**  
 
 > 相关：[`docs/20260801-api-layering.md`](20260801-api-layering.md) §7、[`docs/20260802-todo-feature.md`](20260802-todo-feature.md)、[`docs/20260803-records-import-export.md`](20260803-records-import-export.md)、[`faas/README.md`](../faas/README.md)、[`.env.test.example`](../.env.test.example)
 
@@ -274,16 +274,16 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 
 ## 8. 待实现时同步的现有文档（pointer）
 
-勿在本任务大范围改旧文档；实现时至少改这些冲突句：
+> **阶段 4 已完成**：下表冲突句已改为与终态一致，并以本篇为决策真源。
 
-| 文档 | 冲突点 |
+| 文档 | 冲突点（已对齐） |
 |------|--------|
-| `docs/20260801-api-layering.md` §7 | 「录入 body 可选 `suppress_notification`」；notify stem 名 |
-| `docs/20260802-todo-feature.md` | 多处 `suppress_notification` |
-| `docs/20260803-records-import-export.md` | 已写「一律 Notify、无 suppress」——实现后与本篇一致，可改一句指向本 env 门闸 |
-| `faas/README.md` / `openapi/README.md` | DIGITAL_TWIN_TEST / ALLOW；须写明 probe 不受 SUPPRESS 约束 |
-| `.env.test.example` | 注释与新键（业务自动 notify 静音；probe 除外） |
-| 发展日志 | 可留历史；新行为以本篇为准 |
+| `docs/20260801-api-layering.md` §7 | 一律 schedule；无 body suppress；`SUPPRESS_BOT_NOTIFICATION` + probe 例外 |
+| `docs/20260802-todo-feature.md` | 创建 / transition 无 body suppress；notify 静音见 env |
+| `docs/20260803-records-import-export.md` | 一律 Notify + 指向本 env 门闸 |
+| `faas/README.md` / `openapi/README.md` | deploy 注入 test=`1` / prod=`0`；probe 不受 SUPPRESS 约束 |
+| `.env.test.example` | 显式 `SUPPRESS_BOT_NOTIFICATION=1` + 注释 |
+| 发展日志 | 历史叙述保留；加 pointer 指向本篇 |
 
 ---
 
@@ -406,6 +406,8 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 
 ### 阶段 4：文档与 example 收尾
 
+**状态：已完成**
+
 **目标：** 规格 / README / example 与终态一致；本篇为决策真源，其它文档去掉冲突句并加 pointer。
 
 **范围（§8）：**
@@ -421,10 +423,10 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 - 不删本篇；不新增大段重复规格
 
 **验收标准：**
-- [ ] §8 表内文档无「body 可选 suppress」「DIGITAL_TWIN_TEST / ALLOW 仍为现行机制」等冲突表述
-- [ ] README 写明：deploy test→`1` / prod→`0`；业务静音 vs probe 仍可真发
-- [ ] `.env.test.example` 键与注释正确
-- [ ] 本篇状态可改为「设计已定稿；实现已按阶段落地」（或分阶段勾选更新）
+- [x] §8 表内文档无「body 可选 suppress」「DIGITAL_TWIN_TEST / ALLOW 仍为现行机制」等冲突表述
+- [x] README 写明：deploy test→`1` / prod→`0`；业务静音 vs probe 仍可真发
+- [x] `.env.test.example` 键与注释正确
+- [x] 本篇状态改为「已落地」（阶段 1–4 全部完成）
 
 **依赖 / 可并行：** **依赖阶段 1–3 均已合**（文档描述终态）。不可与 1–3 并行作为「唯一真源」合入，以免文档超前/滞后于代码。
 

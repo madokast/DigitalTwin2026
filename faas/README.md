@@ -37,7 +37,7 @@
   - QQ Bot：`QQBOT_APP_ID`、`QQBOT_APP_SECRET`、`QQBOT_USER_OPENID`（**三键皆非空**才启用）
   - 运行时经统一 `notify_user` 并行发送；未配置的渠道跳过。
 - 触发：`POST /api/log/number|text|body/weight|todo` INSERT 成功后推单条；`POST /api/log/todo/transition` 成功后推**审计文案**一条；`POST /api/log/transaction` 整单成功后推一条 batch 摘要；均为 best-effort，通知失败不影响成功响应。
-- 测试：`POST /api/telegram/probe`、`POST /api/qqbot/probe`（未配置 / 发送失败返回明确英文 `error`；成功 `{ success: true }`）。`DIGITAL_TWIN_TEST=1` 时默认跳过 `notify_user`；设 `NOTIFY_ALLOW_IN_TEST=1` 才允许测试环境实发。
+- 测试：`POST /api/telegram/probe`、`POST /api/qqbot/probe`（未配置 / 发送失败返回明确英文 `error`；成功 `{ success: true }`）。业务自动 notify 静音靠进程 env **`SUPPRESS_BOT_NOTIFICATION`**（trim 后严格 `'1'` 才跳过 `notify_user`）：本地 `.env.test` 写 `=1`；`deploy -- test` 强制注入 `=1`，`deploy -- prod` 强制 `=0`（不问用户）。**probe 不受该开关约束**，仍直调渠道发送。决策真源：[`docs/20260803-suppress-bot-notification.md`](../docs/20260803-suppress-bot-notification.md)。
 - 模板：根 [`.env.test.example`](../.env.test.example)；`s.yaml` 的 `environmentVariables`。
 - `secrets:rotate-test` **不**轮换通知渠道密钥。
 - **禁止**把真实 Bot Token / AppSecret / OpenID 提交进 git。

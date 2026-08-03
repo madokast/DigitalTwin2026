@@ -112,7 +112,7 @@ cd faas && go test ./...
 
 - `POST /api/log/number`、`POST /api/log/text` 入库成功后 **best-effort** 发 Telegram（失败不影响 201）
 - `POST /api/telegram/probe`：严格探测发送（env 未配 / Bot API 失败分别 400 / 502）
-- 测试：`DIGITAL_TWIN_TEST=1` 跳过 insert 路径实发（避免 dotenv 误带生产 Token）；单测可用 `TELEGRAM_ALLOW_IN_TEST=1` + mock
+- 测试：（历史）`DIGITAL_TWIN_TEST=1` 跳过 insert 路径实发；单测曾用 `TELEGRAM_ALLOW_IN_TEST=1` + mock。**现行**静音见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)（`SUPPRESS_BOT_NOTIFICATION`；probe 不受约束）
 - 密钥：`TELEGRAM_BOT_TOKEN` / `TELEGRAM_USER_ID`；test/prod 可共用同一 Bot
 
 相关：`src/lib/telegram.ts`、双端 log / probe 路由、OpenAPI `telegram` tag。

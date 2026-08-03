@@ -1,7 +1,7 @@
 # DigitalTwin2026 开发日志
 
 > 日期：2026-08-01（续至 2026-08-03）
-> 状态：transaction 录入 + summary；金额 `MoneyAmountString` 收紧；body weight 写入；Todo Phase 1–4（保留前缀 / 创建 / transition / query 变形）已落地；双端 API 对齐；统一 `notify_user` + QQ Bot；契约收紧（未知键 / `suppress_notification`）
+> 状态：transaction 录入 + summary；金额 `MoneyAmountString` 收紧；body weight 写入；Todo Phase 1–4（保留前缀 / 创建 / transition / query 变形）已落地；双端 API 对齐；统一 `notify_user` + QQ Bot；契约收紧（未知键）。**通知静音现行行为**见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)（已删 body `suppress_notification` 与 `DIGITAL_TWIN_TEST` / `NOTIFY_ALLOW_IN_TEST`）。
 
 ## 0. 今日做成了什么（总览）
 
@@ -12,15 +12,15 @@
 | Transaction summary | `GET /api/query/transaction/summary`：半开 `[from,to)`；按 income/expense + category→subcategory 层级聚合；`Money2String` |
 | Body weight | `POST /api/log/body/weight`：保留 tag `body:weight`；`WeightAmountString` 1.00–500.00；无专用趋势 API |
 | Todo Phase 1 | 保留前缀 `todo` / `todo:*`：通用 log + Admin rename 拒写；错误指向 `/api/log/todo` |
-| Todo Phase 2 | `POST /api/log/todo` 创建：`created_at`/`content` 别名；落库 `todo:in_progress`；`201.record` 变形；notify + suppress |
+| Todo Phase 2 | `POST /api/log/todo` 创建：`created_at`/`content` 别名；落库 `todo:in_progress`；`201.record` 变形；notify（当时可 body suppress；现行见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)） |
 | Todo Phase 3 | `POST /api/log/todo/transition`：同事务改状态 tag + 审计 `todo:transition`；`200` 仅 `id`+`transition`；notify 一次=审计文案 |
 | Todo Phase 4 | `GET /api/query` 待办行 JSON 变形为 `created_at`/`content`（与 create 对齐）；见 [`20260802-todo-feature.md`](20260802-todo-feature.md) §10 |
 | 双端对齐 | 大量 Next ↔ Go 契约/语义对齐（JSON、时区、UUID、鉴权路径、Telegram、query 等）；见 §2 |
 | 分层文档 | [`docs/20260801-api-layering.md`](20260801-api-layering.md)：模块同构、§1.1 允许差异、§7 通知 |
-| 通知统一 | `notify_user` / `NotifyUser`：Telegram + QQ 并行 timed await；`NOTIFY_ALLOW_IN_TEST` |
+| 通知统一 | `notify_user` / `NotifyUser`：Telegram + QQ 并行 timed await（当时 `NOTIFY_ALLOW_IN_TEST`；现行见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)） |
 | QQ Bot | `POST /api/qqbot/probe`；运行时 C2C 主动发；本地 `npm run qqbot:listen-openid` |
 | 部署 UX | `secrets:refresh-prod` / FC deploy：先问是否开启 TG/QQ，否→空串，是→填齐并探测 |
-| 录入开关 | 六个 log 写入 API（number / text / transaction / body/weight / todo / todo/transition）可选 `suppress_notification`（默认 false；true 跳过 notify） |
+| 录入开关 | （历史）六个 log 写入 API 可选 `suppress_notification`；**已删除**，现行仅 env `SUPPRESS_BOT_NOTIFICATION`（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)） |
 | 契约收紧 | 请求体未知 JSON 键 → 400 `Unknown JSON key: …`（`additionalProperties: false`） |
 | Query 排序 | `GET /api/query` 固定 `happened_at ASC, id ASC`（无 `order` 参数；双端常量 + `testdata/query-records-list-order.json`） |
 | 构建 | FC `go build -trimpath -ldflags="-s -w"`；tags→`tagsdb` 修 Vercel Client 打进 postgres |
@@ -62,7 +62,7 @@
 | 项 | 约定 |
 |----|------|
 | 路径 | `POST /api/log/body/weight`（ApiToken） |
-| Body | `happened_at` + `value_number`（kg，`WeightAmountString`）+ `objective_context`；可选 `subjective_interpretation` / `tags` / `suppress_notification` |
+| Body | `happened_at` + `value_number`（kg，`WeightAmountString`）+ `objective_context`；可选 `subjective_interpretation` / `tags`（当时另可选 `suppress_notification`，**已删**） |
 | 数值 | 正数、≤2 位小数、**1.00–500.00**；规范为两位小数入库；JSON number → 400 |
 | 落库 tags | `["body:weight", ...可选客户端 tags]`（保留 tag 在前） |
 | 保留 tag | 前缀 `body:weight` / `body:weight:*`（与 `transaction_entry` 并列）；number/text/Admin/rename 拒绝，文案指向专用路径 |
@@ -81,7 +81,7 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 
 相关：`src/lib/bodyweightdraft.ts`、`faas/internal/bodyweightdraft`、`logapi.CreateBodyWeight`、OpenAPI `LogBodyWeightRequest` / `WeightAmountString`。
 
-文档同步：四个 log 写入 API 列表（本日志 / `faas/providers/aliyun-fc/README.md` / layering）均含 `body/weight`；`suppress_notification` 与 notify 扇出覆盖四路径。
+文档同步：四个 log 写入 API 列表（本日志 / `faas/providers/aliyun-fc/README.md` / layering）均含 `body/weight`；notify 扇出覆盖写路径（body suppress 已删；现行见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。
 
 ---
 
@@ -102,11 +102,11 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 | 项 | 约定 |
 |----|------|
 | 路径 | `POST /api/log/todo`（ApiToken：AI 或 Admin） |
-| 请求 | `created_at`（→ `happened_at`）、`content`（→ `value_text`）、`objective_context` 必填；可选 `subjective_interpretation` / `tags` / `suppress_notification` |
+| 请求 | `created_at`（→ `happened_at`）、`content`（→ `value_text`）、`objective_context` 必填；可选 `subjective_interpretation` / `tags`（当时另可选 body suppress，**已删**） |
 | 禁键 | 请求不得带 `happened_at` / `value_text` / `value_number`（未知键 400） |
 | 落库 tags | `["todo:in_progress", ...clientTags]`（状态 tag 在前） |
 | 成功 | `201` + `{ success, record }`；`record` 为 **TodoRecord**（`created_at`/`content`，无 `happenedAt`/`valueText`） |
-| Notify | 成功后 best-effort `notify_user`（与其它 log 同）；`suppress_notification: true` 跳过 |
+| Notify | 成功后 best-effort schedule `notify_user`（与其它 log 同；静音见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)） |
 | 模块 | `tododraft`（`parseTodo` / `toTodoRecordJson`）+ `logapi.createTodo` / `CreateTodo`；分层表已补 |
 | Query 变形 | **已做**（Phase 4，见 §1b4 / [`20260802-todo-feature.md`](20260802-todo-feature.md) §10） |
 
@@ -115,12 +115,12 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 | 项 | 约定 |
 |----|------|
 | 路径 | `POST /api/log/todo/transition`（ApiToken：AI 或 Admin） |
-| 请求 | `id` + `target`（TodoState）+ `happened_at`（审计时间）必填；可选 `suppress_notification` |
+| 请求 | `id` + `target`（TodoState）+ `happened_at`（审计时间）必填（当时另可选 body suppress，**已删**） |
 | 禁键 | 不得带 `created_at` / `content`（未知键 400） |
 | 事务 | UPDATE 仅替换代表状态 tag；INSERT 审计行 `todo:transition`（§4.1 `value_text`） |
 | 成功 | `200` + `{ success, id, transition: { from, to } }`；**无** `record` / `audit_record` |
 | 错误 | 四类英文：`to-do not found` / `record is not a to-do` / `cannot transition a to-do audit record` / `to-do is already in target state` |
-| Notify | 成功后恰好一次，正文 = 审计 `value_text`；`suppress_notification: true` 跳过 |
+| Notify | 成功后恰好一次，正文 = 审计 `value_text`（静音见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)） |
 | 模块 | `tododraft`（`parseTodoTransition` / `auditValueText`）+ `logapi.transitionTodo` / `TransitionTodo` |
 
 ### 1b4. Todo Phase 4 — Query 待办行 JSON 变形（2026-08-03）
@@ -190,8 +190,8 @@ OpenAPI：`TransactionSummarySuccess`、`MoneyBucket`、`CategoryBucket`、`Subc
 
 - Next：`src/lib/notify.ts`、`src/lib/qqbot.ts`；Go：`faas/internal/notify`、`faas/internal/qqbot`
 - 录入成功（number/text/transaction/body/weight）→ format（仍在 telegram 包）→ **`notify_user`**：已配置渠道并行 + ~15s timed await；失败只打英文日志
-- 测试跳过：`DIGITAL_TWIN_TEST=1`；放行统一为 **`NOTIFY_ALLOW_IN_TEST=1`**（废弃 `TELEGRAM_ALLOW_IN_TEST`）
-- Probe **不**经 `notify_user`：`POST /api/telegram/probe`、`POST /api/qqbot/probe` 各测单通道
+- 测试跳过：（历史）`DIGITAL_TWIN_TEST=1`；放行曾为 **`NOTIFY_ALLOW_IN_TEST=1`**。**现行**：仅 `SUPPRESS_BOT_NOTIFICATION`（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）
+- Probe **不**经 `notify_user`：`POST /api/telegram/probe`、`POST /api/qqbot/probe` 各测单通道（且不受 SUPPRESS 约束）
 
 ### 3.2 QQ 配置与本地工具
 
@@ -206,9 +206,9 @@ OpenAPI：`TransactionSummarySuccess`、`MoneyBucket`、`CategoryBucket`、`Subc
 - FC `deploy.ts` 同逻辑；`DT_SKIP_NOTIFY_PROMPT`（兼容旧 `DT_SKIP_TELEGRAM_PROMPT`）  
 - `faas/providers/aliyun-fc/s.yaml` 注入 `QQBOT_*`
 
-### 3.4 `suppress_notification`
+### 3.4 `suppress_notification`（历史；已删除）
 
-四个 log 写入 API（`/api/log/number`、`/api/log/text`、`/api/log/transaction`、`/api/log/body/weight`）请求体可选布尔：省略/null → false；`true` → 写入逻辑不变但跳过 notify；非 boolean → 写入前 400 `Invalid suppress_notification`。
+四个 log 写入 API 曾支持请求体可选布尔以跳过 notify。**已删除**：写路径一律 schedule；静音仅进程 env `SUPPRESS_BOT_NOTIFICATION`。见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)。
 
 ---
 
