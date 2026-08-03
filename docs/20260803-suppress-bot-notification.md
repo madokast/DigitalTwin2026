@@ -1,7 +1,7 @@
 # DigitalTwin2026：用 `SUPPRESS_BOT_NOTIFICATION` 替代请求体 suppress 与模糊测试 env
 
 > 创建日期：2026-08-03  
-> 状态：**设计已定稿**；**阶段 1 已完成**（门闸换键）；阶段 2–4 未开始  
+> 状态：**设计已定稿**；**阶段 1–2 已完成**（门闸换键 + deploy 强制注入）；阶段 3–4 未开始  
 > 性质：Diataxis **explanation** + how-it-works；可独立验收阶段见 **§10**（完整逐任务 plan 另开会话）  
 
 > 相关：[`docs/20260801-api-layering.md`](20260801-api-layering.md) §7、[`docs/20260802-todo-feature.md`](20260802-todo-feature.md)、[`docs/20260803-records-import-export.md`](20260803-records-import-export.md)、[`faas/README.md`](../faas/README.md)、[`.env.test.example`](../.env.test.example)
@@ -348,6 +348,8 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 
 ### 阶段 2：deploy 强制注入 `SUPPRESS_BOT_NOTIFICATION`
 
+**状态：已完成**
+
 **目标：** 白名单常驻该键；`deploy -- test` 强制 `=1`，`deploy -- prod`（Vercel / FC / SCF）强制 `=0`；collect / 问答不问用户。
 
 **范围：**
@@ -364,11 +366,11 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 - 不要求本阶段实际对线上执行 `deploy`（可用脚本单测 / dry-run / 生成物检查验收）
 
 **验收标准：**
-- [ ] FC/SCF/Vercel 白名单**一律包含** `SUPPRESS_BOT_NOTIFICATION`（test/prod 都含键，不分环境加减键）
-- [ ] test 路径生成的环境（`s.yaml` / `.scf-build/.env` 等）中该键为 `1`
-- [ ] prod 路径（collect → `.env.prod` / upsert）中该键为 `0`，且即使用户源文件带 `1` 也被覆盖
-- [ ] collect / deploy 问答流**不出现**对该键的提示
-- [ ] 相关脚本测试绿（若有）；否则提供可重复的手工检查步骤并勾选
+- [x] FC/SCF/Vercel 白名单**一律包含** `SUPPRESS_BOT_NOTIFICATION`（test/prod 都含键，不分环境加减键）
+- [x] test 路径生成的环境（`s.yaml` / `.scf-build/.env` 等）中该键为 `1`
+- [x] prod 路径（collect → `.env.prod` / upsert）中该键为 `0`，且即使用户源文件带 `1` 也被覆盖
+- [x] collect / deploy 问答流**不出现**对该键的提示
+- [x] 相关脚本测试绿（若有）；否则提供可重复的手工检查步骤并勾选
 
 **依赖 / 可并行：** **依赖阶段 1**（否则云上注入的键无运行时读者，test 云仍可能实发）。与**阶段 3 可并行**开发/开 PR（文件面基本不重叠）；建议阶段 1 合入后再合本阶段。
 

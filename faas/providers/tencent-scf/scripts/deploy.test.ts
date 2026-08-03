@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   buildDeployServerlessYml,
+  OPTIONAL_KEYS,
   patchServerlessFunctionName,
 } from './deploy'
 
@@ -56,5 +57,11 @@ describe('buildDeployServerlessYml', () => {
     expect(out).not.toMatch(/^ {2}runtime: CustomRuntime$/m)
     expect(out).not.toMatch(/^ {2}runtime: Nodejs/m)
     expect(out).not.toMatch(/digitaltwin-api-\$\{stage\}/)
+  })
+})
+
+describe('OPTIONAL_KEYS whitelist', () => {
+  it('includes SUPPRESS_BOT_NOTIFICATION for cloud inject', () => {
+    expect(OPTIONAL_KEYS).toContain('SUPPRESS_BOT_NOTIFICATION')
   })
 })

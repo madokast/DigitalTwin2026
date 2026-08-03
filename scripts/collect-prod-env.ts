@@ -23,6 +23,10 @@ import {
   promptTelegramChannel,
 } from './lib/notify-prompt'
 import { runInherited } from './lib/spawn'
+import {
+  SUPPRESS_BOT_NOTIFICATION,
+  withForcedSuppressBotNotification,
+} from './lib/suppress-bot-notification-deploy'
 import { PROD_ENV_FILE, REPO_ROOT, TEST_ENV_FILE } from './lib/test-env'
 import { verifyDatabaseUrl } from './lib/verify-database'
 
@@ -241,11 +245,14 @@ export async function collectProdEnvValues(
   return values
 }
 
+/**
+ * 写临时 `.env.prod`：自动追加 SUPPRESS_BOT_NOTIFICATION=0（不问用户；覆盖误带的 1）。
+ */
 export function writeProdEnvFile(
   values: Record<string, string>,
   dest: string = PROD_ENV_FILE,
 ): string {
-  writeFcEnvFile(dest, values)
+  writeFcEnvFile(dest, withForcedSuppressBotNotification(values, 'prod'))
   return dest
 }
 
@@ -264,6 +271,9 @@ async function main(): Promise<void> {
   )
   console.log(
     '  - FC_FUNCTION_NAME / SCF_FUNCTION_NAME: default digitaltwin-api-prod (Enter to keep)',
+  )
+  console.log(
+    `  - ${SUPPRESS_BOT_NOTIFICATION}=0 appended automatically (not prompted)`,
   )
   console.log('  - Writes repo-root .env.prod (mode 0600)')
   console.log('')
@@ -298,6 +308,9 @@ async function main(): Promise<void> {
         : `  ${key}: (empty)`,
     )
   }
+  console.log(
+    `  ${SUPPRESS_BOT_NOTIFICATION}: 0 (forced for prod; not prompted)`,
+  )
 
   const dest = writeProdEnvFile(values)
   console.log(`Wrote ${resolve(dest)} (mode 0600)`)

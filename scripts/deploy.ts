@@ -11,8 +11,12 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { askLine, createRl, isYes } from './lib/cli-prompt'
-import { parseDotenvFile } from './lib/dotenv-file'
+import { parseDotenvFile, writeFcEnvFile } from './lib/dotenv-file'
 import { run, which } from './lib/spawn'
+import {
+  SUPPRESS_BOT_NOTIFICATION,
+  withForcedSuppressBotNotification,
+} from './lib/suppress-bot-notification-deploy'
 import { PROD_ENV_FILE, REPO_ROOT, TEST_ENV_FILE } from './lib/test-env'
 
 /** 与 FC/SCF 一致：默认 N；prod 才询问 */
@@ -48,7 +52,8 @@ export function parseDeployTarget(
   return null
 }
 
-const VERCEL_KEYS = [
+/** Vercel production upsert 白名单（含 SUPPRESS；值由 deploy 强制） */
+export const VERCEL_KEYS = [
   'DATABASE_URL',
   'DIGITAL_TWIN_TOKEN',
   'DIGITAL_TWIN_ADMIN_TOKEN',
@@ -57,7 +62,14 @@ const VERCEL_KEYS = [
   'QQBOT_APP_ID',
   'QQBOT_APP_SECRET',
   'QQBOT_USER_OPENID',
+  SUPPRESS_BOT_NOTIFICATION,
 ] as const
+
+/** test 路径强制注入用的临时 env（不改常驻 .env.test） */
+export const DEPLOY_TEST_ENV_OVERLAY = resolve(
+  REPO_ROOT,
+  '.env.deploy-test.overlay',
+)
 
 const REQUIRED_RUNTIME_KEYS = [
   'DATABASE_URL',
@@ -409,7 +421,27 @@ async function deployTest(): Promise<void> {
     return
   }
 
-  const deployed = runSelectedDeploys(choices, TEST_ENV_FILE, map)
+  // 强制 SUPPRESS=1（覆盖漏写/误值）；写临时 overlay，不改常驻 .env.test
+  const values = withForcedSuppressBotNotification(map, 'test')
+  writeFcEnvFile(DEPLOY_TEST_ENV_OVERLAY, values)
+  registerTempPath(DEPLOY_TEST_ENV_OVERLAY)
+  const onCleanup = () => {
+    cleanupRegisteredTemps()
+  }
+  process.on('exit', onCleanup)
+  process.on('SIGINT', () => {
+    onCleanup()
+    process.exit(130)
+  })
+  console.log(
+    `Forced ${SUPPRESS_BOT_NOTIFICATION}=1 for test cloud deploy (overlay; not prompted)`,
+  )
+
+  const deployed = runSelectedDeploys(
+    choices,
+    DEPLOY_TEST_ENV_OVERLAY,
+    values,
+  )
   console.log('')
   console.log('=== Done ===')
   console.log(`Deployed: ${deployed.join(', ') || '(none)'}`)
@@ -437,8 +469,14 @@ async function deployProd(): Promise<void> {
   })
 
   runCollectProdEnv()
-  const values = parseDotenvFile(PROD_ENV_FILE)
+  // collect 已写 =0；此处再强制一次，覆盖手改或误带的 1
+  const raw = parseDotenvFile(PROD_ENV_FILE)
+  const values = withForcedSuppressBotNotification(raw, 'prod')
+  writeFcEnvFile(PROD_ENV_FILE, values)
   assertRuntimeKeys(PROD_ENV_FILE, values)
+  console.log(
+    `Forced ${SUPPRESS_BOT_NOTIFICATION}=0 for prod (not prompted)`,
+  )
 
   const deployed = runSelectedDeploys(choices, PROD_ENV_FILE, values)
   printDone(deployed)

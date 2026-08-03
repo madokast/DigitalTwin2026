@@ -24,12 +24,14 @@ const REQUIRED_KEYS = [
   'FC_FUNCTION_NAME',
 ] as const
 
-const OPTIONAL_KEYS = [
+/** 白名单常驻；值由顶层 deploy / collect 强制（test=1 / prod=0） */
+export const OPTIONAL_KEYS = [
   'TELEGRAM_BOT_TOKEN',
   'TELEGRAM_USER_ID',
   'QQBOT_APP_ID',
   'QQBOT_APP_SECRET',
   'QQBOT_USER_OPENID',
+  'SUPPRESS_BOT_NOTIFICATION',
 ] as const
 
 /** 用 FC_FUNCTION_NAME 覆盖 s.yaml 中的 functionName，写临时模板 */

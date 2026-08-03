@@ -50,6 +50,8 @@ resources:
         QQBOT_APP_ID: ${env('QQBOT_APP_ID', '')}
         QQBOT_APP_SECRET: ${env('QQBOT_APP_SECRET', '')}
         QQBOT_USER_OPENID: ${env('QQBOT_USER_OPENID', '')}
+        # deploy 强制注入：test=1 / prod=0；勿手填
+        SUPPRESS_BOT_NOTIFICATION: ${env('SUPPRESS_BOT_NOTIFICATION', '')}
       triggers:
         - triggerName: httpTrigger
           triggerType: http

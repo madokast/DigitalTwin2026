@@ -3,6 +3,7 @@ import {
   PROMPT_DEPLOY_ALIYUN_FC,
   PROMPT_DEPLOY_TENCENT_SCF,
   PROMPT_DEPLOY_VERCEL,
+  VERCEL_KEYS,
   anyDeployChosen,
   cloudDeployDecision,
   parseDeployTarget,
@@ -12,16 +13,33 @@ import {
   DEFAULT_FC_FUNCTION_NAME,
   DEFAULT_SCF_FUNCTION_NAME,
   REQUIRED_COLLECT_KEYS,
+  COLLECT_KEYS,
   emptyInputPolicy,
   resolveWithDefault,
+  writeProdEnvFile,
 } from './collect-prod-env'
 import {
   channelEnableDecision,
   shouldSkipNotifyPrompt,
 } from './lib/notify-prompt'
 import { parseEnvFileArg, usageEnvFile } from './lib/env-file-arg'
-import { patchSyamlFunctionName } from '../faas/providers/aliyun-fc/scripts/deploy'
-import { patchServerlessFunctionName } from '../faas/providers/tencent-scf/scripts/deploy'
+import {
+  SUPPRESS_BOT_NOTIFICATION,
+  forcedSuppressBotNotificationValue,
+  withForcedSuppressBotNotification,
+} from './lib/suppress-bot-notification-deploy'
+import { parseDotenvFile } from './lib/dotenv-file'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import {
+  OPTIONAL_KEYS as FC_OPTIONAL_KEYS,
+  patchSyamlFunctionName,
+} from '../faas/providers/aliyun-fc/scripts/deploy'
+import {
+  OPTIONAL_KEYS as SCF_OPTIONAL_KEYS,
+  patchServerlessFunctionName,
+} from '../faas/providers/tencent-scf/scripts/deploy'
 
 describe('parseDeployTarget', () => {
   it('requires test|prod', () => {
@@ -143,5 +161,53 @@ describe('function name overlays', () => {
     expect(patchServerlessFunctionName(src, 'digitaltwin-api-prod')).toContain(
       'name: digitaltwin-api-prod',
     )
+  })
+})
+
+describe('SUPPRESS_BOT_NOTIFICATION deploy injection (stage 2)', () => {
+  it('forces test=1 and prod=0; overrides mistaken values', () => {
+    expect(forcedSuppressBotNotificationValue('test')).toBe('1')
+    expect(forcedSuppressBotNotificationValue('prod')).toBe('0')
+    expect(
+      withForcedSuppressBotNotification(
+        { SUPPRESS_BOT_NOTIFICATION: '0', X: '1' },
+        'test',
+      ),
+    ).toEqual({ SUPPRESS_BOT_NOTIFICATION: '1', X: '1' })
+    expect(
+      withForcedSuppressBotNotification(
+        { SUPPRESS_BOT_NOTIFICATION: '1', X: '1' },
+        'prod',
+      ),
+    ).toEqual({ SUPPRESS_BOT_NOTIFICATION: '0', X: '1' })
+  })
+
+  it('whitelists the key on FC / SCF / Vercel (always present)', () => {
+    expect(FC_OPTIONAL_KEYS).toContain(SUPPRESS_BOT_NOTIFICATION)
+    expect(SCF_OPTIONAL_KEYS).toContain(SUPPRESS_BOT_NOTIFICATION)
+    expect(VERCEL_KEYS).toContain(SUPPRESS_BOT_NOTIFICATION)
+  })
+
+  it('collect does not prompt for SUPPRESS (not in COLLECT_KEYS)', () => {
+    expect(COLLECT_KEYS).not.toContain(SUPPRESS_BOT_NOTIFICATION)
+  })
+
+  it('writeProdEnvFile always writes SUPPRESS=0 even if source had 1', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dt-collect-suppress-'))
+    const dest = join(dir, '.env.prod')
+    try {
+      writeProdEnvFile(
+        {
+          DATABASE_URL: 'postgres://x',
+          SUPPRESS_BOT_NOTIFICATION: '1',
+        },
+        dest,
+      )
+      const parsed = parseDotenvFile(dest)
+      expect(parsed.SUPPRESS_BOT_NOTIFICATION).toBe('0')
+      expect(parsed.DATABASE_URL).toBe('postgres://x')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
