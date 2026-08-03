@@ -1,7 +1,7 @@
 # DigitalTwin2026 开发日志
 
-> 日期：2026-08-01（续至 2026-08-02）
-> 状态：transaction 录入 + summary；金额 `MoneyAmountString` 收紧；body weight 写入；双端 API 对齐；统一 `notify_user` + QQ Bot；契约收紧（未知键 / `suppress_notification`）
+> 日期：2026-08-01（续至 2026-08-03）
+> 状态：transaction 录入 + summary；金额 `MoneyAmountString` 收紧；body weight 写入；Todo Phase 1 保留前缀；双端 API 对齐；统一 `notify_user` + QQ Bot；契约收紧（未知键 / `suppress_notification`）
 
 ## 0. 今日做成了什么（总览）
 
@@ -11,6 +11,7 @@
 | Transaction 金额 | `MoneyAmountString`：≤2 位小数、禁零/+/空格、abs ≤ `999999999999.99`；通过后规范为两位小数入库；共享 fixture |
 | Transaction summary | `GET /api/query/transaction/summary`：半开 `[from,to)`；按 income/expense + category→subcategory 层级聚合；`Money2String` |
 | Body weight | `POST /api/log/body/weight`：保留 tag `body:weight`；`WeightAmountString` 1.00–500.00；无专用趋势 API |
+| Todo Phase 1 | 保留前缀 `todo` / `todo:*`：通用 log + Admin rename 拒写；错误指向 `/api/log/todo`（路由尚未实现） |
 | 双端对齐 | 大量 Next ↔ Go 契约/语义对齐（JSON、时区、UUID、鉴权路径、Telegram、query 等）；见 §2 |
 | 分层文档 | [`docs/20260801-api-layering.md`](20260801-api-layering.md)：模块同构、§1.1 允许差异、§7 通知 |
 | 通知统一 | `notify_user` / `NotifyUser`：Telegram + QQ 并行 timed await；`NOTIFY_ALLOW_IN_TEST` |
@@ -33,7 +34,7 @@
 | Body | `happened_at` + `type`（`income`\|`expense`）+ `entries[]` |
 | entries | 1..100；`amount` 为 `MoneyAmountString`；正=正常、负=该 type 冲销 |
 | 落库 tags | `["transaction_entry:{type}","{category}:{subcategory}"]` |
-| 保留 tag | 前缀语义 `P` 或 `P:…`（`P=transaction_entry` / `body:weight` 等）；number/text/Admin/rename 拒绝 |
+| 保留 tag | 前缀语义 `P` 或 `P:…`（`P=transaction_entry` / `body:weight` / `todo` 等）；number/text/Admin/rename 拒绝 |
 | 感受/评价 | 另走 `POST /api/log/text` |
 
 若库中仍有裸 tag `transaction_entry`（无 `:type`），需手工清理。
@@ -78,6 +79,20 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 相关：`src/lib/bodyweightdraft.ts`、`faas/internal/bodyweightdraft`、`logapi.CreateBodyWeight`、OpenAPI `LogBodyWeightRequest` / `WeightAmountString`。
 
 文档同步：四个 log 写入 API 列表（本日志 / `faas/providers/aliyun-fc/README.md` / layering）均含 `body/weight`；`suppress_notification` 与 notify 扇出覆盖四路径。
+
+---
+
+## 1d. Todo 保留前缀 Phase 1（2026-08-03）
+
+| 项 | 约定 |
+|----|------|
+| 范围 | 仅 `RESERVED_TAG_PREFIXES` += `todo`；**无** `POST /api/log/todo` 路由 |
+| 拒写 | number / text / transaction / body/weight 客户端 tags；Admin rename `from`/`to` |
+| 文案 | `tag "…" is reserved; use POST /api/log/todo for to-do entries`（双端字节一致） |
+| 冒号边界 | `todo` / `todo:*` 保留；`todolist` 不保留 |
+| 文档 | [`docs/20260802-todo-feature.md`](20260802-todo-feature.md) §10 Phase 1 ✅；OpenAPI 保留前缀列举同步 |
+
+实现：`src/lib/tags.ts` ↔ `faas/internal/tags`。
 
 ---
 
@@ -205,6 +220,7 @@ b77309e / a234f7b  GET /api/query/transaction/summary（层级聚合 + OpenAPI�
 
 - [x] `GET /api/query/transaction/summary`（按 `transaction_entry:income|expense` + 符号聚合；半开 `[from,to)`；category→subcategory 层级；两位小数串）
 - [x] `POST /api/log/body/weight`（保留 tag `body:weight`；kg；无趋势 API）
+- [x] Todo Phase 1：保留前缀 `todo` / `todo:*`（通用路径拒写；专用路由未开）
 - [x] Transaction `MoneyAmountString` 收紧（禁零、2dp 规范化、abs ≤ `999999999999.99`）
 - [x] `GET /api/query` 列表排序改为 `happened_at ASC, id ASC`（无 `order` 参数）
 - [ ] Dashboard 支出组件 / 网页录入 UI

@@ -400,7 +400,7 @@ LogBodyWeightRequest:
     reserved prefix tag `body:weight` first, then any optional client
     `tags`. Clients must not send reserved tags
     (`transaction_entry` / `transaction_entry:*`, `body:weight` /
-    `body:weight:*`). Unknown JSON keys -> 400 (Unknown JSON key: <name>).
+    `body:weight:*`, `todo` / `todo:*`). Unknown JSON keys -> 400 (Unknown JSON key: <name>).
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
@@ -591,8 +591,8 @@ LogTransactionRequest:
     `["transaction_entry:{type}","{category}:{subcategory}"]`
     (e.g. `transaction_entry:expense`).
     Feelings/reviews belong in POST /api/log/text, not here.
-    Reserved tag **prefixes** (colon boundary): `transaction_entry` and
-    `body:weight` — a tag is reserved iff `tag === P` OR
+    Reserved tag **prefixes** (colon boundary): `transaction_entry`,
+    `body:weight`, and `todo` — a tag is reserved iff `tag === P` OR
     `tag.startsWith(P + ":")` (e.g. `transaction_entrypoint` is not
     reserved). Clients must not send reserved tags on /api/log/number,
     /api/log/text, optional body-weight `tags`, Admin draft, or Admin

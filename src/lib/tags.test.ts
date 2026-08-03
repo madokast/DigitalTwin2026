@@ -72,6 +72,10 @@ describe('reserved tags', () => {
     expect(isReservedTag('body:weight')).toBe(true)
     expect(isReservedTag('body:weight:x')).toBe(true)
     expect(isReservedTag('body:weightx')).toBe(false)
+    expect(isReservedTag('todo')).toBe(true)
+    expect(isReservedTag('todo:in_progress')).toBe(true)
+    expect(isReservedTag('todo:completed')).toBe(true)
+    expect(isReservedTag('todolist')).toBe(false)
     expect(isReservedTag('weight')).toBe(false)
   })
 
@@ -92,10 +96,19 @@ describe('reserved tags', () => {
       valid: false,
       error: reservedTagError('body:weight:x'),
     })
+    expect(assertNoReservedTags(['todo'])).toEqual({
+      valid: false,
+      error: reservedTagError('todo'),
+    })
+    expect(assertNoReservedTags(['todo:in_progress'])).toEqual({
+      valid: false,
+      error: reservedTagError('todo:in_progress'),
+    })
     expect(assertNoReservedTags(['weight'])).toEqual({ valid: true })
     expect(assertNoReservedTags(['transaction_entrypoint'])).toEqual({
       valid: true,
     })
+    expect(assertNoReservedTags(['todolist'])).toEqual({ valid: true })
   })
 
   it('reservedTagError picks path by matched prefix', () => {
@@ -107,6 +120,12 @@ describe('reserved tags', () => {
     )
     expect(reservedTagError('body:weight:morning')).toBe(
       'tag "body:weight:morning" is reserved; use POST /api/log/body/weight for body weight entries',
+    )
+    expect(reservedTagError('todo')).toBe(
+      'tag "todo" is reserved; use POST /api/log/todo for to-do entries',
+    )
+    expect(reservedTagError('todo:in_progress')).toBe(
+      'tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries',
     )
   })
 })
@@ -200,6 +219,14 @@ describe('validateRename', () => {
     expect(validateRename('weight', 'transaction_entry:income')).toEqual({
       valid: false,
       error: reservedTagError('transaction_entry:income'),
+    })
+    expect(validateRename('todo', 'errand')).toEqual({
+      valid: false,
+      error: reservedTagError('todo'),
+    })
+    expect(validateRename('errand', 'todo:in_progress')).toEqual({
+      valid: false,
+      error: reservedTagError('todo:in_progress'),
     })
   })
 

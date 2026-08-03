@@ -56,6 +56,18 @@ func TestAssertNoReservedTags(t *testing.T) {
 	if IsReservedTag("body:weightx") {
 		t.Fatal("colon boundary: body:weightx must not be reserved")
 	}
+	if !IsReservedTag("todo") {
+		t.Fatal("expected todo reserved")
+	}
+	if !IsReservedTag("todo:in_progress") {
+		t.Fatal("expected todo:in_progress reserved")
+	}
+	if !IsReservedTag("todo:completed") {
+		t.Fatal("expected todo:completed reserved")
+	}
+	if IsReservedTag("todolist") {
+		t.Fatal("colon boundary: todolist must not be reserved")
+	}
 	r := AssertNoReservedTags([]string{"weight", "transaction_entry"})
 	if r.Valid || r.Error != ReservedTagError("transaction_entry") {
 		t.Fatalf("%+v", r)
@@ -68,10 +80,21 @@ func TestAssertNoReservedTags(t *testing.T) {
 	if r.Valid || r.Error != ReservedTagError("body:weight") {
 		t.Fatalf("%+v", r)
 	}
+	r = AssertNoReservedTags([]string{"todo"})
+	if r.Valid || r.Error != ReservedTagError("todo") {
+		t.Fatalf("%+v", r)
+	}
+	r = AssertNoReservedTags([]string{"todo:in_progress"})
+	if r.Valid || r.Error != ReservedTagError("todo:in_progress") {
+		t.Fatalf("%+v", r)
+	}
 	if r := AssertNoReservedTags([]string{"weight"}); !r.Valid {
 		t.Fatalf("%+v", r)
 	}
 	if r := AssertNoReservedTags([]string{"transaction_entrypoint"}); !r.Valid {
+		t.Fatalf("%+v", r)
+	}
+	if r := AssertNoReservedTags([]string{"todolist"}); !r.Valid {
 		t.Fatalf("%+v", r)
 	}
 
@@ -82,6 +105,14 @@ func TestAssertNoReservedTags(t *testing.T) {
 	wantWt := `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`
 	if ReservedTagError("body:weight") != wantWt {
 		t.Fatalf("weight hint: %q", ReservedTagError("body:weight"))
+	}
+	wantTodo := `tag "todo" is reserved; use POST /api/log/todo for to-do entries`
+	if ReservedTagError("todo") != wantTodo {
+		t.Fatalf("todo hint: %q", ReservedTagError("todo"))
+	}
+	wantTodoPrefixed := `tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries`
+	if ReservedTagError("todo:in_progress") != wantTodoPrefixed {
+		t.Fatalf("todo prefixed hint: %q", ReservedTagError("todo:in_progress"))
 	}
 }
 
@@ -187,6 +218,12 @@ func TestValidateRename(t *testing.T) {
 	}
 	if r := ValidateRename("weight", "transaction_entry:income"); r.Valid || r.Error != ReservedTagError("transaction_entry:income") {
 		t.Fatalf("reserved to: %+v", r)
+	}
+	if r := ValidateRename("todo", "errand"); r.Valid || r.Error != ReservedTagError("todo") {
+		t.Fatalf("reserved todo from: %+v", r)
+	}
+	if r := ValidateRename("errand", "todo:in_progress"); r.Valid || r.Error != ReservedTagError("todo:in_progress") {
+		t.Fatalf("reserved todo to: %+v", r)
 	}
 	if r := ValidateRename("weight", "weight"); r.Valid || r.Error != "from and to must be different" {
 		t.Fatalf("same: %+v", r)

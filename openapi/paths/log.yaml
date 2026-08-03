@@ -9,7 +9,7 @@
       Optional `suppress_notification: true` skips notify after insert (default false).
       Auth: ApiToken (AI token or Admin token).
       Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`,
-      `body:weight` / `body:weight:*`) are rejected (use the dedicated
+      `body:weight` / `body:weight:*`, `todo` / `todo:*`) are rejected (use the dedicated
       log endpoints).
     security:
       - ApiToken: []
@@ -50,8 +50,8 @@
       Inserts a numeric record with `value_number` as kg (no unit field)
       and `value_text` null. Server always prepends reserved tag
       `body:weight` (optional client `tags` follow). Reserved prefixes
-      `body:weight` / `body:weight:*` and `transaction_entry` /
-      `transaction_entry:*` are rejected on client tags.
+      `body:weight` / `body:weight:*`, `transaction_entry` /
+      `transaction_entry:*`, and `todo` / `todo:*` are rejected on client tags.
       On success, notification via notify_user is best-effort and does
       not change the 201 response. Optional `suppress_notification: true`
       skips notify after insert (default false).
@@ -100,7 +100,7 @@
       Optional `suppress_notification: true` skips notify after insert (default false).
       Auth: ApiToken (AI token or Admin token).
       Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`,
-      `body:weight` / `body:weight:*`) are rejected (use the dedicated
+      `body:weight` / `body:weight:*`, `todo` / `todo:*`) are rejected (use the dedicated
       log endpoints).
     security:
       - ApiToken: []

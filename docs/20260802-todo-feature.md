@@ -1,9 +1,9 @@
 # DigitalTwin2026：任务清单 / Todo（GTD）
 
 > 创建日期：2026-08-02  
-> 状态：讨论定稿（**仅文档，尚未开发**；§9 中 transition 成功响应形状与 notify 范围两项**已收**）  
+> 状态：讨论定稿；**Phase 1（保留前缀 `todo`）已落地**；Phase 2–4 尚未开发（§9 中 transition 成功响应形状与 notify 范围两项**已收**；实现分期见 **§10**）  
 > 性质：个人项目；偏 GTD 个人待办  
-> 相关：`docs/20260729-schema-v1.md`（append-only / tags）、账单与体重的「保留 tag + 专用 API」先例
+> 相关：`docs/20260729-schema-v1.md`（append-only / tags）、账单与体重的「保留 tag + 专用 API」先例（`transaction_entry` / `body:weight`）
 
 ## 0. 目标与非目标
 
@@ -317,3 +317,64 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 - OpenAPI 对 `records[]` oneOf 写到多严（严格 schema vs description-only）。  
 - **导入/导出**（未排期）：详见 §5.3。  
 - **AI 操作手册**（未排期）：按 §5.4 条目展开。
+
+---
+
+## 10. 实现分期
+
+前端仍 **pass/skip**（本篇非目标）。每期凡动 API：**OpenAPI + fixtures + Next + Go + 双端测试**（见 `AGENTS.md`）；可增量扩大表面。契约口径不变（§8），分期只切交付边界。
+
+**依赖总览**：1 → 2 →（3 ∥ 4）。Phase 3 与 4 互不依赖，可并行。
+
+### Phase 1 — 保留前缀 `todo`（小）✅ 已完成（2026-08-03）
+
+| | |
+|--|--|
+| **目标** | 录入侧严禁伪造 `todo` / `todo:*`，与 `transaction_entry` / `body:weight` 同模式。 |
+| **范围内** | `RESERVED_TAG_PREFIXES` += `todo`；`reservedTagError` 指向 `/api/log/todo`；通用 `log/number`·`text`·`transaction`·`body/weight` 与 Admin rename from/to 拒写/拒改名；双端 + 契约测。 |
+| **范围外** | 任何新路由；`tododraft` / create / transition / query 变形。 |
+| **交付** | tags 改动；拒写 fixture；OpenAPI 若有保留前缀列举则同步（无新 path）。 |
+| **依赖** | 无。 |
+| **验证** | `npm test` / `go test` 中 reserved 用例覆盖 `todo`、`todo:in_progress` 等；现有体重/交易拒写仍绿。 |
+| **落地** | Next `src/lib/tags.ts` + Go `faas/internal/tags`；错误文案 `use POST /api/log/todo for to-do entries`；OpenAPI 保留前缀列举已含 `todo`。 |
+
+> 期内 `/api/log/todo` 尚不存在；错误文案可先指向该 path（与体重先例一致，短空窗可接受）。
+
+### Phase 2 — 创建 `POST /api/log/todo`（中）
+
+| | |
+|--|--|
+| **目标** | AI/Admin 可创建待办；落库 `todo:in_progress`；创建成功 notify；`201.record` 已按待办行变形。 |
+| **范围内** | OpenAPI：`LogTodoRequest`、TodoState（可先挂枚举）、`TodoRecord`、path；`tododraft` + `logapi.CreateTodo` / `createTodo`；Next/Go handler；tags 组装（状态 tag 在前）；`notify_user` + `suppress_notification`；共享变形 helper（供 `201.record`，Phase 4 复用）；录入侧严判定辅助可先落地。 |
+| **范围外** | transition；**query** `records[]` 变形（期内 query 待办行仍可能是 `happened_at`/`value_text`，已知短暂不一致）；审计行。 |
+| **交付** | 新 path + 双端实现 + 创建/校验/notify/变形 fixture；分层对照表补 `tododraft` / `CreateTodo`（实现时改 `docs/20260801-api-layering.md`）。 |
+| **依赖** | Phase 1。 |
+| **验证** | `openapi:lint` + `test:openapi` + `faas` contract；创建 201 键为 `created_at`/`content`；缺字段/保留 tag/未知键 400；suppress 跳过 notify。 |
+
+### Phase 3 — Transition + 审计 + notify（大）
+
+| | |
+|--|--|
+| **目标** | 四态任意互转；同事务 UPDATE tags + INSERT 审计；`200` 成功体；恰好一次 notify。 |
+| **范围内** | OpenAPI：`LogTodoTransitionRequest`、成功体（`success`+`id`+`transition.{from,to}`）；`TransitionTodo` 事务；§3.3 四类英文错误 + `target` 非法文案；§4.1 审计 `value_text` 模板；§4.2 notify 正文 = 审计文案；录入侧严「待办行」判定。 |
+| **范围外** | query 变形；改待办正文/额外 tags；状态机边约束；前端。 |
+| **交付** | path + 双端事务实现 + 错误/审计/notify/成功体 fixture（Node/Go 字节一致）。 |
+| **依赖** | Phase 2（待办行与 tag 闭集已存在）。**不依赖** Phase 4。 |
+| **验证** | 四类错误全文双端断言；`target === current` 拒绝；事务失败回滚（无半更新/半审计）；成功无 `record`/`audit_record`；notify 一次且正文一致；`suppress_notification`。 |
+
+### Phase 4 — Query 待办行 JSON 变形（中）
+
+| | |
+|--|--|
+| **目标** | `GET /api/query` 的待办行与创建成功形状对齐（`created_at`/`content`）；审计行保持默认 Record JSON。 |
+| **范围内** | 查询侧**略宽**判定（§1.3）+ 共享 fixture（含脏数据边：四态+transition 并存等）；Next `toQueryRecordJson` / Go `TodoRecordJSON`+`[]any`；OpenAPI 对 `records[]` 说明（oneOf 严度按 §9 小项，可先 description）。 |
+| **范围外** | 新 query API；导入/导出（§5.3）；AI 手册（§5.4）。 |
+| **交付** | query 序列化分支 + 双端同 fixture；复用 Phase 2 变形 helper。 |
+| **依赖** | Phase 2。**不依赖** Phase 3（可与 3 并行）；有 transition 数据时加审计行对照测更稳。 |
+| **验证** | `?tag=todo:in_progress` 等：待办行无 `happened_at`/`value_text` 键；`?tag=todo:transition` 仍为库契约键；Node/Go 宽松度一致。 |
+
+### 刻意不分期 / 不排入上表
+
+- 前端清单 UI、due/优先级等（§0 非目标）。
+- Admin PATCH 改待办正文、导入导出、AI 手册（§9 开放项）。
+- 勿把「仅 OpenAPI 无实现」或「只改一端」拆成独立期。

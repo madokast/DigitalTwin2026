@@ -357,6 +357,29 @@ func TestLogNumberRejectsBodyWeightReservedTag(t *testing.T) {
 	}
 }
 
+func TestLogNumberRejectsTodoReservedTag(t *testing.T) {
+	h := testServer().Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"value_number": "1",
+		"tags": ["todo:in_progress"],
+		"objective_context": "x"
+	}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	want := `tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries`
+	if body["error"] != want {
+		t.Fatalf("error: %v", body)
+	}
+}
+
 func TestLogBodyWeightRejectsJSONNumber(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/body/weight", strings.NewReader(`{
@@ -389,6 +412,8 @@ func TestRenameTagsRejectsReservedTag(t *testing.T) {
 		{`{"from":"transaction_entry:income","to":"legacy_tx"}`, `tag "transaction_entry:income" is reserved; use POST /api/log/transaction for transaction line entries`},
 		{`{"from":"weight","to":"body:weight"}`, `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`},
 		{`{"from":"body:weight","to":"mass"}`, `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`},
+		{`{"from":"todo","to":"errand"}`, `tag "todo" is reserved; use POST /api/log/todo for to-do entries`},
+		{`{"from":"errand","to":"todo:in_progress"}`, `tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries`},
 	} {
 		req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/rename", strings.NewReader(tc.payload))
 		req.Header.Set("Authorization", "Bearer admin-tok")

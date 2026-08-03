@@ -225,6 +225,15 @@ describe('parseRecordDraft', () => {
     ).toEqual({ error: reservedTagError('transaction_entry:income') })
   })
 
+  it('rejects reserved tag todo:in_progress', () => {
+    expect(
+      parseRecordDraft({
+        ...validBase,
+        tags: ['todo:in_progress'],
+      }),
+    ).toEqual({ error: reservedTagError('todo:in_progress') })
+  })
+
   it('accepts empty value_number with text-only records', () => {
     const parsed = parseRecordDraft({
       ...validBase,

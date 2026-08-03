@@ -90,6 +90,32 @@ describe('createNumber', () => {
     })
   })
 
+  it('rejects todo reserved tag', async () => {
+    const result = await createNumber({
+      happened_at: '2026-08-01T12:30:00+08:00',
+      value_number: '1',
+      tags: ['todo'],
+      objective_context: 'x',
+    })
+    expect(result).toEqual({
+      error: reservedTagError('todo'),
+      status: 400,
+    })
+  })
+
+  it('rejects todo:in_progress reserved tag', async () => {
+    const result = await createNumber({
+      happened_at: '2026-08-01T12:30:00+08:00',
+      value_number: '1',
+      tags: ['todo:in_progress'],
+      objective_context: 'x',
+    })
+    expect(result).toEqual({
+      error: reservedTagError('todo:in_progress'),
+      status: 400,
+    })
+  })
+
   it('rejects non-string subjective_interpretation', async () => {
     for (const bad of [1, true, [], {}]) {
       const result = await createNumber({
@@ -201,6 +227,19 @@ describe('createText', () => {
     })
     expect(result).toEqual({
       error: reservedTagError('transaction_entry'),
+      status: 400,
+    })
+  })
+
+  it('rejects todo reserved tag', async () => {
+    const result = await createText({
+      happened_at: '2026-08-01T12:30:00+08:00',
+      value_text: 'should fail',
+      tags: ['todo:in_progress'],
+      objective_context: 'x',
+    })
+    expect(result).toEqual({
+      error: reservedTagError('todo:in_progress'),
       status: 400,
     })
   })

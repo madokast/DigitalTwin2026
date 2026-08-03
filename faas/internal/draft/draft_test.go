@@ -165,6 +165,19 @@ func TestParseRecordDraftRejectsReservedPrefixedTag(t *testing.T) {
 	}
 }
 
+func TestParseRecordDraftRejectsTodoReservedTag(t *testing.T) {
+	_, err := ParseRecordDraft(RecordDraftBody{
+		HappenedAt:       "2026-07-30T08:00:00+08:00",
+		ValueNumber:      "1",
+		Tags:             []string{"todo:in_progress"},
+		ObjectiveContext: "x",
+	})
+	want := tags.ReservedTagError("todo:in_progress")
+	if err == nil || err.Error() != want {
+		t.Fatalf("err=%v", err)
+	}
+}
+
 func TestParseRecordDraftRejectsNoTZ(t *testing.T) {
 	_, err := ParseRecordDraft(RecordDraftBody{
 		HappenedAt:       "2026-07-30T08:00:00",

@@ -295,6 +295,28 @@ describe.skipIf(!hasTestDatabaseUrl)('API integration', () => {
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(reservedTagError('body:weight'))
     })
+
+    it('rejects todo reserved tag on log/number', async () => {
+      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-08-01T12:30:00+08:00',
+        value_number: '1',
+        tags: ['todo'],
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(reservedTagError('todo'))
+    })
+
+    it('rejects todo:in_progress reserved tag on log/number', async () => {
+      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-08-01T12:30:00+08:00',
+        value_number: '1',
+        tags: ['todo:in_progress'],
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(reservedTagError('todo:in_progress'))
+    })
   })
 
   describe('POST /api/log/body/weight', () => {
@@ -689,6 +711,20 @@ describe.skipIf(!hasTestDatabaseUrl)('API integration', () => {
       expect((await prefixed.json()).error).toBe(
         reservedTagError('transaction_entry:income'),
       )
+
+      const todoFrom = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
+        from: 'todo',
+        to: 'errand',
+      }))
+      expect(todoFrom.status).toBe(400)
+      expect((await todoFrom.json()).error).toBe(reservedTagError('todo'))
+
+      const todoTo = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
+        from: 'errand',
+        to: 'todo:in_progress',
+      }))
+      expect(todoTo.status).toBe(400)
+      expect((await todoTo.json()).error).toBe(reservedTagError('todo:in_progress'))
     })
   })
 

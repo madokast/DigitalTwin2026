@@ -130,6 +130,6 @@ npm run openapi:preview
 
 Fixtures 覆盖：RecordSuccess（number/text）、Error、Query/Summary/TagsSuccess、LogNumber/LogBodyWeight/LogText 请求、Rename 请求/成功、RecordDraft、Telegram probe 请求/成功、LogTransaction（含 `type`）；非法：JSON number、`1e3`、无时区 `happened_at`、transaction 缺 `type` / 空 entries。
 
-存量：若库中仍有裸 tag `transaction_entry`（无 `:type` 后缀），测试/生产库需手工 truncate/清理；契约与测试已按前缀语义对齐。保留前缀另含 `body:weight`（专用 `POST /api/log/body/weight`）。
+存量：若库中仍有裸 tag `transaction_entry`（无 `:type` 后缀），测试/生产库需手工 truncate/清理；契约与测试已按前缀语义对齐。保留前缀另含 `body:weight`（专用 `POST /api/log/body/weight`）与 `todo`（专用 `POST /api/log/todo`，Phase 1 起通用路径拒写）。
 
 Telegram **实发**在测试模式（`DIGITAL_TWIN_TEST`）下由 notify 路径跳过；probe 单测用 mock。

@@ -141,6 +141,40 @@ func TestCreateNumberRejectsReservedPrefixedTag(t *testing.T) {
 	}
 }
 
+func TestCreateNumberRejectsTodoReservedTag(t *testing.T) {
+	raw := []byte(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"value_number": "1",
+		"tags": ["todo"],
+		"objective_context": "x"
+	}`)
+	_, status, err := CreateNumber(context.Background(), nil, raw)
+	if status != 400 {
+		t.Fatalf("status %d", status)
+	}
+	want := tags.ReservedTagError("todo")
+	if err == nil || err.Error() != want {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestCreateNumberRejectsTodoPrefixedReservedTag(t *testing.T) {
+	raw := []byte(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"value_number": "1",
+		"tags": ["todo:in_progress"],
+		"objective_context": "x"
+	}`)
+	_, status, err := CreateNumber(context.Background(), nil, raw)
+	if status != 400 {
+		t.Fatalf("status %d", status)
+	}
+	want := tags.ReservedTagError("todo:in_progress")
+	if err == nil || err.Error() != want {
+		t.Fatalf("err=%v", err)
+	}
+}
+
 func TestCreateTextRejectsReservedTag(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
@@ -153,6 +187,23 @@ func TestCreateTextRejectsReservedTag(t *testing.T) {
 		t.Fatalf("status %d", status)
 	}
 	want := tags.ReservedTagError("transaction_entry")
+	if err == nil || err.Error() != want {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestCreateTextRejectsTodoReservedTag(t *testing.T) {
+	raw := []byte(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"value_text": "should fail",
+		"tags": ["todo:in_progress"],
+		"objective_context": "x"
+	}`)
+	_, status, err := CreateText(context.Background(), nil, raw)
+	if status != 400 {
+		t.Fatalf("status %d", status)
+	}
+	want := tags.ReservedTagError("todo:in_progress")
 	if err == nil || err.Error() != want {
 		t.Fatalf("err=%v", err)
 	}
