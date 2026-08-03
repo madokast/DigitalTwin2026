@@ -1,6 +1,7 @@
 import { assertNoReservedTags, validateTags } from '@/lib/tags'
 import { parseRFC3339Flexible } from '@/lib/timeutil'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
+import { extractUtcOffsetLiteral } from '@/lib/utcoffset'
 
 export const RECORD_DRAFT_KEYS = [
   'happened_at',
@@ -35,6 +36,8 @@ export type RecordDraftBody = {
 
 export type NormalizedRecordDraft = {
   happenedAt: Date
+  /** 从 happened_at 拆出的规范 utc_offset；PATCH 写入留给阶段 5 */
+  utcOffset: string
   valueNumber: string | null
   valueText: string | null
   tags: string[]
@@ -54,11 +57,12 @@ export function emptyStringToNull(
 
 /**
  * 校验 happened_at：必须带显式时区（Z 或 ±HH:MM / ±HHMM），与 PATCH / query 一致。
+ * 同时抽出规范 utc_offset（阶段 3 写入隐列）。
  * log/number、log/text 与 parseRecordDraft 共用。
  */
 export function parseHappenedAt(
   raw: unknown,
-): { ok: true; value: Date } | DraftValidationError {
+): { ok: true; value: Date; utcOffset: string } | DraftValidationError {
   if (typeof raw !== 'string' || !raw) {
     return { error: 'Missing required field: happened_at' }
   }
@@ -71,7 +75,11 @@ export function parseHappenedAt(
   if (!happenedAt) {
     return { error: 'Invalid happened_at datetime' }
   }
-  return { ok: true, value: happenedAt }
+  const offset = extractUtcOffsetLiteral(raw)
+  if (!('ok' in offset)) {
+    return { error: offset.error }
+  }
+  return { ok: true, value: happenedAt, utcOffset: offset.value }
 }
 
 /**
@@ -185,6 +193,7 @@ export function parseRecordDraft(
 
   return {
     happenedAt,
+    utcOffset: happenedResult.utcOffset,
     valueNumber,
     valueText,
     tags: body.tags,

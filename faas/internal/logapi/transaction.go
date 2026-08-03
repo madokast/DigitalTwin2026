@@ -35,7 +35,7 @@ func CreateTransactionBatch(ctx context.Context, pool *pgxpool.Pool, raw []byte)
 		}
 		amount := e.Amount
 		rec, err := insertReturning(
-			ctx, tx, id.String(), batch.HappenedAt, &amount, nil,
+			ctx, tx, id.String(), batch.HappenedAt, batch.UtcOffset, &amount, nil,
 			tagsJSON, e.Memo, nil,
 		)
 		if err != nil {

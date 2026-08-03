@@ -1,6 +1,5 @@
 // Package utcoffset：隐列 utc_offset 字面量拆分 / 规范化与按隐列格式化瞬间。
 // 与 Next src/lib/utcoffset.ts 对齐；规范见 docs/20260803-utc-offset.md §3。
-// 本阶段尚未接线生产读写路径。
 package utcoffset
 
 import (

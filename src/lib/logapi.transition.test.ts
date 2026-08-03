@@ -46,6 +46,7 @@ function todoRow(tags: string, valueText = 'Buy milk') {
   return {
     id: todoId,
     happenedAt: new Date('2026-08-02T02:00:00.000Z'),
+    utcOffset: 'Z',
     valueNumber: null,
     valueText,
     tags,

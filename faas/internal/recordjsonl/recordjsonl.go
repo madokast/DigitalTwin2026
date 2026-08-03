@@ -46,6 +46,7 @@ const utf8BOM = "\ufeff"
 type Row struct {
 	ID                       string
 	HappenedAt               time.Time
+	UtcOffset                string
 	ValueNumber              *string
 	ValueText                *string
 	Tags                     []string
@@ -103,7 +104,7 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	}
 
 	happenedRaw, _ := m["happened_at"].(string)
-	happenedAt, err := draft.ParseHappenedAt(happenedRaw)
+	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedRaw)
 	if err != nil {
 		return nil, wrapErr(err.Error(), lineNumber)
 	}
@@ -174,6 +175,7 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	return &Row{
 		ID:                       id,
 		HappenedAt:               happenedAt,
+		UtcOffset:                utcOffset,
 		ValueNumber:              valueNumber,
 		ValueText:                valueText,
 		Tags:                     tagsOut,

@@ -54,6 +54,7 @@ const UTF8_BOM = '\uFEFF'
 export type RecordJsonlRow = {
   id: string
   happenedAt: Date
+  utcOffset: string
   valueNumber: string | null
   valueText: string | null
   tags: string[]
@@ -205,6 +206,7 @@ export function parseLine(
   return {
     id: body.id,
     happenedAt: happenedResult.value,
+    utcOffset: happenedResult.utcOffset,
     valueNumber,
     valueText,
     tags,

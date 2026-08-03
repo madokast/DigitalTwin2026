@@ -112,6 +112,7 @@ function rowValues(row: RecordJsonlRow) {
   return {
     id: row.id,
     happenedAt: row.happenedAt,
+    utcOffset: row.utcOffset,
     valueNumber: row.valueNumber,
     valueText: row.valueText,
     tags: tagsJSON(row.tags),
@@ -134,10 +135,7 @@ function defaultStore(): ImportStore {
             return rows.length > 0
           },
           async insert(row) {
-            // 阶段 2：utc_offset 写入留给阶段 3（此处仅过编译）
-            await tx
-              .insert(records)
-              .values(rowValues(row) as typeof records.$inferInsert)
+            await tx.insert(records).values(rowValues(row))
           },
           async update(row) {
             const v = rowValues(row)
@@ -145,6 +143,7 @@ function defaultStore(): ImportStore {
               .update(records)
               .set({
                 happenedAt: v.happenedAt,
+                utcOffset: v.utcOffset,
                 valueNumber: v.valueNumber,
                 valueText: v.valueText,
                 tags: v.tags,

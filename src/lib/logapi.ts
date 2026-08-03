@@ -83,6 +83,7 @@ export type CreateBatchResult = CreateBatchOk | LogApiError
 type InsertValues = {
   id: string
   happenedAt: Date
+  utcOffset: string
   valueNumber: string | null
   valueText: string | null
   tags: string
@@ -111,11 +112,7 @@ async function insertReturning(
   executor: InsertExecutor,
   values: InsertValues,
 ): Promise<Record> {
-  // 阶段 2：schema 已要求 utc_offset；写入接线留给阶段 3（此处仅过编译）
-  const result = await executor
-    .insert(records)
-    .values(values as typeof records.$inferInsert)
-    .returning()
+  const result = await executor.insert(records).values(values).returning()
   return fromDB(result[0])
 }
 
@@ -175,6 +172,7 @@ export async function createNumber(
     const record = await insertReturning(db, {
       id: uuidv7(),
       happenedAt: happenedResult.value,
+      utcOffset: happenedResult.utcOffset,
       valueNumber: numberResult.value,
       valueText: null,
       tags: tagsJSON(body.tags),
@@ -204,6 +202,7 @@ export async function createBodyWeight(
     const record = await insertReturning(db, {
       id: uuidv7(),
       happenedAt: parsed.happenedAt,
+      utcOffset: parsed.utcOffset,
       valueNumber: parsed.valueNumber,
       valueText: null,
       tags: tagsJSON(parsed.tags),
@@ -233,6 +232,7 @@ export async function createTodo(
     const record = await insertReturning(db, {
       id: uuidv7(),
       happenedAt: parsed.happenedAt,
+      utcOffset: parsed.utcOffset,
       valueNumber: null,
       valueText: parsed.valueText,
       tags: tagsJSON(parsed.tags),
@@ -316,16 +316,16 @@ export async function transitionTodo(
         .update(records)
         .set({ tags: tagsJSON(newTags) })
         .where(eq(records.id, parsed.id))
-      // 阶段 2：utc_offset 写入留给阶段 3
       await tx.insert(records).values({
         id: uuidv7(),
         happenedAt: parsed.happenedAt,
+        utcOffset: parsed.utcOffset,
         valueNumber: null,
         valueText: auditText,
         tags: tagsJSON([TODO_TAG_TRANSITION]),
         objectiveContext: auditObjectiveContext(parsed.id),
         subjectiveInterpretation: null,
-      } as typeof records.$inferInsert)
+      })
     })
 
     return {
@@ -388,6 +388,7 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     const record = await insertReturning(db, {
       id: uuidv7(),
       happenedAt: happenedResult.value,
+      utcOffset: happenedResult.utcOffset,
       valueNumber: null,
       valueText: body.value_text,
       tags: tagsJSON(body.tags),
@@ -419,18 +420,18 @@ export async function createTransactionBatch(
     const out = await db.transaction(async (tx) => {
       const rows: Record[] = []
       for (const entry of parsed.entries) {
-        // 阶段 2：utc_offset 写入留给阶段 3
         const result = await tx
           .insert(records)
           .values({
             id: uuidv7(),
             happenedAt: parsed.happenedAt,
+            utcOffset: parsed.utcOffset,
             valueNumber: entry.amount,
             valueText: null,
             tags: tagsJSON(entry.tags),
             objectiveContext: entry.memo,
             subjectiveInterpretation: null,
-          } as typeof records.$inferInsert)
+          })
           .returning()
         rows.push(fromDB(result[0]))
       }

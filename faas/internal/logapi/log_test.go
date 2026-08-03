@@ -43,6 +43,20 @@ func TestCreateNumberRejectsUnknownKey(t *testing.T) {
 	}
 }
 
+func TestCreateNumberRejectsUtcOffsetKey(t *testing.T) {
+	raw := []byte(`{
+		"happened_at":"2026-07-30T08:00:00+08:00",
+		"value_number":"1",
+		"tags":["weight"],
+		"objective_context":"x",
+		"utc_offset":"+08:00"
+	}`)
+	_, status, err := CreateNumber(context.Background(), nil, raw)
+	if status != 400 || err == nil || err.Error() != "Unknown JSON key: utc_offset" {
+		t.Fatalf("status=%d err=%v", status, err)
+	}
+}
+
 func TestCreateNumberRejectsJSONNumber(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-07-30T08:00:00+08:00",
@@ -80,7 +94,7 @@ func TestCreateNumberAcceptsTimezone(t *testing.T) {
 		"2026-07-30T00:00:00.000Z",
 		"2026-07-30T08:00:00+08:00",
 	} {
-		if _, err := draft.ParseHappenedAt(happened); err != nil {
+		if _, _, err := draft.ParseHappenedAt(happened); err != nil {
 			t.Fatalf("%q: %v", happened, err)
 		}
 	}

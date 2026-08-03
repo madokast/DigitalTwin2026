@@ -56,6 +56,7 @@ export type NormalizedTransactionEntry = {
 
 export type NormalizedTransactionBatch = {
   happenedAt: Date
+  utcOffset: string
   type: TransactionType
   entries: NormalizedTransactionEntry[]
 }
@@ -214,6 +215,7 @@ export function parseTransactionBatch(
 
   return {
     happenedAt: happenedResult.value,
+    utcOffset: happenedResult.utcOffset,
     type: typeResult.value,
     entries,
   }

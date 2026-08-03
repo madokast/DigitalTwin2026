@@ -108,6 +108,7 @@ func insertReturning(
 	q rowQuerier,
 	id string,
 	happenedAt time.Time,
+	utcOffset string,
 	valueNumber *string,
 	valueText *string,
 	tagsJSON string,
@@ -115,21 +116,21 @@ func insertReturning(
 	subj any,
 ) (record.Record, error) {
 	var (
-		outID, outTags, outObj   string
-		outHappened              time.Time
-		outNum, outText, outSubj *string
+		outID, outTags, outObj, outOffset string
+		outHappened                       time.Time
+		outNum, outText, outSubj          *string
 	)
 	err := q.QueryRow(ctx, `
-INSERT INTO records (id, happened_at, value_number, value_text, tags, objective_context, subjective_interpretation)
-VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7)
-RETURNING id, happened_at, value_number, value_text, tags, objective_context, subjective_interpretation
-`, id, happenedAt, valueNumber, valueText, tagsJSON, objectiveContext, subj).Scan(
-		&outID, &outHappened, &outNum, &outText, &outTags, &outObj, &outSubj,
+INSERT INTO records (id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation)
+VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
+RETURNING id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation
+`, id, happenedAt, utcOffset, valueNumber, valueText, tagsJSON, objectiveContext, subj).Scan(
+		&outID, &outHappened, &outOffset, &outNum, &outText, &outTags, &outObj, &outSubj,
 	)
 	if err != nil {
 		return record.Record{}, err
 	}
-	return record.FromDB(outID, outHappened, outNum, outText, outTags, outObj, outSubj), nil
+	return record.FromDB(outID, outHappened, outOffset, outNum, outText, outTags, outObj, outSubj), nil
 }
 
 func decodeJSONBody(raw []byte, dest any) error {
@@ -144,7 +145,7 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	if err := decodeJSONBody(raw, &body); err != nil {
 		return record.Record{}, 400, err
 	}
-	happenedAt, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
+	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
 	if err != nil {
 		return record.Record{}, 400, err
 	}
@@ -188,7 +189,7 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	}
 
 	rec, err := insertReturning(
-		ctx, pool, id.String(), happenedAt, numStr, nil,
+		ctx, pool, id.String(), happenedAt, utcOffset, numStr, nil,
 		tagsJSON, objCtx, subj,
 	)
 	if err != nil {
@@ -205,7 +206,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	if err := decodeJSONBody(raw, &body); err != nil {
 		return record.Record{}, 400, err
 	}
-	happenedAt, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
+	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
 	if err != nil {
 		return record.Record{}, 400, err
 	}
@@ -243,7 +244,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	}
 
 	rec, err := insertReturning(
-		ctx, pool, id.String(), happenedAt, nil, &valueText,
+		ctx, pool, id.String(), happenedAt, utcOffset, nil, &valueText,
 		tagsJSON, objCtx, subj,
 	)
 	if err != nil {

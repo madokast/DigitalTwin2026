@@ -57,7 +57,7 @@ func CreateTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 
 	vt := parsed.ValueText
 	rec, err := insertReturning(
-		ctx, pool, id.String(), parsed.HappenedAt, nil, &vt,
+		ctx, pool, id.String(), parsed.HappenedAt, parsed.UtcOffset, nil, &vt,
 		tagsJSON, parsed.ObjectiveContext, parsed.SubjectiveInterpretation,
 	)
 	if err != nil {
@@ -109,15 +109,15 @@ func transitionTodo(ctx context.Context, db transitionDB, raw []byte) (Transitio
 	}
 
 	var (
-		todoID, todoTags, todoObj string
-		todoHappened              time.Time
-		todoNum, todoText, todoSubj *string
+		todoID, todoTags, todoObj, todoOffset string
+		todoHappened                          time.Time
+		todoNum, todoText, todoSubj           *string
 	)
 	err = db.QueryRow(ctx, `
-SELECT id, happened_at, value_number, value_text, tags, objective_context, subjective_interpretation
+SELECT id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation
 FROM records WHERE id = $1
 `, parsed.ID).Scan(
-		&todoID, &todoHappened, &todoNum, &todoText, &todoTags, &todoObj, &todoSubj,
+		&todoID, &todoHappened, &todoOffset, &todoNum, &todoText, &todoTags, &todoObj, &todoSubj,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -142,7 +142,7 @@ FROM records WHERE id = $1
 		return TransitionResult{}, 400, fmt.Errorf("%s", tododraft.ErrAlreadyTarget)
 	}
 
-	todoRec := record.FromDB(todoID, todoHappened, todoNum, todoText, todoTags, todoObj, todoSubj)
+	todoRec := record.FromDB(todoID, todoHappened, todoOffset, todoNum, todoText, todoTags, todoObj, todoSubj)
 	content := ""
 	if todoRec.ValueText != nil {
 		content = *todoRec.ValueText
@@ -179,7 +179,7 @@ FROM records WHERE id = $1
 
 	vt := auditText
 	_, err = insertReturning(
-		ctx, tx, auditID.String(), parsed.HappenedAt, nil, &vt,
+		ctx, tx, auditID.String(), parsed.HappenedAt, parsed.UtcOffset, nil, &vt,
 		auditTagsJSON, objCtx, nil,
 	)
 	if err != nil {

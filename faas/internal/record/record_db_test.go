@@ -71,6 +71,7 @@ func sampleDraft() *draft.NormalizedRecordDraft {
 	num := "80.0"
 	return &draft.NormalizedRecordDraft{
 		HappenedAt:               time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC),
+		UtcOffset:                "Z",
 		ValueNumber:              &num,
 		ValueText:                nil,
 		Tags:                     []string{"weight"},
@@ -86,6 +87,7 @@ func TestUpdate_successMapsReturning(t *testing.T) {
 		scanVals: []any{
 			"01900000-0000-7000-8000-000000000001",
 			happened,
+			"Z",
 			outNum,
 			nil,
 			`["weight"]`,

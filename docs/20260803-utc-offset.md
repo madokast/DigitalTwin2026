@@ -313,7 +313,7 @@ deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「
 
 ### 阶段 3：写入路径（创建 draft / log / todo）
 
-**状态：未开始**
+**状态：已完成**
 
 **目标：** 所有创建写入显式落 `utc_offset`；创建成功响应时间值已按隐列带区格式化；请求体出现 `utc_offset` → 未知键 400。
 
@@ -325,16 +325,16 @@ deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「
 - 双端测：带 `+08:00` / `Z` / 紧凑后缀创建后读回规范形；Todo `201.record.created_at` 带区
 
 **不做什么：**
-- 不收敛尚未改到的列表 query / Notify 漏网（阶段 4）
-- 不改 PATCH / import/export（阶段 5）
+- 不收敛尚未改到的列表 query / Notify 漏网（阶段 4）——注：`fromDB` 已按隐列格式化，query/export SELECT 已带 `utc_offset` 以免签名断裂；Notify / telegram 本地 format、recordjsonl **导出**一律 Z 等仍留给阶段 4/5
+- 不改 Admin PATCH 同步改 `utc_offset`（阶段 5）；import upsert **本阶段已写隐列**（否则 NOT NULL 无法落库）
 - 不改 OpenAPI 叙述句（阶段 6；测可用字面断言）
 - 不实现复盘 API
 
 **验收标准：**
-- [ ] 各创建路径 INSERT 均显式写 `utc_offset`；无依赖 DB default 猜区
-- [ ] 创建成功 JSON：**无** `utc_offset` 键；时间键（`happened_at` 或 Todo `created_at`）带录入规范区
-- [ ] 请求带 `utc_offset` → 400（英文错误，snake 字段名若提及则一致）
-- [ ] 本地/测试库已按阶段 2 重建后，相关 `npm test` / `go test` / 有 DB 集成测绿
+- [x] 各创建路径 INSERT 均显式写 `utc_offset`；无依赖 DB default 猜区
+- [x] 创建成功 JSON：**无** `utc_offset` 键；时间键（`happened_at` 或 Todo `created_at`）带录入规范区
+- [x] 请求带 `utc_offset` → 400（英文错误，snake 字段名若提及则一致）
+- [x] 本地/测试库已按阶段 2 重建后，相关 `npm test` / `go test` / 有 DB 集成测绿
 
 **依赖 / 可并行：** **依赖阶段 1 + 2**（逻辑 + 列）。与阶段 4 **文件面可部分并行**，但建议 **先合 3 再合 4**（先保证写入不炸）。勿与阶段 2 长期拆开合入。
 

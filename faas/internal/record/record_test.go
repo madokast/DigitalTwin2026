@@ -20,6 +20,7 @@ func TestFromDB(t *testing.T) {
 	rec := FromDB(
 		"01900000-0000-7000-8000-000000000001",
 		time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC),
+		"Z",
 		&num,
 		nil,
 		`["weight"]`,
@@ -31,6 +32,20 @@ func TestFromDB(t *testing.T) {
 	}
 	if rec.ValueNumber == nil || *rec.ValueNumber != "75.5" {
 		t.Fatalf("valueNumber %#v", rec.ValueNumber)
+	}
+
+	offsetRec := FromDB(
+		"01900000-0000-7000-8000-000000000002",
+		time.Date(2026, 7, 30, 0, 0, 0, 0, time.UTC),
+		"+08:00",
+		&num,
+		nil,
+		`["weight"]`,
+		"morning",
+		nil,
+	)
+	if offsetRec.HappenedAt != "2026-07-30T08:00:00.000+08:00" {
+		t.Fatalf("offset happenedAt %s", offsetRec.HappenedAt)
 	}
 }
 

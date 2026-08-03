@@ -126,6 +126,7 @@ func sampleTodoSelect(tags string, valueText string) *fakeRow {
 	return &fakeRow{vals: []any{
 		todoID,
 		happened,
+		"Z",
 		nil,
 		valueText,
 		tags,
@@ -197,6 +198,7 @@ func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 		insertRow: &fakeRow{vals: []any{
 			"01900000-0000-7000-8000-000000000099",
 			time.Date(2026, 8, 2, 4, 0, 0, 0, time.UTC),
+			"+08:00",
 			nil,
 			auditText,
 			`["todo:transition"]`,
@@ -208,6 +210,7 @@ func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 		selectRow: &fakeRow{vals: []any{
 			todoID,
 			happened,
+			"Z",
 			nil,
 			"Buy milk",
 			`["todo:in_progress","errand"]`,

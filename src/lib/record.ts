@@ -3,8 +3,9 @@ import { validate as uuidValidate } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
 import type { NormalizedRecordDraft } from '@/lib/draft'
+import { formatHappenedAt as formatWithUtcOffset } from '@/lib/utcoffset'
 
-/** API 响应 Record：与 Go `record.Record` JSON 对齐（snake_case + UTC Z） */
+/** API 响应 Record：与 Go `record.Record` JSON 对齐（snake_case；时间按 utc_offset 带区） */
 
 export type Record = {
   id: string
@@ -19,6 +20,8 @@ export type Record = {
 type RecordRow = {
   id: string
   happenedAt: Date | string
+  /** 隐列；fromDB 按此格式化 happened_at（对外不可见） */
+  utcOffset: string
   valueNumber: string | null
   valueText: string | null
   tags: string
@@ -27,8 +30,8 @@ type RecordRow = {
 }
 
 /**
- * 与 Go `record.FormatHappenedAt` 对齐：UTC、毫秒三位、`Z` 后缀。
- * Date 的 `toISOString` 已是该格式；显式转换避免依赖 JSON 序列化副作用。
+ * 与 Go `record.FormatHappenedAt`（无 offset 重载）对齐：一律 UTC Z。
+ * 生产读路径请用 fromDB / utcoffset.formatHappenedAt；本函数留给尚未接线的路径。
  */
 export function formatHappenedAt(value: Date | string): string {
   if (value instanceof Date) {
@@ -41,11 +44,16 @@ export function formatHappenedAt(value: Date | string): string {
   return d.toISOString()
 }
 
-/** 与 Go `record.FromDB` 对齐：DB 行 → API Record（happened_at 为 UTC Z 字符串） */
+function instantOf(value: Date | string): Date {
+  if (value instanceof Date) return value
+  return new Date(value)
+}
+
+/** 与 Go `record.FromDB` 对齐：DB 行 → API Record（happened_at = 瞬间 + utc_offset） */
 export function fromDB(row: RecordRow): Record {
   return {
     id: row.id,
-    happened_at: formatHappenedAt(row.happenedAt),
+    happened_at: formatWithUtcOffset(instantOf(row.happenedAt), row.utcOffset),
     value_number: row.valueNumber,
     value_text: row.valueText,
     tags: row.tags,

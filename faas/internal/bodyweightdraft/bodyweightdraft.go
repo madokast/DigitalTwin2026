@@ -40,6 +40,7 @@ var logBodyWeightKeys = []string{
 // NormalizedBodyWeight 校验后的体重行。
 type NormalizedBodyWeight struct {
 	HappenedAt               time.Time
+	UtcOffset                string
 	ValueNumber              string
 	Tags                     []string
 	ObjectiveContext         string
@@ -153,7 +154,7 @@ func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, error) {
 		return NormalizedBodyWeight{}, err
 	}
 
-	happenedAt, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
+	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
 	if err != nil {
 		return NormalizedBodyWeight{}, err
 	}
@@ -180,6 +181,7 @@ func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, error) {
 
 	return NormalizedBodyWeight{
 		HappenedAt:               happenedAt,
+		UtcOffset:                utcOffset,
 		ValueNumber:              valueNumber,
 		Tags:                     tagsOut,
 		ObjectiveContext:         objCtx,

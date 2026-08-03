@@ -141,6 +141,43 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const body = await res.json()
       expect(body.record.value_number).toBe('1')
       expect(body.record.happened_at).toBe('2026-07-30T00:00:00.000Z')
+      expect(body.record).not.toHaveProperty('utc_offset')
+    })
+
+    it('preserves +08:00 and compact +0800 on create success', async () => {
+      const plus = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        value_number: '1',
+        tags: ['weight'],
+        objective_context: 'x',
+      }))
+      expect(plus.status).toBe(201)
+      expect((await plus.json()).record.happened_at).toBe(
+        '2026-07-30T08:00:00.000+08:00',
+      )
+
+      const compact = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T08:00:00+0800',
+        value_number: '2',
+        tags: ['weight'],
+        objective_context: 'x',
+      }))
+      expect(compact.status).toBe(201)
+      expect((await compact.json()).record.happened_at).toBe(
+        '2026-07-30T08:00:00.000+08:00',
+      )
+    })
+
+    it('rejects utc_offset as unknown key', async () => {
+      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        value_number: '1',
+        tags: ['weight'],
+        objective_context: 'x',
+        utc_offset: '+08:00',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('Unknown JSON key: utc_offset')
     })
 
     it('rejects JSON number type for value_number', async () => {
@@ -177,7 +214,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'x',
       }))
       expect(res.status).toBe(201)
-      expect((await res.json()).record.valueNumber).toBe('1.0')
+      expect((await res.json()).record.value_number).toBe('1.0')
     })
   })
 
@@ -408,7 +445,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const body = await res.json()
       expect(body.success).toBe(true)
       expect(body.record.content).toBe('Buy milk')
-      expect(body.record.created_at).toBe('2026-08-02T02:00:00.000Z')
+      expect(body.record.created_at).toBe('2026-08-02T10:00:00.000+08:00')
       expect(body.record.value_number).toBeNull()
       expect(body.record.tags).toBe(JSON.stringify(['todo:in_progress', 'errand']))
       expect(body.record.objective_context).toBe('weekend grocery list')
@@ -443,6 +480,17 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe('Unknown JSON key: happened_at')
+    })
+
+    it('rejects utc_offset as unknown key', async () => {
+      const res = await postTodo(jsonPost('http://localhost/api/log/todo', {
+        created_at: '2026-08-02T10:00:00+08:00',
+        content: 'Buy milk',
+        objective_context: 'x',
+        utc_offset: '+08:00',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('Unknown JSON key: utc_offset')
     })
   })
 
@@ -507,10 +555,12 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         created_at?: string
         content?: string
       }>
-      const audit = audits.find((r) => r.objectiveContext === `The index of the to-do is ${todo.id}`)
+      const audit = audits.find(
+        (r) => r.objective_context === `The index of the to-do is ${todo.id}`,
+      )
       expect(audit).toBeTruthy()
       expect(audit!.tags).toBe(JSON.stringify(['todo:transition']))
-      expect(audit!.happened_at).toBe('2026-08-02T04:00:00.000Z')
+      expect(audit!.happened_at).toBe('2026-08-02T12:00:00.000+08:00')
       expect(audit!.value_text).toBe(
         `Complete a to-do created at ${todo.created_at}: ${todo.content}`,
       )
@@ -568,7 +618,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: string
       }>
       const auditId = audits.find(
-        (r) => r.objectiveContext === `The index of the to-do is ${todo.id}`,
+        (r) => r.objective_context === `The index of the to-do is ${todo.id}`,
       )!.id
       const onAudit = await postTodoTransition(jsonPost(
         'http://localhost/api/log/todo/transition',
@@ -755,7 +805,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.page).toBe(1)
       expect(body.page_size).toBe(20)
       // happenedAt ASC, id ASC
-      expect(body.records.map((r: { value_text: string | null }) => r.valueText)).toEqual([
+      expect(body.records.map((r: { value_text: string | null }) => r.value_text)).toEqual([
         null,
         'reviewed physics notes',
       ])

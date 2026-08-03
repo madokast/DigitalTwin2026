@@ -1,7 +1,6 @@
 /**
  * 隐列 `utc_offset` 字面量：从带区 ISO 拆后缀并规范化；按隐列格式化瞬间。
  * 与 Go `faas/internal/utcoffset` 对齐；规范见 docs/20260803-utc-offset.md §3。
- * 本阶段尚未接线生产读写路径。
  */
 
 /** 与 draft / query 一致：Z / ±HH:MM / ±HHMM */

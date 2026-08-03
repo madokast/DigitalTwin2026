@@ -240,6 +240,7 @@ describe('OpenAPI contract (Phase 2)', () => {
     const rec = fromDB({
       id: '01900000-0000-7000-8000-000000000001',
       happenedAt: new Date('2026-07-30T08:00:00+08:00'),
+      utcOffset: 'Z',
       valueNumber: '1.0',
       valueText: null,
       tags: '["weight"]',

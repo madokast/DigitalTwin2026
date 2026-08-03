@@ -46,6 +46,7 @@ var logTodoKeys = []string{
 // NormalizedTodo 校验后的待办行（落库列语义）。
 type NormalizedTodo struct {
 	HappenedAt               time.Time
+	UtcOffset                string
 	ValueText                string
 	Tags                     []string
 	ObjectiveContext         string
@@ -116,6 +117,7 @@ type NormalizedTodoTransition struct {
 	ID         string
 	Target     string // TodoState 字面量
 	HappenedAt time.Time
+	UtcOffset  string
 }
 
 func isStateTag(tag string) bool {
@@ -261,7 +263,7 @@ func ParseTodoTransition(raw []byte) (NormalizedTodoTransition, error) {
 		return NormalizedTodoTransition{}, fmt.Errorf("%s", ErrInvalidTarget)
 	}
 
-	happenedAt, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
+	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
 	if err != nil {
 		return NormalizedTodoTransition{}, err
 	}
@@ -270,6 +272,7 @@ func ParseTodoTransition(raw []byte) (NormalizedTodoTransition, error) {
 		ID:         id,
 		Target:     target,
 		HappenedAt: happenedAt,
+		UtcOffset:  utcOffset,
 	}, nil
 }
 
@@ -278,17 +281,17 @@ func happenedAtString(raw any) string {
 	return s
 }
 
-func parseCreatedAt(raw any) (time.Time, error) {
+func parseCreatedAt(raw any) (time.Time, string, error) {
 	s, ok := raw.(string)
 	if !ok || s == "" {
-		return time.Time{}, fmt.Errorf("Missing required field: created_at")
+		return time.Time{}, "", fmt.Errorf("Missing required field: created_at")
 	}
-	t, err := draft.ParseHappenedAt(s)
+	t, offset, err := draft.ParseHappenedAt(s)
 	if err != nil {
 		msg := strings.ReplaceAll(err.Error(), "happened_at", "created_at")
-		return time.Time{}, fmt.Errorf("%s", msg)
+		return time.Time{}, "", fmt.Errorf("%s", msg)
 	}
-	return t, nil
+	return t, offset, nil
 }
 
 func optionalSubjective(raw any) (any, error) {
@@ -355,7 +358,7 @@ func ParseTodo(raw []byte) (NormalizedTodo, error) {
 		return NormalizedTodo{}, err
 	}
 
-	happenedAt, err := parseCreatedAt(body.CreatedAt)
+	happenedAt, utcOffset, err := parseCreatedAt(body.CreatedAt)
 	if err != nil {
 		return NormalizedTodo{}, err
 	}
@@ -382,6 +385,7 @@ func ParseTodo(raw []byte) (NormalizedTodo, error) {
 
 	return NormalizedTodo{
 		HappenedAt:               happenedAt,
+		UtcOffset:                utcOffset,
 		ValueText:                content,
 		Tags:                     tagsOut,
 		ObjectiveContext:         objCtx,

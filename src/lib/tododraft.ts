@@ -56,6 +56,7 @@ export type LogTodoBody = {
 
 export type NormalizedTodo = {
   happenedAt: Date
+  utcOffset: string
   valueText: string
   tags: string[]
   objectiveContext: string
@@ -121,6 +122,7 @@ export type NormalizedTodoTransition = {
   id: string
   target: TodoState
   happenedAt: Date
+  utcOffset: string
 }
 
 function isStateTag(tag: string): boolean {
@@ -255,13 +257,14 @@ export function parseTodoTransition(
     id: body.id,
     target: body.target as TodoState,
     happenedAt: happened.value,
+    utcOffset: happened.utcOffset,
   }
 }
 
 /** created_at 校验：语义同 parseHappenedAt，错误文案用 created_at */
 function parseCreatedAt(
   raw: unknown,
-): { ok: true; value: Date } | DraftValidationError {
+): { ok: true; value: Date; utcOffset: string } | DraftValidationError {
   if (typeof raw !== 'string' || !raw) {
     return { error: 'Missing required field: created_at' }
   }
@@ -353,6 +356,7 @@ export function parseTodo(
 
   return {
     happenedAt: createdResult.value,
+    utcOffset: createdResult.utcOffset,
     valueText: body.content,
     tags: [TODO_TAG_IN_PROGRESS, ...clientTags.value],
     objectiveContext: body.objective_context,

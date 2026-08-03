@@ -11,6 +11,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/timeutil"
+	"github.com/mdk/digitaltwin2026/faas/internal/utcoffset"
 )
 
 var isoTZSuffix = regexp.MustCompile(`(?i)(Z|[+-]\d{2}:?\d{2})$`)
@@ -38,6 +39,7 @@ type RecordDraftBody struct {
 
 type NormalizedRecordDraft struct {
 	HappenedAt               time.Time
+	UtcOffset                string // 从 happened_at 拆出；PATCH 写入留给阶段 5
 	ValueNumber              *string
 	ValueText                *string
 	Tags                     []string
@@ -53,18 +55,23 @@ func EmptyStringToNull(value *string) *string {
 }
 
 // ParseHappenedAt 校验 ISO 8601 且必须带显式时区（与 Next parseHappenedAt / query from|to 一致）。
-func ParseHappenedAt(raw string) (time.Time, error) {
+// 同时返回规范 utc_offset（阶段 3 写入隐列）。
+func ParseHappenedAt(raw string) (time.Time, string, error) {
 	if raw == "" {
-		return time.Time{}, fmt.Errorf("Missing required field: happened_at")
+		return time.Time{}, "", fmt.Errorf("Missing required field: happened_at")
 	}
 	if !isoTZSuffix.MatchString(raw) {
-		return time.Time{}, fmt.Errorf("happened_at must be ISO 8601 with timezone (Z or ±HH:MM)")
+		return time.Time{}, "", fmt.Errorf("happened_at must be ISO 8601 with timezone (Z or ±HH:MM)")
 	}
 	happenedAt, err := timeutil.ParseRFC3339Flexible(raw)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("Invalid happened_at datetime")
+		return time.Time{}, "", fmt.Errorf("Invalid happened_at datetime")
 	}
-	return happenedAt, nil
+	offset, err := utcoffset.ExtractUtcOffsetLiteral(raw)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+	return happenedAt, offset, nil
 }
 
 // ValidateDecimalString 校验已 trim 的十进制字面量（不经 float 往返；与 Next validateDecimalString 一致）。
@@ -128,7 +135,7 @@ func ParseRecordDraft(body RecordDraftBody) (*NormalizedRecordDraft, error) {
 	if !ok {
 		happenedRaw = ""
 	}
-	happenedAt, err := ParseHappenedAt(happenedRaw)
+	happenedAt, utcOffset, err := ParseHappenedAt(happenedRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -198,6 +205,7 @@ func ParseRecordDraft(body RecordDraftBody) (*NormalizedRecordDraft, error) {
 
 	return &NormalizedRecordDraft{
 		HappenedAt:               happenedAt,
+		UtcOffset:                utcOffset,
 		ValueNumber:              valueNumber,
 		ValueText:                valueText,
 		Tags:                     tagsStr,

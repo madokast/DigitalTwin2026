@@ -42,6 +42,7 @@ export type LogBodyWeightBody = {
 
 export type NormalizedBodyWeight = {
   happenedAt: Date
+  utcOffset: string
   valueNumber: string
   tags: string[]
   objectiveContext: string
@@ -164,6 +165,7 @@ export function parseBodyWeight(
 
   return {
     happenedAt: happenedResult.value,
+    utcOffset: happenedResult.utcOffset,
     valueNumber: amount.value,
     tags: [RESERVED_TAG_BODY_WEIGHT, ...clientTags.value],
     objectiveContext: body.objective_context,

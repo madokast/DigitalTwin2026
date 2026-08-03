@@ -56,6 +56,7 @@ type NormalizedTransactionEntry struct {
 // NormalizedTransactionBatch 校验后的整单。
 type NormalizedTransactionBatch struct {
 	HappenedAt time.Time
+	UtcOffset  string
 	Type       string
 	Entries    []NormalizedTransactionEntry
 }
@@ -201,7 +202,7 @@ func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, error) {
 		return NormalizedTransactionBatch{}, err
 	}
 	happenedRaw, _ := body.HappenedAt.(string)
-	happenedAt, err := draft.ParseHappenedAt(happenedRaw)
+	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedRaw)
 	if err != nil {
 		return NormalizedTransactionBatch{}, err
 	}
@@ -233,6 +234,7 @@ func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, error) {
 	}
 	return NormalizedTransactionBatch{
 		HappenedAt: happenedAt,
+		UtcOffset:  utcOffset,
 		Type:       typ,
 		Entries:    entries,
 	}, nil

@@ -38,10 +38,11 @@ describe('formatHappenedAt', () => {
 })
 
 describe('fromDB', () => {
-  it('maps DB row to snake_case API Record', () => {
+  it('maps DB row to snake_case API Record with utc_offset formatting', () => {
     const rec = fromDB({
       id: '01900000-0000-7000-8000-000000000001',
       happenedAt: new Date('2026-07-30T10:00:00.000Z'),
+      utcOffset: 'Z',
       valueNumber: '75.5',
       valueText: null,
       tags: '["weight"]',
@@ -51,6 +52,20 @@ describe('fromDB', () => {
     expect(rec.happened_at).toBe('2026-07-30T10:00:00.000Z')
     expect(typeof rec.happened_at).toBe('string')
     expect(rec.value_number).toBe('75.5')
+  })
+
+  it('formats happened_at with stored +08:00 offset', () => {
+    const rec = fromDB({
+      id: '01900000-0000-7000-8000-000000000002',
+      happenedAt: new Date('2026-07-30T00:00:00.000Z'),
+      utcOffset: '+08:00',
+      valueNumber: '1',
+      valueText: null,
+      tags: '["weight"]',
+      objectiveContext: 'x',
+      subjectiveInterpretation: null,
+    })
+    expect(rec.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
   })
 })
 
@@ -70,6 +85,7 @@ describe('update (404 contract)', () => {
 describe('update (injected store)', () => {
   const draft: NormalizedRecordDraft = {
     happenedAt: new Date('2026-07-30T10:00:00.000Z'),
+    utcOffset: 'Z',
     valueNumber: '80.0',
     valueText: null,
     tags: ['weight'],
@@ -81,6 +97,7 @@ describe('update (injected store)', () => {
     const updateReturning = vi.fn(async () => ({
       id: '01900000-0000-7000-8000-000000000001',
       happenedAt: new Date('2026-07-30T10:00:00.000Z'),
+      utcOffset: 'Z',
       valueNumber: '80.0',
       valueText: null,
       tags: '["weight"]',

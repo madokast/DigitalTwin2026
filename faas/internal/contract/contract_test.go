@@ -222,6 +222,7 @@ func TestGoFromDBMatchesNumberSuccessFixture(t *testing.T) {
 	got := record.FromDB(
 		fixture.Record.ID,
 		time.Date(2026, 7, 30, 0, 0, 0, 0, time.UTC),
+		"Z",
 		&vn,
 		nil,
 		`["weight"]`,

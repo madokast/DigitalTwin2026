@@ -69,23 +69,30 @@ func TestParseRecordDraftValid(t *testing.T) {
 }
 
 func TestParseHappenedAt(t *testing.T) {
-	if _, err := ParseHappenedAt("2026-07-30T00:00:00.000Z"); err != nil {
+	if _, offset, err := ParseHappenedAt("2026-07-30T00:00:00.000Z"); err != nil {
 		t.Fatal(err)
+	} else if offset != "Z" {
+		t.Fatalf("offset=%q want Z", offset)
 	}
-	if _, err := ParseHappenedAt("2026-07-30T08:00:00+08:00"); err != nil {
+	if _, offset, err := ParseHappenedAt("2026-07-30T08:00:00+08:00"); err != nil {
 		t.Fatal(err)
+	} else if offset != "+08:00" {
+		t.Fatalf("offset=%q want +08:00", offset)
 	}
 	// 契约 / Next 允许 ±HHMM（无冒号）；须与 ±HH:MM 等价，不能 400
-	got, err := ParseHappenedAt("2026-07-30T08:00:00+0800")
+	got, offset, err := ParseHappenedAt("2026-07-30T08:00:00+0800")
 	if err != nil {
 		t.Fatalf("+0800: %v", err)
+	}
+	if offset != "+08:00" {
+		t.Fatalf("+0800 offset=%q", offset)
 	}
 	want, _ := time.Parse(time.RFC3339, "2026-07-30T08:00:00+08:00")
 	if !got.Equal(want) {
 		t.Fatalf("+0800 instant: got %v want %v", got, want)
 	}
 	for _, raw := range []string{"2026-07-30", "2026-07-30T08:00:00"} {
-		_, err := ParseHappenedAt(raw)
+		_, _, err := ParseHappenedAt(raw)
 		if err == nil || err.Error() != "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)" {
 			t.Fatalf("%q: got %v", raw, err)
 		}
@@ -97,7 +104,7 @@ func TestParseHappenedAt(t *testing.T) {
 		"2026-7-30T08:00:00Z",
 		"2026-07-30T8:00:00Z",
 	} {
-		_, err := ParseHappenedAt(raw)
+		_, _, err := ParseHappenedAt(raw)
 		if err == nil || err.Error() != "Invalid happened_at datetime" {
 			t.Fatalf("%q: got %v", raw, err)
 		}

@@ -28,7 +28,7 @@ func CreateBodyWeight(ctx context.Context, pool *pgxpool.Pool, raw []byte) (reco
 
 	vn := parsed.ValueNumber
 	rec, err := insertReturning(
-		ctx, pool, id.String(), parsed.HappenedAt, &vn, nil,
+		ctx, pool, id.String(), parsed.HappenedAt, parsed.UtcOffset, &vn, nil,
 		tagsJSON, parsed.ObjectiveContext, parsed.SubjectiveInterpretation,
 	)
 	if err != nil {

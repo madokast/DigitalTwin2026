@@ -151,6 +151,7 @@ describe('importRecordsJsonl', () => {
     const reserved = serializeLine({
       id: ID2,
       happenedAt: new Date('2026-07-30T00:00:00.000Z'),
+      utcOffset: 'Z',
       valueNumber: '70',
       valueText: null,
       tags: ['body:weight'],

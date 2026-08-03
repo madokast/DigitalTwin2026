@@ -174,15 +174,15 @@ func buildWhere(p *ParsedQuery) (string, []any) {
 
 func scanRecord(row pgx.Row) (record.Record, error) {
 	var (
-		id, tagsField, objectiveContext string
-		happenedAt                      time.Time
-		valueNumber, valueText, subj    *string
+		id, tagsField, objectiveContext, utcOffset string
+		happenedAt                                 time.Time
+		valueNumber, valueText, subj               *string
 	)
-	err := row.Scan(&id, &happenedAt, &valueNumber, &valueText, &tagsField, &objectiveContext, &subj)
+	err := row.Scan(&id, &happenedAt, &utcOffset, &valueNumber, &valueText, &tagsField, &objectiveContext, &subj)
 	if err != nil {
 		return record.Record{}, err
 	}
-	return record.FromDB(id, happenedAt, valueNumber, valueText, tagsField, objectiveContext, subj), nil
+	return record.FromDB(id, happenedAt, utcOffset, valueNumber, valueText, tagsField, objectiveContext, subj), nil
 }
 
 type FetchResult struct {
@@ -240,7 +240,7 @@ func FetchFilteredRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedQuer
 		return nil, err
 	}
 
-	selectSQL := `SELECT id, happened_at, value_number, value_text, tags, objective_context, subjective_interpretation
+	selectSQL := `SELECT id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation
 FROM records`
 	if where != "" {
 		selectSQL += " WHERE " + where

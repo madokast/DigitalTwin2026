@@ -50,11 +50,23 @@ describe('emptyStringToNull', () => {
 describe('parseHappenedAt', () => {
   it('accepts Z and ±HH:MM / ±HHMM offsets', () => {
     const z = parseHappenedAt('2026-07-30T00:00:00.000Z')
-    expect('error' in z).toBe(false)
+    expect(z).toEqual({
+      ok: true,
+      value: expect.any(Date),
+      utcOffset: 'Z',
+    })
     const offset = parseHappenedAt('2026-07-30T08:00:00+08:00')
-    expect('error' in offset).toBe(false)
+    expect(offset).toEqual({
+      ok: true,
+      value: expect.any(Date),
+      utcOffset: '+08:00',
+    })
     const compact = parseHappenedAt('2026-07-30T08:00:00+0800')
-    expect('error' in compact).toBe(false)
+    expect(compact).toEqual({
+      ok: true,
+      value: expect.any(Date),
+      utcOffset: '+08:00',
+    })
     if (!('error' in offset) && !('error' in compact)) {
       expect(compact.value.getTime()).toBe(offset.value.getTime())
     }
@@ -125,6 +137,7 @@ describe('parseRecordDraft', () => {
     expect('error' in parsed).toBe(false)
     if ('error' in parsed) return
     expect(parsed.valueNumber).toBe('75.5')
+    expect(parsed.utcOffset).toBe('+08:00')
     expect(parsed.valueText).toBeNull()
     expect(parsed.tags).toEqual(['weight'])
     expect(parsed.objectiveContext).toBe('morning weigh-in')

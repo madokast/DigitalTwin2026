@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
+	"github.com/mdk/digitaltwin2026/faas/internal/utcoffset"
 )
 
 // Record matches Next JSON shape（snake_case HTTP JSON）。
@@ -24,6 +25,7 @@ type Record struct {
 	SubjectiveInterpretation *string `json:"subjective_interpretation"`
 }
 
+// FormatHappenedAt 一律 UTC Z（无 offset 重载）。生产读路径用 FromDB / utcoffset.FormatHappenedAt。
 func FormatHappenedAt(t time.Time) string {
 	return t.UTC().Format("2006-01-02T15:04:05.000Z")
 }
@@ -31,15 +33,21 @@ func FormatHappenedAt(t time.Time) string {
 func FromDB(
 	id string,
 	happenedAt time.Time,
+	utcOffset string,
 	valueNumber *string,
 	valueText *string,
 	tags string,
 	objectiveContext string,
 	subjectiveInterpretation *string,
 ) Record {
+	formatted, err := utcoffset.FormatHappenedAt(happenedAt, utcOffset)
+	if err != nil {
+		// 隐列损坏时仍可序列化；正常路径有 DB CHECK + 写入校验
+		formatted = FormatHappenedAt(happenedAt)
+	}
 	return Record{
 		ID:                       id,
-		HappenedAt:               FormatHappenedAt(happenedAt),
+		HappenedAt:               formatted,
 		ValueNumber:              valueNumber,
 		ValueText:                valueText,
 		Tags:                     tags,
@@ -83,9 +91,9 @@ func Update(ctx context.Context, q db.Querier, id string, d *draft.NormalizedRec
 	}
 
 	var (
-		outID, outTags, outObj   string
-		outHappened              time.Time
-		outNum, outText, outSubj *string
+		outID, outTags, outObj, outOffset string
+		outHappened                       time.Time
+		outNum, outText, outSubj          *string
 	)
 	err = q.QueryRow(ctx, `
 UPDATE records SET
@@ -96,9 +104,9 @@ UPDATE records SET
   objective_context = $5,
   subjective_interpretation = $6
 WHERE id = $7
-RETURNING id, happened_at, value_number, value_text, tags, objective_context, subjective_interpretation
+RETURNING id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation
 `, d.HappenedAt, d.ValueNumber, d.ValueText, tagsJSON, d.ObjectiveContext, d.SubjectiveInterpretation, id).Scan(
-		&outID, &outHappened, &outNum, &outText, &outTags, &outObj, &outSubj,
+		&outID, &outHappened, &outOffset, &outNum, &outText, &outTags, &outObj, &outSubj,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -106,5 +114,5 @@ RETURNING id, happened_at, value_number, value_text, tags, objective_context, su
 		}
 		return Record{}, 500, err
 	}
-	return FromDB(outID, outHappened, outNum, outText, outTags, outObj, outSubj), 200, nil
+	return FromDB(outID, outHappened, outOffset, outNum, outText, outTags, outObj, outSubj), 200, nil
 }
