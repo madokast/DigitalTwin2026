@@ -287,16 +287,16 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 
 ---
 
-## 9. 未决 / 实现时确认
+## 9. 实现时确认项（已全部落地，保留决策记录）
 
-| # | 项 | 建议默认 |
-|---|-----|----------|
-| 1 | 云注入实现细节（写 OPTIONAL / VERCEL_KEYS / `.env.prod` 的先后顺序） | **白名单一律放行该键** + deploy 按环境强制设值（test=`1` / prod=`0`）；与现 FC/SCF 白名单模式一致 |
-| 2 | 函数改名是否与行为同一 PR | 建议同一 PR，避免旧名误导 |
-| 3 | `telegram` TestMain 设测试 flag | 删除即可（SendMessage 不读 suppress） |
-| 4 | 本地 `next dev` 是否默认加载 `.env.test` 从而带上 SUPPRESS=1 | 现状本就用 `.env.test`；开发者若要本地真发需临时去掉该键或改非 `'1'`——**可接受** |
+| # | 项 | 建议默认（已按此落地） | 状态 |
+|---|-----|----------|------|
+| 1 | 云注入实现细节（写 OPTIONAL / VERCEL_KEYS / `.env.prod` 的先后顺序） | **白名单一律放行该键** + deploy 按环境强制设值（test=`1` / prod=`0`）；与现 FC/SCF 白名单模式一致 | 已落地（阶段 2） |
+| 2 | 函数改名是否与行为同一 PR | 同一 PR，避免旧名误导 | 已落地（阶段 1） |
+| 3 | `telegram` TestMain 设测试 flag | 删除（SendMessage 不读 suppress） | 已落地（阶段 1） |
+| 4 | 本地 `next dev` 是否默认加载 `.env.test` 从而带上 SUPPRESS=1 | 现状本就用 `.env.test`；开发者若要本地真发需临时去掉该键或改非 `'1'`——可接受 | 已接受 |
 
-无产品语义未决：请求体 suppress、**`DIGITAL_TWIN_TEST` 无其它功能可整删（无拆分旁路）**、ALLOW、严格仅 `'1'` 才跳过、**白名单一律放行 + deploy 注入（test=`1` / prod=`0`，用户透明）**、本地 `.env.test` 显式写 SUPPRESS=`1`、进程级 vs 按请求对比、probe 例外（含测试偶发真发可接受）均已锁定。
+无产品语义未决：请求体 suppress、**`DIGITAL_TWIN_TEST` 无其它功能可整删（无拆分旁路）**、ALLOW、严格仅 `'1'` 才跳过、**白名单一律放行 + deploy 注入（test=`1` / prod=`0`，用户透明）**、本地 `.env.test` 显式写 SUPPRESS=`1`、进程级 vs 按请求对比、probe 例外（含测试偶发真发可接受）均已锁定并落地。
 
 ---
 
