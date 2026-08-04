@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
         inserted: result.inserted,
         type: result.type,
         sum: result.sum,
+        atomic: true,
       },
       { status: result.status },
     )

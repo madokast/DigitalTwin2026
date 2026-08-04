@@ -363,6 +363,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         inserted: 2,
         type: 'expense',
         sum: '37.50',
+        atomic: true,
       })
       expect(body.records).toBeUndefined()
 

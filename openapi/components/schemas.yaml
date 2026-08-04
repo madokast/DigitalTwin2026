@@ -797,12 +797,18 @@ LogTransactionRequest:
 
 TransactionBatchSuccess:
   type: object
-  required: [success, inserted, type, sum]
+  required: [success, inserted, type, sum, atomic]
   additionalProperties: false
   properties:
     success:
       type: boolean
       const: true
+    atomic:
+      type: boolean
+      const: true
+      description: |
+        Always true: the whole batch is committed in a single transaction —
+        either every entry is written or none is.
     inserted:
       type: integer
       minimum: 1

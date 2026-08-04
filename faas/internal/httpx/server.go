@@ -370,6 +370,7 @@ func (s *Server) handleLogTransaction(w http.ResponseWriter, r *http.Request) {
 		"inserted": inserted,
 		"type":     batchType,
 		"sum":      sum,
+		"atomic":   true,
 	})
 }
 

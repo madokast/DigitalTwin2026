@@ -2,5 +2,6 @@
   "success": true,
   "inserted": 2,
   "type": "expense",
-  "sum": "15.50"
+  "sum": "15.50",
+  "atomic": true
 }
