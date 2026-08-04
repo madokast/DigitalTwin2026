@@ -8,12 +8,19 @@ export const INVALID_JSON_BODY = 'Invalid JSON body' as const
 /** 与 Go httpx.MaxBodyBytes（256 KiB）对齐 */
 export const MAX_HTTP_BODY_BYTES = 256 * 1024
 export const REQUEST_BODY_TOO_LARGE = 'Request body too large' as const
+/** 与 Go jsonutil.ErrBodyMustBeObject 同文案（对齐 RejectUnknownObjectKeys 先拒绝非对象） */
+import { BODY_MUST_BE_OBJECT } from '@/lib/unknown-keys'
 
 export type ReadJsonOk = { ok: true; value: Record<string, unknown> }
 export type ReadJsonErr =
   | {
       ok: false
       error: typeof INVALID_JSON_BODY
+      status: 400
+    }
+  | {
+      ok: false
+      error: typeof BODY_MUST_BE_OBJECT
       status: 400
     }
   | {
@@ -41,12 +48,13 @@ export async function readJsonBody(request: Request): Promise<ReadJsonResult> {
   try {
     const text = new TextDecoder('utf-8').decode(buf)
     const value: unknown = text.length === 0 ? undefined : JSON.parse(text)
-    // Go 对 `null` unmarshal 进 struct/map 为零值且不报错；对齐为 {}
-    if (value === null) {
-      return { ok: true, value: {} }
+    // 空 body → Invalid JSON body；null / 数组 / 字面量 → BODY_MUST_BE_OBJECT
+    // （与 Go RejectUnknownObjectKeys 一致：struct 解码前先拒绝非对象）
+    if (value === undefined) {
+      return { ok: false, error: INVALID_JSON_BODY, status: 400 }
     }
     if (!isPlainObject(value)) {
-      return { ok: false, error: INVALID_JSON_BODY, status: 400 }
+      return { ok: false, error: BODY_MUST_BE_OBJECT, status: 400 }
     }
     return { ok: true, value }
   } catch {

@@ -111,7 +111,7 @@ npm run db:migrate    # 执行到当前 DATABASE_URL 指向的库
 npm run db:check      # 验证表结构
 ```
 
-**`utc_offset` 隐列（无历史数据）：** 改的是基准 `drizzle/0000_*.sql` / `src/db/schema.ts`，**不加** `ALTER … ADD COLUMN` 增量 migration。本地与测试库须 **DROP `records`（必要时清 `drizzle.__drizzle_migrations`）后 `npm run db:migrate`** 重建。步骤见 [`docs/20260803-utc-offset.md`](docs/20260803-utc-offset.md) §12 阶段 2。
+**`utc_offset` 隐列（无历史数据）：** 改的是基准 `drizzle/0000_*.sql` / `src/db/schema.ts`，**不加** `ALTER … ADD COLUMN` 增量 migration。本地与测试库须 **DROP `records`（必要时清 `drizzle.__drizzle_migrations`）后 `npm run db:migrate`** 重建（`npm run test:integration` 对测试库已自动执行该重建）。步骤见 [`docs/20260803-utc-offset.md`](docs/20260803-utc-offset.md) §12 阶段 2。
 
 ## 测试
 

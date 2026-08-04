@@ -263,6 +263,42 @@ func TestWriteEndpointsRejectTrailingGarbageAfterJSON(t *testing.T) {
 	}
 }
 
+func TestWriteEndpointsRejectNonObjectJSON(t *testing.T) {
+	h := testServer().Handler()
+	// 顶层 null / 数组 / 字面量：须 400 BODY_MUST_BE_OBJECT（与 Next readJsonBody 对齐）
+	// 空 body / 语法错误仍为 Invalid JSON body（见 TestWriteEndpointsRejectTrailingGarbageAfterJSON 等）
+	for _, payload := range []string{`null`, `[]`, `"x"`, `123`, `true`} {
+		cases := []struct {
+			method, path string
+		}{
+			{http.MethodPost, "/api/log/number"},
+			{http.MethodPost, "/api/log/text"},
+			{http.MethodPost, "/api/log/transaction"},
+			{http.MethodPost, "/api/admin/tags/rename"},
+			{http.MethodPatch, "/api/admin/records/01900000-0000-7000-8000-000000000001"},
+		}
+		for _, tc := range cases {
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(payload))
+			if strings.HasPrefix(tc.path, "/api/admin/") {
+				req.Header.Set("Authorization", "Bearer admin-tok")
+			} else {
+				req.Header.Set("Authorization", "Bearer ai-tok")
+			}
+			req.Header.Set("Content-Type", "application/json")
+			rr := httptest.NewRecorder()
+			h.ServeHTTP(rr, req)
+			if rr.Code != 400 {
+				t.Fatalf("%s %s body=%s: status %d", tc.method, tc.path, payload, rr.Code)
+			}
+			var body map[string]string
+			_ = json.Unmarshal(rr.Body.Bytes(), &body)
+			if body["error"] != "Request body must be a JSON object" {
+				t.Fatalf("%s %s body=%s: error %v", tc.method, tc.path, payload, body)
+			}
+		}
+	}
+}
+
 func TestLogNumberRejectsMissingTimezone(t *testing.T) {
 	h := testServer().Handler()
 	for _, happened := range []string{"2026-07-30", "2026-07-30T08:00:00"} {

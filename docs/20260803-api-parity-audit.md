@@ -1,7 +1,7 @@
 # DigitalTwin2026：双后端（Next / Go FaaS）API 一致性审计与差异清单
 
 > 创建日期：2026-08-03  
-> 状态：**部分修复**（D1 已于 2026-08-04 修复；其余差异未修复）  
+> 状态：**部分修复**（D1、D2、D2' 已于 2026-08-04 修复；其余差异未修复）  
 > 性质：audit 记录；修复前必读，改动双端时对照本清单逐一收敛
 
 > 相关：[`docs/20260801-api-layering.md`](20260801-api-layering.md)（分层同构规范）、[`AGENTS.md`](../AGENTS.md)（双后端必须同时维护）、[`openapi/openapi.yaml`](../openapi/openapi.yaml)（契约基准）
@@ -22,9 +22,9 @@
    |------|------|
    | `npm run test:openapi`（契约 fixtures） | 15 passed |
    | `cd faas && go test ./internal/contract/` | ok |
-   | `npm test`（Node 单测） | 534 passed |
+   | `npm test`（Node 单测） | 534 passed（2026-08-04 复核：548） |
    | `cd faas && go test ./...`（含无 DB 单元测） | 全 ok |
-   | `npm run test:integration`（双端 API 集成，真实测试库） | Node 95 + Go httpx/dbprobe 全过 |
+   | `npm run test:integration`（双端 API 集成，真实测试库） | Node 95 + Go httpx/dbprobe 全过（2026-08-04 复核：Node 107；跑测前自动重建测试库表结构） |
 
 2. **代码逐端点对比**（17 个端点 × Next/Go）：鉴权、成功包络、主要错误路径逐字节比对。
 
@@ -48,23 +48,27 @@
 
 契约同步：`openapi/paths/telegram.yaml`、`openapi/paths/qqbot.yaml` 原描述「non-JSON body is allowed」实为钉死 Next 的错误行为；已改为「空 body 允许走默认文案；非空 body 须为 JSON object，畸形 JSON → 400」。Go 行为本就符合新契约。双端测试：`tests/api/probe.test.ts`（Node）、`faas/internal/httpx/server_test.go`（Go，含 bot API 零调用断言）。
 
-### D2（中）JSON 写路径顶层 `null`：错误文案分叉（同为 400）
+### D2（中）~~JSON 写路径顶层 `null`：错误文案分叉（同为 400）~~ **已修复（2026-08-04）**
 
 | | Next | Go |
 |--|------|-----|
 | 输入 | `POST /api/log/number` body 为 `null` | 同左 |
-| 实测 | **400** `{"error":"Missing required field: happened_at"}`（`null` 被归一为 `{}` 继续字段校验） | **400** `{"error":"Request body must be a JSON object"}` |
-| 位置 | `src/lib/httpjson.ts:44-47` | `faas/internal/jsonutil/decode.go:43-46`（写路径各 handler 第一步） |
+| 修复前 | **400** `{"error":"Missing required field: happened_at"}`（`null` 被归一为 `{}` 继续字段校验） | **400** `{"error":"Request body must be a JSON object"}` |
+| 修复后 | **400** `{"error":"Request body must be a JSON object"}`（与 Go 一致） | 不变 |
+| 位置 | 修复于 `src/lib/httpjson.ts:44-47`（`null` 不再归一为 `{}`，统一拒绝非对象） | `faas/internal/jsonutil/decode.go:43-46`（写路径各 handler 第一步） |
 
-根因：`httpjson.ts:44` 注释假设「Go 对 `null` unmarshal 为零值不报错」；但 Go 在 struct 解码前先跑 map 型 `RejectUnknownObjectKeys`，假设不成立——**双端互相参照时留下的盲区**。影响全部 JSON 写路径（`/api/log/*`、`/api/admin/tags/rename`、`PATCH /api/admin/records/{id}`、todo transition）。
+根因：`httpjson.ts` 旧注释假设「Go 对 `null` unmarshal 为零值不报错」；但 Go 在 struct 解码前先跑 map 型 `RejectUnknownObjectKeys`，假设不成立——**双端互相参照时留下的盲区**。影响全部 JSON 写路径（`/api/log/*`、`/api/admin/tags/rename`、`PATCH /api/admin/records/{id}`、todo transition）。修复同时删除了错误的 Go zero-value 注释；测试：`src/lib/httpjson.test.ts`、`tests/api/json-body.test.ts`（含新增 null 用例）。
 
-### D2'（中）JSON 写路径顶层数组 / 字面量：文案分叉（同为 400）
+### D2'（中）~~JSON 写路径顶层数组 / 字面量：文案分叉（同为 400）~~ **已修复（2026-08-04）**
 
 | | Next | Go |
 |--|------|-----|
 | 输入 | `POST /api/log/number` body 为 `[]` | 同左 |
-| 实测 | **400** `{"error":"Invalid JSON body"}` | **400** `{"error":"Request body must be a JSON object"}` |
-| 位置 | `src/lib/httpjson.ts:48-50` | 同 D2 |
+| 修复前 | **400** `{"error":"Invalid JSON body"}` | **400** `{"error":"Request body must be a JSON object"}` |
+| 修复后 | **400** `{"error":"Request body must be a JSON object"}`（与 Go 一致；空 body / 语法错误仍为 `Invalid JSON body`） | 不变 |
+| 位置 | 同 D2（`isPlainObject` 失败分支从 `INVALID_JSON_BODY` 改为 `BODY_MUST_BE_OBJECT`） | 同 D2 |
+
+实现注意：`BODY_MUST_BE_OBJECT` 须**普通 import** 自 `unknown-keys.ts`，不可 `export { x } from` 重导出——esbuild CJS 转换下函数内绑定失效会抛错被 catch 吞掉，表现为仍返回 `Invalid JSON body`。
 
 ---
 
@@ -95,7 +99,7 @@
 ## 5. 后续修复建议（未实施）
 
 1. **D1（已完成，2026-08-04）**：Next probe 将 `JSON.parse` 失败（含尾部垃圾）改为 400 `Invalid JSON body`（对齐 Go 的 `RejectUnknownObjectKeys` 流程），避免静默真发消息；契约同步至 OpenAPI，双端加测试。
-2. **D2/D2'**：统一 `httpjson.ts` 对顶层 `null`/数组/字面量的处理为 Go 的 `Request body must be a JSON object`（400），并修正 `httpjson.ts:44` 的错误注释。
+2. **D2/D2'（已完成，2026-08-04）**：统一 `httpjson.ts` 对顶层 `null`/数组/字面量的处理为 Go 的 `Request body must be a JSON object`（400），删除错误的「Go zero-value」注释并修正实现陷阱（重导出会致绑定失效被 catch 吞掉）。
 3. **D3–D5**：import 边界对齐（缺 boundary → 400、per-part 上限、文本 file part 文案统一）。
 4. **D6–D8**：视需要对齐（脏数据解析、并发竞态校验、连接超时）。
 5. 每项修复需同步更新 OpenAPI fixtures（如契约钉死这些边界）并双端加测试。

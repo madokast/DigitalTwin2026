@@ -68,10 +68,20 @@ describe('malformed / empty JSON body → 400', () => {
       await expect(res.json()).resolves.toEqual({ error: 'Invalid JSON body' })
     })
 
+    it(`${c.name}: null body`, async () => {
+      const res = await c.run('null')
+      expect(res.status).toBe(400)
+      await expect(res.json()).resolves.toEqual({
+        error: 'Request body must be a JSON object',
+      })
+    })
+
     it(`${c.name}: non-object JSON (array)`, async () => {
       const res = await c.run('[]')
       expect(res.status).toBe(400)
-      await expect(res.json()).resolves.toEqual({ error: 'Invalid JSON body' })
+      await expect(res.json()).resolves.toEqual({
+        error: 'Request body must be a JSON object',
+      })
     })
 
     it(`${c.name}: trailing garbage after valid JSON`, async () => {

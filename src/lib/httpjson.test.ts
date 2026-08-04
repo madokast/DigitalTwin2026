@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { NextRequest } from 'next/server'
 import { INVALID_JSON_BODY, MAX_HTTP_BODY_BYTES, readJsonBody, REQUEST_BODY_TOO_LARGE } from '@/lib/httpjson'
+import { BODY_MUST_BE_OBJECT } from '@/lib/unknown-keys'
 
 function req(body?: string): NextRequest {
   if (body === undefined) {
@@ -21,18 +22,29 @@ describe('readJsonBody', () => {
     })
   })
 
-  it('coerces JSON null to empty object (Go zero-value)', async () => {
+  it('rejects JSON null with body-must-be-object (Go RejectUnknownObjectKeys)', async () => {
     await expect(readJsonBody(req('null'))).resolves.toEqual({
-      ok: true,
-      value: {},
+      ok: false,
+      error: BODY_MUST_BE_OBJECT,
+      status: 400,
     })
   })
 
-  it('rejects empty / malformed / non-object', async () => {
-    for (const body of ['', '{', '[]', '"x"', '123', 'true']) {
+  it('rejects empty / malformed with Invalid JSON body', async () => {
+    for (const body of ['', '{']) {
       await expect(readJsonBody(req(body))).resolves.toEqual({
         ok: false,
         error: INVALID_JSON_BODY,
+        status: 400,
+      })
+    }
+  })
+
+  it('rejects non-object JSON (array / literal) with body-must-be-object', async () => {
+    for (const body of ['[]', '"x"', '123', 'true']) {
+      await expect(readJsonBody(req(body))).resolves.toEqual({
+        ok: false,
+        error: BODY_MUST_BE_OBJECT,
         status: 400,
       })
     }
