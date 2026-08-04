@@ -35,12 +35,17 @@ export function RecordTagChips({
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
+  // editing 结束 → 复位弹窗 / 过滤（渲染期调整 state，官方推荐模式，避免 effect）
+  const [prevEditing, setPrevEditing] = useState(editing)
+  if (prevEditing !== editing) {
+    setPrevEditing(editing)
     if (!editing) {
       setAddOpen(false)
       setFilter('')
-      return
     }
+  }
+
+  useEffect(() => {
     let cancelled = false
     void (async () => {
       try {
@@ -186,7 +191,7 @@ export function RecordTagChips({
               </li>
             ) : (
               options.map((tag) => (
-                <li key={tag} role="option">
+                <li key={tag} role="option" aria-selected={false}>
                   <button
                     type="button"
                     className="w-full text-left px-2 py-1.5 hover:bg-accent font-mono"

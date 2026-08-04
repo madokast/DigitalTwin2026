@@ -136,6 +136,7 @@ describe('parseTransactionBatch', () => {
 
   it('rejects missing amount field', () => {
     const { amount: _omit, ...rest } = base.entries[0]
+    void _omit
     const parsed = parseTransactionBatch({
       ...base,
       entries: [rest],

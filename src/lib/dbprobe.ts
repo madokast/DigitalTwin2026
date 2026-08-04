@@ -27,6 +27,7 @@ function roundMs(ms: number): number {
 
 /** 错误文案不得回显连接串 */
 export function sanitizeProbeError(_err: unknown): string {
+  void _err
   return DATABASE_UNREACHABLE
 }
 

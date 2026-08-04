@@ -147,6 +147,7 @@ describe('parseRecordDraft', () => {
 
   it('allows omitting happened_at (PATCH leaves time columns alone)', () => {
     const { happened_at: _omit, ...withoutTime } = validBase
+    void _omit
     const parsed = parseRecordDraft(withoutTime)
     expect('error' in parsed).toBe(false)
     if ('error' in parsed) return

@@ -148,7 +148,7 @@ export function TagMultiSelect({ selected, lockedTag, onChange }: Props) {
             <li className="px-3 py-2 text-muted-foreground">No matching tags</li>
           ) : (
             options.map((tag) => (
-              <li key={tag} role="option">
+              <li key={tag} role="option" aria-selected={false}>
                 <button
                   type="button"
                   className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground font-mono text-xs"

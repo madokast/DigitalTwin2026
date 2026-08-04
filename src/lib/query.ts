@@ -259,7 +259,6 @@ const CATEGORY_PAIR =
   /^([a-zA-Z_][a-zA-Z0-9_]*):([a-zA-Z_][a-zA-Z0-9_]*)$/
 /** 小数最多 10 位小数；聚合用定点数，避免 float */
 const DECIMAL_FRAC_SCALE = 10
-const DECIMAL_SCALE = 10n ** BigInt(DECIMAL_FRAC_SCALE)
 
 export type MoneyBucket = { sum: string; count: number }
 

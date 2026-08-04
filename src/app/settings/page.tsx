@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { TimezoneSelect } from '@/components/timezone-select'
 import {
   getAdminToken,
@@ -14,18 +14,13 @@ import {
 } from '@/lib/prefs'
 
 export default function SettingsPage() {
-  const [adminToken, setAdminTokenState] = useState('')
-  const [summary, setSummaryState] = useState(true)
-  const [timezone, setTimezoneState] = useState('')
-  const [apiAccelerateBase, setApiAccelerateBaseState] = useState('')
+  const [adminToken, setAdminTokenState] = useState(() => getAdminToken())
+  const [summary, setSummaryState] = useState(() => getDashboardSummary())
+  const [timezone, setTimezoneState] = useState(() => getTimezone())
+  const [apiAccelerateBase, setApiAccelerateBaseState] = useState(() =>
+    getApiAccelerateBase(),
+  )
   const [message, setMessage] = useState('')
-
-  useEffect(() => {
-    setAdminTokenState(getAdminToken())
-    setSummaryState(getDashboardSummary())
-    setTimezoneState(getTimezone())
-    setApiAccelerateBaseState(getApiAccelerateBase())
-  }, [])
 
   const save = () => {
     setAdminToken(adminToken)
