@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/timeutil"
@@ -592,6 +593,12 @@ func AggregateTransactionSummary(rows []TransactionSummaryRow, fromRaw, toRaw st
 			continue
 		}
 		if row.ValueNumber == nil || *row.ValueNumber == "" {
+			continue
+		}
+		// D6 对齐：与 Next parseDecimalScaled 同规则——复用写路径 ValidateDecimalString
+		// （无前导零 / 科学计数 / 分数 / + 号；int≤28 位、frac≤10 位），非法字面量跳过该行。
+		// 修复前 big.Rat.SetString 会接受前导零 / 科学计数等，导致双端聚合分叉。
+		if err := draft.ValidateDecimalString(*row.ValueNumber); err != nil {
 			continue
 		}
 		amount := new(big.Rat)
