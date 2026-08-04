@@ -757,6 +757,7 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		"inserted": counts.Inserted,
 		"updated":  counts.Updated,
 		"total":    counts.Total,
+		"atomic":   true,
 	}); err != nil {
 		log.Printf("Error writing import success body: %v", err)
 		return

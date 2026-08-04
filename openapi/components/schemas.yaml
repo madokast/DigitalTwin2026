@@ -389,7 +389,7 @@ RenameTagsSuccess:
 
 ImportRecordsSuccess:
   type: object
-  required: [success, inserted, updated, total]
+  required: [success, inserted, updated, total, atomic]
   additionalProperties: false
   properties:
     success:
@@ -409,6 +409,12 @@ ImportRecordsSuccess:
       type: integer
       minimum: 0
       description: inserted + updated (non-empty lines successfully upserted)
+    atomic:
+      type: boolean
+      const: true
+      description: |
+        Always true: the whole file is committed in a single transaction —
+        either every line is written or none is.
 
 LogNumberRequest:
   type: object

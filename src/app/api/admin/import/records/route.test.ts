@@ -88,6 +88,7 @@ describe('POST /api/admin/import/records notify schedule', () => {
       inserted: 0,
       updated: 0,
       total: 0,
+      atomic: true,
     })
     expect(scheduleBestEffortNotify).toHaveBeenCalledTimes(1)
     const task = scheduleBestEffortNotify.mock.calls[0][0] as () => void

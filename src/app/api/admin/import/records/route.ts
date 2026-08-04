@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
       inserted: result.counts.inserted,
       updated: result.counts.updated,
       total: result.counts.total,
+      atomic: true,
     })
     scheduleBestEffortNotify(() =>
       notify_user(formatImportNotifyMessage(result.counts)),

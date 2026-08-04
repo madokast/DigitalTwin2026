@@ -2,5 +2,6 @@
   "success": true,
   "inserted": 12,
   "updated": 3,
-  "total": 15
+  "total": 15,
+  "atomic": true
 }

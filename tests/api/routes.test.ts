@@ -1460,6 +1460,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         inserted: 0,
         updated: 0,
         total: 0,
+        atomic: true,
       })
     })
 
@@ -1523,6 +1524,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         inserted: 1,
         updated: 0,
         total: 1,
+        atomic: true,
       })
 
       const patch = await patchRecord(
@@ -1578,6 +1580,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         inserted: 1,
         updated: 0,
         total: 1,
+        atomic: true,
       })
 
       const listed = await queryRecords(
