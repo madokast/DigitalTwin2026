@@ -171,7 +171,8 @@ Node 全量 `npm test` 在无安全 `DATABASE_URL` 时集成自动 Skip；Go 全
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | UUID (v7) | 主键，时间有序 |
-| happened_at | TIMESTAMPTZ | 事件时间（读出带录入规范区；隐列 `utc_offset` 见 [`docs/20260803-utc-offset.md`](docs/20260803-utc-offset.md)） |
+| happened_at | TIMESTAMPTZ | 事件时间（读出时按 `utc_offset` 还原为录入规范带区格式） |
+| utc_offset | TEXT | **隐列：仅存库，对外 JSON 一律不暴露**；记录录入时的时区偏移（`Z` / `±HH:MM`），供读出还原带区 `happened_at`。见 [`docs/20260803-utc-offset.md`](docs/20260803-utc-offset.md) |
 | value_number | TEXT | 十进制数字符串字面量（可空；JSON/API 一律 string，禁止 number） |
 | value_text | TEXT | 文本（可空；与数值至少填一） |
 | tags | TEXT | JSON 数组 |
@@ -195,4 +196,4 @@ Node 全量 `npm test` 在无安全 `DATABASE_URL` 时集成自动 Skip；Go 全
 - `20260803-records-import-export.md` — Records JSONL 导入 / 导出（已落地）
 - `20260803-utc-offset.md` — 隐列 `utc_offset` 还原带区 `happened_at`（已落地）
 - `20260803-suppress-bot-notification.md` — `SUPPRESS_BOT_NOTIFICATION` 门闸（已落地）
-- `20260803-api-parity-audit.md` — 双后端 API 一致性审计：边界差异清单（**未修复**）
+- `20260803-api-parity-audit.md` — 双后端 API 一致性审计：边界差异清单（**已全部修复**）
