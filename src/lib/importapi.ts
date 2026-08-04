@@ -34,6 +34,10 @@ export const MULTIPART_FILE_REQUIRED =
 export const MULTIPART_MULTIPLE_FILE =
   'multipart must contain exactly one "file" part'
 
+/** 与 Go ErrMultipartPartTooLarge 同文案 */
+export const MULTIPART_PART_TOO_LARGE =
+  'multipart non-file part exceeds size limit (max 4 MiB)'
+
 /** 与 Go ErrMultipartContentType 同文案 */
 export const MULTIPART_CONTENT_TYPE =
   'expected Content-Type multipart/form-data'

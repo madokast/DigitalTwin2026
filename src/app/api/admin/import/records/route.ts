@@ -15,6 +15,7 @@ import {
   MULTIPART_CONTENT_TYPE,
   MULTIPART_FILE_REQUIRED,
   MULTIPART_MULTIPLE_FILE,
+  MULTIPART_PART_TOO_LARGE,
   UNSUPPORTED_FILE_CONTENT_TYPE,
 } from '@/lib/importapi'
 import { notify_user, scheduleBestEffortNotify } from '@/lib/notify'
@@ -46,6 +47,23 @@ export async function POST(request: NextRequest) {
         { error: MULTIPART_CONTENT_TYPE },
         { status: 400 },
       )
+    }
+
+    // 与 Go 对齐（server.go 非 file part 丢弃也加 4MiB 上限）：先于 file 校验，
+    // 与 Go 流式命中顺序一致。不可完全对齐点：Go 用 LimitReader 流式截断，Next 须先
+    // 整体缓冲 formData 再检查——状态码 / 文案一致，内存占用特性不同（已注释）。
+    for (const [name, value] of form.entries()) {
+      if (name === 'file') continue
+      const bytes =
+        typeof value === 'string'
+          ? new TextEncoder().encode(value).length
+          : value.size
+      if (bytes > MAX_IMPORT_FILE_BYTES) {
+        return NextResponse.json(
+          { error: MULTIPART_PART_TOO_LARGE },
+          { status: 400 },
+        )
+      }
     }
     const parts = form.getAll('file')
     if (parts.length === 0) {
