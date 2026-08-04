@@ -51,6 +51,30 @@ QueryTo:
     type: string
     examples:
       - '2026-08-01T00:00:00Z'
+
+QuerySortBy:
+  name: sort_by
+  in: query
+  required: false
+  description: |
+    Sort column: `happened_at` (default) or `id`. Anything else → 400
+    (`sort_by must be one of: happened_at, id`). Empty value → 400.
+  schema:
+    type: string
+    enum: [happened_at, id]
+    default: happened_at
+QuerySortOrder:
+  name: sort_order
+  in: query
+  required: false
+  description: |
+    Sort direction: `asc` (default) or `desc` (strict lowercase; `ASC`/empty
+    → 400 `sort_order must be one of: asc, desc`). `happened_at` desc keeps
+    `id ASC` as tie-breaker; `id` sort has no secondary key.
+  schema:
+    type: string
+    enum: [asc, desc]
+    default: asc
 QueryTag:
   name: tag
   in: query

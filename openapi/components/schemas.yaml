@@ -183,7 +183,7 @@ RecordSuccess:
 
 QuerySuccess:
   type: object
-  required: [success, count, page, page_size, records]
+  required: [success, count, page, page_size, sort_by, sort_order, records]
   additionalProperties: false
   properties:
     success:
@@ -199,6 +199,14 @@ QuerySuccess:
     page_size:
       type: integer
       minimum: 1
+    sort_by:
+      type: string
+      enum: [happened_at, id]
+      description: Effective sort column (echoes `sort_by` query param)
+    sort_order:
+      type: string
+      enum: [asc, desc]
+      description: Effective sort direction (echoes `sort_order` query param)
     records:
       type: array
       description: |

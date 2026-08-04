@@ -15,5 +15,7 @@
       "objective_context": "morning weigh-in",
       "subjective_interpretation": "a bit heavy"
     }
-  ]
+  ],
+  "sort_by": "happened_at",
+  "sort_order": "asc"
 }

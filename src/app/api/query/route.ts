@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
       count: result.total,
       page: result.page,
       page_size: result.pageSize,
+      sort_by: parsed.sortBy,
+      sort_order: parsed.sortOrder,
       records: result.records.map(toQueryRecordJson),
     })
   } catch (error) {

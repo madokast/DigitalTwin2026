@@ -490,11 +490,13 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]any{
-		"success":   true,
-		"count":     result.Total,
-		"page":      result.Page,
-		"page_size": result.PageSize,
-		"records":   query.RecordsForResponse(result.Records),
+		"success":    true,
+		"count":      result.Total,
+		"page":       result.Page,
+		"page_size":  result.PageSize,
+		"sort_by":    parsed.SortBy,
+		"sort_order": parsed.SortOrder,
+		"records":    query.RecordsForResponse(result.Records),
 	})
 }
 

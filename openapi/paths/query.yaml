@@ -26,6 +26,8 @@
       - $ref: '../components/parameters.yaml#/QueryTo'
       - $ref: '../components/parameters.yaml#/QueryTag'
       - $ref: '../components/parameters.yaml#/QueryQ'
+      - $ref: '../components/parameters.yaml#/QuerySortBy'
+      - $ref: '../components/parameters.yaml#/QuerySortOrder'
     responses:
       '200':
         description: Filtered page of records

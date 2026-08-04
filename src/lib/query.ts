@@ -20,16 +20,27 @@ import {
 } from '@/lib/tododraft'
 
 /**
- * 列表查询固定排序（与 Go `RecordsListOrderBy`、`testdata/query-records-list-order.json` 对齐）。
- * happened_at 升序；同时间戳用 id ASC（UUIDv7 写入序）保证确定性。无 order 查询参数。
+ * 列表查询排序（与 Go `query`、`testdata/query-records-list-order.json` 对齐）。
+ * `sort_by`: `happened_at`（默认）| `id`；`sort_order`: `asc`（默认）| `desc`（严格小写）。
+ * happened_at desc 时次键 id 恒 ASC；id 排序无次键。
  */
-export const RECORDS_LIST_ORDER_BY_SQL = 'happened_at ASC, id ASC' as const
+export type SortBy = 'happened_at' | 'id'
+export type SortOrder = 'asc' | 'desc'
+
+export function recordsOrderBySql(sortBy: SortBy, sortOrder: SortOrder): string {
+  if (sortBy === 'id') {
+    return sortOrder === 'desc' ? 'id DESC' : 'id ASC'
+  }
+  return sortOrder === 'desc' ? 'happened_at DESC, id ASC' : 'happened_at ASC, id ASC'
+}
 
 export type ParsedQuery = {
   conditions: SQL[]
   id: string | null
   page: number
   pageSize: number
+  sortBy: SortBy
+  sortOrder: SortOrder
 }
 
 export type ParseError = { error: string }
@@ -85,6 +96,17 @@ export function parseRecordQueryParams(
     return { error: 'page_size must be an integer between 1 and 100' }
   }
 
+  const sortByRaw = searchParams.get('sort_by')
+  if (sortByRaw !== null && sortByRaw !== 'happened_at' && sortByRaw !== 'id') {
+    return { error: 'sort_by must be one of: happened_at, id' }
+  }
+  const sortOrderRaw = searchParams.get('sort_order')
+  if (sortOrderRaw !== null && sortOrderRaw !== 'asc' && sortOrderRaw !== 'desc') {
+    return { error: 'sort_order must be one of: asc, desc' }
+  }
+  const sortBy: SortBy = sortByRaw ?? 'happened_at'
+  const sortOrder: SortOrder = sortOrderRaw ?? 'asc'
+
   const from = parseIsoDate(searchParams.get('from'), 'from')
   if (from && 'error' in from) return from
   const to = parseIsoDate(searchParams.get('to'), 'to')
@@ -127,7 +149,7 @@ export function parseRecordQueryParams(
     )
   }
 
-  return { conditions, id, page, pageSize }
+  return { conditions, id, page, pageSize, sortBy, sortOrder }
 }
 
 /** 与 Go `query.FetchResult` 同构：lib 内完成 FromDB 映射 */
@@ -164,7 +186,9 @@ export async function fetchFilteredRecords(
 
   const total = Number(countRow?.value ?? 0)
 
-  const listOrder = sql.raw(RECORDS_LIST_ORDER_BY_SQL)
+  const listOrder = sql.raw(
+    recordsOrderBySql(parsed.sortBy, parsed.sortOrder),
+  )
 
   // 有 id 时忽略分页，返回 0～1 条
   if (parsed.id) {

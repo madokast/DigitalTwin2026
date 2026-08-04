@@ -1,4 +1,9 @@
 {
-  "orderBy": "happened_at ASC, id ASC",
-  "description": "Fixed GET /api/query list order: happened_at ascending, then id ascending (UUIDv7 write order) for ties. No order query parameter."
+  "orders": {
+    "happened_at+asc": "happened_at ASC, id ASC",
+    "happened_at+desc": "happened_at DESC, id ASC",
+    "id+asc": "id ASC",
+    "id+desc": "id DESC"
+  },
+  "description": "GET /api/query sort combos shared by Next and Go. Default happened_at+asc; happened_at desc keeps id ASC as tie-breaker; id sort has no secondary key."
 }

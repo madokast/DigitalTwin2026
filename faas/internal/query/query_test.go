@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -112,24 +111,33 @@ func TestRecordsListOrderBySharedFixture(t *testing.T) {
 		t.Fatalf("read shared order fixture: %v", err)
 	}
 	var shared struct {
-		OrderBy string `json:"orderBy"`
+		Orders map[string]string `json:"orders"`
 	}
 	if err := json.Unmarshal(b, &shared); err != nil {
 		t.Fatalf("parse shared order fixture: %v", err)
 	}
-	if RecordsListOrderBy != shared.OrderBy {
-		t.Fatalf("RecordsListOrderBy=%q shared=%q", RecordsListOrderBy, shared.OrderBy)
+	for combo, want := range shared.Orders {
+		var sortBy, sortOrder string
+		switch combo {
+		case "happened_at+asc":
+			sortBy, sortOrder = "happened_at", "asc"
+		case "happened_at+desc":
+			sortBy, sortOrder = "happened_at", "desc"
+		case "id+asc":
+			sortBy, sortOrder = "id", "asc"
+		case "id+desc":
+			sortBy, sortOrder = "id", "desc"
+		default:
+			t.Fatalf("unknown combo %q", combo)
+		}
+		if got := RecordsOrderBySql(sortBy, sortOrder); got != want {
+			t.Fatalf("%s: got %q want %q", combo, got, want)
+		}
 	}
-	if RecordsListOrderBy != "happened_at ASC, id ASC" {
-		t.Fatalf("RecordsListOrderBy=%q", RecordsListOrderBy)
-	}
-	// FetchFilteredRecords 经 orderByRecordsList 拼接（无 DESC / 无 order 参数）
-	got := orderByRecordsList()
+	// FetchFilteredRecords 经 orderByRecordsList 拼接（默认 happened_at ASC, id ASC）
+	got := orderByRecordsList("happened_at", "asc")
 	if got != " ORDER BY happened_at ASC, id ASC" {
 		t.Fatalf("orderByRecordsList=%q", got)
-	}
-	if strings.Contains(got, "DESC") {
-		t.Fatalf("order must not use DESC: %q", got)
 	}
 }
 

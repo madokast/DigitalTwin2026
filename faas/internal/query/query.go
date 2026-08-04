@@ -31,22 +31,36 @@ var (
 )
 
 type ParsedQuery struct {
-	ID       string
-	Page     int
-	PageSize int
-	From     *time.Time
-	To       *time.Time
-	Tags     []string
-	Q        string
+	ID        string
+	Page      int
+	PageSize  int
+	From      *time.Time
+	To        *time.Time
+	Tags      []string
+	Q         string
+	SortBy    string
+	SortOrder string
 }
 
-// RecordsListOrderBy 列表查询固定排序（与 Next RECORDS_LIST_ORDER_BY_SQL、
+// RecordsOrderBySql 列表查询排序（与 Next recordsOrderBySql、
 // testdata/query-records-list-order.json 对齐）。
-// happened_at 升序；同时间戳用 id ASC（UUIDv7 写入序）保证确定性。无 order 查询参数。
-const RecordsListOrderBy = "happened_at ASC, id ASC"
+// sort_by: happened_at（默认）| id；sort_order: asc（默认）| desc（严格小写）。
+// happened_at desc 时次键 id 恒 ASC；id 排序无次键。
+func RecordsOrderBySql(sortBy, sortOrder string) string {
+	if sortBy == "id" {
+		if sortOrder == "desc" {
+			return "id DESC"
+		}
+		return "id ASC"
+	}
+	if sortOrder == "desc" {
+		return "happened_at DESC, id ASC"
+	}
+	return "happened_at ASC, id ASC"
+}
 
-func orderByRecordsList() string {
-	return " ORDER BY " + RecordsListOrderBy
+func orderByRecordsList(sortBy, sortOrder string) string {
+	return " ORDER BY " + RecordsOrderBySql(sortBy, sortOrder)
 }
 
 func parsePositiveInt(raw string, fallback int) (int, error) {
@@ -92,6 +106,23 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
 		return nil, fmt.Errorf("page_size must be an integer between 1 and 100")
 	}
 
+	sortByRaw := q.Get("sort_by")
+	if sortByRaw != "" && sortByRaw != "happened_at" && sortByRaw != "id" {
+		return nil, fmt.Errorf("sort_by must be one of: happened_at, id")
+	}
+	sortOrderRaw := q.Get("sort_order")
+	if sortOrderRaw != "" && sortOrderRaw != "asc" && sortOrderRaw != "desc" {
+		return nil, fmt.Errorf("sort_order must be one of: asc, desc")
+	}
+	sortBy := "happened_at"
+	if sortByRaw != "" {
+		sortBy = sortByRaw
+	}
+	sortOrder := "asc"
+	if sortOrderRaw != "" {
+		sortOrder = sortOrderRaw
+	}
+
 	from, err := parseIsoDate(q.Get("from"), "from")
 	if err != nil {
 		return nil, err
@@ -114,13 +145,15 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
 	}
 
 	return &ParsedQuery{
-		ID:       id,
-		Page:     page,
-		PageSize: pageSize,
-		From:     from,
-		To:       to,
-		Tags:     tagList,
-		Q:        q.Get("q"),
+		ID:        id,
+		Page:      page,
+		PageSize:  pageSize,
+		From:      from,
+		To:        to,
+		Tags:      tagList,
+		Q:         q.Get("q"),
+		SortBy:    sortBy,
+		SortOrder: sortOrder,
 	}, nil
 }
 
@@ -227,7 +260,7 @@ FROM records`
 	if where != "" {
 		selectSQL += " WHERE " + where
 	}
-	selectSQL += orderByRecordsList()
+	selectSQL += orderByRecordsList(p.SortBy, p.SortOrder)
 
 	if p.ID != "" {
 		rows, err := pool.Query(ctx, selectSQL, args...)
