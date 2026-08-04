@@ -208,6 +208,8 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 
 测试代码（或对已部署 test 函数做冒烟）若调用 probe，会**正常真发** bot。这是刻意保留的验渠道能力；不要给 probe 再套一层 suppress。
 
+> 现状（2026-08-04）：仓库 probe 单测（`tests/api/probe.test.ts`）全部 mock fetch、**零真发**，且畸形 JSON 断言 bot API 零调用；真发仅发生在对已部署 test 函数做冒烟时（次数少、可控）。
+
 禁止为 probe 增加 `NOTIFY_ALLOW_*` /「probe 绕过 SUPPRESS」之类对称开关——probe **根本不进入** suppress 函数。
 
 ### 4.4 对外一句（用户可见英文，实现时写 README）
