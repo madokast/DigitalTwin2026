@@ -31,6 +31,8 @@ cp .env.test.example .env.test
 
 变量说明与约定见 **[`.env.test.example`](.env.test.example)**（本地指向专用测试库；生产由 `npm run deploy -- prod` 收集到临时 `.env.prod`）。
 
+> Deploy injects `SUPPRESS_BOT_NOTIFICATION` automatically (`test` → `1`, `prod` → `0`). With `=1`, insert/transition auto notify stays silent; `POST /api/telegram/probe` and `POST /api/qqbot/probe` still send because they call channel send APIs directly. Occasional probe sends in tests are expected and low-volume.
+
 ### 3. 初始化数据库
 
 ```bash
