@@ -18,10 +18,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 内部 TS/Go **变量名、Drizzle 属性、struct 字段名**可仍用惯用 camelCase / PascalCase；**仅序列化到 JSON/JSONL 的键**必须 snake。Go 用 `json:"happened_at"`；TS 组装响应对象时用 snake 键字面量（或显式 serializer），禁止 `JSON.stringify` 直接 dump Drizzle 行导致驼峰漏网。
 - 查询串参数与 JSON 键对齐时也用 snake（如 `page_size`）；错误文案里的字段名与契约键一致。
 
-# 复盘 API（暂停）
+# 复盘 API
 
-- **`POST /api/log/review`（复盘）暂停实现**——不要落地该路由或相关 OpenAPI/代码。
-- 若对话草稿或未提交文档仍有 review 规格，**不要继续写代码**；待 JSON 蛇形统一后再议。
+- **`POST /api/log/review`（复盘）**：规格已定案（单一接口 + `cadence` 枚举 + 自动附加 `review:{cadence}` tag + 保留 tag），见 [`docs/20260804-log-review.md`](docs/20260804-log-review.md)。双端实现、OpenAPI、测试均以该规格为准。
 
 # 范围收口（终止项）
 

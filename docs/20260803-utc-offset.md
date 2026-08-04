@@ -22,7 +22,7 @@
 | 5 | **规范化（易解析 / 易还原）**：见 §3。紧凑 `+0800` → `+08:00`；**`Z` ≠ `+00:00`**，禁止互相折叠。 |
 | 6 | **无历史数据**可迁；空库 / 新库即可。手改 DB **不管**。Schema 变更：**不加**增量 Migration；**改基准建表 SQL / Drizzle schema 后 drop 表重建**（见 §11）。 |
 | 7 | **读路径**：停用默认 `toISOString()` / 一律 `Z`；对外时间串 = 瞬间按 `utc_offset` 格式化——无论 JSON 键是 `happened_at` 还是变形后的 `created_at`。 |
-| 8 | **复盘 API**仍暂停（见根 [`AGENTS.md`](../AGENTS.md)）。 |
+| 8 | **复盘 API**已恢复开发（2026-08-04 定案：`POST /api/log/review` 单一接口 + `cadence` 枚举），见 [`20260804-log-review.md`](20260804-log-review.md)；其 `happened_at` 同样走本时区语义（带区 + 隐列）。 |
 | 9 | **JSON 键名**一律 `snake_case`（见 AGENTS）；本隐列本就不进 JSON。 |
 | 10 | **键名变形 ≠ 时区例外**：Todo 等把库列时间对外叫 `created_at`（请求亦用 `created_at`），**仍**走同一套 extract / normalize / format；禁止 deform 路径偷偷改回一律 `Z`。 |
 
@@ -185,7 +185,6 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 
 ## 10. 非目标
 
-- 不实现复盘 API。  
 - 不存 IANA；不根据 offset 反推时区名。  
 - 不做历史行回填 / 猜测旧数据的录入区；**不做** `ALTER TABLE … ADD COLUMN` 式增量 Migration。  
 - 不把 `utc_offset` 暴露给前端 Settings 或 AI tool schema。  
@@ -209,7 +208,7 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 
 > 把 §1–§10 拆成可独立 merge / 验收的阶段。**不写**逐文件实现细节；执行时另开会话按阶段落地。  
 > **顺序理由：** 先双端纯函数 helper（无 schema）→ 改基准 schema 并写清 drop 重建（**无** ADD migration）→ 创建写入路径显式写隐列且响应已带区 → 读路径全收敛（禁漏网 `toISOString`）→ PATCH + import/export → OpenAPI 描述与旧「一律 Z」文档收尾。  
-> **硬约束（全程）：** 不加增量 Migration；对外 JSON/JSONL **无** `utc_offset`；`Z` ≠ `+00:00`；复盘 API 仍暂停；双端同构 + snake_case。
+> **硬约束（全程）：** 不加增量 Migration；对外 JSON/JSONL **无** `utc_offset`；`Z` ≠ `+00:00`；复盘 API 见 [`20260804-log-review.md`](20260804-log-review.md)（2026-08-04 恢复）；双端同构 + snake_case。
 
 ### 过渡窗口
 
@@ -243,7 +242,7 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 
 **不做什么：**
 - 不加 `utc_offset` 列；不改 draft / route / OpenAPI
-- 不实现复盘；不引入 IANA
+- 不引入 IANA
 - 不借机大改 import/export / PATCH
 
 **验收标准：**
@@ -328,7 +327,6 @@ deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「
 - 不收敛尚未改到的列表 query / Notify 漏网（阶段 4）——注：`fromDB` 已按隐列格式化，query/export SELECT 已带 `utc_offset` 以免签名断裂；Notify / telegram 本地 format、recordjsonl **导出**一律 Z 等仍留给阶段 4/5
 - 不改 Admin PATCH 同步改 `utc_offset`（阶段 5）；import upsert **本阶段已写隐列**（否则 NOT NULL 无法落库）
 - 不改 OpenAPI 叙述句（阶段 6；测可用字面断言）
-- 不实现复盘 API
 
 **验收标准：**
 - [x] 各创建路径 INSERT 均显式写 `utc_offset`；无依赖 DB default 猜区
@@ -387,7 +385,7 @@ deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「
 
 **不做什么：**
 - 不改基准 schema 策略；不加 migration
-- 不借机做 gzip / 前端；不实现复盘
+- 不借机做 gzip / 前端（复盘 API 已于 2026-08-04 恢复开发，见 [`20260804-log-review.md`](20260804-log-review.md)）
 - 不把「旧文档一律 Z」收尾当成本阶段唯一交付（阶段 6；测断言以本篇为准）
 
 **验收标准：**

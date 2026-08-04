@@ -1,6 +1,8 @@
 # DigitalTwin2026 设想（续二）
 
 > **2026-08-04 变更提示**：`value_text` / `value_number` 已全量更名为 `raw_content` / `numeric_value`，todo 审计行存储语义亦已变更（本文正文保留当时原样）。详见 [`20260804-rename-value-text-to-raw-content.md`](20260804-rename-value-text-to-raw-content.md)。另：§5.7 records 不做服务端聚合（保留 transaction summary 例外）、§7.10 图表与可视化（含 v2 规划）**已范围收口为不做**，见 [`20260804-scope-closure.md`](20260804-scope-closure.md)。
+>
+> **2026-08-04 变更提示（复盘）**：复盘接口形态已定案——`POST /api/log/review` 单一接口，周期经请求体 `cadence` 传入（枚举 `daily`/`weekly`/`monthly`/`quarterly`/`semiannually`/`yearly`）；§7.3 / §7.6 的中文 tag 示例与 §8.3 的 `/api/log/text/review/{周期}` URL 形态**作废**。详见 [`20260804-log-review.md`](20260804-log-review.md)。
 
 > 创建日期：2026-07-28
 > 状态：草稿，边讨论边写
@@ -595,17 +597,17 @@ Vercel 上的 HTTP 接口如果不鉴权，任何人都能往库里乱写。个�
 
 - 复盘产出的自然语言（含段落、含偶尔的数值），**作为一条记录入库**，与原始记录同表；
 - 表里并存：原始记录、周复盘、月复盘、年复盘，乃至"复盘的复盘"；
-- 靠 tag 区分，如 `["周复盘","2026-W30"]`、`["月复盘","2026-07"]`；
+- 靠 tag 区分，如 `["review:weekly"]`、`["review:monthly"]`（旧中文 tag 示例已作废：tag 只允许字母/数字/下划线/冒号，见 [`20260804-log-review.md`](20260804-log-review.md)）；
 - 这与 §5.2"观察日志"定位一致——记录的就是"我"的所有表达，复盘也是表达。
 
-### 7.4 value_numeric 仍保留（且扩展到账单）
+### 7.4 numeric_value 仍保留（且扩展到账单）
 
-虽然不做机器性统计，`value_numeric` 仍保留，且有明确使用场景：
+虽然不做机器性统计，`numeric_value` 仍保留，且有明确使用场景：
 
-- **体重**：每天/每隔几天称一次，存 `value_numeric`，直接拉出来画折线图是值得的（不是花里胡哨，是真实趋势）；
+- **体重**：每天/每隔几天称一次，存 `numeric_value`，直接拉出来画折线图是值得的（不是花里胡哨，是真实趋势）；
 - **账单/开销/收入**（新增维度）：用户愿意让 AI 记录每天开销，如"中午快餐 15 元"；开销与心情、生活关联，也愿意和 AI 讨论节省、不该花的地方；
 - 账单在复盘时也是一部分——周/月复盘时，开销分析是自然语言复盘的一个章节；
-- **凡是天然与数值吻合的生活维度，都进 `value_numeric`**。
+- **凡是天然与数值吻合的生活维度，都进 `numeric_value`**。
 
 ### 7.5 推翻的设计
 
@@ -632,8 +634,8 @@ Vercel 上的 HTTP 接口如果不鉴权，任何人都能往库里乱写。个�
 
 **推论**：
 - 复盘记录不需要专门的字段或结构；
-- 它就是一条普通记录，恰好 tag 是 `["周复盘","2026-W30"]` 而已；
-- AI 在生成复盘内容时，自然地把历史回顾 + 评价 + 当下状态揉成一段文字，存入 `value_text`；
+- 它就是一条普通记录，恰好 tag 是 `["review:weekly"]` 而已；
+- AI 在生成复盘内容时，自然地把历史回顾 + 评价 + 当下状态揉成一段文字，存入 `raw_content`；
 - §1.9 逐字保真的适用性：复盘内容的"原话"是 AI 产出的成段文字（不是用户原话），按 §7.6 的方式由 AI 整理生成即可。
 
 ### 7.7 已决项
@@ -655,7 +657,7 @@ Vercel 上的 HTTP 接口如果不鉴权，任何人都能往库里乱写。个�
 - 复盘记录数相对全记录很少（月复盘一年 12 条，10 年 120 条），AI 全读再筛毫无压力；
 - 通用查询 API 已足够：AI 用 `happened_at` 划定一个大致时间范围（如查 7 月底~9 月初之间、tag 含 `review:monthly` 的记录），再从结果中读 `value_text` 确认是"7 月复盘"；
 - 复盘内容里自然会说"这是 7 月的复盘"或"这个月……"，AI 一读便知；
-- 不污染 `value_numeric` 语义、不加字段、不破坏"tag 不带时间"原则。
+- 不污染 `numeric_value` 语义、不加字段、不破坏"tag 不带时间"原则。
 
 ### 7.10 前端 v1 / v2 范围划分
 
@@ -724,7 +726,7 @@ Vercel 上的 HTTP 接口如果不鉴权，任何人都能往库里乱写。个�
 - **S17 月复盘**：月末（或下月初，如 7 月复盘可能 8 月初周末做），AI 读本月明细或本月所有周复盘；产出 `review:monthly` 记录。
 - **S18 季/半年/年复盘**：基于短周期复盘的记录再做"复盘的复盘"，需要时才回拉明细；产出 `review:quarterly` / `review:halfyear` / `review:yearly` 记录。
 - **S19 跨期复盘检索**：过了很长时间找"7 月的复盘"——AI 用 `happened_at` 划大致时间范围（7 月底~9 月初）+ `tag=review:monthly` 筛选 + 读 `value_text` 确认（§7.9）。
-- **S20 复盘内容混合性**：复盘记录混合历史回顾 + 对历史的评价 + 当下状态心情——三类内容揉在 `value_text` 一段文字里，不拆字段（§7.6）。
+- **S20 复盘内容混合性**：复盘记录混合历史回顾 + 对历史的评价 + 当下状态心情——三类内容揉在 `raw_content` 一段文字里，不拆字段（§7.6）。
 
 ### 8.3 标签/系统类场景
 
@@ -796,25 +798,25 @@ POST /log/numeric/{kind}    —— 数值类
 
 POST /log/text/{kind}       —— 文本类
   /log/text/record           —— 通用文本记录，可传任意 tags（行为、感受、思考…）
-  /log/text/review/weekly    —— 周复盘（语义在 URL 里写死）
-  /log/text/review/monthly   —— 月复盘
-  /log/text/review/daily     —— 日复盘
-  /log/text/review/{周期}    —— 其他周期复盘
+  /log/text/review/weekly    —— 周复盘（**2026-08-04 已作废**：复盘改走 `POST /api/log/review`，周期经 `cadence` 传入，见 [`20260804-log-review.md`](20260804-log-review.md)）
+  /log/text/review/monthly   —— 月复盘（已作废，同上）
+  /log/text/review/daily     —— 日复盘（已作废，同上）
+  /log/text/review/{周期}    —— 其他周期复盘（已作废，同上）
 ```
 
 **设计要点**：
 
-- **第一层按 numeric / text 分**：`numeric` 路径完全提供 `value_numeric` 字段，`text` 路径没有；
+- **第一层按 numeric / text 分**：`numeric` 路径完全提供 `numeric_value` 字段，`text` 路径没有；
 - **第二层按类型细分**：URL 即类型，AI 看到路径就知道语义，不必再自行判断该走哪个 tag；
 - **`/log/text/record` 通用兜底**：走它时 tags 自由传，承接所有非复盘、非特定类型的文本记录；
-- **复盘接口把周期写进 URL**：`review/weekly` 即代表周复盘，AI 调用时立即知道这条记录就是周复盘，省去 AI 想"该打什么 tag"的步骤（tag 仍可带，但 URL 已隐含 `review:weekly` 语义）；
+- **复盘接口把周期写进 URL（2026-08-04 已作废）**：`review/weekly` 即代表周复盘……该形态被 `POST /api/log/review`（`cadence` 请求体字段）取代，见 [`20260804-log-review.md`](20260804-log-review.md)；
 - **录入接口按此结构扩展**：将来新增"记血压"就开 `/log/numeric/blood_pressure`，新增"记日记"就开 `/log/text/diary`，路径本身就是文档。
 
 **与 §5.5、§9.4（旧）的关系**：
 
 - 推翻了 §5.5 的 `/log/numeric` `/log/text` `/log/interval` 三大类划分；
 - 落实 §9.4"按数值类型分接口"的取向，并扩展到 text 类（record + 各周期复盘）；
-- `value_numeric` / `value_text` 字段仍是 schema 层的，但接口按 URL 细分，让 AI 调用更明确。
+- `numeric_value` / `raw_content` 字段仍是 schema 层的，但接口按 URL 细分，让 AI 调用更明确。
 
 ### 9.5 账单查询 API：仅汇总，强制时间区间
 
