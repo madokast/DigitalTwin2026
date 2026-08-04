@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -518,6 +519,48 @@ func TestTelegramProbeNotConfigured(t *testing.T) {
 	}
 }
 
+func TestTelegramProbeMalformedJSON(t *testing.T) {
+	var botCalls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		botCalls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	s := testServer()
+	s.Telegram = &telegram.Sender{
+		HTTPClient: srv.Client(),
+		APIBase:    srv.URL,
+		Getenv: func(k string) string {
+			switch k {
+			case "TELEGRAM_BOT_TOKEN":
+				return "tok"
+			case "TELEGRAM_USER_ID":
+				return "1"
+			}
+			return ""
+		},
+	}
+	h := s.Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/telegram/probe", strings.NewReader(`{broken`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["error"] != "Invalid JSON body" {
+		t.Fatalf("error: %v", body)
+	}
+	if botCalls.Load() != 0 {
+		t.Fatalf("bot API called %d times; malformed JSON must not send", botCalls.Load())
+	}
+}
+
 func TestTelegramProbeSuccess(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -606,6 +649,58 @@ func TestQqbotProbeNotConfigured(t *testing.T) {
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
 	if !strings.Contains(body["error"], "QQBOT_APP_ID") {
 		t.Fatalf("error: %v", body)
+	}
+}
+
+func TestQqbotProbeMalformedJSON(t *testing.T) {
+	var tokenCalls atomic.Int32
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenCalls.Add(1)
+		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":7200}`))
+	}))
+	defer tokenSrv.Close()
+	var sendCalls atomic.Int32
+	sendSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sendCalls.Add(1)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer sendSrv.Close()
+
+	s := testServer()
+	s.Qqbot = &qqbot.Sender{
+		HTTPClient: sendSrv.Client(),
+		TokenURL:   tokenSrv.URL,
+		APIBases:   []string{sendSrv.URL},
+		Getenv: func(k string) string {
+			switch k {
+			case "QQBOT_APP_ID":
+				return "app"
+			case "QQBOT_APP_SECRET":
+				return "sec"
+			case "QQBOT_USER_OPENID":
+				return "openid"
+			}
+			return ""
+		},
+	}
+	h := s.Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/qqbot/probe", strings.NewReader(`{broken`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["error"] != "Invalid JSON body" {
+		t.Fatalf("error: %v", body)
+	}
+	if tokenCalls.Load() != 0 || sendCalls.Load() != 0 {
+		t.Fatalf("QQ API called (token %d / send %d); malformed JSON must not send",
+			tokenCalls.Load(), sendCalls.Load())
 	}
 }
 

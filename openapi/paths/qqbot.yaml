@@ -5,7 +5,9 @@
     summary: Send a QQ Bot probe message
     description: |
       Requires `QQBOT_APP_ID`, `QQBOT_APP_SECRET`, and `QQBOT_USER_OPENID` on the server.
-      Empty / non-JSON body is allowed; default text is `DigitalTwin2026 probe`.
+      Empty body is allowed and sends the default text `DigitalTwin2026 probe`;
+      a non-empty body must be a JSON object with optional `text`
+      (malformed JSON or trailing garbage → 400).
       Auth: ApiToken.
     security:
       - ApiToken: []
@@ -23,7 +25,7 @@
             schema:
               $ref: '../components/schemas.yaml#/SuccessOnly'
       '400':
-        description: QQ Bot env not configured (or other client error)
+        description: QQ Bot env not configured, malformed JSON, or unknown JSON key
         content:
           application/json:
             schema:

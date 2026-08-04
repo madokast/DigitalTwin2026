@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  INVALID_JSON_BODY,
   MAX_HTTP_BODY_BYTES,
   REQUEST_BODY_TOO_LARGE,
 } from '@/lib/httpjson'
@@ -40,7 +41,8 @@ export async function POST(request: NextRequest) {
       }
     }
   } catch {
-    // 空 body / 非 JSON：使用默认文案
+    // 空 body 在 byteLength 检查后直接跳过解析；至此失败 = 畸形 JSON / 读取错误 → 400
+    return NextResponse.json({ error: INVALID_JSON_BODY }, { status: 400 })
   }
 
   const result = await sendTelegramMessage(text)

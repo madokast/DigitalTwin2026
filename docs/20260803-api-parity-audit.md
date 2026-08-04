@@ -1,7 +1,7 @@
 # DigitalTwin2026：双后端（Next / Go FaaS）API 一致性审计与差异清单
 
 > 创建日期：2026-08-03  
-> 状态：**未修复**（本文仅记录审计结论与实测证据；不随文改代码）  
+> 状态：**部分修复**（D1 已于 2026-08-04 修复；其余差异未修复）  
 > 性质：audit 记录；修复前必读，改动双端时对照本清单逐一收敛
 
 > 相关：[`docs/20260801-api-layering.md`](20260801-api-layering.md)（分层同构规范）、[`AGENTS.md`](../AGENTS.md)（双后端必须同时维护）、[`openapi/openapi.yaml`](../openapi/openapi.yaml)（契约基准）
@@ -10,7 +10,7 @@
 
 ## 0. 一句话结论
 
-**鉴权与正常业务路径双端完全一致；非法输入边界的错误行为存在分叉**，最严重的是 probe 畸形 JSON 的**状态码级分歧**（Next 200/502 vs Go 400，且 Next 会静默真发消息）。全部差异 **2026-08-03 审计时未修复**。
+**鉴权与正常业务路径双端完全一致；非法输入边界的错误行为存在分叉**，最严重的是 probe 畸形 JSON 的**状态码级分歧**（Next 200/502 vs Go 400，且 Next 会静默真发消息）。该差异（D1）已于 2026-08-04 修复（契约改为：空 body 允许走默认文案、非空畸形 JSON → 400，双端对齐）；其余差异仍存在。
 
 ---
 
@@ -37,15 +37,16 @@
 
 ## 2. 实测复现的差异（同输入，双端不同响应）
 
-### D1（高）probe 畸形 JSON：状态码分歧 + Next 会真发消息
+### D1（高）~~probe 畸形 JSON：状态码分歧 + Next 会真发消息~~ **已修复（2026-08-04）**
 
 | | Next | Go |
 |--|------|-----|
 | 输入 | `POST /api/telegram/probe`（或 `/api/qqbot/probe`）body 为 `{broken` 等畸形 JSON | 同左 |
-| 实测 | **502** `{"error":"Telegram sendMessage failed: Not Found"}`（假 token）；真 token 下为 **200** 且**静默发送默认文案消息** | **400** `{"error":"Invalid JSON body"}`，**不发消息** |
-| 位置 | `src/app/api/telegram/probe/route.ts:42-44`、`src/app/api/qqbot/probe/route.ts:39-41`（`JSON.parse` 抛错被 `catch {}` 吞掉） | `faas/internal/httpx/server.go:385-388`、`420-423`（`RejectUnknownObjectKeys` 先失败） |
+| 修复前 | **502** `{"error":"Telegram sendMessage failed: Not Found"}`（假 token）；真 token 下为 **200** 且**静默发送默认文案消息** | **400** `{"error":"Invalid JSON body"}`，**不发消息** |
+| 修复后 | **400** `{"error":"Invalid JSON body"}`，**不发消息**（与 Go 一致） | 不变 |
+| 位置 | 修复于 `src/app/api/telegram/probe/route.ts`、`src/app/api/qqbot/probe/route.ts`（`JSON.parse` 失败改为返回 400，不再被 `catch {}` 吞掉）；空 body 仍允许走默认文案 | `faas/internal/httpx/server.go:385-388`、`420-423`（`RejectUnknownObjectKeys` 先失败） |
 
-影响：畸形输入下 Next 会真的把「DigitalTwin2026 probe」发到用户 Telegram/QQ；Go 直接拒绝。**违反契约一致性（api-layering §3.4 字节级一致）。**
+契约同步：`openapi/paths/telegram.yaml`、`openapi/paths/qqbot.yaml` 原描述「non-JSON body is allowed」实为钉死 Next 的错误行为；已改为「空 body 允许走默认文案；非空 body 须为 JSON object，畸形 JSON → 400」。Go 行为本就符合新契约。双端测试：`tests/api/probe.test.ts`（Node）、`faas/internal/httpx/server_test.go`（Go，含 bot API 零调用断言）。
 
 ### D2（中）JSON 写路径顶层 `null`：错误文案分叉（同为 400）
 
@@ -93,7 +94,7 @@
 
 ## 5. 后续修复建议（未实施）
 
-1. **D1 优先**：Next probe 将 `JSON.parse` 失败（含尾部垃圾）改为 400 `Invalid JSON body`（或对齐 Go 的 `RejectUnknownObjectKeys` 流程），避免静默真发消息。
+1. **D1（已完成，2026-08-04）**：Next probe 将 `JSON.parse` 失败（含尾部垃圾）改为 400 `Invalid JSON body`（对齐 Go 的 `RejectUnknownObjectKeys` 流程），避免静默真发消息；契约同步至 OpenAPI，双端加测试。
 2. **D2/D2'**：统一 `httpjson.ts` 对顶层 `null`/数组/字面量的处理为 Go 的 `Request body must be a JSON object`（400），并修正 `httpjson.ts:44` 的错误注释。
 3. **D3–D5**：import 边界对齐（缺 boundary → 400、per-part 上限、文本 file part 文案统一）。
 4. **D6–D8**：视需要对齐（脏数据解析、并发竞态校验、连接超时）。
