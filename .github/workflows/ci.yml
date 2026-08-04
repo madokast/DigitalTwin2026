@@ -20,7 +20,7 @@ jobs:
       - run: npm run test:openapi
 
   unit-node:
-    name: Unit tests (Node)
+    name: Typecheck + Unit tests (Node)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +29,7 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
+      - run: npm run typecheck
       # 无安全 DATABASE_URL：tests/api 会 skip（与 Go integration Skip 对齐）；仍跑 src/lib 等单元测
       - run: npm test
 

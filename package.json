@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:unit": "tsx scripts/test-unit.ts",
+    "test:unit": "npm run typecheck && tsx scripts/test-unit.ts",
     "test:integration": "tsx scripts/test-integration.ts",
     "test:openapi": "vitest run tests/openapi",
     "openapi:lint": "redocly lint --config openapi/redocly.yaml openapi/openapi.yaml",
@@ -21,7 +21,8 @@
     "qqbot:listen-openid": "tsx scripts/qqbot-listen-openid.ts",
     "fc:deploy": "tsx faas/providers/aliyun-fc/scripts/deploy.ts",
     "scf:deploy": "tsx faas/providers/tencent-scf/scripts/deploy.ts",
-    "scf:login": "bash faas/providers/tencent-scf/scripts/login.sh"
+    "scf:login": "bash faas/providers/tencent-scf/scripts/login.sh",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
