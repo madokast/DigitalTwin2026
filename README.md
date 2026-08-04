@@ -71,7 +71,6 @@ Settings → API Accelerate URL 填 `http://localhost:8080`，或国内加速的
 
 | 命令 | 作用 |
 |------|------|
-| `npm run secrets:rotate-test` | 轮换本地测试库密码 + 两 Token（只更新 `.env.test`） |
 | `npm run deploy -- test` | 用常驻 `.env.test`；**跳过 Vercel**；询问可选 FC/SCF（默认 N） |
 | `npm run deploy -- prod` | 先问 Vercel / FC / SCF（默认 N）；任一 Y → `collect-prod-env`（DB 校验后可选 migrate；bot：Enable；有 `.env.test` 时可复用对应键）→ `.env.prod` → 仅部署所选目标；exit 删 `.env.prod` |
 | `npm run fc:deploy -- --env-file <path>` | 薄包装部署 FC（读 `FC_FUNCTION_NAME`） |

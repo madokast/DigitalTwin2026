@@ -15,7 +15,6 @@
 - 部署只用 [`scripts/deploy.ts`](scripts/deploy.ts) / [`scripts/deploy.sh`](scripts/deploy.sh) 薄包装（`--env-file`；内部 `s deploy` 输出丢弃）。
 - **不再**常驻 `.env.fc.test` / `.env.fc.prod`。
 - 真实 `*.fcapp.run` **禁止进 git**；只粘到浏览器「API 加速地址」。
-- 轮换**测试**库密码 + Token：`npm run secrets:rotate-test`（只改 `.env.test`），然后可选 `npm run deploy -- test`。
 - 刷新**生产**密钥：见下文「顶层 deploy」。
 
 ### Provider 无 stdin
