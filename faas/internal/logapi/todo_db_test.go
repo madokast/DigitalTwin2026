@@ -121,14 +121,14 @@ const (
 	}`
 )
 
-func sampleTodoSelect(tags string, valueText string) *fakeRow {
+func sampleTodoSelect(tags string, rawContent string) *fakeRow {
 	happened := time.Date(2026, 8, 2, 2, 0, 0, 0, time.UTC)
 	return &fakeRow{vals: []any{
 		todoID,
 		happened,
 		"Z",
 		nil,
-		valueText,
+		rawContent,
 		tags,
 		"weekend grocery list",
 		nil,
@@ -225,7 +225,7 @@ func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 			time.Date(2026, 8, 2, 4, 0, 0, 0, time.UTC),
 			"+08:00",
 			nil,
-			"Buy milk", // 审计行 value_text = 待办原文逐字拷贝
+			"Buy milk", // 审计行 raw_content = 待办原文逐字拷贝
 			`["todo:transition"]`,
 			wantObjCtx,
 			nil, // subjective_interpretation 恒 null

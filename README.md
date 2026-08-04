@@ -173,8 +173,8 @@ Node 全量 `npm test` 在无安全 `DATABASE_URL` 时集成自动 Skip；Go 全
 | id | UUID (v7) | 主键，时间有序 |
 | happened_at | TIMESTAMPTZ | 事件时间（读出会变形，见下） |
 | utc_offset | TEXT | 隐列：仅存库，对外不暴露（见下） |
-| value_number | TEXT | 十进制数字符串字面量（可空；JSON/API 一律 string，禁止 number） |
-| value_text | TEXT | 文本（可空；与数值至少填一；部分 API 会变形，见下） |
+| numeric_value | TEXT | 十进制数字符串字面量（可空；JSON/API 一律 string，禁止 number） |
+| raw_content | TEXT | 文本（可空；与数值至少填一；部分 API 会变形，见下） |
 | tags | TEXT | JSON 数组 |
 | objective_context | TEXT | 客观背景（必填） |
 | subjective_interpretation | TEXT | 主观解读（可空） |
@@ -183,8 +183,8 @@ Node 全量 `npm test` 在无安全 `DATABASE_URL` 时集成自动 Skip；Go 全
 
 - **`happened_at` 读出变形**：按隐列 `utc_offset` 还原为录入时的规范时区后缀（`Z` / `±HH:MM`，`Z` ≠ `+00:00` 禁止互相折叠），秒后统一补三位毫秒——如 `2026-07-30T08:00:00+08:00` 读回为 `2026-07-30T08:00:00.000+08:00`。
 - **`utc_offset` 隐列**：仅存库（`Z` / `±HH:MM`），**对外 JSON 一律不暴露**；供读出还原带区 `happened_at`。详见 [`docs/20260803-utc-offset.md`](docs/20260803-utc-offset.md)。
-- **待办行变形（`happened_at`→`created_at`、`value_text`→`content`）**：凡响应中的**待办行**——`GET /api/query` 的 `records[]`、`POST /api/log/todo` 的 `201.record`——键名统一变形为 `created_at` / `content`（时间值仍按 `utc_offset` 带区格式化，只改键名不改值）；**审计行始终默认形状**，export JSONL **不**变形。详见 [`docs/20260802-todo-feature.md`](docs/20260802-todo-feature.md)。
-- **`value_text` 审计行变形**：todo transition 的审计行中变形为审计文案（`Complete a to-do created at …: …`），非用户原文；待办行正文则经 `content` 别名读写（见上一条）。
+- **待办行变形（`happened_at`→`created_at`、`raw_content`→`content`）**：凡响应中的**待办行**——`GET /api/query` 的 `records[]`、`POST /api/log/todo` 的 `201.record`——键名统一变形为 `created_at` / `content`（时间值仍按 `utc_offset` 带区格式化，只改键名不改值）；**审计行始终默认形状**，export JSONL **不**变形。详见 [`docs/20260802-todo-feature.md`](docs/20260802-todo-feature.md)。
+- **`raw_content` 审计行**：todo transition 的审计行 `raw_content` = 流转前待办行正文的**逐字拷贝**（同原文）；动词、待办 id 与创建时间合成句写入 `objective_context`（`{Verb} a to-do {id} created at {带区时间}`）；通知正文 = 合成句 + `": "` + 原文（可由审计行两字段还原）。详见 [`docs/20260804-rename-value-text-to-raw-content.md`](docs/20260804-rename-value-text-to-raw-content.md) 与 [`docs/20260802-todo-feature.md`](docs/20260802-todo-feature.md)。
 
 ## 设计文档
 

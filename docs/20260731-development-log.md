@@ -1,5 +1,7 @@
 # DigitalTwin2026 开发日志
 
+> **2026-08-04 变更提示**：`value_text` / `value_number` 已全量更名为 `raw_content` / `numeric_value`，todo 审计行存储语义亦已变更（本文正文保留当时原样）。详见 [`20260804-rename-value-text-to-raw-content.md`](20260804-rename-value-text-to-raw-content.md)。
+
 > 日期：2026-07-31
 > 状态：Admin 编辑 + FC 部署收尾；Telegram 通知；OpenAPI 契约基建完成并**收口**（不做 codegen / Schemathesis）；仓库公开后 CI 全绿
 

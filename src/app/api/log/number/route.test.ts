@@ -20,8 +20,8 @@ import { POST } from './route'
 const sampleRecord = {
   id: '01900000-0000-7000-8000-000000000001',
   happened_at: '2026-07-31T12:00:00.000Z',
-  value_number: '72.5',
-  value_text: null,
+  numeric_value: '72.5',
+  raw_content: null,
   tags: '["weight"]',
   objective_context: 'Scale',
   subjective_interpretation: null,
@@ -37,7 +37,7 @@ function post(body: unknown): NextRequest {
 
 const validBody = {
   happened_at: '2026-07-30T08:00:00+08:00',
-  value_number: '75.5',
+  numeric_value: '75.5',
   tags: ['weight'],
   objective_context: 'morning weigh-in',
 }

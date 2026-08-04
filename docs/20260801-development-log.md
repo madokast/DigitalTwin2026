@@ -1,5 +1,7 @@
 # DigitalTwin2026 开发日志
 
+> **2026-08-04 变更提示**：`value_text` / `value_number` 已全量更名为 `raw_content` / `numeric_value`，todo 审计行存储语义亦已变更（本文正文保留当时原样）。详见 [`20260804-rename-value-text-to-raw-content.md`](20260804-rename-value-text-to-raw-content.md)。
+
 > 日期：2026-08-01（续至 2026-08-03）
 > 状态：transaction 录入 + summary；金额 `MoneyAmountString` 收紧；body weight 写入；Todo Phase 1–4（保留前缀 / 创建 / transition / query 变形）已落地；双端 API 对齐；统一 `notify_user` + QQ Bot；契约收紧（未知键）。**通知静音现行行为**见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)（已删 body `suppress_notification` 与 `DIGITAL_TWIN_TEST` / `NOTIFY_ALLOW_IN_TEST`）。
 

@@ -1,5 +1,7 @@
 # DigitalTwin2026 开发日志
 
+> **2026-08-04 变更提示**：`value_text` / `value_number` 已全量更名为 `raw_content` / `numeric_value`，todo 审计行存储语义亦已变更（本文正文保留当时原样）。详见 [`20260804-rename-value-text-to-raw-content.md`](20260804-rename-value-text-to-raw-content.md)。
+
 > 日期：2026-07-30
 > 状态：当日收尾（MVP + 测试基建 + 双 Token / Admin + Web 路由与 Dashboard UI 打磨）
 

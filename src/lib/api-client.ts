@@ -95,8 +95,8 @@ export async function renameTag(from: string, to: string): Promise<number> {
 
 export type PatchRecordBody = {
   happened_at: string
-  value_number: string | null
-  value_text: string | null
+  numeric_value: string | null
+  raw_content: string | null
   tags: string[]
   objective_context: string
   subjective_interpretation: string | null

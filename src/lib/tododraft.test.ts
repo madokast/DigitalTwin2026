@@ -36,7 +36,7 @@ const deformFixture = JSON.parse(
 }
 
 describe('toTodoRecordJson shared fixture', () => {
-  it('maps happenedAt/valueText to created_at/content', () => {
+  it('maps happenedAt/rawContent to created_at/content', () => {
     expect(toTodoRecordJson(deformFixture.inputRecord)).toEqual(
       deformFixture.todoRecordJson,
     )
@@ -78,11 +78,11 @@ describe('toQueryRecordJson', () => {
     const todo = toQueryRecordJson(deformFixture.inputRecord)
     expect(todo).toEqual(deformFixture.todoRecordJson)
     expect('happened_at' in todo).toBe(false)
-    expect('value_text' in todo).toBe(false)
+    expect('raw_content' in todo).toBe(false)
 
     const audit: Record = {
       ...deformFixture.inputRecord,
-      value_text: 'Buy milk',
+      raw_content: 'Buy milk',
       tags: JSON.stringify([TODO_TAG_TRANSITION]),
       objective_context:
         'Complete a to-do 01900000-0000-7000-8000-000000000003 created at 2026-08-02T02:00:00.000Z',
@@ -100,7 +100,7 @@ describe('toQueryRecordJson', () => {
     const dirtyJson = toQueryRecordJson(dirty)
     expect(dirtyJson).toMatchObject({
       created_at: dirty.happened_at,
-      content: dirty.value_text,
+      content: dirty.raw_content,
     })
     expect('happened_at' in dirtyJson).toBe(false)
   })
@@ -121,7 +121,7 @@ describe('parseTodo', () => {
     })
     expect('error' in parsed).toBe(false)
     if ('error' in parsed) return
-    expect(parsed.valueText).toBe('Buy milk')
+    expect(parsed.rawContent).toBe('Buy milk')
     expect(parsed.tags).toEqual([TODO_TAG_IN_PROGRESS, 'errand'])
     expect(parsed.objectiveContext).toBe('weekend grocery list')
     expect(parsed.subjectiveInterpretation).toBe('need it for breakfast')
@@ -172,17 +172,17 @@ describe('parseTodo', () => {
     })
   })
 
-  it('rejects happened_at / value_text as unknown keys', () => {
+  it('rejects happened_at / raw_content as unknown keys', () => {
     expect(
       parseTodo({ ...base, happened_at: base.created_at } as typeof base & {
         happened_at: string
       }),
     ).toEqual({ error: 'Unknown JSON key: happened_at' })
     expect(
-      parseTodo({ ...base, value_text: 'x' } as typeof base & {
-        value_text: string
+      parseTodo({ ...base, raw_content: 'x' } as typeof base & {
+        raw_content: string
       }),
-    ).toEqual({ error: 'Unknown JSON key: value_text' })
+    ).toEqual({ error: 'Unknown JSON key: raw_content' })
   })
 })
 
@@ -199,7 +199,7 @@ const auditFixture = JSON.parse(
     target: TodoState
     todoId: string
     todoHappenedAt: string
-    todoValueText: string
+    todoRawContent: string
     objective_context: string
     notify_text: string
   }>
@@ -213,7 +213,7 @@ describe('todoAuditNotifyText shared fixture', () => {
           c.target,
           c.todoId,
           c.todoHappenedAt,
-          c.todoValueText,
+          c.todoRawContent,
         ),
       ).toBe(c.notify_text)
     }

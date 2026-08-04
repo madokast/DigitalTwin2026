@@ -4,7 +4,7 @@
     tags: [log]
     summary: Create a numeric record
     description: |
-      Inserts a record with `value_number` set and `value_text` null.
+      Inserts a record with `numeric_value` set and `raw_content` null.
       On success, notification via notify_user is always scheduled (best-effort) and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
       Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`,
@@ -20,7 +20,7 @@
             $ref: '../components/schemas.yaml#/LogNumberRequest'
           example:
             happened_at: '2026-07-30T08:00:00+08:00'
-            value_number: '8000'
+            numeric_value: '8000'
             tags: [steps]
             objective_context: daily step count
             subjective_interpretation: good pace
@@ -46,8 +46,8 @@
     tags: [log]
     summary: Create a body-weight record (kg)
     description: |
-      Inserts a numeric record with `value_number` as kg (no unit field)
-      and `value_text` null. Server always prepends reserved tag
+      Inserts a numeric record with `numeric_value` as kg (no unit field)
+      and `raw_content` null. Server always prepends reserved tag
       `body:weight` (optional client `tags` follow). Reserved prefixes
       `body:weight` / `body:weight:*`, `transaction_entry` /
       `transaction_entry:*`, and `todo` / `todo:*` are rejected on client tags.
@@ -66,7 +66,7 @@
             $ref: '../components/schemas.yaml#/LogBodyWeightRequest'
           example:
             happened_at: '2026-08-02T08:00:00+08:00'
-            value_number: '75.5'
+            numeric_value: '75.5'
             objective_context: morning weigh-in
             subjective_interpretation: a bit heavy
             tags: [morning]
@@ -92,15 +92,15 @@
     tags: [log]
     summary: Create a to-do record
     description: |
-      Inserts a text-like record with `value_text` from request `content` and
-      `happened_at` from request `created_at` (`value_number` null). Server
+      Inserts a text-like record with `raw_content` from request `content` and
+      `happened_at` from request `created_at` (`numeric_value` null). Server
       always prepends reserved state tag `todo:in_progress` (optional client
       `tags` follow). Clients must not send reserved tags
       (`todo` / `todo:*`, `transaction_entry` / `transaction_entry:*`,
       `body:weight` / `body:weight:*`) and must not send `happened_at` /
-      `value_text` / `value_number` keys (use aliases). Success `201.record`
+      `raw_content` / `numeric_value` keys (use aliases). Success `201.record`
       is a **TodoRecord** (`created_at` / `content`, not `happened_at` /
-      `value_text`). On success, notification via notify_user is always
+      `raw_content`). On success, notification via notify_user is always
       scheduled (best-effort) and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
       Query later with `GET /api/query?tag=todo:in_progress` (list items also
@@ -142,10 +142,10 @@
     description: |
       Atomically replaces the to-do's representative `todo:{state}` tag with
       `todo:{target}` and inserts an audit text row tagged `todo:transition`
-      (value_text per feature spec §4.1). Success is HTTP **200** with
+      (raw_content per feature spec §4.1). Success is HTTP **200** with
       `{ success, id, transition: { from, to } }` (TodoState literals; no
       `record` / `audit_record`). Notify exactly once with the audit
-      value_text. Four distinct English
+      raw_content. Four distinct English
       errors: not found (404), not a to-do / audit / already target (400).
       Auth: ApiToken (AI token or Admin token).
     security:
@@ -190,7 +190,7 @@
     tags: [log]
     summary: Create a text record
     description: |
-      Inserts a record with `value_text` set and `value_number` null.
+      Inserts a record with `raw_content` set and `numeric_value` null.
       On success, notification via notify_user is always scheduled (best-effort) and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
       Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`,
@@ -206,7 +206,7 @@
             $ref: '../components/schemas.yaml#/LogTextRequest'
           example:
             happened_at: '2026-07-30T10:00:00+08:00'
-            value_text: studied 50 words
+            raw_content: studied 50 words
             tags: [study, vocabulary]
             objective_context: afternoon study
     responses:

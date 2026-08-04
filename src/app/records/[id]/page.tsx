@@ -26,16 +26,16 @@ import { parseRecordDraft } from '@/lib/draft'
 
 type FieldKey =
   | 'happenedAt'
-  | 'valueNumber'
-  | 'valueText'
+  | 'numericValue'
+  | 'rawContent'
   | 'tags'
   | 'objectiveContext'
   | 'subjectiveInterpretation'
 
 type Draft = {
   happenedLocal: string
-  valueNumber: string
-  valueText: string | null
+  numericValue: string
+  rawContent: string | null
   tags: string[]
   objectiveContext: string
   subjectiveInterpretation: string | null
@@ -54,8 +54,8 @@ function parseTags(raw: string): string[] {
 function recordToDraft(record: TwinRecord, tz: string): Draft {
   return {
     happenedLocal: isoToDatetimeLocalValue(record.happened_at, tz),
-    valueNumber: record.value_number ?? '',
-    valueText: record.value_text,
+    numericValue: record.numeric_value ?? '',
+    rawContent: record.raw_content,
     tags: parseTags(record.tags),
     objectiveContext: record.objective_context,
     subjectiveInterpretation: record.subjective_interpretation,
@@ -65,8 +65,8 @@ function recordToDraft(record: TwinRecord, tz: string): Draft {
 function draftsEqual(a: Draft, b: Draft): boolean {
   return (
     a.happenedLocal === b.happenedLocal &&
-    a.valueNumber === b.valueNumber &&
-    a.valueText === b.valueText &&
+    a.numericValue === b.numericValue &&
+    a.rawContent === b.rawContent &&
     a.objectiveContext === b.objectiveContext &&
     a.subjectiveInterpretation === b.subjectiveInterpretation &&
     a.tags.length === b.tags.length &&
@@ -283,8 +283,8 @@ export default function RecordDetailPage() {
 
       const body = {
         happened_at: happenedAt,
-        value_number: draft.valueNumber === '' ? null : draft.valueNumber,
-        value_text: draft.valueText,
+        numeric_value: draft.numericValue === '' ? null : draft.numericValue,
+        raw_content: draft.rawContent,
         tags: draft.tags,
         objective_context: draft.objectiveContext,
         subjective_interpretation: draft.subjectiveInterpretation,
@@ -305,11 +305,11 @@ export default function RecordDetailPage() {
   }
 
   useEffect(() => {
-    if (!editing.valueNumber || !numberRef.current) return
+    if (!editing.numericValue || !numberRef.current) return
     const el = numberRef.current
     el.focus()
     el.select()
-  }, [editing.valueNumber])
+  }, [editing.numericValue])
 
   useEffect(() => {
     if (!editing.happenedAt || !timeInputRef.current) return
@@ -393,15 +393,15 @@ export default function RecordDetailPage() {
             <div>
               <dt className="text-xs text-muted-foreground">Value</dt>
               <dd className="text-sm min-h-[1.25rem]">
-                {editing.valueNumber ? (
+                {editing.numericValue ? (
                   <input
                     ref={numberRef}
                     type="text"
                     inputMode="decimal"
-                    value={draft.valueNumber}
+                    value={draft.numericValue}
                     onChange={(e) =>
                       setDraft((d) =>
-                        d ? { ...d, valueNumber: e.target.value } : d,
+                        d ? { ...d, numericValue: e.target.value } : d,
                       )
                     }
                     className="w-full text-sm bg-transparent border-0 p-0 m-0 outline-none"
@@ -411,13 +411,13 @@ export default function RecordDetailPage() {
                     className="block"
                     onDoubleClick={(e) => {
                       e.preventDefault()
-                      requestEdit('valueNumber')
+                      requestEdit('numericValue')
                     }}
                   >
-                    {record.value_number === null ? (
+                    {record.numeric_value === null ? (
                       <NullBadge />
                     ) : (
-                      record.value_number
+                      record.numeric_value
                     )}
                   </span>
                 )}
@@ -428,12 +428,12 @@ export default function RecordDetailPage() {
               <dt className="text-xs text-muted-foreground">Text</dt>
               <dd>
                 <NullableText
-                  value={draft.valueText}
-                  editing={!!editing.valueText}
+                  value={draft.rawContent}
+                  editing={!!editing.rawContent}
                   multiline
-                  onRequestEdit={() => requestEdit('valueText')}
+                  onRequestEdit={() => requestEdit('rawContent')}
                   onChange={(next) =>
-                    setDraft((d) => (d ? { ...d, valueText: next } : d))
+                    setDraft((d) => (d ? { ...d, rawContent: next } : d))
                   }
                 />
               </dd>

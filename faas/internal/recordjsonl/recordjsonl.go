@@ -25,8 +25,8 @@ import (
 var RecordJSONLKeys = []string{
 	"id",
 	"happened_at",
-	"value_number",
-	"value_text",
+	"numeric_value",
+	"raw_content",
 	"tags",
 	"objective_context",
 	"subjective_interpretation",
@@ -48,8 +48,8 @@ type Row struct {
 	ID                       string
 	HappenedAt               time.Time
 	UtcOffset                string
-	ValueNumber              *string
-	ValueText                *string
+	NumericValue              *string
+	RawContent                *string
 	Tags                     []string
 	ObjectiveContext         string
 	SubjectiveInterpretation *string
@@ -110,22 +110,22 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 		return nil, wrapErr(err.Error(), lineNumber)
 	}
 
-	valueNumber, err := draft.ParseValueNumber(m["value_number"])
+	numericValue, err := draft.ParseNumericValue(m["numeric_value"])
 	if err != nil {
 		return nil, wrapErr(err.Error(), lineNumber)
 	}
 
-	var valueText *string
-	if m["value_text"] != nil {
-		s, ok := m["value_text"].(string)
+	var rawContent *string
+	if m["raw_content"] != nil {
+		s, ok := m["raw_content"].(string)
 		if !ok {
-			return nil, wrapErr("Invalid value_text", lineNumber)
+			return nil, wrapErr("Invalid raw_content", lineNumber)
 		}
-		valueText = draft.EmptyStringToNull(&s)
+		rawContent = draft.EmptyStringToNull(&s)
 	}
 
-	if valueNumber == nil && valueText == nil {
-		return nil, wrapErr("value_number and value_text cannot both be null", lineNumber)
+	if numericValue == nil && rawContent == nil {
+		return nil, wrapErr("numeric_value and raw_content cannot both be null", lineNumber)
 	}
 
 	switch m["tags"].(type) {
@@ -177,8 +177,8 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 		ID:                       id,
 		HappenedAt:               happenedAt,
 		UtcOffset:                utcOffset,
-		ValueNumber:              valueNumber,
-		ValueText:                valueText,
+		NumericValue:              numericValue,
+		RawContent:                rawContent,
 		Tags:                     tagsOut,
 		ObjectiveContext:         objCtx,
 		SubjectiveInterpretation: subjective,
@@ -200,8 +200,8 @@ func SerializeLine(row *Row) (string, error) {
 	rec := record.Record{
 		ID:                       row.ID,
 		HappenedAt:               happenedAt,
-		ValueNumber:              row.ValueNumber,
-		ValueText:                row.ValueText,
+		NumericValue:              row.NumericValue,
+		RawContent:                row.RawContent,
 		Tags:                     tagsJSON,
 		ObjectiveContext:         row.ObjectiveContext,
 		SubjectiveInterpretation: row.SubjectiveInterpretation,
@@ -215,8 +215,8 @@ func SerializeRecord(rec record.Record) (string, error) {
 	b, err := json.Marshal(orderedRecord{
 		ID:                       rec.ID,
 		HappenedAt:               rec.HappenedAt,
-		ValueNumber:              rec.ValueNumber,
-		ValueText:                rec.ValueText,
+		NumericValue:              rec.NumericValue,
+		RawContent:                rec.RawContent,
 		Tags:                     rec.Tags,
 		ObjectiveContext:         rec.ObjectiveContext,
 		SubjectiveInterpretation: rec.SubjectiveInterpretation,
@@ -231,8 +231,8 @@ func SerializeRecord(rec record.Record) (string, error) {
 type orderedRecord struct {
 	ID                       string  `json:"id"`
 	HappenedAt               string  `json:"happened_at"`
-	ValueNumber              *string `json:"value_number"`
-	ValueText                *string `json:"value_text"`
+	NumericValue              *string `json:"numeric_value"`
+	RawContent                *string `json:"raw_content"`
 	Tags                     string  `json:"tags"`
 	ObjectiveContext         string  `json:"objective_context"`
 	SubjectiveInterpretation *string `json:"subjective_interpretation"`

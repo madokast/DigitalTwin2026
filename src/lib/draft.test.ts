@@ -6,9 +6,9 @@ import {
   emptyStringToNull,
   parseHappenedAt,
   parseRecordDraft,
-  parseValueNumber,
+  parseNumericValue,
   validateDecimalString,
-  VALUE_NUMBER_MUST_BE_STRING,
+  NUMERIC_VALUE_MUST_BE_STRING,
 } from './draft'
 import { reservedTagError } from './tags'
 
@@ -24,8 +24,8 @@ const decimalCases = JSON.parse(
 
 const validBase = {
   happened_at: '2026-07-30T08:00:00+08:00',
-  value_number: '75.5',
-  value_text: null,
+  numeric_value: '75.5',
+  raw_content: null,
   tags: ['weight'],
   objective_context: 'morning weigh-in',
   subjective_interpretation: null,
@@ -96,37 +96,37 @@ describe('parseHappenedAt', () => {
   })
 })
 
-describe('validateDecimalString / parseValueNumber', () => {
+describe('validateDecimalString / parseNumericValue', () => {
   it('accepts shared decimal-string fixtures', () => {
     for (const s of decimalCases.accept) {
       expect(validateDecimalString(s), s).toEqual({ ok: true })
-      expect(parseValueNumber(s), s).toEqual({ ok: true, value: s })
+      expect(parseNumericValue(s), s).toEqual({ ok: true, value: s })
     }
   })
 
   it('rejects shared decimal-string fixtures', () => {
     for (const bad of decimalCases.reject) {
       expect(validateDecimalString(bad), bad).toEqual({
-        error: 'Invalid value_number',
+        error: 'Invalid numeric_value',
       })
-      expect(parseValueNumber(bad), bad).toEqual({
-        error: 'Invalid value_number',
+      expect(parseNumericValue(bad), bad).toEqual({
+        error: 'Invalid numeric_value',
       })
     }
   })
 
   it('trims and maps blank / null; preserves trailing zeros', () => {
-    expect(parseValueNumber('  1.0  ')).toEqual({ ok: true, value: '1.0' })
-    expect(parseValueNumber('')).toEqual({ ok: true, value: null })
-    expect(parseValueNumber(null)).toEqual({ ok: true, value: null })
+    expect(parseNumericValue('  1.0  ')).toEqual({ ok: true, value: '1.0' })
+    expect(parseNumericValue('')).toEqual({ ok: true, value: null })
+    expect(parseNumericValue(null)).toEqual({ ok: true, value: null })
   })
 
   it('rejects JSON number type', () => {
-    expect(parseValueNumber(75.5)).toEqual({
-      error: VALUE_NUMBER_MUST_BE_STRING,
+    expect(parseNumericValue(75.5)).toEqual({
+      error: NUMERIC_VALUE_MUST_BE_STRING,
     })
-    expect(parseValueNumber(1)).toEqual({
-      error: VALUE_NUMBER_MUST_BE_STRING,
+    expect(parseNumericValue(1)).toEqual({
+      error: NUMERIC_VALUE_MUST_BE_STRING,
     })
   })
 })
@@ -136,10 +136,10 @@ describe('parseRecordDraft', () => {
     const parsed = parseRecordDraft(validBase)
     expect('error' in parsed).toBe(false)
     if ('error' in parsed) return
-    expect(parsed.valueNumber).toBe('75.5')
+    expect(parsed.numericValue).toBe('75.5')
     expect(parsed.happenedAt).toBeInstanceOf(Date)
     expect(parsed.utcOffset).toBe('+08:00')
-    expect(parsed.valueText).toBeNull()
+    expect(parsed.rawContent).toBeNull()
     expect(parsed.tags).toEqual(['weight'])
     expect(parsed.objectiveContext).toBe('morning weigh-in')
     expect(parsed.subjectiveInterpretation).toBeNull()
@@ -152,7 +152,7 @@ describe('parseRecordDraft', () => {
     if ('error' in parsed) return
     expect(parsed.happenedAt).toBeNull()
     expect(parsed.utcOffset).toBeNull()
-    expect(parsed.valueNumber).toBe('75.5')
+    expect(parsed.numericValue).toBe('75.5')
   })
 
   it('rejects utc_offset as unknown key', () => {
@@ -179,34 +179,34 @@ describe('parseRecordDraft', () => {
     expect(
       parseRecordDraft({
         ...validBase,
-        value_number: null,
-        value_text: '',
+        numeric_value: null,
+        raw_content: '',
       }),
     ).toEqual({
-      error: 'value_number and value_text cannot both be null',
+      error: 'numeric_value and raw_content cannot both be null',
     })
   })
 
-  it('maps empty value_text and subjective to null', () => {
+  it('maps empty raw_content and subjective to null', () => {
     const parsed = parseRecordDraft({
       ...validBase,
-      value_number: '1',
-      value_text: '',
+      numeric_value: '1',
+      raw_content: '',
       subjective_interpretation: '',
     })
     expect('error' in parsed).toBe(false)
     if ('error' in parsed) return
-    expect(parsed.valueText).toBeNull()
+    expect(parsed.rawContent).toBeNull()
     expect(parsed.subjectiveInterpretation).toBeNull()
   })
 
-  it('rejects JSON number value_number', () => {
+  it('rejects JSON number numeric_value', () => {
     expect(
       parseRecordDraft({
         ...validBase,
-        value_number: 75.5,
+        numeric_value: 75.5,
       }),
-    ).toEqual({ error: VALUE_NUMBER_MUST_BE_STRING })
+    ).toEqual({ error: NUMERIC_VALUE_MUST_BE_STRING })
   })
 
   it('rejects empty objective_context', () => {
@@ -268,15 +268,15 @@ describe('parseRecordDraft', () => {
     ).toEqual({ error: reservedTagError('todo:in_progress') })
   })
 
-  it('accepts empty value_number with text-only records', () => {
+  it('accepts empty numeric_value with text-only records', () => {
     const parsed = parseRecordDraft({
       ...validBase,
-      value_number: '',
-      value_text: 'hello',
+      numeric_value: '',
+      raw_content: 'hello',
     })
     expect('error' in parsed).toBe(false)
     if ('error' in parsed) return
-    expect(parsed.valueNumber).toBeNull()
-    expect(parsed.valueText).toBe('hello')
+    expect(parsed.numericValue).toBeNull()
+    expect(parsed.rawContent).toBe('hello')
   })
 })

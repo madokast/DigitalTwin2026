@@ -1,6 +1,6 @@
 /**
  * 待办录入纯解析与对外 JSON 变形（与 faas/internal/tododraft 同构）。
- * 创建：created_at → happened_at，content → value_text；落库 tags 以 todo:in_progress 开头。
+ * 创建：created_at → happened_at，content → raw_content；落库 tags 以 todo:in_progress 开头。
  */
 import {
   parseHappenedAt,
@@ -57,7 +57,7 @@ export type LogTodoBody = {
 export type NormalizedTodo = {
   happenedAt: Date
   utcOffset: string
-  valueText: string
+  rawContent: string
   tags: string[]
   objectiveContext: string
   subjectiveInterpretation: string | null
@@ -67,20 +67,20 @@ export type NormalizedTodo = {
 export type TodoRecordJson = {
   id: string
   created_at: string
-  value_number: null
+  numeric_value: null
   content: string
   tags: string
   objective_context: string
   subjective_interpretation: string | null
 }
 
-/** 将内部 Record 变形为待办对外形状（去掉 happened_at / value_text） */
+/** 将内部 Record 变形为待办对外形状（去掉 happened_at / raw_content） */
 export function toTodoRecordJson(rec: Record): TodoRecordJson {
   return {
     id: rec.id,
     created_at: rec.happened_at,
-    value_number: null,
-    content: rec.value_text ?? '',
+    numeric_value: null,
+    content: rec.raw_content ?? '',
     tags: rec.tags,
     objective_context: rec.objective_context,
     subjective_interpretation: rec.subjective_interpretation,
@@ -218,9 +218,9 @@ export function todoAuditNotifyText(
   target: TodoState,
   todoId: string,
   todoHappenedAt: string,
-  todoValueText: string,
+  todoRawContent: string,
 ): string {
-  return `${verbFor(target)} a to-do ${todoId} created at ${todoHappenedAt}: ${todoValueText}`
+  return `${verbFor(target)} a to-do ${todoId} created at ${todoHappenedAt}: ${todoRawContent}`
 }
 
 function verbFor(target: TodoState): string {
@@ -371,7 +371,7 @@ export function parseTodo(
   return {
     happenedAt: createdResult.value,
     utcOffset: createdResult.utcOffset,
-    valueText: body.content,
+    rawContent: body.content,
     tags: [TODO_TAG_IN_PROGRESS, ...clientTags.value],
     objectiveContext: body.objective_context,
     subjectiveInterpretation: subjective.value,

@@ -55,7 +55,7 @@ func CreateTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 		return record.Record{}, 500, err
 	}
 
-	vt := parsed.ValueText
+	vt := parsed.RawContent
 	rec, err := insertReturning(
 		ctx, pool, id.String(), parsed.HappenedAt, parsed.UtcOffset, nil, &vt,
 		tagsJSON, parsed.ObjectiveContext, parsed.SubjectiveInterpretation,
@@ -114,7 +114,7 @@ func transitionTodo(ctx context.Context, db transitionDB, raw []byte) (Transitio
 		todoNum, todoText, todoSubj           *string
 	)
 	err = db.QueryRow(ctx, `
-SELECT id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation
+SELECT id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation
 FROM records WHERE id = $1
 `, parsed.ID).Scan(
 		&todoID, &todoHappened, &todoOffset, &todoNum, &todoText, &todoTags, &todoObj, &todoSubj,
@@ -144,8 +144,8 @@ FROM records WHERE id = $1
 
 	todoRec := record.FromDB(todoID, todoHappened, todoOffset, todoNum, todoText, todoTags, todoObj, todoSubj)
 	content := ""
-	if todoRec.ValueText != nil {
-		content = *todoRec.ValueText
+	if todoRec.RawContent != nil {
+		content = *todoRec.RawContent
 	}
 	notifyText := tododraft.TodoAuditNotifyText(parsed.Target, parsed.ID, todoRec.HappenedAt, content)
 	objCtx := tododraft.AuditObjectiveContext(parsed.Target, todoID, todoRec.HappenedAt)

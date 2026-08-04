@@ -18,7 +18,7 @@ import (
 // 避免 Go 强类型 decode 把类型错误一律变成 Invalid JSON body。
 type NumberBody struct {
 	HappenedAt               any `json:"happened_at"`
-	ValueNumber              any `json:"value_number"`
+	NumericValue              any `json:"numeric_value"`
 	Tags                     any `json:"tags"`
 	ObjectiveContext         any `json:"objective_context"`
 	SubjectiveInterpretation any `json:"subjective_interpretation"`
@@ -26,19 +26,19 @@ type NumberBody struct {
 
 type TextBody struct {
 	HappenedAt               any `json:"happened_at"`
-	ValueText                any `json:"value_text"`
+	RawContent                any `json:"raw_content"`
 	Tags                     any `json:"tags"`
 	ObjectiveContext         any `json:"objective_context"`
 	SubjectiveInterpretation any `json:"subjective_interpretation"`
 }
 
 var logNumberKeys = []string{
-	"happened_at", "value_number", "tags", "objective_context",
+	"happened_at", "numeric_value", "tags", "objective_context",
 	"subjective_interpretation",
 }
 
 var logTextKeys = []string{
-	"happened_at", "value_text", "tags", "objective_context",
+	"happened_at", "raw_content", "tags", "objective_context",
 	"subjective_interpretation",
 }
 
@@ -109,8 +109,8 @@ func insertReturning(
 	id string,
 	happenedAt time.Time,
 	utcOffset string,
-	valueNumber *string,
-	valueText *string,
+	numericValue *string,
+	rawContent *string,
 	tagsJSON string,
 	objectiveContext string,
 	subj any,
@@ -121,10 +121,10 @@ func insertReturning(
 		outNum, outText, outSubj          *string
 	)
 	err := q.QueryRow(ctx, `
-INSERT INTO records (id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation)
+INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
-RETURNING id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation
-`, id, happenedAt, utcOffset, valueNumber, valueText, tagsJSON, objectiveContext, subj).Scan(
+RETURNING id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation
+`, id, happenedAt, utcOffset, numericValue, rawContent, tagsJSON, objectiveContext, subj).Scan(
 		&outID, &outHappened, &outOffset, &outNum, &outText, &outTags, &outObj, &outSubj,
 	)
 	if err != nil {
@@ -149,15 +149,15 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	if err != nil {
 		return record.Record{}, 400, err
 	}
-	if body.ValueNumber == nil {
-		return record.Record{}, 400, fmt.Errorf("Missing required field: value_number")
+	if body.NumericValue == nil {
+		return record.Record{}, 400, fmt.Errorf("Missing required field: numeric_value")
 	}
-	numStr, err := draft.ParseValueNumber(body.ValueNumber)
+	numStr, err := draft.ParseNumericValue(body.NumericValue)
 	if err != nil {
 		return record.Record{}, 400, err
 	}
 	if numStr == nil {
-		return record.Record{}, 400, fmt.Errorf("Missing required field: value_number")
+		return record.Record{}, 400, fmt.Errorf("Missing required field: numeric_value")
 	}
 	tagList, err := tagsStringSlice(body.Tags)
 	if err != nil {
@@ -210,7 +210,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	if err != nil {
 		return record.Record{}, 400, err
 	}
-	valueText, err := requireNonEmptyString(body.ValueText, "Missing required field: value_text")
+	rawContent, err := requireNonEmptyString(body.RawContent, "Missing required field: raw_content")
 	if err != nil {
 		return record.Record{}, 400, err
 	}
@@ -244,7 +244,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	}
 
 	rec, err := insertReturning(
-		ctx, pool, id.String(), happenedAt, utcOffset, nil, &valueText,
+		ctx, pool, id.String(), happenedAt, utcOffset, nil, &rawContent,
 		tagsJSON, objCtx, subj,
 	)
 	if err != nil {

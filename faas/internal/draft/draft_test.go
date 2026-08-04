@@ -51,8 +51,8 @@ func TestEmptyStringToNull(t *testing.T) {
 func TestParseRecordDraftValid(t *testing.T) {
 	body := RecordDraftBody{
 		HappenedAt:       "2026-07-30T08:00:00+08:00",
-		ValueNumber:      "75.5",
-		ValueText:        nil,
+		NumericValue:      "75.5",
+		RawContent:        nil,
 		Tags:             []any{"weight"},
 		ObjectiveContext: "morning weigh-in",
 	}
@@ -60,11 +60,11 @@ func TestParseRecordDraftValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.ValueNumber == nil || *parsed.ValueNumber != "75.5" {
-		t.Fatalf("valueNumber: %#v", parsed.ValueNumber)
+	if parsed.NumericValue == nil || *parsed.NumericValue != "75.5" {
+		t.Fatalf("numericValue: %#v", parsed.NumericValue)
 	}
-	if parsed.ValueText != nil {
-		t.Fatal("valueText should be nil")
+	if parsed.RawContent != nil {
+		t.Fatal("rawContent should be nil")
 	}
 	if parsed.HappenedAt == nil || parsed.UtcOffset == nil || *parsed.UtcOffset != "+08:00" {
 		t.Fatalf("time fields: happened=%v offset=%v", parsed.HappenedAt, parsed.UtcOffset)
@@ -73,7 +73,7 @@ func TestParseRecordDraftValid(t *testing.T) {
 
 func TestParseRecordDraftOmitsHappenedAt(t *testing.T) {
 	body := RecordDraftBody{
-		ValueNumber:      "75.5",
+		NumericValue:      "75.5",
 		Tags:             []any{"weight"},
 		ObjectiveContext: "morning weigh-in",
 	}
@@ -89,7 +89,7 @@ func TestParseRecordDraftOmitsHappenedAt(t *testing.T) {
 func TestParseRecordDraftJSONRejectsUtcOffset(t *testing.T) {
 	raw := []byte(`{
 		"happened_at":"2026-07-30T08:00:00+08:00",
-		"value_number":"1",
+		"numeric_value":"1",
 		"tags":["weight"],
 		"objective_context":"x",
 		"utc_offset":"+08:00"
@@ -102,7 +102,7 @@ func TestParseRecordDraftJSONRejectsUtcOffset(t *testing.T) {
 
 func TestParseRecordDraftJSONOmitsHappenedAt(t *testing.T) {
 	raw := []byte(`{
-		"value_number":"1",
+		"numeric_value":"1",
 		"tags":["weight"],
 		"objective_context":"x"
 	}`)
@@ -164,31 +164,31 @@ func TestValidateDecimalStringSharedFixtures(t *testing.T) {
 		if err := ValidateDecimalString(s); err != nil {
 			t.Fatalf("accept %q: %v", s, err)
 		}
-		got, err := ParseValueNumber(s)
+		got, err := ParseNumericValue(s)
 		if err != nil || got == nil || *got != s {
-			t.Fatalf("ParseValueNumber accept %q: %#v %v", s, got, err)
+			t.Fatalf("ParseNumericValue accept %q: %#v %v", s, got, err)
 		}
 	}
 	for _, bad := range cases.Reject {
-		if err := ValidateDecimalString(bad); err == nil || err.Error() != "Invalid value_number" {
+		if err := ValidateDecimalString(bad); err == nil || err.Error() != "Invalid numeric_value" {
 			t.Fatalf("reject ValidateDecimalString %q: %v", bad, err)
 		}
-		if _, err := ParseValueNumber(bad); err == nil || err.Error() != "Invalid value_number" {
-			t.Fatalf("reject ParseValueNumber %q: %v", bad, err)
+		if _, err := ParseNumericValue(bad); err == nil || err.Error() != "Invalid numeric_value" {
+			t.Fatalf("reject ParseNumericValue %q: %v", bad, err)
 		}
 	}
 }
 
-func TestParseValueNumberBlankAndJSONNumber(t *testing.T) {
-	got, err := ParseValueNumber("  1.0  ")
+func TestParseNumericValueBlankAndJSONNumber(t *testing.T) {
+	got, err := ParseNumericValue("  1.0  ")
 	if err != nil || got == nil || *got != "1.0" {
 		t.Fatalf("trim: %#v %v", got, err)
 	}
-	got, err = ParseValueNumber("  ")
+	got, err = ParseNumericValue("  ")
 	if err != nil || got != nil {
 		t.Fatalf("blank: %#v %v", got, err)
 	}
-	if _, err := ParseValueNumber(float64(75.5)); err == nil || err.Error() != ValueNumberMustBeString {
+	if _, err := ParseNumericValue(float64(75.5)); err == nil || err.Error() != NumericValueMustBeString {
 		t.Fatalf("float64: %v", err)
 	}
 }
@@ -196,7 +196,7 @@ func TestParseValueNumberBlankAndJSONNumber(t *testing.T) {
 func TestParseRecordDraftRejectsReservedTag(t *testing.T) {
 	_, err := ParseRecordDraft(RecordDraftBody{
 		HappenedAt:       "2026-07-30T08:00:00+08:00",
-		ValueNumber:      "1",
+		NumericValue:      "1",
 		Tags:             []string{"transaction_entry"},
 		ObjectiveContext: "x",
 	})
@@ -209,7 +209,7 @@ func TestParseRecordDraftRejectsReservedTag(t *testing.T) {
 func TestParseRecordDraftRejectsReservedPrefixedTag(t *testing.T) {
 	_, err := ParseRecordDraft(RecordDraftBody{
 		HappenedAt:       "2026-07-30T08:00:00+08:00",
-		ValueNumber:      "1",
+		NumericValue:      "1",
 		Tags:             []string{"transaction_entry:income"},
 		ObjectiveContext: "x",
 	})
@@ -222,7 +222,7 @@ func TestParseRecordDraftRejectsReservedPrefixedTag(t *testing.T) {
 func TestParseRecordDraftRejectsTodoReservedTag(t *testing.T) {
 	_, err := ParseRecordDraft(RecordDraftBody{
 		HappenedAt:       "2026-07-30T08:00:00+08:00",
-		ValueNumber:      "1",
+		NumericValue:      "1",
 		Tags:             []string{"todo:in_progress"},
 		ObjectiveContext: "x",
 	})
@@ -235,7 +235,7 @@ func TestParseRecordDraftRejectsTodoReservedTag(t *testing.T) {
 func TestParseRecordDraftRejectsNoTZ(t *testing.T) {
 	_, err := ParseRecordDraft(RecordDraftBody{
 		HappenedAt:       "2026-07-30T08:00:00",
-		ValueNumber:      "1",
+		NumericValue:      "1",
 		Tags:             []any{"weight"},
 		ObjectiveContext: "x",
 	})
@@ -247,12 +247,12 @@ func TestParseRecordDraftRejectsNoTZ(t *testing.T) {
 func TestParseRecordDraftBothNull(t *testing.T) {
 	_, err := ParseRecordDraft(RecordDraftBody{
 		HappenedAt:       "2026-07-30T08:00:00+08:00",
-		ValueNumber:      nil,
-		ValueText:        "",
+		NumericValue:      nil,
+		RawContent:        "",
 		Tags:             []any{"weight"},
 		ObjectiveContext: "x",
 	})
-	if err == nil || err.Error() != "value_number and value_text cannot both be null" {
+	if err == nil || err.Error() != "numeric_value and raw_content cannot both be null" {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -260,8 +260,8 @@ func TestParseRecordDraftBothNull(t *testing.T) {
 func TestParseRecordDraftJSON(t *testing.T) {
 	raw := []byte(`{
 		"happened_at":"2026-07-30T08:00:00+08:00",
-		"value_number":"75.5",
-		"value_text":"",
+		"numeric_value":"75.5",
+		"raw_content":"",
 		"tags":["weight"],
 		"objective_context":"morning",
 		"subjective_interpretation":""
@@ -270,23 +270,23 @@ func TestParseRecordDraftJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.ValueText != nil || parsed.SubjectiveInterpretation != nil {
+	if parsed.RawContent != nil || parsed.SubjectiveInterpretation != nil {
 		t.Fatal("empty strings should become nil")
 	}
-	if parsed.ValueNumber == nil || *parsed.ValueNumber != "75.5" {
-		t.Fatalf("number: %#v", parsed.ValueNumber)
+	if parsed.NumericValue == nil || *parsed.NumericValue != "75.5" {
+		t.Fatalf("number: %#v", parsed.NumericValue)
 	}
 }
 
 func TestParseRecordDraftJSONRejectsNumberType(t *testing.T) {
 	raw := []byte(`{
 		"happened_at":"2026-07-30T08:00:00+08:00",
-		"value_number":75.5,
+		"numeric_value":75.5,
 		"tags":["weight"],
 		"objective_context":"morning"
 	}`)
 	_, err := ParseRecordDraftJSON(raw)
-	if err == nil || err.Error() != ValueNumberMustBeString {
+	if err == nil || err.Error() != NumericValueMustBeString {
 		t.Fatalf("got %v", err)
 	}
 }

@@ -68,7 +68,7 @@ func ParseExportRecordsParams(q url.Values) (*ParsedExport, error) {
 	return &ParsedExport{From: from, Limit: limit}, nil
 }
 
-const selectCols = `id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation`
+const selectCols = `id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation`
 
 // FetchExportRecords 有 from 时先确认存在，再 id >= from ORDER BY id ASC LIMIT。
 // 成功 (recs, 200, nil)；from 不存在 (nil, 404, ExportFromNotFound)。
@@ -122,13 +122,13 @@ func scanRecord(row pgx.Row) (record.Record, error) {
 	var (
 		id, tagsField, objectiveContext, utcOffset string
 		happenedAt                                 time.Time
-		valueNumber, valueText, subj               *string
+		numericValue, rawContent, subj               *string
 	)
-	err := row.Scan(&id, &happenedAt, &utcOffset, &valueNumber, &valueText, &tagsField, &objectiveContext, &subj)
+	err := row.Scan(&id, &happenedAt, &utcOffset, &numericValue, &rawContent, &tagsField, &objectiveContext, &subj)
 	if err != nil {
 		return record.Record{}, err
 	}
-	return record.FromDB(id, happenedAt, utcOffset, valueNumber, valueText, tagsField, objectiveContext, subj), nil
+	return record.FromDB(id, happenedAt, utcOffset, numericValue, rawContent, tagsField, objectiveContext, subj), nil
 }
 
 // BuildExportNdjson 每行一条 Record JSON + 换行；0 行 → 空字符串。

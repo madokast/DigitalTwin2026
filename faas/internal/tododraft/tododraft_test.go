@@ -52,7 +52,7 @@ func TestToTodoRecordJSONPreservesOffset(t *testing.T) {
 	rec := record.Record{
 		ID:               "01900000-0000-7000-8000-000000000003",
 		HappenedAt:       "2026-08-02T10:00:00.000+08:00",
-		ValueText:        strPtr("Buy milk"),
+		RawContent:        strPtr("Buy milk"),
 		Tags:             `["todo:in_progress","errand"]`,
 		ObjectiveContext: "x",
 	}
@@ -99,8 +99,8 @@ func TestParseTodo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ValueText != "Buy milk" {
-		t.Fatalf("content=%q", got.ValueText)
+	if got.RawContent != "Buy milk" {
+		t.Fatalf("content=%q", got.RawContent)
 	}
 	if len(got.Tags) != 2 || got.Tags[0] != TodoTagInProgress || got.Tags[1] != "errand" {
 		t.Fatalf("tags=%v", got.Tags)
@@ -156,8 +156,8 @@ func TestParseTodoRejects(t *testing.T) {
 			"Unknown JSON key: happened_at",
 		},
 		{
-			`{"created_at":"2026-08-02T10:00:00+08:00","content":"x","objective_context":"y","value_text":"x"}`,
-			"Unknown JSON key: value_text",
+			`{"created_at":"2026-08-02T10:00:00+08:00","content":"x","objective_context":"y","raw_content":"x"}`,
+			"Unknown JSON key: raw_content",
 		},
 	}
 	for _, tc := range cases {
@@ -193,7 +193,7 @@ func TestTodoAuditNotifyTextSharedFixture(t *testing.T) {
 			Target           string `json:"target"`
 			TodoID           string `json:"todoId"`
 			TodoHappenedAt   string `json:"todoHappenedAt"`
-			TodoValueText    string `json:"todoValueText"`
+			TodoRawContent    string `json:"todoRawContent"`
 			ObjectiveContext string `json:"objective_context"`
 			NotifyText       string `json:"notify_text"`
 		} `json:"cases"`
@@ -202,7 +202,7 @@ func TestTodoAuditNotifyTextSharedFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, c := range fx.Cases {
-		got := TodoAuditNotifyText(c.Target, c.TodoID, c.TodoHappenedAt, c.TodoValueText)
+		got := TodoAuditNotifyText(c.Target, c.TodoID, c.TodoHappenedAt, c.TodoRawContent)
 		if got != c.NotifyText {
 			t.Fatalf("target=%s notify got=%q want=%q", c.Target, got, c.NotifyText)
 		}

@@ -18,8 +18,8 @@ import (
 type Record struct {
 	ID                       string  `json:"id"`
 	HappenedAt               string  `json:"happened_at"`
-	ValueNumber              *string `json:"value_number"`
-	ValueText                *string `json:"value_text"`
+	NumericValue              *string `json:"numeric_value"`
+	RawContent                *string `json:"raw_content"`
 	Tags                     string  `json:"tags"`
 	ObjectiveContext         string  `json:"objective_context"`
 	SubjectiveInterpretation *string `json:"subjective_interpretation"`
@@ -35,8 +35,8 @@ func FromDB(
 	id string,
 	happenedAt time.Time,
 	utcOffset string,
-	valueNumber *string,
-	valueText *string,
+	numericValue *string,
+	rawContent *string,
 	tags string,
 	objectiveContext string,
 	subjectiveInterpretation *string,
@@ -49,8 +49,8 @@ func FromDB(
 	return Record{
 		ID:                       id,
 		HappenedAt:               formatted,
-		ValueNumber:              valueNumber,
-		ValueText:                valueText,
+		NumericValue:              numericValue,
+		RawContent:                rawContent,
 		Tags:                     tags,
 		ObjectiveContext:         objectiveContext,
 		SubjectiveInterpretation: subjectiveInterpretation,
@@ -103,27 +103,27 @@ func Update(ctx context.Context, q db.Querier, id string, d *draft.NormalizedRec
 UPDATE records SET
   happened_at = $1,
   utc_offset = $2,
-  value_number = $3,
-  value_text = $4,
+  numeric_value = $3,
+  raw_content = $4,
   tags = $5,
   objective_context = $6,
   subjective_interpretation = $7
 WHERE id = $8
-RETURNING id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation
-`, *d.HappenedAt, *d.UtcOffset, d.ValueNumber, d.ValueText, tagsJSON, d.ObjectiveContext, d.SubjectiveInterpretation, id).Scan(
+RETURNING id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation
+`, *d.HappenedAt, *d.UtcOffset, d.NumericValue, d.RawContent, tagsJSON, d.ObjectiveContext, d.SubjectiveInterpretation, id).Scan(
 			&outID, &outHappened, &outOffset, &outNum, &outText, &outTags, &outObj, &outSubj,
 		)
 	} else {
 		err = q.QueryRow(ctx, `
 UPDATE records SET
-  value_number = $1,
-  value_text = $2,
+  numeric_value = $1,
+  raw_content = $2,
   tags = $3,
   objective_context = $4,
   subjective_interpretation = $5
 WHERE id = $6
-RETURNING id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation
-`, d.ValueNumber, d.ValueText, tagsJSON, d.ObjectiveContext, d.SubjectiveInterpretation, id).Scan(
+RETURNING id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation
+`, d.NumericValue, d.RawContent, tagsJSON, d.ObjectiveContext, d.SubjectiveInterpretation, id).Scan(
 			&outID, &outHappened, &outOffset, &outNum, &outText, &outTags, &outObj, &outSubj,
 		)
 	}

@@ -119,7 +119,7 @@ export function parseRecordQueryParams(
     // 必须用 or() 包一层，否则 and(...conds) 拼出 tag AND vt OR obj …（AND 优先于 OR）
     conditions.push(
       or(
-        like(records.valueText, searchPattern),
+        like(records.rawContent, searchPattern),
         like(records.objectiveContext, searchPattern),
         like(records.subjectiveInterpretation, searchPattern),
         like(records.tags, searchPattern),
@@ -289,7 +289,7 @@ export type TransactionSummaryResult = {
 
 export type TransactionSummaryRow = {
   tags: string
-  value_number: string | null
+  numeric_value: string | null
 }
 
 export type ParsedTransactionSummaryRange = {
@@ -412,7 +412,7 @@ function sortBucketsBySumThenName<T extends { sum: bigint; name: string }>(
 
 /**
  * 内存聚合 transaction_entry 行（与 Go AggregateTransactionSummary 同构）。
- * 脏行（无合法 category:subcategory / 无 value_number / 非法字面量）跳过。
+ * 脏行（无合法 category:subcategory / 无 numeric_value / 非法字面量）跳过。
  * 非法 tags JSON / 非数组抛错（HTTP 500）。
  */
 export function aggregateTransactionSummary(
@@ -467,8 +467,8 @@ export function aggregateTransactionSummary(
     if (!entryType) continue
     const pair = findCategoryPair(tags)
     if (!pair) continue
-    if (row.value_number === null || row.value_number === '') continue
-    const amount = parseDecimalScaled(row.value_number)
+    if (row.numeric_value === null || row.numeric_value === '') continue
+    const amount = parseDecimalScaled(row.numeric_value)
     if (amount === null) continue
     addTo(entryType, pair.category, pair.subcategory, amount)
   }
@@ -526,7 +526,7 @@ export async function fetchTransactionSummary(
   const rows = await db
     .select({
       tags: records.tags,
-      valueNumber: records.valueNumber,
+      numericValue: records.numericValue,
     })
     .from(records)
     .where(
@@ -540,7 +540,7 @@ export async function fetchTransactionSummary(
   return aggregateTransactionSummary(
     rows.map((r) => ({
       tags: r.tags,
-      value_number: r.valueNumber,
+      numeric_value: r.numericValue,
     })),
     fromRaw,
     toRaw,

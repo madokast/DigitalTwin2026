@@ -15,8 +15,8 @@ import { serializeRecord } from '@/lib/recordjsonl'
 const sample: Record = {
   id: '01900000-0000-7000-8000-000000000001',
   happenedAt: '2026-07-30T00:00:00.000Z',
-  valueNumber: '1.5',
-  valueText: null,
+  numericValue: '1.5',
+  rawContent: null,
   tags: '["weight"]',
   objectiveContext: 'scale',
   subjectiveInterpretation: null,

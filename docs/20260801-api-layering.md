@@ -100,8 +100,8 @@ flowchart LR
 | `tags` | `faas/internal/tags` | `src/lib/tags.ts` | 已有；含 `RenameAcrossRecords` |
 | `draft` | `faas/internal/draft` | `src/lib/draft.ts` | TS 已由 `record-draft.ts` 改名 |
 | `transactiondraft` | `faas/internal/transactiondraft` | `src/lib/transactiondraft.ts` | **独立成包**（已落地）；TS 已由 `transaction-draft.ts` 改名；Go 已从 `logapi` 抽出纯解析 |
-| `bodyweightdraft` | `faas/internal/bodyweightdraft` | `src/lib/bodyweightdraft.ts` | **独立成包**；体重 `value_number` 解析/规范化；落库 tags 组装含 `body:weight` |
-| `tododraft` | `faas/internal/tododraft` | `src/lib/tododraft.ts` | **独立成包**；待办创建 / transition 纯解析；状态 tag 组装与替换；审计 `value_text` 模板；待办行 HTTP JSON 变形（`created_at`/`content`）；查询侧略宽判定 `ShouldDeformTodoRecordTags` / `shouldDeformTodoRecordTags` |
+| `bodyweightdraft` | `faas/internal/bodyweightdraft` | `src/lib/bodyweightdraft.ts` | **独立成包**；体重 `numeric_value` 解析/规范化；落库 tags 组装含 `body:weight` |
+| `tododraft` | `faas/internal/tododraft` | `src/lib/tododraft.ts` | **独立成包**；待办创建 / transition 纯解析；状态 tag 组装与替换；审计 `objective_context` 合成句与 `TodoAuditNotifyText` 通知模板；待办行 HTTP JSON 变形（`created_at`/`content`）；查询侧略宽判定 `ShouldDeformTodoRecordTags` / `shouldDeformTodoRecordTags` |
 | `query` | `faas/internal/query` | `src/lib/query.ts` | 列表过滤 / 分页 / summary / tags / transaction summary；`ToQueryRecordJSON` / `toQueryRecordJson`（query `records[]` 待办变形） |
 | `logapi` | `faas/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` / `bodyweightdraft` / `tododraft` |
 | `record` | `faas/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `Update` / `FromDB` / `TagsJSON` / type `Record` |
@@ -136,7 +136,7 @@ flowchart LR
 | logapi | `CreateNumber` / `CreateText` / `CreateTransactionBatch` / `CreateBodyWeight` / `CreateTodo` / `TransitionTodo` | `createNumber` / `createText` / `createTransactionBatch` / `createBodyWeight` / `createTodo` / `transitionTodo` |
 | transactiondraft | `ParseTransactionBatch`（及同包输入 / 归一化类型） | `parseTransactionBatch` |
 | bodyweightdraft | `ParseBodyWeight` / `ParseWeightAmount` | `parseBodyWeight` / `parseWeightAmount` |
-| tododraft | `ParseTodo` / `ParseTodoTransition` / `ToTodoRecordJSON` / `ShouldDeformTodoRecordTags` / `AuditValueText` / type `TodoRecordJSON` | `parseTodo` / `parseTodoTransition` / `toTodoRecordJson` / `shouldDeformTodoRecordTags` / `auditValueText` / type `TodoRecordJson` |
+| tododraft | `ParseTodo` / `ParseTodoTransition` / `ToTodoRecordJSON` / `ShouldDeformTodoRecordTags` / `AuditObjectiveContext` / `TodoAuditNotifyText` / type `TodoRecordJSON` | `parseTodo` / `parseTodoTransition` / `toTodoRecordJson` / `shouldDeformTodoRecordTags` / `auditObjectiveContext` / `todoAuditNotifyText` / type `TodoRecordJson` |
 | query | `ParseRecordQueryParams` / `FetchFilteredRecords` / `ToQueryRecordJSON` / `RecordsForResponse` / … | `parseRecordQueryParams` / `fetchFilteredRecords` / `toQueryRecordJson` / … |
 | tags | `RenameAcrossRecords` / `ValidateRename` | `renameAcrossRecords`（`tagsdb`）/ `validateRename`（`tags`） |
 | record | `Update` | `update` |
@@ -152,7 +152,7 @@ flowchart LR
 | Stem | Go | TS |
 |------|----|----|
 | draft | `ParseRecordDraft` / `ParseRecordDraftJSON` | `parseRecordDraft`（JSON 入口按需同名） |
-| draft | `EmptyStringToNull` / `ParseHappenedAt` / `ValidateDecimalString` / `ParseValueNumber` | `emptyStringToNull` / `parseHappenedAt` / `validateDecimalString` / `parseValueNumber` |
+| draft | `EmptyStringToNull` / `ParseHappenedAt` / `ValidateDecimalString` / `ParseNumericValue` | `emptyStringToNull` / `parseHappenedAt` / `validateDecimalString` / `parseNumericValue` |
 | tags | `IsValidTag` / `IsReservedTag` / `ValidateTags` / `AssertNoReservedTags` / `ValidateRename` / `RenameTagInTagsJSON` / `AggregateTagCounts` / `RenameAcrossRecords` | `isValidTag` / … / `aggregateTagCounts`（`@/lib/tags`，可进 Client）；`renameAcrossRecords`（`@/lib/tagsdb`，仅服务端，避免 Client 打进 postgres） |
 | tags | `ValidationResult{Valid, Error}` | `ValidationResult{ valid, error? }`（`assertNoReservedTags` / `validateTags` / `validateRename` 共用） |
 | tags | 脏 `tags` JSON：`AggregateTagCounts` / `RenameTagInTagsJSON`（及 `RenameAcrossRecords`）解析失败或根非数组 → **error**（HTTP 500） | 同左：抛错 / 向上失败，**禁止**静默 skip |

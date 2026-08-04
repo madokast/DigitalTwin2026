@@ -343,7 +343,7 @@ func TestNotifyRecordInsertedFormats(t *testing.T) {
 	n.NotifyRecordInserted(record.Record{
 		ID:               "id-1",
 		HappenedAt:       "2026-07-31T12:00:00.000Z",
-		ValueNumber:      &num,
+		NumericValue:      &num,
 		Tags:             `["weight"]`,
 		ObjectiveContext: "Scale",
 	})

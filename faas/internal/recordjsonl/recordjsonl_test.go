@@ -14,8 +14,8 @@ type validCase struct {
 	Name                           string   `json:"name"`
 	Line                           string   `json:"line"`
 	ExpectTags                     []string `json:"expectTags"`
-	ExpectValueNumber              *string  `json:"expectValueNumber"`
-	ExpectValueText                *string  `json:"expectValueText"`
+	ExpectNumericValue              *string  `json:"expectNumericValue"`
+	ExpectRawContent                *string  `json:"expectRawContent"`
 	ExpectObjectiveContext         string   `json:"expectObjectiveContext"`
 	ExpectSubjectiveInterpretation *string  `json:"expectSubjectiveInterpretation"`
 	ExpectHappenedAtUtcMs          int64    `json:"expectHappenedAtUtcMs"`
@@ -91,11 +91,11 @@ func TestParseLineValid(t *testing.T) {
 					t.Fatalf("tags %#v want %#v", row.Tags, c.ExpectTags)
 				}
 			}
-			if !ptrStrEq(row.ValueNumber, c.ExpectValueNumber) {
-				t.Fatalf("valueNumber %#v want %#v", row.ValueNumber, c.ExpectValueNumber)
+			if !ptrStrEq(row.NumericValue, c.ExpectNumericValue) {
+				t.Fatalf("numericValue %#v want %#v", row.NumericValue, c.ExpectNumericValue)
 			}
-			if !ptrStrEq(row.ValueText, c.ExpectValueText) {
-				t.Fatalf("valueText %#v want %#v", row.ValueText, c.ExpectValueText)
+			if !ptrStrEq(row.RawContent, c.ExpectRawContent) {
+				t.Fatalf("rawContent %#v want %#v", row.RawContent, c.ExpectRawContent)
 			}
 			if row.ObjectiveContext != c.ExpectObjectiveContext {
 				t.Fatalf("objectiveContext %q", row.ObjectiveContext)
@@ -199,11 +199,11 @@ func TestSerializeRoundTrip(t *testing.T) {
 			if twice.UtcOffset != once.UtcOffset {
 				t.Fatalf("utc_offset %q want %q", twice.UtcOffset, once.UtcOffset)
 			}
-			if !ptrStrEq(twice.ValueNumber, once.ValueNumber) {
-				t.Fatal("value_number")
+			if !ptrStrEq(twice.NumericValue, once.NumericValue) {
+				t.Fatal("numeric_value")
 			}
-			if !ptrStrEq(twice.ValueText, once.ValueText) {
-				t.Fatal("value_text")
+			if !ptrStrEq(twice.RawContent, once.RawContent) {
+				t.Fatal("raw_content")
 			}
 			if len(twice.Tags) != len(once.Tags) {
 				t.Fatal("tags len")

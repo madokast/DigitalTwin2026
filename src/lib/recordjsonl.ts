@@ -11,7 +11,7 @@
 import {
   emptyStringToNull,
   parseHappenedAt,
-  parseValueNumber,
+  parseNumericValue,
 } from '@/lib/draft'
 import {
   isValidRecordId,
@@ -31,8 +31,8 @@ import {
 export const RECORD_JSONL_KEYS = [
   'id',
   'happened_at',
-  'value_number',
-  'value_text',
+  'numeric_value',
+  'raw_content',
   'tags',
   'objective_context',
   'subjective_interpretation',
@@ -55,8 +55,8 @@ export type RecordJsonlRow = {
   id: string
   happenedAt: Date
   utcOffset: string
-  valueNumber: string | null
-  valueText: string | null
+  numericValue: string | null
+  rawContent: string | null
   tags: string[]
   objectiveContext: string
   subjectiveInterpretation: string | null
@@ -139,23 +139,23 @@ export function parseLine(
     return fail(happenedResult.error, lineNumber)
   }
 
-  const numberResult = parseValueNumber(body.value_number)
+  const numberResult = parseNumericValue(body.numeric_value)
   if ('error' in numberResult) {
     return fail(numberResult.error, lineNumber)
   }
-  const valueNumber = numberResult.value
+  const numericValue = numberResult.value
 
-  let valueText: string | null = null
-  if (body.value_text !== null) {
-    if (typeof body.value_text !== 'string') {
-      return fail('Invalid value_text', lineNumber)
+  let rawContent: string | null = null
+  if (body.raw_content !== null) {
+    if (typeof body.raw_content !== 'string') {
+      return fail('Invalid raw_content', lineNumber)
     }
-    valueText = emptyStringToNull(body.value_text)
+    rawContent = emptyStringToNull(body.raw_content)
   }
 
-  if (valueNumber === null && valueText === null) {
+  if (numericValue === null && rawContent === null) {
     return fail(
-      'value_number and value_text cannot both be null',
+      'numeric_value and raw_content cannot both be null',
       lineNumber,
     )
   }
@@ -207,8 +207,8 @@ export function parseLine(
     id: body.id,
     happenedAt: happenedResult.value,
     utcOffset: happenedResult.utcOffset,
-    valueNumber,
-    valueText,
+    numericValue,
+    rawContent,
     tags,
     objectiveContext: body.objective_context,
     subjectiveInterpretation,
@@ -223,8 +223,8 @@ export function serializeLine(row: RecordJsonlRow): string {
   return serializeRecord({
     id: row.id,
     happened_at: formatHappenedAt(row.happenedAt, row.utcOffset),
-    value_number: row.valueNumber,
-    value_text: row.valueText,
+    numeric_value: row.numericValue,
+    raw_content: row.rawContent,
     tags: tagsJSON(row.tags),
     objective_context: row.objectiveContext,
     subjective_interpretation: row.subjectiveInterpretation,
@@ -238,8 +238,8 @@ export function serializeRecord(rec: ApiRecord): string {
   return JSON.stringify({
     id: rec.id,
     happened_at: rec.happened_at,
-    value_number: rec.value_number,
-    value_text: rec.value_text,
+    numeric_value: rec.numeric_value,
+    raw_content: rec.raw_content,
     tags: rec.tags,
     objective_context: rec.objective_context,
     subjective_interpretation: rec.subjective_interpretation,

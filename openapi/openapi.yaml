@@ -16,8 +16,8 @@ info:
     **snake_case** (Drizzle / Go `record.Record` JSON tags).
 
     `Record.tags` is a **JSON array encoded as a string** (e.g. `"[\"weight\"]"`),
-    not a JSON array value. `Record.value_number` is a decimal string or null
-    (see `Record.value_number` description for write/read rules).
+    not a JSON array value. `Record.numeric_value` is a decimal string or null
+    (see `Record.numeric_value` description for write/read rules).
 
     Auth is enforced before handlers (Next `src/proxy.ts`; FC `httpx.withAuth`).
   license:

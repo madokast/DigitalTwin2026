@@ -74,8 +74,8 @@ func sampleDraft() *draft.NormalizedRecordDraft {
 	return &draft.NormalizedRecordDraft{
 		HappenedAt:               &happened,
 		UtcOffset:                &offset,
-		ValueNumber:              &num,
-		ValueText:                nil,
+		NumericValue:              &num,
+		RawContent:                nil,
 		Tags:                     []string{"weight"},
 		ObjectiveContext:         "morning",
 		SubjectiveInterpretation: nil,
@@ -116,13 +116,13 @@ func TestUpdate_successMapsReturning(t *testing.T) {
 	if rec.HappenedAt != "2026-07-30T10:00:00.000Z" {
 		t.Fatalf("happenedAt=%s", rec.HappenedAt)
 	}
-	if rec.ValueNumber == nil || *rec.ValueNumber != "80.0" {
-		t.Fatalf("valueNumber=%v", rec.ValueNumber)
+	if rec.NumericValue == nil || *rec.NumericValue != "80.0" {
+		t.Fatalf("numericValue=%v", rec.NumericValue)
 	}
 	if rec.Tags != `["weight"]` || rec.ObjectiveContext != "morning" {
 		t.Fatalf("rec=%+v", rec)
 	}
-	// args: happenedAt, utcOffset, valueNumber, valueText, tagsJSON, objective, subjective, id
+	// args: happenedAt, utcOffset, numericValue, rawContent, tagsJSON, objective, subjective, id
 	if len(q.args) != 8 {
 		t.Fatalf("args len=%d want 8", len(q.args))
 	}
@@ -156,8 +156,8 @@ func TestUpdate_omitHappenedAtLeavesTimeColumns(t *testing.T) {
 	d := &draft.NormalizedRecordDraft{
 		HappenedAt:               nil,
 		UtcOffset:                nil,
-		ValueNumber:              &num,
-		ValueText:                nil,
+		NumericValue:              &num,
+		RawContent:                nil,
 		Tags:                     []string{"weight"},
 		ObjectiveContext:         "patched",
 		SubjectiveInterpretation: nil,

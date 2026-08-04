@@ -20,18 +20,18 @@ var isoTZSuffix = regexp.MustCompile(`(?i)(Z|[+-]\d{2}:?\d{2})$`)
 var decimalString = regexp.MustCompile(`^-?(?:0|[1-9]\d*)(?:\.\d+)?$`)
 
 const (
-	valueNumberMaxLen        = 40
-	valueNumberMaxIntDigits  = 28
-	valueNumberMaxFracDigits = 10
+	numericValueMaxLen        = 40
+	numericValueMaxIntDigits  = 28
+	numericValueMaxFracDigits = 10
 )
 
-// ValueNumberMustBeString 在 JSON 以 number 传入 value_number 时返回（硬切断，不静默转 string）。
-const ValueNumberMustBeString = "value_number must be a decimal string"
+// NumericValueMustBeString 在 JSON 以 number 传入 numeric_value 时返回（硬切断，不静默转 string）。
+const NumericValueMustBeString = "numeric_value must be a decimal string"
 
 type RecordDraftBody struct {
 	HappenedAt               any `json:"happened_at"`
-	ValueNumber              any `json:"value_number"`
-	ValueText                any `json:"value_text"`
+	NumericValue              any `json:"numeric_value"`
+	RawContent                any `json:"raw_content"`
 	Tags                     any `json:"tags"`
 	ObjectiveContext         any `json:"objective_context"`
 	SubjectiveInterpretation any `json:"subjective_interpretation"`
@@ -41,8 +41,8 @@ type NormalizedRecordDraft struct {
 	// HappenedAt / UtcOffset：请求带 happened_at 时非 nil（一并写入）；省略则为 nil（§7 两列都不动）。
 	HappenedAt               *time.Time
 	UtcOffset                *string
-	ValueNumber              *string
-	ValueText                *string
+	NumericValue              *string
+	RawContent                *string
 	Tags                     []string
 	ObjectiveContext         string
 	SubjectiveInterpretation *string
@@ -79,26 +79,26 @@ func ParseHappenedAt(raw string) (time.Time, string, error) {
 // 长度用 utf8.RuneCountInString；Next 用 string.length。DECIMAL_STRING 仅 ASCII，合法字面量下相等（api-layering §1.1）。
 // 边界样例见仓库根 testdata/decimal-string-cases.json（双端单测同读）。
 func ValidateDecimalString(s string) error {
-	if utf8.RuneCountInString(s) > valueNumberMaxLen || !decimalString.MatchString(s) {
-		return fmt.Errorf("Invalid value_number")
+	if utf8.RuneCountInString(s) > numericValueMaxLen || !decimalString.MatchString(s) {
+		return fmt.Errorf("Invalid numeric_value")
 	}
 	unsigned := s
 	if strings.HasPrefix(s, "-") {
 		unsigned = s[1:]
 	}
 	intPart, fracPart, hasDot := strings.Cut(unsigned, ".")
-	if len(intPart) > valueNumberMaxIntDigits {
-		return fmt.Errorf("Invalid value_number")
+	if len(intPart) > numericValueMaxIntDigits {
+		return fmt.Errorf("Invalid numeric_value")
 	}
-	if hasDot && len(fracPart) > valueNumberMaxFracDigits {
-		return fmt.Errorf("Invalid value_number")
+	if hasDot && len(fracPart) > numericValueMaxFracDigits {
+		return fmt.Errorf("Invalid numeric_value")
 	}
 	return nil
 }
 
-// ParseValueNumber：仅接受 string | null；JSON number / json.Number → 明确拒绝。
+// ParseNumericValue：仅接受 string | null；JSON number / json.Number → 明确拒绝。
 // trim 后空串 → null（PATCH/draft）；非空则校验并保留字面量。
-func ParseValueNumber(raw any) (*string, error) {
+func ParseNumericValue(raw any) (*string, error) {
 	if raw == nil {
 		return nil, nil
 	}
@@ -113,9 +113,9 @@ func ParseValueNumber(raw any) (*string, error) {
 		}
 		return &trimmed, nil
 	case float64, json.Number:
-		return nil, fmt.Errorf("%s", ValueNumberMustBeString)
+		return nil, fmt.Errorf("%s", NumericValueMustBeString)
 	default:
-		return nil, fmt.Errorf("Invalid value_number")
+		return nil, fmt.Errorf("Invalid numeric_value")
 	}
 }
 
@@ -152,22 +152,22 @@ func parseRecordDraft(body RecordDraftBody, hasHappenedAt bool) (*NormalizedReco
 		utcOffset = &offset
 	}
 
-	valueNumber, err := ParseValueNumber(body.ValueNumber)
+	numericValue, err := ParseNumericValue(body.NumericValue)
 	if err != nil {
 		return nil, err
 	}
 
-	var valueText *string
-	if body.ValueText != nil {
-		s, err := asStringPtr(body.ValueText)
+	var rawContent *string
+	if body.RawContent != nil {
+		s, err := asStringPtr(body.RawContent)
 		if err != nil {
-			return nil, fmt.Errorf("Invalid value_text")
+			return nil, fmt.Errorf("Invalid raw_content")
 		}
-		valueText = EmptyStringToNull(s)
+		rawContent = EmptyStringToNull(s)
 	}
 
-	if valueNumber == nil && valueText == nil {
-		return nil, fmt.Errorf("value_number and value_text cannot both be null")
+	if numericValue == nil && rawContent == nil {
+		return nil, fmt.Errorf("numeric_value and raw_content cannot both be null")
 	}
 
 	tagList, ok := body.Tags.([]any)
@@ -218,8 +218,8 @@ func parseRecordDraft(body RecordDraftBody, hasHappenedAt bool) (*NormalizedReco
 	return &NormalizedRecordDraft{
 		HappenedAt:               happenedAt,
 		UtcOffset:                utcOffset,
-		ValueNumber:              valueNumber,
-		ValueText:                valueText,
+		NumericValue:              numericValue,
+		RawContent:                rawContent,
 		Tags:                     tagsStr,
 		ObjectiveContext:         objCtx,
 		SubjectiveInterpretation: subjective,
@@ -230,7 +230,7 @@ func parseRecordDraft(body RecordDraftBody, hasHappenedAt bool) (*NormalizedReco
 // happened_at 键缺席 → 省略；键在但值为 null/非 string → 走 ParseHappenedAt 校验。
 func ParseRecordDraftJSON(data []byte) (*NormalizedRecordDraft, error) {
 	allowed := []string{
-		"happened_at", "value_number", "value_text", "tags",
+		"happened_at", "numeric_value", "raw_content", "tags",
 		"objective_context", "subjective_interpretation",
 	}
 	if err := jsonutil.RejectUnknownObjectKeys(data, allowed); err != nil {
@@ -243,8 +243,8 @@ func ParseRecordDraftJSON(data []byte) (*NormalizedRecordDraft, error) {
 	_, hasHappenedAt := raw["happened_at"]
 	body := RecordDraftBody{
 		HappenedAt:               raw["happened_at"],
-		ValueNumber:              raw["value_number"],
-		ValueText:                raw["value_text"],
+		NumericValue:              raw["numeric_value"],
+		RawContent:                raw["raw_content"],
 		Tags:                     raw["tags"],
 		ObjectiveContext:         raw["objective_context"],
 		SubjectiveInterpretation: raw["subjective_interpretation"],

@@ -58,7 +58,7 @@ func TestBuildWhereGroupsQOrWithAnd(t *testing.T) {
 	p := &ParsedQuery{Tags: []string{"x"}, Q: "foo", Page: 1, PageSize: 20}
 	where, _ := buildWhere(p)
 	// AND 优先于 OR：无括号会变成 (tag AND vt) OR obj OR …
-	want := `tags LIKE $1 AND (value_text LIKE $2 OR objective_context LIKE $3 OR subjective_interpretation LIKE $4 OR tags LIKE $5)`
+	want := `tags LIKE $1 AND (raw_content LIKE $2 OR objective_context LIKE $3 OR subjective_interpretation LIKE $4 OR tags LIKE $5)`
 	if where != want {
 		t.Fatalf("where:\n got %q\nwant %q", where, want)
 	}

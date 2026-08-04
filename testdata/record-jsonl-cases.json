@@ -3,72 +3,72 @@
   "valid": [
     {
       "name": "number-with-offset",
-      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T08:00:00+08:00\",\"value_number\":\"75.5\",\"value_text\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"morning weigh-in\",\"subjective_interpretation\":\"a bit heavy\"}",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T08:00:00+08:00\",\"numeric_value\":\"75.5\",\"raw_content\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"morning weigh-in\",\"subjective_interpretation\":\"a bit heavy\"}",
       "expectTags": ["weight"],
-      "expectValueNumber": "75.5",
-      "expectValueText": null,
+      "expectNumericValue": "75.5",
+      "expectRawContent": null,
       "expectObjectiveContext": "morning weigh-in",
       "expectSubjectiveInterpretation": "a bit heavy",
       "expectHappenedAtUtcMs": 1785369600000,
-      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T08:00:00.000+08:00\",\"value_number\":\"75.5\",\"value_text\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"morning weigh-in\",\"subjective_interpretation\":\"a bit heavy\"}"
+      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T08:00:00.000+08:00\",\"numeric_value\":\"75.5\",\"raw_content\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"morning weigh-in\",\"subjective_interpretation\":\"a bit heavy\"}"
     },
     {
       "name": "text-only",
-      "line": "{\"id\":\"01900000-0000-7000-8000-000000000002\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"value_number\":null,\"value_text\":\"hello\",\"tags\":\"[\\\"note\\\"]\",\"objective_context\":\"memo\",\"subjective_interpretation\":null}",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000002\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":null,\"raw_content\":\"hello\",\"tags\":\"[\\\"note\\\"]\",\"objective_context\":\"memo\",\"subjective_interpretation\":null}",
       "expectTags": ["note"],
-      "expectValueNumber": null,
-      "expectValueText": "hello",
+      "expectNumericValue": null,
+      "expectRawContent": "hello",
       "expectObjectiveContext": "memo",
       "expectSubjectiveInterpretation": null,
       "expectHappenedAtUtcMs": 1785369600000,
-      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000002\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"value_number\":null,\"value_text\":\"hello\",\"tags\":\"[\\\"note\\\"]\",\"objective_context\":\"memo\",\"subjective_interpretation\":null}"
+      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000002\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":null,\"raw_content\":\"hello\",\"tags\":\"[\\\"note\\\"]\",\"objective_context\":\"memo\",\"subjective_interpretation\":null}"
     },
     {
       "name": "reserved-todo-tag-passes-parse",
-      "line": "{\"id\":\"01900000-0000-7000-8000-000000000003\",\"happened_at\":\"2026-08-02T02:00:00.000Z\",\"value_number\":null,\"value_text\":\"Buy milk\",\"tags\":\"[\\\"todo:in_progress\\\",\\\"errand\\\"]\",\"objective_context\":\"weekend grocery list\",\"subjective_interpretation\":\"need it for breakfast\"}",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000003\",\"happened_at\":\"2026-08-02T02:00:00.000Z\",\"numeric_value\":null,\"raw_content\":\"Buy milk\",\"tags\":\"[\\\"todo:in_progress\\\",\\\"errand\\\"]\",\"objective_context\":\"weekend grocery list\",\"subjective_interpretation\":\"need it for breakfast\"}",
       "expectTags": ["todo:in_progress", "errand"],
-      "expectValueNumber": null,
-      "expectValueText": "Buy milk",
+      "expectNumericValue": null,
+      "expectRawContent": "Buy milk",
       "expectObjectiveContext": "weekend grocery list",
       "expectSubjectiveInterpretation": "need it for breakfast",
       "expectHappenedAtUtcMs": 1785636000000,
-      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000003\",\"happened_at\":\"2026-08-02T02:00:00.000Z\",\"value_number\":null,\"value_text\":\"Buy milk\",\"tags\":\"[\\\"todo:in_progress\\\",\\\"errand\\\"]\",\"objective_context\":\"weekend grocery list\",\"subjective_interpretation\":\"need it for breakfast\"}"
+      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000003\",\"happened_at\":\"2026-08-02T02:00:00.000Z\",\"numeric_value\":null,\"raw_content\":\"Buy milk\",\"tags\":\"[\\\"todo:in_progress\\\",\\\"errand\\\"]\",\"objective_context\":\"weekend grocery list\",\"subjective_interpretation\":\"need it for breakfast\"}"
     }
   ],
   "invalid": [
     {
-      "name": "value_number-as-json-number",
-      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"value_number\":75.5,\"value_text\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
-      "error": "value_number must be a decimal string"
+      "name": "numeric_value-as-json-number",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":75.5,\"raw_content\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "error": "numeric_value must be a decimal string"
     },
     {
       "name": "tags-as-array",
-      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"value_number\":\"1\",\"value_text\":null,\"tags\":[\"weight\"],\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":[\"weight\"],\"objective_context\":\"x\",\"subjective_interpretation\":null}",
       "error": "tags must be a stringified JSON array"
     },
     {
       "name": "deform-created_at",
-      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"created_at\":\"2026-07-30T00:00:00.000Z\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"value_number\":\"1\",\"value_text\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"created_at\":\"2026-07-30T00:00:00.000Z\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
       "error": "Unknown JSON key: created_at"
     },
     {
       "name": "deform-content",
-      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"value_number\":null,\"value_text\":\"hi\",\"content\":\"hi\",\"tags\":\"[\\\"note\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":null,\"raw_content\":\"hi\",\"content\":\"hi\",\"tags\":\"[\\\"note\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
       "error": "Unknown JSON key: content"
     },
     {
       "name": "unknown-utc_offset",
-      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"utc_offset\":\"+08:00\",\"value_number\":\"1\",\"value_text\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"utc_offset\":\"+08:00\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
       "error": "Unknown JSON key: utc_offset"
     },
     {
       "name": "both-values-null",
-      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"value_number\":null,\"value_text\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
-      "error": "value_number and value_text cannot both be null"
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":null,\"raw_content\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "error": "numeric_value and raw_content cannot both be null"
     },
     {
       "name": "invalid-id",
-      "line": "{\"id\":\"not-a-uuid\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"value_number\":\"1\",\"value_text\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "line": "{\"id\":\"not-a-uuid\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
       "error": "Invalid record id"
     },
     {
@@ -78,7 +78,7 @@
     },
     {
       "name": "tags-json-not-array",
-      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"value_number\":\"1\",\"value_text\":null,\"tags\":\"{\\\"a\\\":1}\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":\"{\\\"a\\\":1}\",\"objective_context\":\"x\",\"subjective_interpretation\":null}",
       "error": "tags field is not a JSON array"
     }
   ],

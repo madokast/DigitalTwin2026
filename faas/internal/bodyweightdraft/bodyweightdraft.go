@@ -26,14 +26,14 @@ const weightMaxCents = 50000 // 500.00
 // LogBodyWeightBody POST /api/log/body/weight 请求体（any：字段级校验文案与 Next 对齐）。
 type LogBodyWeightBody struct {
 	HappenedAt               any `json:"happened_at"`
-	ValueNumber              any `json:"value_number"`
+	NumericValue              any `json:"numeric_value"`
 	ObjectiveContext         any `json:"objective_context"`
 	SubjectiveInterpretation any `json:"subjective_interpretation"`
 	Tags                     any `json:"tags"`
 }
 
 var logBodyWeightKeys = []string{
-	"happened_at", "value_number", "objective_context",
+	"happened_at", "numeric_value", "objective_context",
 	"subjective_interpretation", "tags",
 }
 
@@ -41,7 +41,7 @@ var logBodyWeightKeys = []string{
 type NormalizedBodyWeight struct {
 	HappenedAt               time.Time
 	UtcOffset                string
-	ValueNumber              string
+	NumericValue              string
 	Tags                     []string
 	ObjectiveContext         string
 	SubjectiveInterpretation any // string or nil
@@ -62,10 +62,10 @@ func WeightCentsInRange(normalized2 string) bool {
 	return cents >= weightMinCents && cents <= weightMaxCents
 }
 
-// ParseWeightAmount 解析体重 value_number。
+// ParseWeightAmount 解析体重 numeric_value。
 func ParseWeightAmount(raw any) (string, error) {
 	if raw == nil {
-		return "", fmt.Errorf("Missing required field: value_number")
+		return "", fmt.Errorf("Missing required field: numeric_value")
 	}
 	switch v := raw.(type) {
 	case string:
@@ -79,7 +79,7 @@ func ParseWeightAmount(raw any) (string, error) {
 		}
 		return stored, nil
 	case float64, json.Number:
-		return "", fmt.Errorf("%s", draft.ValueNumberMustBeString)
+		return "", fmt.Errorf("%s", draft.NumericValueMustBeString)
 	default:
 		return "", fmt.Errorf("%s", InvalidWeight)
 	}
@@ -158,7 +158,7 @@ func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, error) {
 	if err != nil {
 		return NormalizedBodyWeight{}, err
 	}
-	valueNumber, err := ParseWeightAmount(body.ValueNumber)
+	numericValue, err := ParseWeightAmount(body.NumericValue)
 	if err != nil {
 		return NormalizedBodyWeight{}, err
 	}
@@ -182,7 +182,7 @@ func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, error) {
 	return NormalizedBodyWeight{
 		HappenedAt:               happenedAt,
 		UtcOffset:                utcOffset,
-		ValueNumber:              valueNumber,
+		NumericValue:              numericValue,
 		Tags:                     tagsOut,
 		ObjectiveContext:         objCtx,
 		SubjectiveInterpretation: subj,

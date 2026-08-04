@@ -37,7 +37,7 @@ type sharedSummaryCases struct {
 
 type sharedSummaryRow struct {
 	Tags        string  `json:"tags"`
-	ValueNumber *string `json:"value_number"`
+	NumericValue *string `json:"numeric_value"`
 }
 
 func loadTransactionSummaryCases(t *testing.T) sharedSummaryCases {
@@ -93,7 +93,7 @@ func TestAggregateTransactionSummarySharedFixtures(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			rows := make([]TransactionSummaryRow, len(tc.Rows))
 			for i, r := range tc.Rows {
-				rows[i] = TransactionSummaryRow{Tags: r.Tags, ValueNumber: r.ValueNumber}
+				rows[i] = TransactionSummaryRow{Tags: r.Tags, NumericValue: r.NumericValue}
 			}
 			got, err := AggregateTransactionSummary(rows, tc.From, tc.To)
 			if err != nil {

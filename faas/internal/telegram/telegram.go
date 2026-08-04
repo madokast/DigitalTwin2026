@@ -79,14 +79,14 @@ func FormatRecordMessage(rec record.Record) string {
 		"id: " + rec.ID,
 		"happened_at: " + rec.HappenedAt,
 	}
-	if rec.ValueNumber != nil && *rec.ValueNumber != "" {
-		lines = append(lines, "value_number: "+*rec.ValueNumber)
+	if rec.NumericValue != nil && *rec.NumericValue != "" {
+		lines = append(lines, "numeric_value: "+*rec.NumericValue)
 	} else {
 		vt := ""
-		if rec.ValueText != nil {
-			vt = *rec.ValueText
+		if rec.RawContent != nil {
+			vt = *rec.RawContent
 		}
-		lines = append(lines, "value_text: "+vt)
+		lines = append(lines, "raw_content: "+vt)
 	}
 	lines = append(lines, "tags: "+formatTags(rec.Tags))
 	lines = append(lines, "objective: "+rec.ObjectiveContext)
@@ -184,8 +184,8 @@ func FormatTransactionBatchMessage(rows []record.Record) string {
 	n := len(rows)
 	amounts := make([]string, 0, n)
 	for _, r := range rows {
-		if r.ValueNumber != nil && *r.ValueNumber != "" {
-			amounts = append(amounts, *r.ValueNumber)
+		if r.NumericValue != nil && *r.NumericValue != "" {
+			amounts = append(amounts, *r.NumericValue)
 		}
 	}
 	sumLabel := "(mixed)"

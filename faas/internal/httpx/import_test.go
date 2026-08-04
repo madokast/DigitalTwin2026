@@ -206,7 +206,7 @@ func TestImportRecordsTextPartNamedFile(t *testing.T) {
 	h := importTestServer().Handler()
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
-	_ = w.WriteField("file", `{"id":"01900000-0000-7000-8000-000000000001","happened_at":"2026-07-30T00:00:00.000Z","value_number":"1","tags":["weight"],"objective_context":"x"}`)
+	_ = w.WriteField("file", `{"id":"01900000-0000-7000-8000-000000000001","happened_at":"2026-07-30T00:00:00.000Z","numeric_value":"1","tags":["weight"],"objective_context":"x"}`)
 	_ = w.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/import/records", &b)

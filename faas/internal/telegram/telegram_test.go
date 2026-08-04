@@ -51,7 +51,7 @@ func TestFormatRecordMessage(t *testing.T) {
 	rec := record.Record{
 		ID:                       "id-1",
 		HappenedAt:               "2026-07-31T12:00:00.000Z",
-		ValueNumber:              &num,
+		NumericValue:              &num,
 		Tags:                     `["weight","morning"]`,
 		ObjectiveContext:         "Scale reading",
 		SubjectiveInterpretation: &subj,
@@ -61,7 +61,7 @@ func TestFormatRecordMessage(t *testing.T) {
 		"New record",
 		"id: id-1",
 		"happened_at: 2026-07-31T12:00:00.000Z",
-		"value_number: 72.5",
+		"numeric_value: 72.5",
 		"tags: weight, morning",
 		"objective: Scale reading",
 		"subjective: Feeling lighter",
@@ -74,19 +74,19 @@ func TestFormatRecordMessage(t *testing.T) {
 	rec2 := record.Record{
 		ID:               "id-2",
 		HappenedAt:       "2026-07-31T13:00:00.000Z",
-		ValueText:        &text,
+		RawContent:        &text,
 		Tags:             `["run"]`,
 		ObjectiveContext: "Park loop",
 	}
 	got2 := FormatRecordMessage(rec2)
-	if !strings.Contains(got2, "value_text: Ran 5k") || !strings.Contains(got2, "subjective: (null)") {
+	if !strings.Contains(got2, "raw_content: Ran 5k") || !strings.Contains(got2, "subjective: (null)") {
 		t.Fatalf("unexpected:\n%s", got2)
 	}
 
 	offsetRec := record.Record{
 		ID:         "id-3",
 		HappenedAt: "2026-07-31T20:00:00.000+08:00",
-		ValueText:  &text,
+		RawContent:  &text,
 		Tags:       `["run"]`,
 		ObjectiveContext: "Park loop",
 	}

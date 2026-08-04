@@ -4,7 +4,7 @@
  */
 import {
   parseHappenedAt,
-  VALUE_NUMBER_MUST_BE_STRING,
+  NUMERIC_VALUE_MUST_BE_STRING,
   type DraftValidationError,
 } from '@/lib/draft'
 import {
@@ -17,7 +17,7 @@ import { normalizeMoneyAmount2 } from '@/lib/transactiondraft'
 
 export const LOG_BODY_WEIGHT_KEYS = [
   'happened_at',
-  'value_number',
+  'numeric_value',
   'objective_context',
   'subjective_interpretation',
   'tags',
@@ -34,7 +34,7 @@ const WEIGHT_MAX_CENTS = 50000 // 500.00
 
 export type LogBodyWeightBody = {
   happened_at?: unknown
-  value_number?: unknown
+  numeric_value?: unknown
   objective_context?: unknown
   subjective_interpretation?: unknown
   tags?: unknown
@@ -43,7 +43,7 @@ export type LogBodyWeightBody = {
 export type NormalizedBodyWeight = {
   happenedAt: Date
   utcOffset: string
-  valueNumber: string
+  numericValue: string
   tags: string[]
   objectiveContext: string
   subjectiveInterpretation: string | null
@@ -57,17 +57,17 @@ export function weightCentsInRange(normalized2: string): boolean {
 }
 
 /**
- * 解析体重 value_number：JSON number → value_number must be a decimal string；
+ * 解析体重 numeric_value：JSON number → numeric_value must be a decimal string；
  * 形态 / 范围 → INVALID_WEIGHT；通过后规范为两位小数。
  */
 export function parseWeightAmount(
   raw: unknown,
 ): { ok: true; value: string } | DraftValidationError {
   if (raw === undefined || raw === null) {
-    return { error: 'Missing required field: value_number' }
+    return { error: 'Missing required field: numeric_value' }
   }
   if (typeof raw === 'number') {
-    return { error: VALUE_NUMBER_MUST_BE_STRING }
+    return { error: NUMERIC_VALUE_MUST_BE_STRING }
   }
   if (typeof raw !== 'string') {
     return { error: INVALID_WEIGHT }
@@ -144,7 +144,7 @@ export function parseBodyWeight(
     return { error: happenedResult.error }
   }
 
-  const amount = parseWeightAmount(body.value_number)
+  const amount = parseWeightAmount(body.numeric_value)
   if ('error' in amount) {
     return { error: amount.error }
   }
@@ -166,7 +166,7 @@ export function parseBodyWeight(
   return {
     happenedAt: happenedResult.value,
     utcOffset: happenedResult.utcOffset,
-    valueNumber: amount.value,
+    numericValue: amount.value,
     tags: [RESERVED_TAG_BODY_WEIGHT, ...clientTags.value],
     objectiveContext: body.objective_context,
     subjectiveInterpretation: subjective.value,

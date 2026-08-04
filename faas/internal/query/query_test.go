@@ -138,8 +138,8 @@ func TestToQueryRecordJSON(t *testing.T) {
 	todo := record.Record{
 		ID:                       "01900000-0000-7000-8000-000000000003",
 		HappenedAt:               "2026-08-02T02:00:00.000Z",
-		ValueNumber:              nil,
-		ValueText:                &todoText,
+		NumericValue:              nil,
+		RawContent:                &todoText,
 		Tags:                     `["todo:in_progress","errand"]`,
 		ObjectiveContext:         "weekend grocery list",
 		SubjectiveInterpretation: nil,
@@ -162,15 +162,15 @@ func TestToQueryRecordJSON(t *testing.T) {
 	if _, ok := m["happened_at"]; ok {
 		t.Fatalf("todo must not have happenedAt: %s", b)
 	}
-	if _, ok := m["value_text"]; ok {
-		t.Fatalf("todo must not have valueText: %s", b)
+	if _, ok := m["raw_content"]; ok {
+		t.Fatalf("todo must not have rawContent: %s", b)
 	}
 
 	copyText := "Buy milk"
 	audit := record.Record{
 		ID:               "01900000-0000-7000-8000-000000000004",
 		HappenedAt:       "2026-08-02T04:00:00.000Z",
-		ValueText:        &copyText,
+		RawContent:        &copyText,
 		Tags:             `["todo:transition"]`,
 		ObjectiveContext: "Complete a to-do 01900000-0000-7000-8000-000000000003 created at 2026-08-02T02:00:00.000Z",
 	}
@@ -186,8 +186,8 @@ func TestToQueryRecordJSON(t *testing.T) {
 	if _, ok := am["happened_at"]; !ok {
 		t.Fatalf("audit missing happenedAt: %s", ab)
 	}
-	if _, ok := am["value_text"]; !ok {
-		t.Fatalf("audit missing valueText: %s", ab)
+	if _, ok := am["raw_content"]; !ok {
+		t.Fatalf("audit missing rawContent: %s", ab)
 	}
 	if _, ok := am["created_at"]; ok {
 		t.Fatalf("audit must not have created_at: %s", ab)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { VALUE_NUMBER_MUST_BE_STRING } from '@/lib/draft'
+import { NUMERIC_VALUE_MUST_BE_STRING } from '@/lib/draft'
 import { INVALID_WEIGHT } from '@/lib/bodyweightdraft'
 import {
   createBodyWeight,
@@ -19,7 +19,7 @@ describe('createNumber', () => {
     for (const happened of ['2026-07-30', '2026-07-30T08:00:00']) {
       const result = await createNumber({
         happened_at: happened,
-        value_number: '1',
+        numeric_value: '1',
         tags: ['weight'],
         objective_context: 'x',
       })
@@ -30,15 +30,15 @@ describe('createNumber', () => {
     }
   })
 
-  it('rejects JSON number value_number', async () => {
+  it('rejects JSON number numeric_value', async () => {
     const result = await createNumber({
       happened_at: '2026-07-30T08:00:00+08:00',
-      value_number: 75.5,
+      numeric_value: 75.5,
       tags: ['weight'],
       objective_context: 'x',
     })
     expect(result).toEqual({
-      error: VALUE_NUMBER_MUST_BE_STRING,
+      error: NUMERIC_VALUE_MUST_BE_STRING,
       status: 400,
     })
   })
@@ -47,18 +47,18 @@ describe('createNumber', () => {
     for (const bad of ['1e3', '1.', '+1']) {
       const result = await createNumber({
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: bad,
+        numeric_value: bad,
         tags: ['weight'],
         objective_context: 'x',
       })
-      expect(result).toEqual({ error: 'Invalid value_number', status: 400 })
+      expect(result).toEqual({ error: 'Invalid numeric_value', status: 400 })
     }
   })
 
   it('rejects reserved tag', async () => {
     const result = await createNumber({
       happened_at: '2026-08-01T12:30:00+08:00',
-      value_number: '1',
+      numeric_value: '1',
       tags: ['transaction_entry'],
       objective_context: 'x',
     })
@@ -71,7 +71,7 @@ describe('createNumber', () => {
   it('rejects reserved prefixed tag', async () => {
     const result = await createNumber({
       happened_at: '2026-08-01T12:30:00+08:00',
-      value_number: '1',
+      numeric_value: '1',
       tags: ['transaction_entry:income'],
       objective_context: 'x',
     })
@@ -84,7 +84,7 @@ describe('createNumber', () => {
   it('rejects body:weight reserved tag', async () => {
     const result = await createNumber({
       happened_at: '2026-08-01T12:30:00+08:00',
-      value_number: '1',
+      numeric_value: '1',
       tags: ['body:weight'],
       objective_context: 'x',
     })
@@ -97,7 +97,7 @@ describe('createNumber', () => {
   it('rejects todo reserved tag', async () => {
     const result = await createNumber({
       happened_at: '2026-08-01T12:30:00+08:00',
-      value_number: '1',
+      numeric_value: '1',
       tags: ['todo'],
       objective_context: 'x',
     })
@@ -110,7 +110,7 @@ describe('createNumber', () => {
   it('rejects todo:in_progress reserved tag', async () => {
     const result = await createNumber({
       happened_at: '2026-08-01T12:30:00+08:00',
-      value_number: '1',
+      numeric_value: '1',
       tags: ['todo:in_progress'],
       objective_context: 'x',
     })
@@ -124,7 +124,7 @@ describe('createNumber', () => {
     for (const bad of [1, true, [], {}]) {
       const result = await createNumber({
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['weight'],
         objective_context: 'x',
         subjective_interpretation: bad,
@@ -140,7 +140,7 @@ describe('createNumber', () => {
     expect(
       await createNumber({
         happened_at: 123,
-        value_number: '1',
+        numeric_value: '1',
         tags: ['weight'],
         objective_context: 'x',
       }),
@@ -148,7 +148,7 @@ describe('createNumber', () => {
     expect(
       await createNumber({
         happened_at: '2026-07-30T08:00:00Z',
-        value_number: '1',
+        numeric_value: '1',
         tags: 'x',
         objective_context: 'x',
       }),
@@ -159,7 +159,7 @@ describe('createNumber', () => {
     expect(
       await createNumber({
         happened_at: '2026-07-30T08:00:00Z',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['weight'],
         objective_context: 123,
       }),
@@ -171,14 +171,14 @@ describe('createNumber', () => {
 })
 
 describe('createBodyWeight', () => {
-  it('rejects JSON number value_number', async () => {
+  it('rejects JSON number numeric_value', async () => {
     const result = await createBodyWeight({
       happened_at: '2026-08-02T08:00:00+08:00',
-      value_number: 75.5,
+      numeric_value: 75.5,
       objective_context: 'x',
     })
     expect(result).toEqual({
-      error: VALUE_NUMBER_MUST_BE_STRING,
+      error: NUMERIC_VALUE_MUST_BE_STRING,
       status: 400,
     })
   })
@@ -187,7 +187,7 @@ describe('createBodyWeight', () => {
     for (const bad of ['0', '500.01', '75.123', ' 75']) {
       const result = await createBodyWeight({
         happened_at: '2026-08-02T08:00:00+08:00',
-        value_number: bad,
+        numeric_value: bad,
         objective_context: 'x',
       })
       expect(result).toEqual({ error: INVALID_WEIGHT, status: 400 })
@@ -197,7 +197,7 @@ describe('createBodyWeight', () => {
   it('rejects reserved client tags', async () => {
     const result = await createBodyWeight({
       happened_at: '2026-08-02T08:00:00+08:00',
-      value_number: '75',
+      numeric_value: '75',
       objective_context: 'x',
       tags: ['body:weight'],
     })
@@ -276,7 +276,7 @@ describe('createText', () => {
   it('rejects happened_at without timezone', async () => {
     const result = await createText({
       happened_at: '2026-07-30T10:00:00',
-      value_text: 'hello',
+      raw_content: 'hello',
       tags: ['study'],
       objective_context: 'x',
     })
@@ -289,7 +289,7 @@ describe('createText', () => {
   it('rejects reserved tag', async () => {
     const result = await createText({
       happened_at: '2026-08-01T12:30:00+08:00',
-      value_text: 'should fail',
+      raw_content: 'should fail',
       tags: ['transaction_entry'],
       objective_context: 'x',
     })
@@ -302,7 +302,7 @@ describe('createText', () => {
   it('rejects todo reserved tag', async () => {
     const result = await createText({
       happened_at: '2026-08-01T12:30:00+08:00',
-      value_text: 'should fail',
+      raw_content: 'should fail',
       tags: ['todo:in_progress'],
       objective_context: 'x',
     })
@@ -315,7 +315,7 @@ describe('createText', () => {
   it('rejects non-string subjective_interpretation', async () => {
     const result = await createText({
       happened_at: '2026-08-01T12:30:00+08:00',
-      value_text: 'hello',
+      raw_content: 'hello',
       tags: ['study'],
       objective_context: 'x',
       subjective_interpretation: 42,
@@ -326,15 +326,15 @@ describe('createText', () => {
     })
   })
 
-  it('rejects non-string value_text', async () => {
+  it('rejects non-string raw_content', async () => {
     expect(
       await createText({
         happened_at: '2026-07-30T08:00:00Z',
-        value_text: 123,
+        raw_content: 123,
         tags: ['study'],
         objective_context: 'x',
       }),
-    ).toEqual({ error: 'Missing required field: value_text', status: 400 })
+    ).toEqual({ error: 'Missing required field: raw_content', status: 400 })
   })
 })
 

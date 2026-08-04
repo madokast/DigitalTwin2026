@@ -218,9 +218,9 @@ func insertRow(ctx context.Context, tx pgx.Tx, row *recordjsonl.Row) error {
 		return err
 	}
 	_, err = tx.Exec(ctx, `
-INSERT INTO records (id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation)
+INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
-`, row.ID, row.HappenedAt, row.UtcOffset, row.ValueNumber, row.ValueText, tagsJSON, row.ObjectiveContext, row.SubjectiveInterpretation)
+`, row.ID, row.HappenedAt, row.UtcOffset, row.NumericValue, row.RawContent, tagsJSON, row.ObjectiveContext, row.SubjectiveInterpretation)
 	return err
 }
 
@@ -233,12 +233,12 @@ func updateRow(ctx context.Context, tx pgx.Tx, row *recordjsonl.Row) error {
 UPDATE records SET
   happened_at = $1,
   utc_offset = $2,
-  value_number = $3,
-  value_text = $4,
+  numeric_value = $3,
+  raw_content = $4,
   tags = $5,
   objective_context = $6,
   subjective_interpretation = $7
 WHERE id = $8
-`, row.HappenedAt, row.UtcOffset, row.ValueNumber, row.ValueText, tagsJSON, row.ObjectiveContext, row.SubjectiveInterpretation, row.ID)
+`, row.HappenedAt, row.UtcOffset, row.NumericValue, row.RawContent, tagsJSON, row.ObjectiveContext, row.SubjectiveInterpretation, row.ID)
 	return err
 }

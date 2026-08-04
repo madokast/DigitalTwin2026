@@ -23,7 +23,7 @@ type weightAmountReject struct {
 
 type weightAmountCases struct {
 	InvalidWeightError       string               `json:"invalidWeightError"`
-	ValueNumberMustBeString  string               `json:"valueNumberMustBeString"`
+	NumericValueMustBeString  string               `json:"numericValueMustBeString"`
 	Accept                   []weightAmountAccept `json:"accept"`
 	Reject                   []weightAmountReject `json:"reject"`
 }
@@ -51,8 +51,8 @@ func TestParseWeightAmountSharedFixtures(t *testing.T) {
 	if InvalidWeight != cases.InvalidWeightError {
 		t.Fatalf("InvalidWeight constant drift: %q vs %q", InvalidWeight, cases.InvalidWeightError)
 	}
-	if draft.ValueNumberMustBeString != cases.ValueNumberMustBeString {
-		t.Fatalf("ValueNumberMustBeString drift")
+	if draft.NumericValueMustBeString != cases.NumericValueMustBeString {
+		t.Fatalf("NumericValueMustBeString drift")
 	}
 	for _, tc := range cases.Accept {
 		got, err := ParseWeightAmount(tc.Input)
@@ -67,7 +67,7 @@ func TestParseWeightAmountSharedFixtures(t *testing.T) {
 		}
 	}
 	_, err := ParseWeightAmount(float64(75.5))
-	if err == nil || err.Error() != draft.ValueNumberMustBeString {
+	if err == nil || err.Error() != draft.NumericValueMustBeString {
 		t.Fatalf("JSON number: err=%v", err)
 	}
 }
@@ -75,7 +75,7 @@ func TestParseWeightAmountSharedFixtures(t *testing.T) {
 func TestParseBodyWeight(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-08-02T08:00:00+08:00",
-		"value_number": "75.5",
+		"numeric_value": "75.5",
 		"objective_context": "morning weigh-in",
 		"subjective_interpretation": "a bit heavy",
 		"tags": ["morning"]
@@ -84,8 +84,8 @@ func TestParseBodyWeight(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ValueNumber != "75.50" {
-		t.Fatalf("value=%q", got.ValueNumber)
+	if got.NumericValue != "75.50" {
+		t.Fatalf("value=%q", got.NumericValue)
 	}
 	if len(got.Tags) != 2 || got.Tags[0] != tags.ReservedTagBodyWeight || got.Tags[1] != "morning" {
 		t.Fatalf("tags=%v", got.Tags)
@@ -95,7 +95,7 @@ func TestParseBodyWeight(t *testing.T) {
 func TestParseBodyWeightOmitsTags(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-08-02T08:00:00+08:00",
-		"value_number": "75",
+		"numeric_value": "75",
 		"objective_context": "x"
 	}`)
 	got, err := ParseBodyWeight(raw)
@@ -105,15 +105,15 @@ func TestParseBodyWeightOmitsTags(t *testing.T) {
 	if len(got.Tags) != 1 || got.Tags[0] != tags.ReservedTagBodyWeight {
 		t.Fatalf("tags=%v", got.Tags)
 	}
-	if got.ValueNumber != "75.00" {
-		t.Fatalf("value=%q", got.ValueNumber)
+	if got.NumericValue != "75.00" {
+		t.Fatalf("value=%q", got.NumericValue)
 	}
 }
 
 func TestParseBodyWeightRejectsReservedClientTag(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-08-02T08:00:00+08:00",
-		"value_number": "75",
+		"numeric_value": "75",
 		"objective_context": "x",
 		"tags": ["body:weight"]
 	}`)

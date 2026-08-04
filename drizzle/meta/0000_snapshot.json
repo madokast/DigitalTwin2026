@@ -26,14 +26,14 @@
           "primaryKey": false,
           "notNull": true
         },
-        "value_number": {
-          "name": "value_number",
+        "numeric_value": {
+          "name": "numeric_value",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "value_text": {
-          "name": "value_text",
+        "raw_content": {
+          "name": "raw_content",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -63,9 +63,9 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "chk_value": {
-          "name": "chk_value",
-          "value": "\"records\".\"value_number\" IS NOT NULL OR \"records\".\"value_text\" IS NOT NULL"
+        "chk_raw_content": {
+          "name": "chk_raw_content",
+          "value": "\"records\".\"numeric_value\" IS NOT NULL OR \"records\".\"raw_content\" IS NOT NULL"
         },
         "chk_tags": {
           "name": "chk_tags",

@@ -63,7 +63,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
   describe('POST /api/log/number', () => {
     it('returns 400 when required fields are missing', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-        value_number: '75.5',
+        numeric_value: '75.5',
         tags: ['weight'],
         objective_context: 'morning weigh-in',
       }))
@@ -75,7 +75,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('rejects suppress_notification as unknown key', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: '75.5',
+        numeric_value: '75.5',
         tags: ['weight'],
         objective_context: 'morning weigh-in',
         suppress_notification: true,
@@ -89,7 +89,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('returns 400 for invalid tags', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: '75.5',
+        numeric_value: '75.5',
         tags: ['体重'],
         objective_context: 'morning weigh-in',
       }))
@@ -101,7 +101,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('creates a number record', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: '75.5',
+        numeric_value: '75.5',
         tags: ['weight'],
         objective_context: 'morning weigh-in',
         subjective_interpretation: 'a bit heavy',
@@ -109,8 +109,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(201)
       const body = await res.json()
       expect(body.success).toBe(true)
-      expect(body.record.value_number).toBe('75.5')
-      expect(body.record.value_text).toBeNull()
+      expect(body.record.numeric_value).toBe('75.5')
+      expect(body.record.raw_content).toBeNull()
       expect(body.record.tags).toBe(JSON.stringify(['weight']))
       expect(body.record.objective_context).toBe('morning weigh-in')
       expect(body.record.subjective_interpretation).toBe('a bit heavy')
@@ -119,7 +119,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('returns 400 when happened_at lacks timezone', async () => {
       const bare = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['weight'],
         objective_context: 'x',
       }))
@@ -130,7 +130,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
 
       const noOffset = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['weight'],
         objective_context: 'x',
       }))
@@ -140,16 +140,16 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       )
     })
 
-    it('accepts happened_at with Z and returns string valueNumber', async () => {
+    it('accepts happened_at with Z and returns string numericValue', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T00:00:00.000Z',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['weight'],
         objective_context: 'x',
       }))
       expect(res.status).toBe(201)
       const body = await res.json()
-      expect(body.record.value_number).toBe('1')
+      expect(body.record.numeric_value).toBe('1')
       expect(body.record.happened_at).toBe('2026-07-30T00:00:00.000Z')
       expect(body.record).not.toHaveProperty('utc_offset')
     })
@@ -157,7 +157,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('preserves +08:00 and compact +0800 on create success', async () => {
       const plus = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['weight'],
         objective_context: 'x',
       }))
@@ -168,7 +168,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
 
       const compact = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+0800',
-        value_number: '2',
+        numeric_value: '2',
         tags: ['weight'],
         objective_context: 'x',
       }))
@@ -181,7 +181,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('rejects utc_offset as unknown key', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['weight'],
         objective_context: 'x',
         utc_offset: '+08:00',
@@ -190,16 +190,16 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect((await res.json()).error).toBe('Unknown JSON key: utc_offset')
     })
 
-    it('rejects JSON number type for value_number', async () => {
+    it('rejects JSON number type for numeric_value', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: 75.5,
+        numeric_value: 75.5,
         tags: ['weight'],
         objective_context: 'x',
       }))
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(
-        'value_number must be a decimal string',
+        'numeric_value must be a decimal string',
       )
     })
 
@@ -207,29 +207,29 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       for (const bad of ['1e3', '1.', '+1']) {
         const res = await postNumber(jsonPost('http://localhost/api/log/number', {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: bad,
+          numeric_value: bad,
           tags: ['weight'],
           objective_context: 'x',
         }))
         expect(res.status).toBe(400)
-        expect((await res.json()).error).toBe('Invalid value_number')
+        expect((await res.json()).error).toBe('Invalid numeric_value')
       }
     })
 
     it('preserves decimal literal including trailing zeros', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: '1.0',
+        numeric_value: '1.0',
         tags: ['weight'],
         objective_context: 'x',
       }))
       expect(res.status).toBe(201)
-      expect((await res.json()).record.value_number).toBe('1.0')
+      expect((await res.json()).record.numeric_value).toBe('1.0')
     })
   })
 
   describe('POST /api/log/text', () => {
-    it('returns 400 when value_text is missing', async () => {
+    it('returns 400 when raw_content is missing', async () => {
       const res = await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T10:00:00+08:00',
         tags: ['study'],
@@ -237,13 +237,13 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(res.status).toBe(400)
       const body = await res.json()
-      expect(body.error).toContain('value_text')
+      expect(body.error).toContain('raw_content')
     })
 
     it('returns 400 when happened_at lacks timezone', async () => {
       const res = await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T10:00:00',
-        value_text: 'hello',
+        raw_content: 'hello',
         tags: ['study'],
         objective_context: 'x',
       }))
@@ -256,22 +256,22 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('creates a text record', async () => {
       const res = await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T10:00:00+08:00',
-        value_text: 'studied 50 words',
+        raw_content: 'studied 50 words',
         tags: ['study', 'vocabulary'],
         objective_context: 'afternoon study',
       }))
       expect(res.status).toBe(201)
       const body = await res.json()
       expect(body.success).toBe(true)
-      expect(body.record.value_text).toBe('studied 50 words')
-      expect(body.record.value_number).toBeNull()
+      expect(body.record.raw_content).toBe('studied 50 words')
+      expect(body.record.numeric_value).toBeNull()
       expect(body.record.tags).toBe(JSON.stringify(['study', 'vocabulary']))
     })
 
     it('rejects reserved tag', async () => {
       const res = await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-08-01T12:30:00+08:00',
-        value_text: 'should fail',
+        raw_content: 'should fail',
         tags: ['transaction_entry'],
         objective_context: 'x',
       }))
@@ -348,7 +348,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('rejects reserved tag on log/number', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-08-01T12:30:00+08:00',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['transaction_entry'],
         objective_context: 'x',
       }))
@@ -359,7 +359,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('rejects reserved prefixed tag on log/number', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-08-01T12:30:00+08:00',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['transaction_entry:income'],
         objective_context: 'x',
       }))
@@ -370,7 +370,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('rejects body:weight reserved tag on log/number', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-08-01T12:30:00+08:00',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['body:weight'],
         objective_context: 'x',
       }))
@@ -381,7 +381,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('rejects todo reserved tag on log/number', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-08-01T12:30:00+08:00',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['todo'],
         objective_context: 'x',
       }))
@@ -392,7 +392,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('rejects todo:in_progress reserved tag on log/number', async () => {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-08-01T12:30:00+08:00',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['todo:in_progress'],
         objective_context: 'x',
       }))
@@ -405,7 +405,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('creates a weight record with body:weight tag and normalized value', async () => {
       const res = await postBodyWeight(jsonPost('http://localhost/api/log/body/weight', {
         happened_at: '2026-08-02T08:00:00+08:00',
-        value_number: '75.5',
+        numeric_value: '75.5',
         objective_context: 'morning weigh-in',
         subjective_interpretation: 'a bit heavy',
         tags: ['morning'],
@@ -413,26 +413,26 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(201)
       const body = await res.json()
       expect(body.success).toBe(true)
-      expect(body.record.value_number).toBe('75.50')
-      expect(body.record.value_text).toBeNull()
+      expect(body.record.numeric_value).toBe('75.50')
+      expect(body.record.raw_content).toBeNull()
       expect(body.record.tags).toBe(JSON.stringify(['body:weight', 'morning']))
       expect(body.record.objective_context).toBe('morning weigh-in')
     })
 
-    it('rejects JSON number value_number', async () => {
+    it('rejects JSON number numeric_value', async () => {
       const res = await postBodyWeight(jsonPost('http://localhost/api/log/body/weight', {
         happened_at: '2026-08-02T08:00:00+08:00',
-        value_number: 75.5,
+        numeric_value: 75.5,
         objective_context: 'x',
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('value_number must be a decimal string')
+      expect((await res.json()).error).toBe('numeric_value must be a decimal string')
     })
 
     it('rejects out-of-range weight', async () => {
       const res = await postBodyWeight(jsonPost('http://localhost/api/log/body/weight', {
         happened_at: '2026-08-02T08:00:00+08:00',
-        value_number: '500.01',
+        numeric_value: '500.01',
         objective_context: 'x',
       }))
       expect(res.status).toBe(400)
@@ -456,11 +456,11 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.success).toBe(true)
       expect(body.record.content).toBe('Buy milk')
       expect(body.record.created_at).toBe('2026-08-02T10:00:00.000+08:00')
-      expect(body.record.value_number).toBeNull()
+      expect(body.record.numeric_value).toBeNull()
       expect(body.record.tags).toBe(JSON.stringify(['todo:in_progress', 'errand']))
       expect(body.record.objective_context).toBe('weekend grocery list')
       expect(body.record).not.toHaveProperty('happened_at')
-      expect(body.record).not.toHaveProperty('value_text')
+      expect(body.record).not.toHaveProperty('raw_content')
     })
 
     it('rejects missing content and reserved client tags', async () => {
@@ -546,19 +546,19 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         created_at?: string
         content?: string
         happened_at?: string
-        value_text?: string
+        raw_content?: string
       }>
       expect(todoRows[0].tags).toBe(JSON.stringify(['todo:completed', 'errand']))
       expect(todoRows[0].created_at).toBe(todo.created_at)
       expect(todoRows[0].content).toBe(todo.content)
       expect(todoRows[0]).not.toHaveProperty('happened_at')
-      expect(todoRows[0]).not.toHaveProperty('value_text')
+      expect(todoRows[0]).not.toHaveProperty('raw_content')
 
       const qAudit = await queryRecords(jsonGet(
         'http://localhost/api/query?tag=todo:transition',
       ))
       const audits = (await qAudit.json()).records as Array<{
-        value_text: string
+        raw_content: string
         tags: string
         objective_context: string
         subjective_interpretation: string | null
@@ -574,8 +574,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(audit).toBeTruthy()
       expect(audit!.tags).toBe(JSON.stringify(['todo:transition']))
       expect(audit!.happened_at).toBe('2026-08-02T12:00:00.000+08:00')
-      // §3.1：审计行 value_text = 待办正文逐字拷贝（非合成句）
-      expect(audit!.value_text).toBe(todo.content)
+      // §3.1：审计行 raw_content = 待办正文逐字拷贝（非合成句）
+      expect(audit!.raw_content).toBe(todo.content)
       expect(audit!.objective_context).toBe(
         `Complete a to-do ${todo.id} created at ${todo.created_at}`,
       )
@@ -600,7 +600,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
 
       const text = await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-08-02T10:00:00+08:00',
-        value_text: 'plain note',
+        raw_content: 'plain note',
         tags: ['note'],
         objective_context: 'x',
       }))
@@ -710,19 +710,19 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       // Fixed "now": 2026-07-30 16:30 UTC = 2026-07-31 00:30 Asia/Shanghai
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T10:00:00.000Z',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['a'],
         objective_context: 'utc-only today',
       }))
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T18:00:00.000Z',
-        value_number: '2',
+        numeric_value: '2',
         tags: ['b'],
         objective_context: 'both today',
       }))
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-31T02:00:00.000Z',
-        value_number: '3',
+        numeric_value: '3',
         tags: ['c'],
         objective_context: 'shanghai-only today',
       }))
@@ -757,20 +757,20 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     async function seed() {
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: '75.5',
+        numeric_value: '75.5',
         tags: ['weight', 'morning'],
         objective_context: 'fasting weight',
       }))
       await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T15:00:00+08:00',
-        value_text: 'reviewed physics notes',
+        raw_content: 'reviewed physics notes',
         tags: ['study', 'physics'],
         objective_context: 'focused session',
         subjective_interpretation: 'felt productive',
       }))
       await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-31T12:00:00+08:00',
-        value_text: 'weekend walk',
+        raw_content: 'weekend walk',
         tags: ['walk'],
         objective_context: 'park',
       }))
@@ -801,14 +801,14 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(row!.created_at).toBe('2026-08-02T10:00:00.000+08:00')
       expect(row!.content).toBe('Query deform smoke')
       expect(row!).not.toHaveProperty('happened_at')
-      expect(row!).not.toHaveProperty('value_text')
+      expect(row!).not.toHaveProperty('raw_content')
 
       await seed()
       const plain = await queryRecords(jsonGet('http://localhost/api/query?tag=weight'))
       const weightRows = (await plain.json()).records as Array<Record<string, unknown>>
       expect(weightRows.length).toBeGreaterThan(0)
       expect(weightRows[0].happened_at).toBe('2026-07-30T08:00:00.000+08:00')
-      expect(weightRows[0]).toHaveProperty('value_text')
+      expect(weightRows[0]).toHaveProperty('raw_content')
       expect(weightRows[0]).not.toHaveProperty('created_at')
       expect(weightRows[0]).not.toHaveProperty('content')
     })
@@ -824,7 +824,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.page).toBe(1)
       expect(body.page_size).toBe(20)
       // happenedAt ASC, id ASC
-      expect(body.records.map((r: { value_text: string | null }) => r.value_text)).toEqual([
+      expect(body.records.map((r: { raw_content: string | null }) => r.raw_content)).toEqual([
         null,
         'reviewed physics notes',
       ])
@@ -838,7 +838,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.count).toBe(1)
-      expect(body.records[0].value_text).toBe('reviewed physics notes')
+      expect(body.records[0].raw_content).toBe('reviewed physics notes')
     })
 
     it('fuzzy-searches with q across text fields and tags', async () => {
@@ -853,14 +853,14 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(byTag.status).toBe(200)
       const tagBody = await byTag.json()
       expect(tagBody.count).toBe(1)
-      expect(tagBody.records[0].value_number).toBe('75.5')
+      expect(tagBody.records[0].numeric_value).toBe('75.5')
     })
 
     it('defaults to page=1 page_size=20 and supports page 2', async () => {
       for (let i = 0; i < 25; i++) {
         await postText(jsonPost('http://localhost/api/log/text', {
           happened_at: `2026-07-30T${String(10 + Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}:00+08:00`,
-          value_text: `row-${i}`,
+          raw_content: `row-${i}`,
           tags: ['bulk'],
           objective_context: `ctx-${i}`,
         }))
@@ -873,16 +873,16 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body1.page).toBe(1)
       expect(body1.page_size).toBe(20)
       expect(body1.records).toHaveLength(20)
-      expect(body1.records[0].value_text).toBe('row-0')
-      expect(body1.records[19].value_text).toBe('row-19')
+      expect(body1.records[0].raw_content).toBe('row-0')
+      expect(body1.records[19].raw_content).toBe('row-19')
 
       const page2 = await queryRecords(jsonGet('http://localhost/api/query?page=2'))
       const body2 = await page2.json()
       expect(body2.count).toBe(25)
       expect(body2.page).toBe(2)
       expect(body2.records).toHaveLength(5)
-      expect(body2.records[0].value_text).toBe('row-20')
-      expect(body2.records[4].value_text).toBe('row-24')
+      expect(body2.records[0].raw_content).toBe('row-20')
+      expect(body2.records[4].raw_content).toBe('row-24')
     }, 120_000)
 
     it('returns a single record by id and ignores pagination', async () => {
@@ -951,19 +951,19 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('returns success wrapper with lexicographically sorted tag counts', async () => {
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: '75.5',
+        numeric_value: '75.5',
         tags: ['weight', 'morning'],
         objective_context: 'fasting weight',
       }))
       await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T15:00:00+08:00',
-        value_text: 'reviewed physics notes',
+        raw_content: 'reviewed physics notes',
         tags: ['study', 'physics'],
         objective_context: 'focused session',
       }))
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-31T08:00:00+08:00',
-        value_number: '75.2',
+        numeric_value: '75.2',
         tags: ['weight'],
         objective_context: 'follow-up weigh-in',
       }))
@@ -1011,19 +1011,19 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('renames tags across records and reports updated count', async () => {
       await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: '1',
+        numeric_value: '1',
         tags: ['exercise', 'morning'],
         objective_context: 'a',
       }))
       await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T09:00:00+08:00',
-        value_text: 'gym',
+        raw_content: 'gym',
         tags: ['exercise', 'workout'],
         objective_context: 'b',
       }))
       await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T10:00:00+08:00',
-        value_text: 'read',
+        raw_content: 'read',
         tags: ['study'],
         objective_context: 'c',
       }))
@@ -1089,7 +1089,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     async function createNumber() {
       const res = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        value_number: '75.5',
+        numeric_value: '75.5',
         tags: ['weight'],
         objective_context: 'morning weigh-in',
         subjective_interpretation: 'ok',
@@ -1103,8 +1103,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
           happened_at: '2026-07-30T09:30:00+08:00',
-          value_number: '76',
-          value_text: null,
+          numeric_value: '76',
+          raw_content: null,
           tags: ['weight', 'source:device'],
           objective_context: 'updated context',
           subjective_interpretation: '',
@@ -1114,7 +1114,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.success).toBe(true)
-      expect(body.record.value_number).toBe('76')
+      expect(body.record.numeric_value).toBe('76')
       expect(body.record.tags).toBe(JSON.stringify(['weight', 'source:device']))
       expect(body.record.objective_context).toBe('updated context')
       expect(body.record.subjective_interpretation).toBeNull()
@@ -1127,7 +1127,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
           happened_at: '2026-07-30T00:00:00.000Z',
-          value_number: '75.5',
+          numeric_value: '75.5',
           tags: ['weight'],
           objective_context: 'morning weigh-in',
         }),
@@ -1142,7 +1142,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const record = await createNumber()
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
-          value_number: '77',
+          numeric_value: '77',
           tags: ['weight'],
           objective_context: 'no-time-patch',
         }),
@@ -1150,7 +1150,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       )
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body.record.value_number).toBe('77')
+      expect(body.record.numeric_value).toBe('77')
       expect(body.record.objective_context).toBe('no-time-patch')
       expect(body.record.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
     })
@@ -1160,7 +1160,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: '1',
+          numeric_value: '1',
           tags: ['weight'],
           objective_context: 'x',
           utc_offset: '+08:00',
@@ -1176,8 +1176,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: null,
-          value_text: '',
+          numeric_value: null,
+          raw_content: '',
           tags: ['weight'],
           objective_context: 'x',
           subjective_interpretation: null,
@@ -1194,8 +1194,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: '1',
-          value_text: null,
+          numeric_value: '1',
+          raw_content: null,
           tags: ['体重'],
           objective_context: 'x',
           subjective_interpretation: null,
@@ -1212,8 +1212,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: '1',
-          value_text: null,
+          numeric_value: '1',
+          raw_content: null,
           tags: ['weight', 'transaction_entry'],
           objective_context: 'x',
           subjective_interpretation: null,
@@ -1229,8 +1229,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: '1',
-          value_text: null,
+          numeric_value: '1',
+          raw_content: null,
           tags: ['weight', 'transaction_entry:expense'],
           objective_context: 'x',
           subjective_interpretation: null,
@@ -1248,8 +1248,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const res = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${id}`, {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: '1',
-          value_text: null,
+          numeric_value: '1',
+          raw_content: null,
           tags: ['weight'],
           objective_context: 'x',
           subjective_interpretation: null,
@@ -1308,7 +1308,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         const created = await postNumber(
           jsonPost('http://localhost/api/log/number', {
             happened_at: '2026-07-30T08:00:00+08:00',
-            value_number: n,
+            numeric_value: n,
             tags: ['export_test'],
             objective_context: `export-row-${n}`,
           }),
@@ -1352,7 +1352,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const created = await postNumber(
         jsonPost('http://localhost/api/log/number', {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: '1',
+          numeric_value: '1',
           tags: ['export_offset'],
           objective_context: 'phase4-export',
         }),
@@ -1399,8 +1399,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const line = JSON.stringify({
         id,
         happened_at: '2026-07-30T00:00:00.000Z',
-        value_number: '1',
-        value_text: null,
+        numeric_value: '1',
+        raw_content: null,
         tags: '["weight"]',
         objective_context: 'import-dup',
         subjective_interpretation: null,
@@ -1439,8 +1439,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const line = JSON.stringify({
         id,
         happened_at: '2026-07-30T00:00:00.000Z',
-        value_number: '70.5',
-        value_text: null,
+        numeric_value: '70.5',
+        raw_content: null,
         tags: '["body:weight"]',
         objective_context: 'import-reserved',
         subjective_interpretation: null,
@@ -1459,7 +1459,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const patch = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${id}`, {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: '71',
+          numeric_value: '71',
           tags: ['body:weight'],
           objective_context: 'patch-reserved',
         }),
@@ -1473,7 +1473,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const created = await postNumber(
         jsonPost('http://localhost/api/log/number', {
           happened_at: '2026-07-30T08:00:00+08:00',
-          value_number: '42',
+          numeric_value: '42',
           tags: ['roundtrip'],
           objective_context: 'export-import-rt',
         }),
@@ -1482,7 +1482,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const rec = (await created.json()).record as {
         id: string
         happened_at: string
-        value_number: string
+        numeric_value: string
         tags: string
         objective_context: string
       }
@@ -1516,7 +1516,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const body = await listed.json()
       expect(body.records).toHaveLength(1)
       expect(body.records[0].id).toBe(rec.id)
-      expect(body.records[0].value_number).toBe(rec.value_number)
+      expect(body.records[0].numeric_value).toBe(rec.numeric_value)
       expect(body.records[0].objective_context).toBe(rec.objective_context)
       expect(body.records[0].tags).toBe(rec.tags)
       expect(body.records[0].happened_at).toBe('2026-07-30T08:00:00.000+08:00')
@@ -1529,8 +1529,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         id,
         happened_at: '2026-07-30T00:00:00.000Z',
         utc_offset: '+08:00',
-        value_number: '1',
-        value_text: null,
+        numeric_value: '1',
+        raw_content: null,
         tags: '["weight"]',
         objective_context: 'import-utc-offset',
         subjective_interpretation: null,

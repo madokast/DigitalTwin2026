@@ -47,7 +47,7 @@ var logTodoKeys = []string{
 type NormalizedTodo struct {
 	HappenedAt               time.Time
 	UtcOffset                string
-	ValueText                string
+	RawContent                string
 	Tags                     []string
 	ObjectiveContext         string
 	SubjectiveInterpretation any // string or nil
@@ -57,23 +57,23 @@ type NormalizedTodo struct {
 type TodoRecordJSON struct {
 	ID                       string  `json:"id"`
 	CreatedAt                string  `json:"created_at"`
-	ValueNumber              *string `json:"value_number"`
+	NumericValue              *string `json:"numeric_value"`
 	Content                  string  `json:"content"`
 	Tags                     string  `json:"tags"`
 	ObjectiveContext         string  `json:"objective_context"`
 	SubjectiveInterpretation *string `json:"subjective_interpretation"`
 }
 
-// ToTodoRecordJSON 将内部 Record 变形为待办对外形状（去掉 happened_at / value_text）。
+// ToTodoRecordJSON 将内部 Record 变形为待办对外形状（去掉 happened_at / raw_content）。
 func ToTodoRecordJSON(rec record.Record) TodoRecordJSON {
 	content := ""
-	if rec.ValueText != nil {
-		content = *rec.ValueText
+	if rec.RawContent != nil {
+		content = *rec.RawContent
 	}
 	return TodoRecordJSON{
 		ID:                       rec.ID,
 		CreatedAt:                rec.HappenedAt,
-		ValueNumber:              nil,
+		NumericValue:              nil,
 		Content:                  content,
 		Tags:                     rec.Tags,
 		ObjectiveContext:         rec.ObjectiveContext,
@@ -214,8 +214,8 @@ func AuditObjectiveContext(target, todoID, todoHappenedAt string) string {
 
 // TodoAuditNotifyText D6 通知正文：审计行 objective_context 句 + ": " + 待办正文逐字拷贝。
 // 与审计行 objective_context / raw_content 两字段可还原，非字节级一致。
-func TodoAuditNotifyText(target, todoID, todoHappenedAt, todoValueText string) string {
-	return AuditObjectiveContext(target, todoID, todoHappenedAt) + ": " + todoValueText
+func TodoAuditNotifyText(target, todoID, todoHappenedAt, todoRawContent string) string {
+	return AuditObjectiveContext(target, todoID, todoHappenedAt) + ": " + todoRawContent
 }
 
 func verbFor(target string) string {
@@ -392,7 +392,7 @@ func ParseTodo(raw []byte) (NormalizedTodo, error) {
 	return NormalizedTodo{
 		HappenedAt:               happenedAt,
 		UtcOffset:                utcOffset,
-		ValueText:                content,
+		RawContent:                content,
 		Tags:                     tagsOut,
 		ObjectiveContext:         objCtx,
 		SubjectiveInterpretation: subj,

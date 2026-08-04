@@ -126,7 +126,7 @@ func TestAdminRejectsAIToken(t *testing.T) {
 func TestLogNumberValidationWithoutDB(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
-		"value_number": "1",
+		"numeric_value": "1",
 		"tags": ["weight"],
 		"objective_context": "x"
 	}`))
@@ -151,11 +151,11 @@ func TestLogRejectsSuppressNotificationAsUnknownKeyWithoutDB(t *testing.T) {
 	}{
 		{
 			"/api/log/number",
-			`{"happened_at":"2026-08-01T12:00:00Z","value_number":"1","tags":["weight"],"objective_context":"x","suppress_notification":true}`,
+			`{"happened_at":"2026-08-01T12:00:00Z","numeric_value":"1","tags":["weight"],"objective_context":"x","suppress_notification":true}`,
 		},
 		{
 			"/api/log/text",
-			`{"happened_at":"2026-08-01T12:00:00Z","value_text":"hi","tags":["study"],"objective_context":"x","suppress_notification":true}`,
+			`{"happened_at":"2026-08-01T12:00:00Z","raw_content":"hi","tags":["study"],"objective_context":"x","suppress_notification":true}`,
 		},
 		{
 			"/api/log/transaction",
@@ -224,11 +224,11 @@ func TestWriteEndpointsRejectTrailingGarbageAfterJSON(t *testing.T) {
 	}{
 		{
 			http.MethodPost, "/api/log/number",
-			`{"happened_at":"2026-08-01T12:00:00Z","value_number":"1","tags":["weight"],"objective_context":"x"}` + garbage,
+			`{"happened_at":"2026-08-01T12:00:00Z","numeric_value":"1","tags":["weight"],"objective_context":"x"}` + garbage,
 		},
 		{
 			http.MethodPost, "/api/log/text",
-			`{"happened_at":"2026-08-01T12:00:00Z","value_text":"hi","tags":["study"],"objective_context":"x"}` + garbage,
+			`{"happened_at":"2026-08-01T12:00:00Z","raw_content":"hi","tags":["study"],"objective_context":"x"}` + garbage,
 		},
 		{
 			http.MethodPost, "/api/log/transaction",
@@ -240,7 +240,7 @@ func TestWriteEndpointsRejectTrailingGarbageAfterJSON(t *testing.T) {
 		},
 		{
 			http.MethodPatch, "/api/admin/records/01900000-0000-7000-8000-000000000001",
-			`{"happened_at":"2026-08-01T12:00:00Z","value_number":"1","tags":["weight"],"objective_context":"x"}` + garbage,
+			`{"happened_at":"2026-08-01T12:00:00Z","numeric_value":"1","tags":["weight"],"objective_context":"x"}` + garbage,
 		},
 	}
 	for _, tc := range cases {
@@ -329,7 +329,7 @@ func TestLogNumberRejectsMissingTimezone(t *testing.T) {
 	for _, happened := range []string{"2026-07-30", "2026-07-30T08:00:00"} {
 		payload := fmt.Sprintf(`{
 			"happened_at": %q,
-			"value_number": "1",
+			"numeric_value": "1",
 			"tags": ["weight"],
 			"objective_context": "x"
 		}`, happened)
@@ -354,7 +354,7 @@ func TestLogTextRejectsMissingTimezone(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/text", strings.NewReader(`{
 		"happened_at": "2026-07-30T10:00:00",
-		"value_text": "hello",
+		"raw_content": "hello",
 		"tags": ["study"],
 		"objective_context": "x"
 	}`))
@@ -377,7 +377,7 @@ func TestLogTextRejectsReservedTag(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/text", strings.NewReader(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
-		"value_text": "should fail",
+		"raw_content": "should fail",
 		"tags": ["transaction_entry"],
 		"objective_context": "x"
 	}`))
@@ -400,7 +400,7 @@ func TestLogNumberRejectsBodyWeightReservedTag(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
-		"value_number": "1",
+		"numeric_value": "1",
 		"tags": ["body:weight"],
 		"objective_context": "x"
 	}`))
@@ -423,7 +423,7 @@ func TestLogNumberRejectsTodoReservedTag(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
-		"value_number": "1",
+		"numeric_value": "1",
 		"tags": ["todo:in_progress"],
 		"objective_context": "x"
 	}`))
@@ -446,7 +446,7 @@ func TestLogBodyWeightRejectsJSONNumber(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/body/weight", strings.NewReader(`{
 		"happened_at": "2026-08-02T08:00:00+08:00",
-		"value_number": 75.5,
+		"numeric_value": 75.5,
 		"objective_context": "x"
 	}`))
 	req.Header.Set("Authorization", "Bearer ai-tok")
@@ -458,7 +458,7 @@ func TestLogBodyWeightRejectsJSONNumber(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "value_number must be a decimal string" {
+	if body["error"] != "numeric_value must be a decimal string" {
 		t.Fatalf("error: %v", body)
 	}
 }

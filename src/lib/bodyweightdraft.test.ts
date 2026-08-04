@@ -7,7 +7,7 @@ import {
   parseBodyWeight,
   parseWeightAmount,
 } from './bodyweightdraft'
-import { VALUE_NUMBER_MUST_BE_STRING } from './draft'
+import { NUMERIC_VALUE_MUST_BE_STRING } from './draft'
 import { reservedTagError } from './tags'
 
 const weightCases = JSON.parse(
@@ -20,7 +20,7 @@ const weightCases = JSON.parse(
   ),
 ) as {
   invalidWeightError: string
-  valueNumberMustBeString: string
+  numericValueMustBeString: string
   accept: { input: string; stored: string }[]
   reject: { input: string; error: string }[]
 }
@@ -28,7 +28,7 @@ const weightCases = JSON.parse(
 describe('parseWeightAmount shared fixtures', () => {
   it('matches fixture error constants', () => {
     expect(INVALID_WEIGHT).toBe(weightCases.invalidWeightError)
-    expect(VALUE_NUMBER_MUST_BE_STRING).toBe(weightCases.valueNumberMustBeString)
+    expect(NUMERIC_VALUE_MUST_BE_STRING).toBe(weightCases.numericValueMustBeString)
   })
 
   it.each(weightCases.accept)('accepts $input → $stored', ({ input, stored }) => {
@@ -39,9 +39,9 @@ describe('parseWeightAmount shared fixtures', () => {
     expect(parseWeightAmount(input)).toEqual({ error })
   })
 
-  it('rejects JSON number with value_number must be a decimal string', () => {
+  it('rejects JSON number with numeric_value must be a decimal string', () => {
     expect(parseWeightAmount(75.5)).toEqual({
-      error: VALUE_NUMBER_MUST_BE_STRING,
+      error: NUMERIC_VALUE_MUST_BE_STRING,
     })
   })
 })
@@ -49,7 +49,7 @@ describe('parseWeightAmount shared fixtures', () => {
 describe('parseBodyWeight', () => {
   const base = {
     happened_at: '2026-08-02T08:00:00+08:00',
-    value_number: '75.5',
+    numeric_value: '75.5',
     objective_context: 'morning weigh-in',
   }
 
@@ -61,7 +61,7 @@ describe('parseBodyWeight', () => {
     })
     expect('error' in parsed).toBe(false)
     if ('error' in parsed) return
-    expect(parsed.valueNumber).toBe('75.50')
+    expect(parsed.numericValue).toBe('75.50')
     expect(parsed.tags).toEqual(['body:weight', 'morning'])
     expect(parsed.objectiveContext).toBe('morning weigh-in')
     expect(parsed.subjectiveInterpretation).toBe('a bit heavy')

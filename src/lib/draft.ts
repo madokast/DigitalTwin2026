@@ -5,8 +5,8 @@ import { extractUtcOffsetLiteral } from '@/lib/utcoffset'
 
 export const RECORD_DRAFT_KEYS = [
   'happened_at',
-  'value_number',
-  'value_text',
+  'numeric_value',
+  'raw_content',
   'tags',
   'objective_context',
   'subjective_interpretation',
@@ -18,17 +18,17 @@ const ISO_TZ_SUFFIX = /(Z|[+-]\d{2}:?\d{2})$/i
 /** 十进制字面量：无科学计数、无前导 +、无前导零、须有整数部 */
 const DECIMAL_STRING = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/
 
-const VALUE_NUMBER_MAX_LEN = 40
-const VALUE_NUMBER_MAX_INT_DIGITS = 28
-const VALUE_NUMBER_MAX_FRAC_DIGITS = 10
+const NUMERIC_VALUE_MAX_LEN = 40
+const NUMERIC_VALUE_MAX_INT_DIGITS = 28
+const NUMERIC_VALUE_MAX_FRAC_DIGITS = 10
 
-export const VALUE_NUMBER_MUST_BE_STRING =
-  'value_number must be a decimal string'
+export const NUMERIC_VALUE_MUST_BE_STRING =
+  'numeric_value must be a decimal string'
 
 export type RecordDraftBody = {
   happened_at?: unknown
-  value_number?: unknown
-  value_text?: unknown
+  numeric_value?: unknown
+  raw_content?: unknown
   tags?: unknown
   objective_context?: unknown
   subjective_interpretation?: unknown
@@ -42,8 +42,8 @@ export type NormalizedRecordDraft = {
   happenedAt: Date | null
   /** 与 happenedAt 同生同灭；规范 utc_offset 字面量 */
   utcOffset: string | null
-  valueNumber: string | null
-  valueText: string | null
+  numericValue: string | null
+  rawContent: string | null
   tags: string[]
   objectiveContext: string
   subjectiveInterpretation: string | null
@@ -95,35 +95,35 @@ export function parseHappenedAt(
 export function validateDecimalString(
   s: string,
 ): { ok: true } | DraftValidationError {
-  if (s.length > VALUE_NUMBER_MAX_LEN || !DECIMAL_STRING.test(s)) {
-    return { error: 'Invalid value_number' }
+  if (s.length > NUMERIC_VALUE_MAX_LEN || !DECIMAL_STRING.test(s)) {
+    return { error: 'Invalid numeric_value' }
   }
   const unsigned = s.startsWith('-') ? s.slice(1) : s
   const [intPart, fracPart = ''] = unsigned.split('.')
   if (
-    intPart.length > VALUE_NUMBER_MAX_INT_DIGITS ||
-    fracPart.length > VALUE_NUMBER_MAX_FRAC_DIGITS
+    intPart.length > NUMERIC_VALUE_MAX_INT_DIGITS ||
+    fracPart.length > NUMERIC_VALUE_MAX_FRAC_DIGITS
   ) {
-    return { error: 'Invalid value_number' }
+    return { error: 'Invalid numeric_value' }
   }
   return { ok: true }
 }
 
 /**
- * value_number：仅接受 string | null；JSON number → 明确 400。
+ * numeric_value：仅接受 string | null；JSON number → 明确 400。
  * trim 后空串 → null（PATCH/draft）；非空则校验并保留字面量。
  */
-export function parseValueNumber(
+export function parseNumericValue(
   raw: unknown,
 ): { ok: true; value: string | null } | DraftValidationError {
   if (raw === null || raw === undefined) {
     return { ok: true, value: null }
   }
   if (typeof raw === 'number') {
-    return { error: VALUE_NUMBER_MUST_BE_STRING }
+    return { error: NUMERIC_VALUE_MUST_BE_STRING }
   }
   if (typeof raw !== 'string') {
-    return { error: 'Invalid value_number' }
+    return { error: 'Invalid numeric_value' }
   }
   const trimmed = raw.trim()
   if (trimmed === '') return { ok: true, value: null }
@@ -156,20 +156,20 @@ export function parseRecordDraft(
     utcOffset = happenedResult.utcOffset
   }
 
-  const numberResult = parseValueNumber(body.value_number)
+  const numberResult = parseNumericValue(body.numeric_value)
   if ('error' in numberResult) return numberResult
-  const valueNumber = numberResult.value
+  const numericValue = numberResult.value
 
-  let valueText: string | null = null
-  if (body.value_text !== null && body.value_text !== undefined) {
-    if (typeof body.value_text !== 'string') {
-      return { error: 'Invalid value_text' }
+  let rawContent: string | null = null
+  if (body.raw_content !== null && body.raw_content !== undefined) {
+    if (typeof body.raw_content !== 'string') {
+      return { error: 'Invalid raw_content' }
     }
-    valueText = emptyStringToNull(body.value_text)
+    rawContent = emptyStringToNull(body.raw_content)
   }
 
-  if (valueNumber === null && valueText === null) {
-    return { error: 'value_number and value_text cannot both be null' }
+  if (numericValue === null && rawContent === null) {
+    return { error: 'numeric_value and raw_content cannot both be null' }
   }
 
   if (!Array.isArray(body.tags) || body.tags.length === 0) {
@@ -208,8 +208,8 @@ export function parseRecordDraft(
   return {
     happenedAt,
     utcOffset,
-    valueNumber,
-    valueText,
+    numericValue,
+    rawContent,
     tags: body.tags,
     objectiveContext: body.objective_context,
     subjectiveInterpretation,

@@ -87,7 +87,7 @@ describe('POST /api/admin/import/records non-file part size gate', () => {
     const line = JSON.stringify({
       id: '01900000-0000-7000-8000-000000000001',
       happened_at: '2026-07-30T00:00:00.000Z',
-      value_number: '1',
+      numeric_value: '1',
       tags: ['weight'],
       objective_context: 'x',
     })

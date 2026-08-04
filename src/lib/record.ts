@@ -10,8 +10,8 @@ import { formatHappenedAt as formatWithUtcOffset } from '@/lib/utcoffset'
 export type Record = {
   id: string
   happened_at: string
-  value_number: string | null
-  value_text: string | null
+  numeric_value: string | null
+  raw_content: string | null
   tags: string
   objective_context: string
   subjective_interpretation: string | null
@@ -22,8 +22,8 @@ type RecordRow = {
   happenedAt: Date | string
   /** 隐列；fromDB 按此格式化 happened_at（对外不可见） */
   utcOffset: string
-  valueNumber: string | null
-  valueText: string | null
+  numericValue: string | null
+  rawContent: string | null
   tags: string
   objectiveContext: string
   subjectiveInterpretation: string | null
@@ -55,8 +55,8 @@ export function fromDB(row: RecordRow): Record {
   return {
     id: row.id,
     happened_at: formatWithUtcOffset(instantOf(row.happenedAt), row.utcOffset),
-    value_number: row.valueNumber,
-    value_text: row.valueText,
+    numeric_value: row.numericValue,
+    raw_content: row.rawContent,
     tags: row.tags,
     objective_context: row.objectiveContext,
     subjective_interpretation: row.subjectiveInterpretation,
@@ -97,8 +97,8 @@ export type UpdateDb = {
     values: {
       happenedAt?: Date
       utcOffset?: string
-      valueNumber: string | null
-      valueText: string | null
+      numericValue: string | null
+      rawContent: string | null
       tags: string
       objectiveContext: string
       subjectiveInterpretation: string | null
@@ -134,8 +134,8 @@ export async function update(
 
   try {
     const values: Parameters<UpdateDb['updateReturning']>[1] = {
-      valueNumber: d.valueNumber,
-      valueText: d.valueText,
+      numericValue: d.numericValue,
+      rawContent: d.rawContent,
       tags: tagsJSON(d.tags),
       objectiveContext: d.objectiveContext,
       subjectiveInterpretation: d.subjectiveInterpretation,

@@ -46,10 +46,10 @@ export function RecordsTable({ records }: Props) {
                 {formatHappenedAt(record.happened_at, tz)}
               </td>
               <td className="px-3 py-2 text-xs whitespace-nowrap">
-                {record.value_number || '-'}
+                {record.numeric_value || '-'}
               </td>
               <td className="px-3 py-2 text-xs max-w-[160px] truncate whitespace-nowrap">
-                {record.value_text || '-'}
+                {record.raw_content || '-'}
               </td>
               <td className="px-3 py-2 text-xs max-w-[160px] truncate whitespace-nowrap">
                 {parseTags(record.tags).join(', ') || '-'}

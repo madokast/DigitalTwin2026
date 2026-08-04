@@ -7,7 +7,7 @@ import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
 import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
-import { parseHappenedAt, parseValueNumber } from '@/lib/draft'
+import { parseHappenedAt, parseNumericValue } from '@/lib/draft'
 import {
   fromDB,
   isValidRecordId,
@@ -38,7 +38,7 @@ import { rejectUnknownKeys } from '@/lib/unknown-keys'
 
 export const LOG_NUMBER_KEYS = [
   'happened_at',
-  'value_number',
+  'numeric_value',
   'tags',
   'objective_context',
   'subjective_interpretation',
@@ -46,7 +46,7 @@ export const LOG_NUMBER_KEYS = [
 
 export const LOG_TEXT_KEYS = [
   'happened_at',
-  'value_text',
+  'raw_content',
   'tags',
   'objective_context',
   'subjective_interpretation',
@@ -54,7 +54,7 @@ export const LOG_TEXT_KEYS = [
 
 export type NumberBody = {
   happened_at?: unknown
-  value_number?: unknown
+  numeric_value?: unknown
   tags?: unknown
   objective_context?: unknown
   subjective_interpretation?: unknown
@@ -62,7 +62,7 @@ export type NumberBody = {
 
 export type TextBody = {
   happened_at?: unknown
-  value_text?: unknown
+  raw_content?: unknown
   tags?: unknown
   objective_context?: unknown
   subjective_interpretation?: unknown
@@ -84,8 +84,8 @@ type InsertValues = {
   id: string
   happenedAt: Date
   utcOffset: string
-  valueNumber: string | null
-  valueText: string | null
+  numericValue: string | null
+  rawContent: string | null
   tags: string
   objectiveContext: string
   subjectiveInterpretation: string | null
@@ -130,15 +130,15 @@ export async function createNumber(
     return { error: happenedResult.error, status: 400 }
   }
 
-  if (body.value_number === undefined || body.value_number === null) {
-    return { error: 'Missing required field: value_number', status: 400 }
+  if (body.numeric_value === undefined || body.numeric_value === null) {
+    return { error: 'Missing required field: numeric_value', status: 400 }
   }
-  const numberResult = parseValueNumber(body.value_number)
+  const numberResult = parseNumericValue(body.numeric_value)
   if ('error' in numberResult) {
     return { error: numberResult.error, status: 400 }
   }
   if (numberResult.value === null) {
-    return { error: 'Missing required field: value_number', status: 400 }
+    return { error: 'Missing required field: numeric_value', status: 400 }
   }
 
   if (!Array.isArray(body.tags) || body.tags.length === 0) {
@@ -173,8 +173,8 @@ export async function createNumber(
       id: uuidv7(),
       happenedAt: happenedResult.value,
       utcOffset: happenedResult.utcOffset,
-      valueNumber: numberResult.value,
-      valueText: null,
+      numericValue: numberResult.value,
+      rawContent: null,
       tags: tagsJSON(body.tags),
       objectiveContext: body.objective_context,
       subjectiveInterpretation: subjective.value,
@@ -203,8 +203,8 @@ export async function createBodyWeight(
       id: uuidv7(),
       happenedAt: parsed.happenedAt,
       utcOffset: parsed.utcOffset,
-      valueNumber: parsed.valueNumber,
-      valueText: null,
+      numericValue: parsed.numericValue,
+      rawContent: null,
       tags: tagsJSON(parsed.tags),
       objectiveContext: parsed.objectiveContext,
       subjectiveInterpretation: parsed.subjectiveInterpretation,
@@ -233,8 +233,8 @@ export async function createTodo(
       id: uuidv7(),
       happenedAt: parsed.happenedAt,
       utcOffset: parsed.utcOffset,
-      valueNumber: null,
-      valueText: parsed.valueText,
+      numericValue: null,
+      rawContent: parsed.rawContent,
       tags: tagsJSON(parsed.tags),
       objectiveContext: parsed.objectiveContext,
       subjectiveInterpretation: parsed.subjectiveInterpretation,
@@ -307,7 +307,7 @@ export async function transitionTodo(
       return { error: ERR_ALREADY_TARGET, status: 400 }
     }
 
-    const content = todoRec.value_text ?? ''
+    const content = todoRec.raw_content ?? ''
     const notifyText = todoAuditNotifyText(
       parsed.target,
       parsed.id,
@@ -337,8 +337,8 @@ export async function transitionTodo(
         id: uuidv7(),
         happenedAt: parsed.happenedAt,
         utcOffset: parsed.utcOffset,
-        valueNumber: null,
-        valueText: content,
+        numericValue: null,
+        rawContent: content,
         tags: tagsJSON([TODO_TAG_TRANSITION]),
         objectiveContext: objCtx,
         subjectiveInterpretation: null,
@@ -373,8 +373,8 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     return { error: happenedResult.error, status: 400 }
   }
 
-  if (!body.value_text || typeof body.value_text !== 'string') {
-    return { error: 'Missing required field: value_text', status: 400 }
+  if (!body.raw_content || typeof body.raw_content !== 'string') {
+    return { error: 'Missing required field: raw_content', status: 400 }
   }
 
   if (!Array.isArray(body.tags) || body.tags.length === 0) {
@@ -409,8 +409,8 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
       id: uuidv7(),
       happenedAt: happenedResult.value,
       utcOffset: happenedResult.utcOffset,
-      valueNumber: null,
-      valueText: body.value_text,
+      numericValue: null,
+      rawContent: body.raw_content,
       tags: tagsJSON(body.tags),
       objectiveContext: body.objective_context,
       subjectiveInterpretation: subjective.value,
@@ -446,8 +446,8 @@ export async function createTransactionBatch(
             id: uuidv7(),
             happenedAt: parsed.happenedAt,
             utcOffset: parsed.utcOffset,
-            valueNumber: entry.amount,
-            valueText: null,
+            numericValue: entry.amount,
+            rawContent: null,
             tags: tagsJSON(entry.tags),
             objectiveContext: entry.memo,
             subjectiveInterpretation: null,

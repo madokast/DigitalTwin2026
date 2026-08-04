@@ -191,13 +191,13 @@ func TestLogNumberRequestRejectsNoTzAndScientific(t *testing.T) {
 	}
 }
 
-func TestRecordRejectsNumericValueNumber(t *testing.T) {
+func TestRecordRejectsNumericNumericValue(t *testing.T) {
 	doc := loadDoc(t)
 	bad := map[string]any{
 		"id":                       "01900000-0000-7000-8000-000000000001",
 		"happened_at":               "2026-07-30T00:00:00.000Z",
-		"value_number":              75.5,
-		"value_text":                nil,
+		"numeric_value":              75.5,
+		"raw_content":                nil,
 		"tags":                     `["weight"]`,
 		"objective_context":         "x",
 		"subjective_interpretation": nil,
@@ -231,8 +231,8 @@ func TestGoFromDBMatchesNumberSuccessFixture(t *testing.T) {
 	if got.HappenedAt != fixture.Record.HappenedAt {
 		t.Fatalf("happenedAt: got %q want %q", got.HappenedAt, fixture.Record.HappenedAt)
 	}
-	if got.ValueNumber == nil || *got.ValueNumber != "75.5" {
-		t.Fatalf("valueNumber: %#v", got.ValueNumber)
+	if got.NumericValue == nil || *got.NumericValue != "75.5" {
+		t.Fatalf("numericValue: %#v", got.NumericValue)
 	}
 	if got.HappenedAt != "2026-07-30T08:00:00.000+08:00" {
 		t.Fatalf("happenedAt format: %q", got.HappenedAt)

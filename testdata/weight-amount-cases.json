@@ -1,7 +1,7 @@
 {
-  "comment": "Shared accept/reject cases for body weight value_number (parseWeightAmount). Both Next (src/lib/bodyweightdraft.test.ts) and Go (faas/internal/bodyweightdraft) load this file. Reject errors are byte-identical across backends. Accept returns stored (normalized to exactly 2 fractional digits). Range 1.00–500.00 inclusive, kg.",
+  "comment": "Shared accept/reject cases for body weight numeric_value (parseWeightAmount). Both Next (src/lib/bodyweightdraft.test.ts) and Go (faas/internal/bodyweightdraft) load this file. Reject errors are byte-identical across backends. Accept returns stored (normalized to exactly 2 fractional digits). Range 1.00–500.00 inclusive, kg.",
   "invalidWeightError": "Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50",
-  "valueNumberMustBeString": "value_number must be a decimal string",
+  "numericValueMustBeString": "numeric_value must be a decimal string",
   "accept": [
     { "input": "75", "stored": "75.00" },
     { "input": "75.0", "stored": "75.00" },

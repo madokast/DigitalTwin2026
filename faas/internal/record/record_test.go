@@ -30,8 +30,8 @@ func TestFromDB(t *testing.T) {
 	if rec.HappenedAt != "2026-07-30T10:00:00.000Z" {
 		t.Fatalf("happenedAt %s", rec.HappenedAt)
 	}
-	if rec.ValueNumber == nil || *rec.ValueNumber != "75.5" {
-		t.Fatalf("valueNumber %#v", rec.ValueNumber)
+	if rec.NumericValue == nil || *rec.NumericValue != "75.5" {
+		t.Fatalf("numericValue %#v", rec.NumericValue)
 	}
 
 	offsetRec := FromDB(

@@ -161,7 +161,7 @@ func buildWhere(p *ParsedQuery) (string, []any) {
 	if p.Q != "" {
 		pattern := `%` + EscapeLikePattern(p.Q) + `%`
 		parts = append(parts, fmt.Sprintf(
-			`(value_text LIKE $%d OR objective_context LIKE $%d OR subjective_interpretation LIKE $%d OR tags LIKE $%d)`,
+			`(raw_content LIKE $%d OR objective_context LIKE $%d OR subjective_interpretation LIKE $%d OR tags LIKE $%d)`,
 			n, n+1, n+2, n+3,
 		))
 		args = append(args, pattern, pattern, pattern, pattern)
@@ -177,13 +177,13 @@ func scanRecord(row pgx.Row) (record.Record, error) {
 	var (
 		id, tagsField, objectiveContext, utcOffset string
 		happenedAt                                 time.Time
-		valueNumber, valueText, subj               *string
+		numericValue, rawContent, subj               *string
 	)
-	err := row.Scan(&id, &happenedAt, &utcOffset, &valueNumber, &valueText, &tagsField, &objectiveContext, &subj)
+	err := row.Scan(&id, &happenedAt, &utcOffset, &numericValue, &rawContent, &tagsField, &objectiveContext, &subj)
 	if err != nil {
 		return record.Record{}, err
 	}
-	return record.FromDB(id, happenedAt, utcOffset, valueNumber, valueText, tagsField, objectiveContext, subj), nil
+	return record.FromDB(id, happenedAt, utcOffset, numericValue, rawContent, tagsField, objectiveContext, subj), nil
 }
 
 type FetchResult struct {
@@ -241,7 +241,7 @@ func FetchFilteredRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedQuer
 		return nil, err
 	}
 
-	selectSQL := `SELECT id, happened_at, utc_offset, value_number, value_text, tags, objective_context, subjective_interpretation
+	selectSQL := `SELECT id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation
 FROM records`
 	if where != "" {
 		selectSQL += " WHERE " + where
@@ -381,7 +381,7 @@ type TransactionSummaryResult struct {
 
 type TransactionSummaryRow struct {
 	Tags        string
-	ValueNumber *string
+	NumericValue *string
 }
 
 type ParsedTransactionSummaryRange struct {
@@ -592,17 +592,17 @@ func AggregateTransactionSummary(rows []TransactionSummaryRow, fromRaw, toRaw st
 		if !ok {
 			continue
 		}
-		if row.ValueNumber == nil || *row.ValueNumber == "" {
+		if row.NumericValue == nil || *row.NumericValue == "" {
 			continue
 		}
 		// D6 对齐：与 Next parseDecimalScaled 同规则——复用写路径 ValidateDecimalString
 		// （无前导零 / 科学计数 / 分数 / + 号；int≤28 位、frac≤10 位），非法字面量跳过该行。
 		// 修复前 big.Rat.SetString 会接受前导零 / 科学计数等，导致双端聚合分叉。
-		if err := draft.ValidateDecimalString(*row.ValueNumber); err != nil {
+		if err := draft.ValidateDecimalString(*row.NumericValue); err != nil {
 			continue
 		}
 		amount := new(big.Rat)
-		if _, ok := amount.SetString(*row.ValueNumber); !ok {
+		if _, ok := amount.SetString(*row.NumericValue); !ok {
 			continue
 		}
 		addTo(entryType, category, subcategory, amount)
@@ -635,7 +635,7 @@ func FetchTransactionSummary(ctx context.Context, pool *pgxpool.Pool, from, to t
 	incomeLike := `%"` + EscapeLikePattern(txEntryIncome) + `"%`
 	expenseLike := `%"` + EscapeLikePattern(txEntryExpense) + `"%`
 	rows, err := pool.Query(ctx, `
-SELECT tags, value_number FROM records
+SELECT tags, numeric_value FROM records
 WHERE happened_at >= $1 AND happened_at < $2
   AND (tags LIKE $3 OR tags LIKE $4)`,
 		from, to, incomeLike, expenseLike,
@@ -652,7 +652,7 @@ WHERE happened_at >= $1 AND happened_at < $2
 		if err := rows.Scan(&tagsField, &vn); err != nil {
 			return nil, err
 		}
-		list = append(list, TransactionSummaryRow{Tags: tagsField, ValueNumber: vn})
+		list = append(list, TransactionSummaryRow{Tags: tagsField, NumericValue: vn})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

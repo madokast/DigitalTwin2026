@@ -14,8 +14,8 @@ type ValidCase = {
   name: string
   line: string
   expectTags: string[]
-  expectValueNumber: string | null
-  expectValueText: string | null
+  expectNumericValue: string | null
+  expectRawContent: string | null
   expectObjectiveContext: string
   expectSubjectiveInterpretation: string | null
   expectHappenedAtUtcMs: number
@@ -59,8 +59,8 @@ describe('parseLine valid', () => {
     expect('error' in got, JSON.stringify(got)).toBe(false)
     if ('error' in got) return
     expect(got.tags).toEqual(c.expectTags)
-    expect(got.valueNumber).toBe(c.expectValueNumber)
-    expect(got.valueText).toBe(c.expectValueText)
+    expect(got.numericValue).toBe(c.expectNumericValue)
+    expect(got.rawContent).toBe(c.expectRawContent)
     expect(got.objectiveContext).toBe(c.expectObjectiveContext)
     expect(got.subjectiveInterpretation).toBe(
       c.expectSubjectiveInterpretation,
@@ -116,8 +116,8 @@ describe('serializeLine round-trip', () => {
       expect(twice.id).toBe(once.id)
       expect(twice.happenedAt.getTime()).toBe(once.happenedAt.getTime())
       expect(twice.utcOffset).toBe(once.utcOffset)
-      expect(twice.valueNumber).toBe(once.valueNumber)
-      expect(twice.valueText).toBe(once.valueText)
+      expect(twice.numericValue).toBe(once.numericValue)
+      expect(twice.rawContent).toBe(once.rawContent)
       expect(twice.tags).toEqual(once.tags)
       expect(twice.objectiveContext).toBe(once.objectiveContext)
       expect(twice.subjectiveInterpretation).toBe(

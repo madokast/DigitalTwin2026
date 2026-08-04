@@ -43,15 +43,15 @@ describe('fromDB', () => {
       id: '01900000-0000-7000-8000-000000000001',
       happenedAt: new Date('2026-07-30T10:00:00.000Z'),
       utcOffset: 'Z',
-      valueNumber: '75.5',
-      valueText: null,
+      numericValue: '75.5',
+      rawContent: null,
       tags: '["weight"]',
       objectiveContext: 'morning',
       subjectiveInterpretation: null,
     })
     expect(rec.happened_at).toBe('2026-07-30T10:00:00.000Z')
     expect(typeof rec.happened_at).toBe('string')
-    expect(rec.value_number).toBe('75.5')
+    expect(rec.numeric_value).toBe('75.5')
   })
 
   it('formats happened_at with stored +08:00 offset', () => {
@@ -59,8 +59,8 @@ describe('fromDB', () => {
       id: '01900000-0000-7000-8000-000000000002',
       happenedAt: new Date('2026-07-30T00:00:00.000Z'),
       utcOffset: '+08:00',
-      valueNumber: '1',
-      valueText: null,
+      numericValue: '1',
+      rawContent: null,
       tags: '["weight"]',
       objectiveContext: 'x',
       subjectiveInterpretation: null,
@@ -86,8 +86,8 @@ describe('update (injected store)', () => {
   const draft: NormalizedRecordDraft = {
     happenedAt: new Date('2026-07-30T10:00:00.000Z'),
     utcOffset: 'Z',
-    valueNumber: '80.0',
-    valueText: null,
+    numericValue: '80.0',
+    rawContent: null,
     tags: ['weight'],
     objectiveContext: 'morning',
     subjectiveInterpretation: null,
@@ -98,8 +98,8 @@ describe('update (injected store)', () => {
       id: '01900000-0000-7000-8000-000000000001',
       happenedAt: new Date('2026-07-30T10:00:00.000Z'),
       utcOffset: 'Z',
-      valueNumber: '80.0',
-      valueText: null,
+      numericValue: '80.0',
+      rawContent: null,
       tags: '["weight"]',
       objectiveContext: 'morning',
       subjectiveInterpretation: null,
@@ -116,8 +116,8 @@ describe('update (injected store)', () => {
       record: {
         id: '01900000-0000-7000-8000-000000000001',
         happened_at: '2026-07-30T10:00:00.000Z',
-        value_number: '80.0',
-        value_text: null,
+        numeric_value: '80.0',
+        raw_content: null,
         tags: '["weight"]',
         objective_context: 'morning',
         subjective_interpretation: null,
@@ -128,8 +128,8 @@ describe('update (injected store)', () => {
       {
         happenedAt: draft.happenedAt,
         utcOffset: 'Z',
-        valueNumber: '80.0',
-        valueText: null,
+        numericValue: '80.0',
+        rawContent: null,
         tags: '["weight"]',
         objectiveContext: 'morning',
         subjectiveInterpretation: null,
@@ -142,8 +142,8 @@ describe('update (injected store)', () => {
       id: '01900000-0000-7000-8000-000000000001',
       happenedAt: new Date('2026-07-30T00:00:00.000Z'),
       utcOffset: '+08:00',
-      valueNumber: '81',
-      valueText: null,
+      numericValue: '81',
+      rawContent: null,
       tags: '["weight"]',
       objectiveContext: 'patched',
       subjectiveInterpretation: null,
@@ -151,8 +151,8 @@ describe('update (injected store)', () => {
     const omitDraft: NormalizedRecordDraft = {
       happenedAt: null,
       utcOffset: null,
-      valueNumber: '81',
-      valueText: null,
+      numericValue: '81',
+      rawContent: null,
       tags: ['weight'],
       objectiveContext: 'patched',
       subjectiveInterpretation: null,
@@ -164,13 +164,13 @@ describe('update (injected store)', () => {
     )
     expect(result).toMatchObject({
       status: 200,
-      record: { happened_at: '2026-07-30T08:00:00.000+08:00', value_number: '81' },
+      record: { happened_at: '2026-07-30T08:00:00.000+08:00', numeric_value: '81' },
     })
     expect(updateReturning).toHaveBeenCalledWith(
       '01900000-0000-7000-8000-000000000001',
       {
-        valueNumber: '81',
-        valueText: null,
+        numericValue: '81',
+        rawContent: null,
         tags: '["weight"]',
         objectiveContext: 'patched',
         subjectiveInterpretation: null,

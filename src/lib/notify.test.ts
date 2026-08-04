@@ -46,8 +46,8 @@ describe('shouldSuppressBotNotification', () => {
 const sampleNumber = {
   id: '01900000-0000-7000-8000-000000000001',
   happened_at: '2026-07-31T12:00:00.000Z',
-  value_number: '72.5',
-  value_text: null,
+  numeric_value: '72.5',
+  raw_content: null,
   tags: JSON.stringify(['weight', 'morning']),
   objective_context: 'Scale reading',
   subjective_interpretation: 'Feeling lighter',

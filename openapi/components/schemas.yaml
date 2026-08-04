@@ -79,7 +79,7 @@ WeightAmountString:
     Body weight in **kg** (no unit field): positive decimal string, at most
     2 fractional digits, inclusive range **1.00–500.00**, no spaces (no
     trim), no leading `+` or minus. JSON number → 400
-    (`value_number must be a decimal string`). Shape / range / spaces →
+    (`numeric_value must be a decimal string`). Shape / range / spaces →
     400 with unified message (`Invalid weight: positive decimal string
     from 1.00 to 500.00 inclusive, at most 2 fractional digits, no
     spaces; e.g. 75, 75.5, 75.50`). Accepted then normalized to 2
@@ -132,12 +132,12 @@ Record:
   type: object
   description: |
     Persisted row as returned by both backends (snake_case JSON).
-    `tags` is a stringified JSON array. `value_number` is a decimal string.
+    `tags` is a stringified JSON array. `numeric_value` is a decimal string.
   required:
     - id
     - happened_at
-    - value_number
-    - value_text
+    - numeric_value
+    - raw_content
     - tags
     - objective_context
     - subjective_interpretation
@@ -148,16 +148,16 @@ Record:
       description: UUIDv7 primary key
     happened_at:
       $ref: '#/HappenedAtOutput'
-    value_number:
+    numeric_value:
       description: |
         Decimal as string, or null for text-only records.
         On write (log/number and PATCH), JSON **number is rejected** (400:
-        `value_number must be a decimal string`). Validated literal stored
+        `numeric_value must be a decimal string`). Validated literal stored
         as TEXT (no Number round-trip; trailing zeros preserved).
       oneOf:
         - $ref: '#/DecimalString'
         - type: 'null'
-    value_text:
+    raw_content:
       type: [string, 'null']
     tags:
       type: string
@@ -203,11 +203,11 @@ QuerySuccess:
       type: array
       description: |
         Page of matching rows. Default shape is `Record` (`happened_at` /
-        `value_text` snake_case), including audit rows tagged only
+        `raw_content` snake_case), including audit rows tagged only
         `todo:transition` and all non-todo rows. When a row's tags contain
         at least one todo state tag (`todo:in_progress` | `todo:completed` |
         `todo:cancelled` | `todo:paused`), that item is a `TodoRecord`
-        (`created_at` / `content` instead of `happened_at` / `value_text`).
+        (`created_at` / `content` instead of `happened_at` / `raw_content`).
         Dirty rows with both a state tag and `todo:transition` deform as
         `TodoRecord`. Not modeled as a strict oneOf (see todo feature §9);
         see `TodoRecord` for the alternate shape.
@@ -310,7 +310,7 @@ TransactionSummarySuccess:
     `transaction_entry:expense` in half-open `[from, to)`.
     Each counted row must also have a valid `{category}:{subcategory}`
     business tag; dirty rows (entry type without that tag, or null
-    `value_number`) are skipped.
+    `numeric_value`) are skipped.
     `net` = `income.sum` − `expense.sum` (two-decimal string).
     Category / subcategory arrays: sum desc, then name asc (byte order).
   properties:
@@ -404,13 +404,13 @@ ImportRecordsSuccess:
 
 LogNumberRequest:
   type: object
-  required: [happened_at, value_number, tags, objective_context]
+  required: [happened_at, numeric_value, tags, objective_context]
   additionalProperties: false
   description: "Unknown JSON keys -> 400 (Unknown JSON key: <name>)."
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
-    value_number:
+    numeric_value:
       $ref: '#/DecimalString'
     tags:
       $ref: '#/TagList'
@@ -425,7 +425,7 @@ LogNumberRequest:
 
 LogBodyWeightRequest:
   type: object
-  required: [happened_at, value_number, objective_context]
+  required: [happened_at, numeric_value, objective_context]
   additionalProperties: false
   description: |
     Log one body-weight reading in kg. Server always stores tags with
@@ -436,7 +436,7 @@ LogBodyWeightRequest:
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
-    value_number:
+    numeric_value:
       $ref: '#/WeightAmountString'
     objective_context:
       type: string
@@ -470,14 +470,14 @@ TodoRecord:
     `GET /api/query` list items when tags contain at least one todo state
     tag (`todo:in_progress` | `todo:completed` | `todo:cancelled` |
     `todo:paused`; query-side wide rule). Alias keys: `created_at`
-    (DB `happened_at`) and `content` (DB `value_text`). Response **must not**
-    also include `happened_at` / `value_text` for this shape. Other fields match
-    `Record` snake_case. `value_number` is always null for to-dos.
+    (DB `happened_at`) and `content` (DB `raw_content`). Response **must not**
+    also include `happened_at` / `raw_content` for this shape. Other fields match
+    `Record` snake_case. `numeric_value` is always null for to-dos.
     Audit rows (`todo:transition` without a state tag) stay as `Record`.
   required:
     - id
     - created_at
-    - value_number
+    - numeric_value
     - content
     - tags
     - objective_context
@@ -496,12 +496,12 @@ TodoRecord:
         `happened_at` + private `utc_offset`); JSON key only. Alias does
         **not** change timezone semantics — still preserves canonical
         offset (`Z` / `±HH:MM`), never forced to UTC `Z`.
-    value_number:
+    numeric_value:
       type: 'null'
     content:
       type: string
       minLength: 1
-      description: To-do body text (stored as `value_text`)
+      description: To-do body text (stored as `raw_content`)
     tags:
       type: string
       description: |
@@ -532,8 +532,8 @@ LogTodoRequest:
   additionalProperties: false
   description: |
     Create one to-do. Request uses aliases `created_at` → DB `happened_at`
-    and `content` → DB `value_text`. Do not send `happened_at` /
-    `value_text` / `value_number` (unknown keys → 400). Server stores tags
+    and `content` → DB `raw_content`. Do not send `happened_at` /
+    `raw_content` / `numeric_value` (unknown keys → 400). Server stores tags
     with `todo:in_progress` first, then any optional client `tags`. Clients
     must not send reserved tags (`todo` / `todo:*`, `transaction_entry` /
     `transaction_entry:*`, `body:weight` / `body:weight:*`).
@@ -607,12 +607,12 @@ TodoTransitionSuccess:
 
 LogTextRequest:
   type: object
-  required: [happened_at, value_text, tags, objective_context]
+  required: [happened_at, raw_content, tags, objective_context]
   additionalProperties: false
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
-    value_text:
+    raw_content:
       type: string
       minLength: 1
     tags:
@@ -631,21 +631,21 @@ RecordDraftRequest:
   description: |
     Editable snapshot for PATCH. Aligns with `parseRecordDraft`:
     empty strings on nullable fields become null; `objective_context` must
-    be a non-empty string; `value_number` is string | null only (JSON number → 400).
+    be a non-empty string; `numeric_value` is string | null only (JSON number → 400).
     Unknown JSON keys -> 400 (Unknown JSON key: <name>).
   required: [happened_at, tags, objective_context]
   additionalProperties: false
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
-    value_number:
+    numeric_value:
       description: |
         Decimal string, null, or omit/empty → null. JSON number → 400
-        (`value_number must be a decimal string`).
+        (`numeric_value must be a decimal string`).
       oneOf:
         - $ref: '#/DecimalString'
         - type: 'null'
-    value_text:
+    raw_content:
       type: [string, 'null']
     tags:
       $ref: '#/TagList'

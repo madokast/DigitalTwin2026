@@ -35,8 +35,8 @@ function get(url: string): NextRequest {
 const sampleRecord = {
   id: '01900000-0000-7000-8000-000000000001',
   happenedAt: '2026-07-30T00:00:00.000Z',
-  valueNumber: '1',
-  valueText: null,
+  numericValue: '1',
+  rawContent: null,
   tags: '[]',
   objectiveContext: 'x',
   subjectiveInterpretation: null,

@@ -30,19 +30,19 @@
       "rows": [
         {
           "tags": "[\"transaction_entry:income\",\"salary:payroll\"]",
-          "value_number": "1000.00"
+          "numeric_value": "1000.00"
         },
         {
           "tags": "[\"transaction_entry:income\",\"salary:payroll\"]",
-          "value_number": "-200.50"
+          "numeric_value": "-200.50"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": "300.00"
+          "numeric_value": "300.00"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": "-50.00"
+          "numeric_value": "-50.00"
         }
       ],
       "expected": {
@@ -95,23 +95,23 @@
       "rows": [
         {
           "tags": "[\"transaction_entry:expense\",\"food:breakfast\"]",
-          "value_number": "800.00"
+          "numeric_value": "800.00"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": "2200.00"
+          "numeric_value": "2200.00"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"transport:taxi\"]",
-          "value_number": "500.00"
+          "numeric_value": "500.00"
         },
         {
           "tags": "[\"transaction_entry:income\",\"salary:payroll\"]",
-          "value_number": "15000.00"
+          "numeric_value": "15000.00"
         },
         {
           "tags": "[\"transaction_entry:income\",\"bonus:annual\"]",
-          "value_number": "15000.00"
+          "numeric_value": "15000.00"
         }
       ],
       "expected": {
@@ -193,15 +193,15 @@
       "rows": [
         {
           "tags": "[\"transaction_entry:income\",\"salary:payroll\"]",
-          "value_number": "1.005"
+          "numeric_value": "1.005"
         },
         {
           "tags": "[\"transaction_entry:income\",\"salary:payroll\"]",
-          "value_number": "1.005"
+          "numeric_value": "1.005"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": "0.1"
+          "numeric_value": "0.1"
         }
       ],
       "expected": {
@@ -254,27 +254,27 @@
       "rows": [
         {
           "tags": "[\"transaction_entry:expense\"]",
-          "value_number": "99.00"
+          "numeric_value": "99.00"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"not-a-pair\"]",
-          "value_number": "88.00"
+          "numeric_value": "88.00"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"a:b:c\"]",
-          "value_number": "77.00"
+          "numeric_value": "77.00"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": null
+          "numeric_value": null
         },
         {
           "tags": "[\"weight\"]",
-          "value_number": "70.5"
+          "numeric_value": "70.5"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": "12.00"
+          "numeric_value": "12.00"
         }
       ],
       "expected": {
@@ -314,11 +314,11 @@
       "rows": [
         {
           "tags": "[\"transaction_entry:expense\",\"food:zebra\"]",
-          "value_number": "10.00"
+          "numeric_value": "10.00"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:apple\"]",
-          "value_number": "10.00"
+          "numeric_value": "10.00"
         }
       ],
       "expected": {
@@ -363,27 +363,27 @@
       "rows": [
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": "007.5"
+          "numeric_value": "007.5"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": "1e3"
+          "numeric_value": "1e3"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": "1/3"
+          "numeric_value": "1/3"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": "+1.5"
+          "numeric_value": "+1.5"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": ".5"
+          "numeric_value": ".5"
         },
         {
           "tags": "[\"transaction_entry:expense\",\"food:lunch\"]",
-          "value_number": "7.50"
+          "numeric_value": "7.50"
         }
       ],
       "expected": {

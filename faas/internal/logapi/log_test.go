@@ -14,7 +14,7 @@ func TestCreateNumberRejectsMissingTimezone(t *testing.T) {
 	for _, happened := range []string{"2026-07-30", "2026-07-30T08:00:00"} {
 		raw := []byte(`{
 			"happened_at": "` + happened + `",
-			"value_number": "1",
+			"numeric_value": "1",
 			"tags": ["weight"],
 			"objective_context": "x"
 		}`)
@@ -32,7 +32,7 @@ func TestCreateNumberRejectsMissingTimezone(t *testing.T) {
 func TestCreateNumberRejectsUnknownKey(t *testing.T) {
 	raw := []byte(`{
 		"happened_at":"2024-01-01T00:00:00Z",
-		"value_number":"1",
+		"numeric_value":"1",
 		"tags":["a"],
 		"objective_context":"o",
 		"extra":true
@@ -46,7 +46,7 @@ func TestCreateNumberRejectsUnknownKey(t *testing.T) {
 func TestCreateNumberRejectsUtcOffsetKey(t *testing.T) {
 	raw := []byte(`{
 		"happened_at":"2026-07-30T08:00:00+08:00",
-		"value_number":"1",
+		"numeric_value":"1",
 		"tags":["weight"],
 		"objective_context":"x",
 		"utc_offset":"+08:00"
@@ -60,7 +60,7 @@ func TestCreateNumberRejectsUtcOffsetKey(t *testing.T) {
 func TestCreateNumberRejectsJSONNumber(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-07-30T08:00:00+08:00",
-		"value_number": 75.5,
+		"numeric_value": 75.5,
 		"tags": ["weight"],
 		"objective_context": "x"
 	}`)
@@ -68,7 +68,7 @@ func TestCreateNumberRejectsJSONNumber(t *testing.T) {
 	if status != 400 {
 		t.Fatalf("status %d", status)
 	}
-	if err == nil || err.Error() != draft.ValueNumberMustBeString {
+	if err == nil || err.Error() != draft.NumericValueMustBeString {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -77,12 +77,12 @@ func TestCreateNumberRejectsBadDecimals(t *testing.T) {
 	for _, bad := range []string{"1e3", "1.", "+1"} {
 		raw := []byte(`{
 			"happened_at": "2026-07-30T08:00:00+08:00",
-			"value_number": "` + bad + `",
+			"numeric_value": "` + bad + `",
 			"tags": ["weight"],
 			"objective_context": "x"
 		}`)
 		_, status, err := CreateNumber(context.Background(), nil, raw)
-		if status != 400 || err == nil || err.Error() != "Invalid value_number" {
+		if status != 400 || err == nil || err.Error() != "Invalid numeric_value" {
 			t.Fatalf("%q: status=%d err=%v", bad, status, err)
 		}
 	}
@@ -98,16 +98,16 @@ func TestCreateNumberAcceptsTimezone(t *testing.T) {
 			t.Fatalf("%q: %v", happened, err)
 		}
 	}
-	got, err := draft.ParseValueNumber("75.5")
+	got, err := draft.ParseNumericValue("75.5")
 	if err != nil || got == nil || *got != "75.5" {
-		t.Fatalf("ParseValueNumber: %#v %v", got, err)
+		t.Fatalf("ParseNumericValue: %#v %v", got, err)
 	}
 }
 
 func TestCreateTextRejectsMissingTimezone(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-07-30T10:00:00",
-		"value_text": "hello",
+		"raw_content": "hello",
 		"tags": ["study"],
 		"objective_context": "x"
 	}`)
@@ -124,7 +124,7 @@ func TestCreateTextRejectsMissingTimezone(t *testing.T) {
 func TestCreateNumberRejectsReservedTag(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
-		"value_number": "1",
+		"numeric_value": "1",
 		"tags": ["transaction_entry"],
 		"objective_context": "x"
 	}`)
@@ -141,7 +141,7 @@ func TestCreateNumberRejectsReservedTag(t *testing.T) {
 func TestCreateNumberRejectsReservedPrefixedTag(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
-		"value_number": "1",
+		"numeric_value": "1",
 		"tags": ["transaction_entry:income"],
 		"objective_context": "x"
 	}`)
@@ -158,7 +158,7 @@ func TestCreateNumberRejectsReservedPrefixedTag(t *testing.T) {
 func TestCreateNumberRejectsTodoReservedTag(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
-		"value_number": "1",
+		"numeric_value": "1",
 		"tags": ["todo"],
 		"objective_context": "x"
 	}`)
@@ -175,7 +175,7 @@ func TestCreateNumberRejectsTodoReservedTag(t *testing.T) {
 func TestCreateNumberRejectsTodoPrefixedReservedTag(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
-		"value_number": "1",
+		"numeric_value": "1",
 		"tags": ["todo:in_progress"],
 		"objective_context": "x"
 	}`)
@@ -192,7 +192,7 @@ func TestCreateNumberRejectsTodoPrefixedReservedTag(t *testing.T) {
 func TestCreateTextRejectsReservedTag(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
-		"value_text": "should fail",
+		"raw_content": "should fail",
 		"tags": ["transaction_entry"],
 		"objective_context": "x"
 	}`)
@@ -209,7 +209,7 @@ func TestCreateTextRejectsReservedTag(t *testing.T) {
 func TestCreateTextRejectsTodoReservedTag(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
-		"value_text": "should fail",
+		"raw_content": "should fail",
 		"tags": ["todo:in_progress"],
 		"objective_context": "x"
 	}`)

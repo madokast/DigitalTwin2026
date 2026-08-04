@@ -3,7 +3,7 @@
   "record": {
     "id": "01900000-0000-7000-8000-000000000003",
     "created_at": "2026-08-02T10:00:00.000+08:00",
-    "value_number": null,
+    "numeric_value": null,
     "content": "Buy milk",
     "tags": "[\"todo:in_progress\",\"errand\"]",
     "objective_context": "weekend grocery list",

@@ -74,7 +74,7 @@ SELECT EXISTS (
 	for _, n := range []string{"1", "2", "3"} {
 		body := `{
 			"happened_at":"2026-07-30T08:00:00+08:00",
-			"value_number": "` + n + `",
+			"numeric_value": "` + n + `",
 			"tags": ["go_export"],
 			"objective_context": "` + marker + `-` + n + `"
 		}`

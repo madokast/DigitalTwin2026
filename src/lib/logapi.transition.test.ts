@@ -43,13 +43,13 @@ const body = {
   happened_at: '2026-08-02T12:00:00+08:00',
 }
 
-function todoRow(tags: string, valueText = 'Buy milk') {
+function todoRow(tags: string, rawContent = 'Buy milk') {
   return {
     id: todoId,
     happenedAt: new Date('2026-08-02T02:00:00.000Z'),
     utcOffset: 'Z',
-    valueNumber: null,
-    valueText,
+    numericValue: null,
+    rawContent,
     tags,
     objectiveContext: 'weekend grocery list',
     subjectiveInterpretation: null,
@@ -142,8 +142,8 @@ describe('transitionTodo success (mocked db)', () => {
     expect(txInsert).toHaveBeenCalled()
     expect(txValues).toHaveBeenCalledWith(
       expect.objectContaining({
-        valueNumber: null,
-        valueText: 'Buy milk', // 审计行 = 待办原文逐字拷贝
+        numericValue: null,
+        rawContent: 'Buy milk', // 审计行 = 待办原文逐字拷贝
         tags: JSON.stringify(['todo:transition']),
         objectiveContext: wantObjCtx,
         subjectiveInterpretation: null,

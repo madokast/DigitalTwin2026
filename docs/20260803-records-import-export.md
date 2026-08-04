@@ -54,8 +54,8 @@
 |---------|------|
 | `id` | UUID 字符串 |
 | `happened_at` | 可解析为带时区时间；**写入语义对齐 draft/log**（允许 `Z` / `±HH:MM` / `±HHMM`）。读出按隐列 `utc_offset` 保留录入规范区（`Z` 与 `±HH:MM`），**不再**一律 UTC `…Z`——见 [`docs/20260803-utc-offset.md`](20260803-utc-offset.md)。文件中**无** `utc_offset` 键 |
-| `value_number` | decimal **字符串**或 `null`；JSON **number 类型 → 400**（详细错误） |
-| `value_text` | `string` 或 `null` |
+| `numeric_value` | decimal **字符串**或 `null`；JSON **number 类型 → 400**（详细错误） |
+| `raw_content` | `string` 或 `null` |
 | `tags` | **字符串**（JSON 数组字面量）；误传数组类型 → 400 |
 | `objective_context` | 非空 string |
 | `subjective_interpretation` | `string` 或 `null` |
@@ -323,7 +323,7 @@ BEGIN
 
 **依赖 / 可并行：** 无前置。阶段 2、3 依赖本阶段。
 
-**落地备注：** `parseLine` / `ParseLine` **不**调用 `assertNoReservedTags`（包注释已写清）；语义错误复用 draft 文案（snake_case，如 `value_number must be a decimal string`）；表示层错误用 snake_case 缺键 / `tags must be a stringified JSON array` / `Invalid JSON line`。
+**落地备注：** `parseLine` / `ParseLine` **不**调用 `assertNoReservedTags`（包注释已写清）；语义错误复用 draft 文案（snake_case，如 `numeric_value must be a decimal string`）；表示层错误用 snake_case 缺键 / `tags must be a stringified JSON array` / `Invalid JSON line`。
 
 ---
 

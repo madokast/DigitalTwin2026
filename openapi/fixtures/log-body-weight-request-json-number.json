@@ -1,5 +1,5 @@
 {
   "happened_at": "2026-08-02T08:00:00+08:00",
-  "value_number": 75.5,
+  "numeric_value": 75.5,
   "objective_context": "morning weigh-in"
 }

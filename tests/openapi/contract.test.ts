@@ -8,7 +8,7 @@ import {
   fixturesDir,
   HAPPENED_AT_OUTPUT,
   loadOpenApi,
-  VALUE_NUMBER_DECIMAL,
+  NUMERIC_VALUE_DECIMAL,
 } from './helpers'
 
 function readFixture(name: string): unknown {
@@ -29,10 +29,10 @@ describe('OpenAPI contract (Phase 2)', () => {
     await assertValidSchema('RecordSuccess', numberOk)
     await assertValidSchema('RecordSuccess', textOk)
 
-    const numRec = (numberOk as { record: { happened_at: string; valueNumber: string } })
+    const numRec = (numberOk as { record: { happened_at: string; numericValue: string } })
       .record
     expect(numRec.happened_at).toMatch(HAPPENED_AT_OUTPUT)
-    expect(numRec.value_number).toMatch(VALUE_NUMBER_DECIMAL)
+    expect(numRec.numeric_value).toMatch(NUMERIC_VALUE_DECIMAL)
   })
 
   it('validates Error / QuerySuccess / SummarySuccess fixtures', async () => {
@@ -109,7 +109,7 @@ describe('OpenAPI contract (Phase 2)', () => {
     )
   })
 
-  it('accepts valid LogNumberRequest and rejects JSON number value_number', async () => {
+  it('accepts valid LogNumberRequest and rejects JSON number numeric_value', async () => {
     await assertValidSchema(
       'LogNumberRequest',
       readFixture('log-number-request-valid.json'),
@@ -118,14 +118,14 @@ describe('OpenAPI contract (Phase 2)', () => {
       'LogNumberRequest',
       readFixture('log-number-request-offset-hhmm.json'),
     )
-    // 契约：value_number 必须是 string；JSON number 在 schema 层即非法
+    // 契约：numeric_value 必须是 string；JSON number 在 schema 层即非法
     await assertInvalidSchema(
       'LogNumberRequest',
       readFixture('log-number-request-json-number.json'),
     )
   })
 
-  it('accepts valid LogBodyWeightRequest and rejects JSON number value_number', async () => {
+  it('accepts valid LogBodyWeightRequest and rejects JSON number numeric_value', async () => {
     await assertValidSchema(
       'LogBodyWeightRequest',
       readFixture('log-body-weight-request-valid.json'),
@@ -216,12 +216,12 @@ describe('OpenAPI contract (Phase 2)', () => {
     )
   })
 
-  it('rejects Record with JSON number valueNumber (drift guard)', async () => {
+  it('rejects Record with JSON number numericValue (drift guard)', async () => {
     await assertInvalidSchema('Record', {
       id: '01900000-0000-7000-8000-000000000001',
       happened_at: '2026-07-30T00:00:00.000Z',
-      value_number: 75.5,
-      value_text: null,
+      numeric_value: 75.5,
+      raw_content: null,
       tags: '["weight"]',
       objective_context: 'x',
       subjective_interpretation: null,
@@ -241,8 +241,8 @@ describe('OpenAPI contract (Phase 2)', () => {
       id: '01900000-0000-7000-8000-000000000001',
       happenedAt: new Date('2026-07-30T08:00:00+08:00'),
       utcOffset: '+08:00',
-      valueNumber: '1.0',
-      valueText: null,
+      numericValue: '1.0',
+      rawContent: null,
       tags: '["weight"]',
       objectiveContext: 'morning',
       subjectiveInterpretation: null,
@@ -250,6 +250,6 @@ describe('OpenAPI contract (Phase 2)', () => {
     await assertValidSchema('Record', rec)
     expect(rec.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
     expect(rec.happened_at).toMatch(HAPPENED_AT_OUTPUT)
-    expect(rec.value_number).toBe('1.0')
+    expect(rec.numeric_value).toBe('1.0')
   })
 })

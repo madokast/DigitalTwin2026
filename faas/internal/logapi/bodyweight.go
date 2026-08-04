@@ -26,7 +26,7 @@ func CreateBodyWeight(ctx context.Context, pool *pgxpool.Pool, raw []byte) (reco
 		return record.Record{}, 500, err
 	}
 
-	vn := parsed.ValueNumber
+	vn := parsed.NumericValue
 	rec, err := insertReturning(
 		ctx, pool, id.String(), parsed.HappenedAt, parsed.UtcOffset, &vn, nil,
 		tagsJSON, parsed.ObjectiveContext, parsed.SubjectiveInterpretation,

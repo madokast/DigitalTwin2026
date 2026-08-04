@@ -31,8 +31,8 @@ export type TelegramConfig = {
 export type NotifyRecord = {
   id: string
   happened_at: string
-  value_number?: string | null
-  value_text?: string | null
+  numeric_value?: string | null
+  raw_content?: string | null
   tags: string
   objective_context: string
   subjective_interpretation?: string | null
@@ -103,10 +103,10 @@ export function formatRecordMessage(record: NotifyRecord): string {
     `happened_at: ${record.happened_at}`,
   ]
 
-  if (record.value_number != null && record.value_number !== '') {
-    lines.push(`value_number: ${record.value_number}`)
+  if (record.numeric_value != null && record.numeric_value !== '') {
+    lines.push(`numeric_value: ${record.numeric_value}`)
   } else {
-    lines.push(`value_text: ${record.value_text ?? ''}`)
+    lines.push(`raw_content: ${record.raw_content ?? ''}`)
   }
 
   lines.push(`tags: ${formatTags(record.tags)}`)
@@ -125,7 +125,7 @@ export function formatTransactionBatchMessage(rows: NotifyRecord[]): string {
   const n = rows.length
   let sumLabel = '(mixed)'
   const amounts = rows
-    .map((r) => r.value_number)
+    .map((r) => r.numeric_value)
     .filter((v): v is string => v != null && v !== '')
   if (amounts.length === n) {
     // 仅展示字符串拼接提示；不强制精确十进制求和（避免浮点）

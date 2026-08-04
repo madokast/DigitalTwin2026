@@ -47,7 +47,7 @@
       (`src/lib/draft.ts`, `faas/internal/draft`).
       `happened_at` **must** include an explicit timezone suffix
       (`Z` or `±HH:MM` / `±HHMM`) — same rule as log endpoints — and at least
-      one of `value_number` / `value_text` must be non-null after normalization
+      one of `numeric_value` / `raw_content` must be non-null after normalization
       (empty strings → null).
       Auth: **AdminToken only**.
     security:
@@ -69,8 +69,8 @@
             $ref: '../components/schemas.yaml#/RecordDraftRequest'
           example:
             happened_at: '2026-07-30T08:00:00+08:00'
-            value_number: '76'
-            value_text: null
+            numeric_value: '76'
+            raw_content: null
             tags: [weight]
             objective_context: morning weigh-in
             subjective_interpretation: corrected
