@@ -72,7 +72,7 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 
 ### 2.3 `DIGITAL_TWIN_TEST` 全引用与用途
 
-**结论：无其它功能，可整删。** 仓库内（含 docs / scripts / tests / faas / src / CI 叙述）全部代码用途都是「给 `notify_user` 跳过当总开关」；文档叙述同义。**不做拆分旁路**——不要把该模糊总开关拆成多个隐式 flag；直接换成唯一显式键 `SUPPRESS_BOT_NOTIFICATION` 后整删 `DIGITAL_TWIN_TEST`。
+**结论：无其它功能，可整删。** 仓库内（含 docs / scripts / tests / faas / src / CI 叙述）全部代码用途都是「给 `notify_user` 跳过当总开关」；文档叙述同义。**不做拆分旁路**——不要把该模糊总开关拆成多个隐式 flag；直接换成唯一显式键 `SUPPRESS_BOT_NOTIFICATION` 后整删 `DIGITAL_TWIN_TEST`。（已整删，阶段 1 落地。）
 
 | 位置 | 当前行为 | 拆分后替代 |
 |------|----------|------------|
@@ -112,7 +112,7 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 | `npm run deploy -- prod` | `collect-prod-env` → 临时 `.env.prod`（`COLLECT_KEYS` 现无 suppress 类键）→ Vercel upsert `VERCEL_KEYS` / FC / SCF 同上白名单 |
 | Vercel | `deploy -- test` **跳过**；prod 只 upsert 渠道与 Token 等（**现状白名单无** `SUPPRESS_BOT_NOTIFICATION`） |
 
-**重要缺口（现状）**：FC/SCF（及 Vercel upsert）白名单**不包含** `DIGITAL_TWIN_TEST` / `NOTIFY_ALLOW_IN_TEST`（也尚未含 `SUPPRESS_BOT_NOTIFICATION`）。因此 **test 云函数若配置了 bot 密钥，当前会实发 notify**；本地 Vitest/Go TestMain 才跳过。
+**重要缺口（现状，已修复：阶段 2）**：FC/SCF（及 Vercel upsert）白名单**不包含** `DIGITAL_TWIN_TEST` / `NOTIFY_ALLOW_IN_TEST`（也尚未含 `SUPPRESS_BOT_NOTIFICATION`）。因此 **test 云函数若配置了 bot 密钥，当前会实发 notify**；本地 Vitest/Go TestMain 才跳过。→ 修复后：白名单一律放行该键，`deploy -- test` 强制 `=1`、`deploy -- prod` 强制 `=0`。
 
 **锁定（实现时）：云上由 `deploy` 强制注入，用户透明（collect / 部署问答不问该键）：**
 
