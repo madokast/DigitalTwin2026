@@ -9,7 +9,7 @@
 - **前端/后端**: Next.js 16 + React 19
 - **语言**: TypeScript（网页）+ Go（国内 FC API）
 - **样式**: Tailwind CSS 4
-- **数据库**: PostgreSQL（Neon）
+- **数据库**: PostgreSQL
 - **ORM**: Drizzle ORM
 - **测试**: Vitest（真实测试库）+ `go test`
 - **部署**: Vercel（主站）+ 阿里云函数计算（国内 API 加速，见 [`faas/providers/aliyun-fc/README.md`](faas/providers/aliyun-fc/README.md)）
@@ -39,7 +39,7 @@ cp .env.test.example .env.test
 npm run db:migrate
 ```
 
-空库可从 0 建表（库本身需已在 Neon 创建）。对生产库：
+空库可从 0 建表（库本身需已创建）。对生产库：
 
 ```bash
 DATABASE_URL='生产连接串' npm run db:migrate

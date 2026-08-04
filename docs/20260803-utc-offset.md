@@ -197,7 +197,7 @@ Round-trip 期望：导出再导入，瞬间相等，且 `utc_offset` 规范形�
 
 1. **Schema：不要加新的 drizzle Migration 文件。** 直接改基准定义（如 `src/db/schema.ts` + `drizzle/0000_*.sql` 或仓库约定的唯一建表源），为 `records` 增加 `utc_offset text NOT NULL` + 可选 CHECK；本地 / 测试库 **DROP `records`（或整库）后按基准重建**。无生产数据、无回填。  
 2. 收敛所有 `formatHappenedAt` / `FormatHappenedAt` / Notify / **Todo deform** 内联格式化，避免漏网 `toISOString()`。  
-3. 更新 import-export、todo 规格中「读出 UTC Z」句子；可选在 AGENTS「Neon / 数据库」旁加 pointer（见根 AGENTS）。  
+3. 更新 import-export、todo 规格中「读出 UTC Z」句子；可选在 AGENTS「数据库」旁加 pointer（见根 AGENTS）。  
 4. 单测：`Z` vs `+00:00` 不折叠；`+0800` → 存 `+08:00`；export/import round-trip；未知键 `utc_offset` → 400；**Todo `201.record.created_at` 与 query 待办行带区且与隐列一致**。  
 5. 部署/collect 若仍提示 `db:migrate`：本变更语境下等同「用更新后的基准 schema 重建空库」，**不要**指望只跑一条 ADD COLUMN migration。
 
@@ -414,7 +414,7 @@ deploy / `collect-prod-env` 若仍问 `db:migrate`：本变更语境下等同「
 **范围：**
 - `openapi/components`（及 fixtures 样例可含 `+08:00`）；`npm run openapi:lint` / `test:openapi`
 - [`docs/20260803-records-import-export.md`](20260803-records-import-export.md)、[`docs/20260802-todo-feature.md`](20260802-todo-feature.md) 中「读出 UTC Z / 一律 Z」冲突句 → 指向本篇
-- 可选：根 AGENTS「Neon / 数据库」旁 pointer 复核
+- 可选：根 AGENTS「数据库」旁 pointer 复核
 - 本篇状态改为「已落地」类表述；§12 阶段 1–6 勾选完成
 
 **不做什么：**
