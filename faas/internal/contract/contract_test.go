@@ -100,7 +100,6 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"tags-success.json", "TagsSuccess"},
 		{"rename-tags-request-valid.json", "RenameTagsRequest"},
 		{"rename-tags-success.json", "RenameTagsSuccess"},
-		{"record-draft-request-valid.json", "RecordDraftRequest"},
 		{"telegram-probe-request.json", "TelegramProbeRequest"},
 		{"telegram-probe-success.json", "SuccessOnly"},
 		{"qqbot-probe-request.json", "QqbotProbeRequest"},

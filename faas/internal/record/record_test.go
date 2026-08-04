@@ -1,11 +1,8 @@
 package record
 
 import (
-	"context"
 	"testing"
 	"time"
-
-	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 )
 
 func TestFormatHappenedAt(t *testing.T) {
@@ -78,20 +75,5 @@ func TestIsValidID(t *testing.T) {
 		if IsValidID(bad) {
 			t.Fatalf("want reject %q", bad)
 		}
-	}
-}
-
-func TestUpdateRejectsInvalidID(t *testing.T) {
-	_, status, err := Update(context.Background(), nil, "not-a-uuid", &draft.NormalizedRecordDraft{})
-	if status != 400 || err == nil || err.Error() != InvalidID.Error() {
-		t.Fatalf("status=%d err=%v", status, err)
-	}
-}
-
-// Update 写库路径见 record_db_test.go（假 Querier）。
-// 此处锁定用户可见错误文案与 TS RECORD_NOT_FOUND 字节一致。
-func TestUpdateNotFoundErrorMessage(t *testing.T) {
-	if ErrNotFound.Error() != "Record not found" {
-		t.Fatalf("ErrNotFound %q must stay byte-identical to TS RECORD_NOT_FOUND", ErrNotFound.Error())
 	}
 }

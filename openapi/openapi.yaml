@@ -182,8 +182,6 @@ components:
       $ref: './components/schemas.yaml#/TodoTransitionSuccess'
     LogTextRequest:
       $ref: './components/schemas.yaml#/LogTextRequest'
-    RecordDraftRequest:
-      $ref: './components/schemas.yaml#/RecordDraftRequest'
     TelegramProbeRequest:
       $ref: './components/schemas.yaml#/TelegramProbeRequest'
     QqbotProbeRequest:

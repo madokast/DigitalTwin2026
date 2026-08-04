@@ -49,7 +49,7 @@ func happenedAtString(raw any) string {
 }
 
 // optionalTagList 与 Next createNumber/createText：省略 / null / [] → []；
-// 非数组或元素非 string → tags must be an array of strings（与 PATCH draft 一致）。
+// 非数组或元素非 string → tags must be an array of strings（与 Next draft 一致）。
 func optionalTagList(raw any) ([]string, error) {
 	if raw == nil {
 		return []string{}, nil

@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // FaaS 打包产物（gitignored），不参与 lint
+    "faas/providers/**/.scf-build/**",
+    "faas/providers/**/.fc-build/**",
   ]),
 ]);
 

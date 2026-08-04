@@ -1,45 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parseRecordDraft, type RecordDraftBody } from '@/lib/draft'
-import { readJsonBody } from '@/lib/httpjson'
-import { update } from '@/lib/record'
+
+/**
+ * 记录编辑 API 已废弃（2026-08-04 定案，见 docs/20260804-log-review.md §5
+ * 与 docs/20260804-scope-closure.md 终止项 7）：对一切记录一律 410 Gone。
+ * 不读请求体、不做任何校验（proxy 层鉴权先于本路由）。
+ */
+export const RECORD_EDIT_RETIRED_ERROR = 'The record editing API is retired (Gone)'
 
 export async function PATCH(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> },
+  _request: NextRequest,
+  _context: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const { id } = await context.params
-    if (!id) {
-      return NextResponse.json({ error: 'Missing record id' }, { status: 400 })
-    }
-
-    const parsedJson = await readJsonBody(request)
-    if (!parsedJson.ok) {
-      return NextResponse.json(
-        { error: parsedJson.error },
-        { status: parsedJson.status },
-      )
-    }
-
-    const parsed = parseRecordDraft(parsedJson.value as RecordDraftBody)
-    if ('error' in parsed) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 })
-    }
-
-    const result = await update(id, parsed)
-    if ('error' in result) {
-      return NextResponse.json({ error: result.error }, { status: result.status })
-    }
-
-    return NextResponse.json({
-      success: true,
-      record: result.record,
-    })
-  } catch (error) {
-    console.error('Error patching record:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    )
-  }
+  void _request
+  void _context
+  return NextResponse.json({ error: RECORD_EDIT_RETIRED_ERROR }, { status: 410 })
 }

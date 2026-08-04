@@ -41,60 +41,37 @@
   patch:
     operationId: adminPatchRecord
     tags: [admin]
-    summary: Replace editable fields of one record
+    summary: Record editing API (retired — always 410 Gone)
+    deprecated: true
     description: |
-      Full editable snapshot replace via `parseRecordDraft` / `draft.ParseRecordDraft`
-      (`src/lib/draft.ts`, `faas/internal/draft`).
-      `happened_at` **must** include an explicit timezone suffix
-      (`Z` or `±HH:MM` / `±HHMM`) — same rule as log endpoints — and at least
-      one of `numeric_value` / `raw_content` must be non-null after normalization
-      (empty strings → null).
-      Auth: **AdminToken only**.
+      **Retired (2026-08-04).** The record editing API is permanently removed
+      for **all** records (reserved-tag rows like `todo:*` / `review:*` /
+      `transaction_entry:*` carry prefixes the editor could not resubmit).
+      Every PATCH returns **410 Gone** without reading the body or validating
+      the id. Correction flow: export (NDJSON) → modify → import upsert.
+      See `docs/20260804-log-review.md` §5 and `docs/20260804-scope-closure.md`
+      term 7. Auth: **AdminToken only**.
     security:
       - AdminToken: []
     parameters:
       - name: id
         in: path
         required: true
-        description: |
-          Record UUID (UUIDv7 as stored). Non-UUID → 400 (`Invalid record id`).
+        description: Record UUID (not validated; every request returns 410).
         schema:
           type: string
           format: uuid
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../components/schemas.yaml#/RecordDraftRequest'
-          example:
-            happened_at: '2026-07-30T08:00:00+08:00'
-            numeric_value: '76'
-            raw_content: null
-            tags: [weight]
-            objective_context: morning weigh-in
-            subjective_interpretation: corrected
     responses:
-      '200':
-        description: Record updated
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas.yaml#/RecordSuccess'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        description: No row with this id
+      '410':
+        description: Gone — record editing API retired
         content:
           application/json:
             schema:
               $ref: '../components/schemas.yaml#/Error'
             example:
-              error: Record not found
-      '413':
-        $ref: '../components/responses.yaml#/PayloadTooLarge'
+              error: The record editing API is retired (Gone)
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
@@ -108,7 +85,7 @@
       transaction**: read the **`file` part into a ≤4 MiB buffer**, then
       line-by-line parse → validate → upsert (not an unbounded HTTP chunk
       stream). Reserved tags are allowed (skips `assertNoReservedTags`);
-      Admin PATCH still rejects them.
+      the retired Admin PATCH (410) does not apply.
 
       Multipart field name **`file`** (exactly one). Accept
       `application/x-ndjson`, `application/jsonl`, or `application/octet-stream`

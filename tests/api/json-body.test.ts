@@ -4,20 +4,11 @@ import { POST as postNumber } from '@/app/api/log/number/route'
 import { POST as postText } from '@/app/api/log/text/route'
 import { POST as postTransaction } from '@/app/api/log/transaction/route'
 import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
-import { PATCH as patchRecord } from '@/app/api/admin/records/[id]/route'
 
 /** 与 Go httpx「Invalid JSON body」对齐：空 body / 语法错误 → 400，而非 500 */
 function rawPost(url: string, body: string): NextRequest {
   return new NextRequest(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-  })
-}
-
-function rawPatch(url: string, body: string): NextRequest {
-  return new NextRequest(url, {
-    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body,
   })
@@ -45,13 +36,6 @@ describe('malformed / empty JSON body → 400', () => {
       name: 'POST /api/admin/tags/rename',
       run: (body) =>
         renameTags(rawPost('http://localhost/api/admin/tags/rename', body)),
-    },
-    {
-      name: 'PATCH /api/admin/records/:id',
-      run: (body) =>
-        patchRecord(rawPatch('http://localhost/api/admin/records/x', body), {
-          params: Promise.resolve({ id: 'x' }),
-        }),
     },
   ]
 

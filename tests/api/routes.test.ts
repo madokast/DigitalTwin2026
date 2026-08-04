@@ -1149,183 +1149,28 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
   })
 
-  describe('PATCH /api/admin/records/[id]', () => {
-    async function createNumber() {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-        happened_at: '2026-07-30T08:00:00+08:00',
-        numeric_value: '75.5',
-        tags: ['weight'],
-        objective_context: 'morning weigh-in',
-        raw_content: 'x',
-        subjective_interpretation: 'ok',
-      }))
-      const body = await res.json()
-      return body.record as { id: string }
-    }
-
-    it('updates editable fields', async () => {
-      const record = await createNumber()
-      const res = await patchRecord(
-        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
-          happened_at: '2026-07-30T09:30:00+08:00',
-          numeric_value: '76',
-          raw_content: null,
-          tags: ['weight', 'source:device'],
-          objective_context: 'updated context',
-          subjective_interpretation: null,
-        }),
-        { params: Promise.resolve({ id: record.id }) },
-      )
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.success).toBe(true)
-      expect(body.record.numeric_value).toBe('76')
-      expect(body.record.tags).toEqual(['weight', 'source:device'])
-      expect(body.record.objective_context).toBe('updated context')
-      expect(body.record.subjective_interpretation).toBeNull()
-      expect(body.record.happened_at).toBe('2026-07-30T09:30:00.000+08:00')
-      expect(body.record).not.toHaveProperty('utc_offset')
-    })
-
-    it('recomputes utc_offset when happened_at changes offset', async () => {
-      const record = await createNumber()
-      const res = await patchRecord(
-        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
-          happened_at: '2026-07-30T00:00:00.000Z',
-          numeric_value: '75.5',
-          tags: ['weight'],
-          objective_context: 'morning weigh-in',
-        }),
-        { params: Promise.resolve({ id: record.id }) },
-      )
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.record.happened_at).toBe('2026-07-30T00:00:00.000Z')
-    })
-
-    it('leaves happened_at and utc_offset alone when time key omitted', async () => {
-      const record = await createNumber()
-      const res = await patchRecord(
-        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
-          numeric_value: '77',
-          tags: ['weight'],
-          objective_context: 'no-time-patch',
-        }),
-        { params: Promise.resolve({ id: record.id }) },
-      )
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.record.numeric_value).toBe('77')
-      expect(body.record.objective_context).toBe('no-time-patch')
-      expect(body.record.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
-    })
-
-    it('rejects utc_offset as unknown key', async () => {
-      const record = await createNumber()
-      const res = await patchRecord(
-        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
-          happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '1',
-          tags: ['weight'],
-          objective_context: 'x',
-          utc_offset: '+08:00',
-        }),
-        { params: Promise.resolve({ id: record.id }) },
-      )
-      expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('Unknown JSON key: utc_offset')
-    })
-
-    it('returns 400 when both values are null', async () => {
-      const record = await createNumber()
-      const res = await patchRecord(
-        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
-          happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: null,
-          raw_content: null,
-          tags: ['weight'],
-          objective_context: 'x',
-          subjective_interpretation: null,
-        }),
-        { params: Promise.resolve({ id: record.id }) },
-      )
-      expect(res.status).toBe(400)
-      const body = await res.json()
-      expect(body.error).toMatch(/both be null/)
-    })
-
-    it('returns 400 for invalid tags (non-ASCII / whitespace-padded)', async () => {
-      const record = await createNumber()
-      for (const tags of [['体重'], [' weight'], ['weight '], [' weight ']]) {
+  describe('PATCH /api/admin/records/[id] (retired → 410 Gone)', () => {
+    it('returns 410 Gone for any request without reading the body', async () => {
+      for (const body of [null, { numeric_value: '1' }]) {
         const res = await patchRecord(
-          jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
-            happened_at: '2026-07-30T08:00:00+08:00',
-            numeric_value: '1',
-            raw_content: null,
-            tags,
-            objective_context: 'x',
-            subjective_interpretation: null,
-          }),
-          { params: Promise.resolve({ id: record.id }) },
+          jsonPatch(
+            'http://localhost/api/admin/records/01900000-0000-7000-8000-000000000001',
+            body,
+          ),
+          {
+            params: Promise.resolve({
+              id: '01900000-0000-7000-8000-000000000001',
+            }),
+          },
         )
-        expect(res.status, JSON.stringify(tags)).toBe(400)
-        const body = await res.json()
-        expect(body.error, JSON.stringify(tags)).toContain('Invalid tag')
+        expect(res.status, JSON.stringify(body)).toBe(410)
+        expect((await res.json()).error).toBe(
+          'The record editing API is retired (Gone)',
+        )
       }
     })
-
-    it('rejects reserved tag in tags', async () => {
-      const record = await createNumber()
-      const res = await patchRecord(
-        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
-          happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '1',
-          raw_content: null,
-          tags: ['weight', 'transaction_entry'],
-          objective_context: 'x',
-          subjective_interpretation: null,
-        }),
-        { params: Promise.resolve({ id: record.id }) },
-      )
-      expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(reservedTagError('transaction_entry'))
-    })
-
-    it('rejects reserved prefixed tag in tags', async () => {
-      const record = await createNumber()
-      const res = await patchRecord(
-        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
-          happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '1',
-          raw_content: null,
-          tags: ['weight', 'transaction_entry:expense'],
-          objective_context: 'x',
-          subjective_interpretation: null,
-        }),
-        { params: Promise.resolve({ id: record.id }) },
-      )
-      expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
-        reservedTagError('transaction_entry:expense'),
-      )
-    })
-
-    it('returns 404 for unknown id', async () => {
-      const id = '01900000-0000-7000-8000-000000000000'
-      const res = await patchRecord(
-        jsonPatch(`http://localhost/api/admin/records/${id}`, {
-          happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '1',
-          raw_content: null,
-          tags: ['weight'],
-          objective_context: 'x',
-          subjective_interpretation: null,
-        }),
-        { params: Promise.resolve({ id }) },
-      )
-      expect(res.status).toBe(404)
-    })
   })
+
 
   describe('GET /api/export/records', () => {
     it('returns empty NDJSON with headers when table is empty', async () => {
@@ -1504,7 +1349,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect((await listed2.json()).records).toHaveLength(0)
     })
 
-    it('allows reserved tags on import; PATCH still rejects them', async () => {
+    it('allows reserved tags on import; editing API is retired (410)', async () => {
       const id = '01900000-0000-7000-8000-0000000000bb'
       const line = JSON.stringify({
         id,
@@ -1530,14 +1375,13 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const patch = await patchRecord(
         jsonPatch(`http://localhost/api/admin/records/${id}`, {
           happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '71',
-          tags: ['body:weight'],
-          objective_context: 'patch-reserved',
         }),
         { params: Promise.resolve({ id }) },
       )
-      expect(patch.status).toBe(400)
-      expect((await patch.json()).error).toBe(reservedTagError('body:weight'))
+      expect(patch.status).toBe(410)
+      expect((await patch.json()).error).toBe(
+        'The record editing API is retired (Gone)',
+      )
     })
 
     it('round-trips export → import', async () => {

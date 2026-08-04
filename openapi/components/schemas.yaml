@@ -98,8 +98,8 @@ HappenedAtInput:
   type: string
   description: |
     Event timestamp as ISO 8601 **with required timezone** suffix
-    `(Z|[+-]HH:?MM)` — same rule for log insert, Admin PATCH `happened_at`,
-    and query `from`/`to`. Bare dates or offset-less local datetimes → 400
+    `(Z|[+-]HH:?MM)` — same rule for log insert and query `from`/`to`.
+    Bare dates or offset-less local datetimes → 400
     (`happened_at must be ISO 8601 with timezone (Z or ±HH:MM)`).
     Both backends parse via strict RFC3339 / RFC3339Nano after expanding
     compact `±HHMM` → `±HH:MM`: uppercase `Z`, `T` separator, zero-padded
@@ -152,7 +152,7 @@ Record:
         Decimal string when the row has a numeric value; **key omitted**
         when null (text-only / to-do rows). On read the key never appears
         with null. Import lines may omit the key or send explicit null.
-        On write (log/number and PATCH), JSON **number is rejected** (400:
+        On write (log/number), JSON **number is rejected** (400:
         `numeric_value must be a decimal string`). Validated literal stored
         as TEXT (no Number round-trip; trailing zeros preserved).
       $ref: '#/DecimalString'
@@ -650,38 +650,6 @@ LogTextRequest:
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
         (`Invalid subjective_interpretation`).
-
-RecordDraftRequest:
-  type: object
-  description: |
-    Editable snapshot for PATCH. Aligns with `parseRecordDraft`:
-    all text fields are trimmed before storage; empty or whitespace-only
-    values are rejected (clear nullable fields with explicit null);
-    `objective_context` must be non-blank; `numeric_value` is string | null
-    only (JSON number → 400); `tags` optional — omitted / null / `[]` →
-    stored as `[]`. Unknown JSON keys -> 400 (Unknown JSON key: <name>).
-  required: [happened_at, objective_context]
-  additionalProperties: false
-  properties:
-    happened_at:
-      $ref: '#/HappenedAtInput'
-    numeric_value:
-      description: |
-        Decimal string, null, or omit/empty → null. JSON number → 400
-        (`numeric_value must be a decimal string`).
-      oneOf:
-        - $ref: '#/DecimalString'
-        - type: 'null'
-    raw_content:
-      type: [string, 'null']
-    tags:
-      $ref: '#/TagList'
-    objective_context:
-      type: string
-      minLength: 1
-    subjective_interpretation:
-      type: [string, 'null']
-      description: Non-string JSON → 400 (`Invalid subjective_interpretation`).
 
 TelegramProbeRequest:
   type: object

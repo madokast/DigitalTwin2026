@@ -92,25 +92,3 @@ export async function renameTag(from: string, to: string): Promise<number> {
   const data = await parseJson<{ success: boolean; updated: number }>(res)
   return data.updated
 }
-
-export type PatchRecordBody = {
-  happened_at: string
-  numeric_value: string | null
-  raw_content: string | null
-  tags: string[]
-  objective_context: string
-  subjective_interpretation: string | null
-}
-
-export async function patchRecord(
-  id: string,
-  body: PatchRecordBody,
-): Promise<TwinRecord> {
-  const res = await fetch(apiUrl(`/api/admin/records/${id}`), {
-    method: 'PATCH',
-    headers: authHeader(true),
-    body: JSON.stringify(body),
-  })
-  const data = await parseJson<{ success: boolean; record: TwinRecord }>(res)
-  return data.record
-}

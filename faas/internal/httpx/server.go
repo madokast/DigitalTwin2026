@@ -17,7 +17,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/dbprobe"
-	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/exportapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/importapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
@@ -590,32 +589,12 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"success": true, "updated": updated})
 }
 
+// RecordEditRetired 与 Next RECORD_EDIT_RETIRED_ERROR 同文案：
+// 记录编辑 API 已废弃（2026-08-04，见 docs/20260804-log-review.md §5），一律 410 Gone。
+const RecordEditRetired = "The record editing API is retired (Gone)"
+
 func (s *Server) handlePatchRecord(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if id == "" {
-		writeError(w, 400, "Missing record id")
-		return
-	}
-	raw, ok := readBodyOrError(w, r)
-	if !ok {
-		return
-	}
-	parsed, err := draft.ParseRecordDraftJSON(raw)
-	if err != nil {
-		writeError(w, 400, err.Error())
-		return
-	}
-	rec, status, err := record.Update(r.Context(), s.Pool, id, parsed)
-	if err != nil {
-		if status >= 500 {
-			log.Printf("Error patching record: %v", err)
-			writeInternalError(w, err)
-			return
-		}
-		writeError(w, status, err.Error())
-		return
-	}
-	writeJSON(w, status, map[string]any{"success": true, "record": rec})
+	writeError(w, http.StatusGone, RecordEditRetired)
 }
 
 func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {

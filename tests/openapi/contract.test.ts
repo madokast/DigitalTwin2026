@@ -80,10 +80,6 @@ describe('OpenAPI contract (Phase 2)', () => {
       readFixture('error-import-non-file-part-too-large.json'),
     )
     await assertValidSchema(
-      'RecordDraftRequest',
-      readFixture('record-draft-request-valid.json'),
-    )
-    await assertValidSchema(
       'TelegramProbeRequest',
       readFixture('telegram-probe-request.json'),
     )

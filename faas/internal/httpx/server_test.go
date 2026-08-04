@@ -238,10 +238,6 @@ func TestWriteEndpointsRejectTrailingGarbageAfterJSON(t *testing.T) {
 			http.MethodPost, "/api/admin/tags/rename",
 			`{"from":"a","to":"b"}` + garbage,
 		},
-		{
-			http.MethodPatch, "/api/admin/records/01900000-0000-7000-8000-000000000001",
-			`{"happened_at":"2026-08-01T12:00:00Z","numeric_value":"1","tags":["weight"],"objective_context":"x"}` + garbage,
-		},
 	}
 	for _, tc := range cases {
 		req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.payload))
@@ -276,7 +272,6 @@ func TestWriteEndpointsRejectNonObjectJSON(t *testing.T) {
 			{http.MethodPost, "/api/log/text"},
 			{http.MethodPost, "/api/log/transaction"},
 			{http.MethodPost, "/api/admin/tags/rename"},
-			{http.MethodPatch, "/api/admin/records/01900000-0000-7000-8000-000000000001"},
 		}
 		for _, tc := range cases {
 			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(payload))
@@ -296,6 +291,26 @@ func TestWriteEndpointsRejectNonObjectJSON(t *testing.T) {
 			if body["error"] != "Request body must be a JSON object" {
 				t.Fatalf("%s %s body=%s: error %v", tc.method, tc.path, payload, body)
 			}
+		}
+	}
+}
+
+func TestPatchRecordRetiredGone(t *testing.T) {
+	h := testServer().Handler()
+	// 编辑 API 已废弃（410 Gone）：不读 body、不校验，任何 PATCH 一律 410（与 Next 对齐）
+	for _, payload := range []string{`null`, `{"numeric_value":"1"}`, ``} {
+		req := httptest.NewRequest(http.MethodPatch, "/api/admin/records/01900000-0000-7000-8000-000000000001", strings.NewReader(payload))
+		req.Header.Set("Authorization", "Bearer admin-tok")
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if rr.Code != http.StatusGone {
+			t.Fatalf("payload %q: status %d body %s", payload, rr.Code, rr.Body.String())
+		}
+		var body map[string]string
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		if body["error"] != RecordEditRetired {
+			t.Fatalf("payload %q: error %v", payload, body)
 		}
 	}
 }

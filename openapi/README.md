@@ -119,7 +119,7 @@ Records 备份 / 迁移：`GET /api/export/records`（ApiToken；JSONL 游标、
 | `WeightAmountString` | `^(?:0\|[1-9]\d{0,2})(?:\.\d{1,2})?$`；运行时限 **1.00–500.00**（kg）；禁 trim / `+` / 负号；JSON number → 400；通过后规范为两位小数；`LogBodyWeightRequest.numeric_value` |
 | `TagName` | 标识符 + 可选 `:` 分段 |
 
-`Record.numeric_value` / `LogNumberRequest.numeric_value` / PATCH draft 等均 `$ref` 上述组件（nullable 用 `oneOf`）。
+`Record.numeric_value` / `LogNumberRequest.numeric_value` 等均 `$ref` 上述组件（nullable 用 `oneOf`）。
 
 ## 已对齐约定（摘要）
 

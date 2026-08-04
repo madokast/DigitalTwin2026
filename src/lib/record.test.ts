@@ -1,15 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  INVALID_RECORD_ID,
-  RECORD_NOT_FOUND,
   formatHappenedAt,
   fromDB,
   isValidRecordId,
   tagsJSON,
-  update,
-  type UpdateDb,
 } from '@/lib/record'
-import type { NormalizedRecordDraft } from '@/lib/draft'
 
 describe('isValidRecordId', () => {
   it('accepts UUIDv7 / nil UUID like npm uuid.validate', () => {
@@ -72,127 +67,5 @@ describe('fromDB', () => {
 describe('tagsJSON', () => {
   it('marshals tags array to JSON string', () => {
     expect(tagsJSON(['weight', 'morning'])).toBe('["weight","morning"]')
-  })
-})
-
-describe('update (404 contract)', () => {
-  it('RECORD_NOT_FOUND stays byte-identical to Go ErrNotFound', () => {
-    expect(RECORD_NOT_FOUND).toBe('Record not found')
-  })
-})
-
-/** update 写库路径：注入 UpdateDb，不依赖真实数据库 */
-describe('update (injected store)', () => {
-  const draft: NormalizedRecordDraft = {
-    happenedAt: new Date('2026-07-30T10:00:00.000Z'),
-    utcOffset: 'Z',
-    numericValue: '80.0',
-    rawContent: null,
-    tags: ['weight'],
-    objectiveContext: 'morning',
-    subjectiveInterpretation: null,
-  }
-
-  it('maps returning row to Record with status 200 and writes utc_offset', async () => {
-    const updateReturning = vi.fn(async () => ({
-      id: '01900000-0000-7000-8000-000000000001',
-      happenedAt: new Date('2026-07-30T10:00:00.000Z'),
-      utcOffset: 'Z',
-      numericValue: '80.0',
-      rawContent: null,
-      tags: '["weight"]',
-      objectiveContext: 'morning',
-      subjectiveInterpretation: null,
-    }))
-    const store: UpdateDb = { updateReturning }
-
-    const result = await update(
-      '01900000-0000-7000-8000-000000000001',
-      draft,
-      store,
-    )
-    expect(result).toEqual({
-      status: 200,
-      record: {
-        id: '01900000-0000-7000-8000-000000000001',
-        happened_at: '2026-07-30T10:00:00.000Z',
-        numeric_value: '80.0',
-        raw_content: null,
-        tags: ['weight'],
-        objective_context: 'morning',
-        subjective_interpretation: null,
-      },
-    })
-    expect(updateReturning).toHaveBeenCalledWith(
-      '01900000-0000-7000-8000-000000000001',
-      {
-        happenedAt: draft.happenedAt,
-        utcOffset: 'Z',
-        numericValue: '80.0',
-        rawContent: null,
-        tags: '["weight"]',
-        objectiveContext: 'morning',
-        subjectiveInterpretation: null,
-      },
-    )
-  })
-
-  it('omits happened_at and utc_offset when draft has null time fields', async () => {
-    const updateReturning = vi.fn(async () => ({
-      id: '01900000-0000-7000-8000-000000000001',
-      happenedAt: new Date('2026-07-30T00:00:00.000Z'),
-      utcOffset: '+08:00',
-      numericValue: '81',
-      rawContent: null,
-      tags: '["weight"]',
-      objectiveContext: 'patched',
-      subjectiveInterpretation: null,
-    }))
-    const omitDraft: NormalizedRecordDraft = {
-      happenedAt: null,
-      utcOffset: null,
-      numericValue: '81',
-      rawContent: null,
-      tags: ['weight'],
-      objectiveContext: 'patched',
-      subjectiveInterpretation: null,
-    }
-    const result = await update(
-      '01900000-0000-7000-8000-000000000001',
-      omitDraft,
-      { updateReturning },
-    )
-    expect(result).toMatchObject({
-      status: 200,
-      record: { happened_at: '2026-07-30T08:00:00.000+08:00', numeric_value: '81' },
-    })
-    expect(updateReturning).toHaveBeenCalledWith(
-      '01900000-0000-7000-8000-000000000001',
-      {
-        numericValue: '81',
-        rawContent: null,
-        tags: '["weight"]',
-        objectiveContext: 'patched',
-        subjectiveInterpretation: null,
-      },
-    )
-  })
-
-  it('returns RECORD_NOT_FOUND 404 when no row', async () => {
-    const updateReturning = vi.fn(async () => undefined)
-    const result = await update(
-      '01900000-0000-7000-8000-000000000099',
-      draft,
-      { updateReturning },
-    )
-    expect(result).toEqual({ error: RECORD_NOT_FOUND, status: 404 })
-    expect(updateReturning).toHaveBeenCalledOnce()
-  })
-
-  it('rejects non-UUID id with 400 before DB', async () => {
-    const updateReturning = vi.fn().mockResolvedValue(undefined)
-    const result = await update('not-a-uuid', draft, { updateReturning })
-    expect(result).toEqual({ error: INVALID_RECORD_ID, status: 400 })
-    expect(updateReturning).not.toHaveBeenCalled()
   })
 })
