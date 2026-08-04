@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// ---- 假 Querier / Rows（断言 SQL，不依赖真实 Neon）----
+// ---- 假 Querier / Rows（断言 SQL，不依赖真实数据库）----
 
 type recordedExec struct {
 	sql  string

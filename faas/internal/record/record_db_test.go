@@ -12,7 +12,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 )
 
-// ---- 假 Querier / Row（断言 SQL + RETURNING 映射，不依赖真实 Neon）----
+// ---- 假 Querier / Row（断言 SQL + RETURNING 映射，不依赖真实数据库）----
 
 type fakeUpdateQuerier struct {
 	sql      string

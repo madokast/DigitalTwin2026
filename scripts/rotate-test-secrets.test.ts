@@ -4,10 +4,10 @@ import { maskValue, replaceEnvLine, sslFromUrl } from './rotate-test-secrets'
 describe('maskValue', () => {
   it('masks password inside DATABASE_URL', () => {
     const masked = maskValue(
-      'postgresql://neondb_owner:npg_Zy3KOBj1Atxv@ep.example.com/neondb?sslmode=require',
+      'postgresql://db_owner:npg_Zy3KOBj1Atxv@db.example.com/testdb?sslmode=require',
     )
-    expect(masked).toContain('neondb_owner:')
-    expect(masked).toContain('@ep.example.com/neondb')
+    expect(masked).toContain('db_owner:')
+    expect(masked).toContain('@db.example.com/testdb')
     expect(masked).not.toContain('npg_Zy3KOBj1Atxv')
     expect(masked).toMatch(/:\w+\*+\w+@/)
   })

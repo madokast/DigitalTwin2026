@@ -29,10 +29,10 @@ function tmpFile(name: string, content = ''): string {
 describe('maskValue', () => {
   it('masks password inside DATABASE_URL', () => {
     const masked = maskValue(
-      'postgresql://neondb_owner:npg_Zy3KOBj1Atxv@ep.example.com/neondb?sslmode=require',
+      'postgresql://db_owner:npg_Zy3KOBj1Atxv@db.example.com/testdb?sslmode=require',
     )
     expect(masked).not.toContain('npg_Zy3KOBj1Atxv')
-    expect(masked).toContain('@ep.example.com/neondb')
+    expect(masked).toContain('@db.example.com/testdb')
   })
 })
 

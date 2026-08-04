@@ -22,7 +22,7 @@ type transitionTx interface {
 	Rollback(ctx context.Context) error
 }
 
-// transitionDB：SELECT + Begin（*pgxpool.Pool 经 poolAdapter；单测可假实现，无需 Neon）。
+// transitionDB：SELECT + Begin（*pgxpool.Pool 经 poolAdapter；单测可假实现，无需真实数据库）。
 type transitionDB interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 	Begin(ctx context.Context) (transitionTx, error)

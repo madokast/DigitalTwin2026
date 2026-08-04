@@ -46,11 +46,11 @@ type Server struct {
 	Telegram *telegram.Sender
 	Qqbot    *qqbot.Sender
 	Notify   *notify.Notifier
-	// TransitionTodo 可选；nil → logapi.TransitionTodo（单测注入成功/域错误结果，无需 Neon）。
+	// TransitionTodo 可选；nil → logapi.TransitionTodo（单测注入成功/域错误结果，无需真实数据库）。
 	TransitionTodo func(ctx context.Context, pool *pgxpool.Pool, raw []byte) (logapi.TransitionResult, int, error)
 	// NotifyUser 可选；非 nil 时同步调用（单测 spy）；nil → go notify().NotifyUser（生产路径）。
 	NotifyUser func(text string)
-	// FetchExportRecords 可选；nil → exportapi.FetchExportRecords（单测注入空页，无需 Neon）。
+	// FetchExportRecords 可选；nil → exportapi.FetchExportRecords（单测注入空页，无需真实数据库）。
 	FetchExportRecords func(ctx context.Context, pool *pgxpool.Pool, p *exportapi.ParsedExport) ([]record.Record, int, error)
 }
 

@@ -13,7 +13,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
 
-// ---- 假 transitionDB / Tx（四类域错误 + 成功路径，不依赖真实 Neon）----
+// ---- 假 transitionDB / Tx（四类域错误 + 成功路径，不依赖真实数据库）----
 
 type fakeRow struct {
 	vals []any

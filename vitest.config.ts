@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     setupFiles: ['./tests/setup.ts'],
-    // 集成测共用测试库：用例后 DELETE 清表，须串行；远端 Neon 偶发慢时放宽超时
+    // 集成测共用测试库：用例后 DELETE 清表，须串行；远端测试库偶发慢时放宽超时
     fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 60_000,

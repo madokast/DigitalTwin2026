@@ -164,7 +164,7 @@ func AggregateTagCounts(tagFields []string) (map[string]int, error) {
 }
 
 // TagRenameAdvisoryLockKey 与 Next tagsdb.TAG_RENAME_ADVISORY_LOCK_KEY 一致。
-// pg_advisory_xact_lock：串行化并发 rename；随事务结束自动释放（适合 Neon transaction pooler）。
+// pg_advisory_xact_lock：串行化并发 rename；随事务结束自动释放（适合 PgBouncer 类连接池）。
 const TagRenameAdvisoryLockKey int64 = 726478478
 
 // RenameAcrossRecords 在单事务内全表扫描并将 tags JSON 中 from 重命名为 to。

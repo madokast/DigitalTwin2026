@@ -17,7 +17,7 @@ func TestAssertSafeTestDatabaseURL(t *testing.T) {
 	}{
 		{
 			name: "hostname containing test",
-			url:  "postgresql://u:p@ep-test-pooler.example.com/neondb",
+			url:  "postgresql://u:p@db-test.example.com/appdb",
 		},
 		{
 			name: "database name containing test",
@@ -29,12 +29,12 @@ func TestAssertSafeTestDatabaseURL(t *testing.T) {
 		},
 		{
 			name:    "production-looking URL",
-			url:     "postgresql://u:p@ep-long-pine.example.com/neondb",
+			url:     "postgresql://u:p@db.example.com/proddb",
 			wantErr: `must contain "test"`,
 		},
 		{
 			name:    "username test alone is not enough",
-			url:     "postgresql://testuser:p@ep-long-pine.example.com/neondb",
+			url:     "postgresql://testuser:p@db.example.com/proddb",
 			wantErr: `must contain "test"`,
 		},
 		{

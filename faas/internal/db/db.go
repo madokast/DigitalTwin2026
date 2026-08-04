@@ -18,7 +18,7 @@ func Open(ctx context.Context) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Neon/PgBouncer transaction pooler：避免 named prepared statement 冲突
+	// PgBouncer 类连接池（transaction pooler）：避免 named prepared statement 冲突
 	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeCacheDescribe
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {

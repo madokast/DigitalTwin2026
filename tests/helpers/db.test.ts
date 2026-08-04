@@ -5,7 +5,7 @@ describe('assertSafeTestDatabaseUrl', () => {
   it('accepts hostname containing test', () => {
     expect(() =>
       assertSafeTestDatabaseUrl(
-        'postgresql://u:p@ep-test-pooler.example.com/neondb',
+        'postgresql://u:p@db-test.example.com/appdb',
       ),
     ).not.toThrow()
   })
@@ -29,7 +29,7 @@ describe('assertSafeTestDatabaseUrl', () => {
   it('rejects production-looking URL without test markers', () => {
     expect(() =>
       assertSafeTestDatabaseUrl(
-        'postgresql://u:p@ep-long-pine.example.com/neondb',
+        'postgresql://u:p@db.example.com/proddb',
       ),
     ).toThrow(/must contain "test"/i)
   })
@@ -37,7 +37,7 @@ describe('assertSafeTestDatabaseUrl', () => {
   it('rejects when only username contains test', () => {
     expect(() =>
       assertSafeTestDatabaseUrl(
-        'postgresql://testuser:p@ep-long-pine.example.com/neondb',
+        'postgresql://testuser:p@db.example.com/proddb',
       ),
     ).toThrow(/must contain "test"/i)
   })

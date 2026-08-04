@@ -81,7 +81,7 @@ describe('update (404 contract)', () => {
   })
 })
 
-/** update 写库路径：注入 UpdateDb，不依赖真实 Neon */
+/** update 写库路径：注入 UpdateDb，不依赖真实数据库 */
 describe('update (injected store)', () => {
   const draft: NormalizedRecordDraft = {
     happenedAt: new Date('2026-07-30T10:00:00.000Z'),
