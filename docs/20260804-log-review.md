@@ -140,7 +140,45 @@ strict unknown-key：未知键 → 400。
 - fixtures / contract tests / testdata：cadence 缺省 / 非法值 / 大小写、`review:*` 保留 tag 拒绝（log/text、rename）、自动附加断言、import 可写 `review:*`、双端集成一致
 - 门闸：`npm run openapi:lint`、`npm run test:unit`、`npm run test:integration`、`cd faas && go test`
 
-## 8. 实施计划（分阶段，每阶段门闸自洽）
+## 8. 实现注意点（开工前核对，2026-08-04 讨论锁定）
+
+### A. 保留 tag `review` 的连锁影响
+
+1. **拒绝面自动覆盖**：`review` 加入 `RESERVED_TAG_PREFIXES`（TS `src/lib/tags.ts` / Go `faas/internal/tags`）后，通用 log/text、rename from/to、admin 草稿自动拒绝 `review` / `review:*`——**但 import 例外**（`recordjsonl` 不调 `assertNoReservedTags`），review 记录可正常导入。
+2. **query 不受影响**：`tag=review:weekly` 过滤照常工作（查询不拒保留 tag）。
+3. **tags 测试矩阵补齐**：`review`✓、`review:weekly`✓、`review:weekly:x`✓、`reviewpoint`✗（冒号边界，防误伤）、既有 `transaction_entrypoint` / `todolist` 误伤回归。
+4. **组装后的 tags 不能再过校验**：`CreateReview` / `createReview` 自动附加 `review:{cadence}` 发生在 `ParseReview` / `parseReview` 校验**之后**，否则服务端组装值会把自己拒绝。
+5. **todo 变形判定无冲突**：`ShouldDeformTodoRecordTags` / `shouldDeformTodoRecordTags` 只看 `todo:*`，review 行不变形。
+
+### B. 校验细节
+
+6. **cadence 缺失 vs 非法两条文案**：`Missing required field: cadence`（键缺 / null）vs `Invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly`（值不在枚举）——Go 侧注意 nil 分支与值分支。
+7. **严格小写、不 trim**：`"WEEKLY"` / `" weekly"` / `"weekly2"` → Invalid cadence；共享 fixture `testdata/review-cadence-cases.json`（accept 6 值 / reject 若干）。
+8. **禁键**：`numeric_value` / `utc_offset` → unknown key 400（strict）；`ai_analysis` 可选（`ai_analysis must not be blank` 沿用 `OptionalTrimmedNullable` / `optionalTrimmedNullable` helper）。
+9. **空白 `raw_content` 拒绝**：`raw_content must not be blank`（`RequireTrimmedText` / `requireTrimmedText`）；复盘长文可含段落换行，trim 只去首尾空白。
+
+### C. 响应与写入
+
+10. **`ai_analysis` null 时恒返回键**：`Record.ai_analysis` 是 `string | null` **非省略键**（与 `numeric_value` 的 null 省略不同）——review 响应同样显式输出 `ai_analysis: null`。
+11. **201 + `{success, record}`** 照抄 `/api/log/text`；响应 `tags` 数组 = `[review:{cadence}, ...clientTags]`，`review:{cadence}` 在最前。
+12. **`happened_at` → `utc_offset` 隐列**：`ParseHappenedAt` / `parseHappenedAt` 抽 offset 并规范化（紧凑 `+0800` → `+08:00`）。
+13. **通知**：响应后 `scheduleBestEffortNotify(() => notifyRecordInserted(record))`（全文；>4000 字符统一截断已就绪，见 §3.1）；telegram 通知输出 `ai_analysis: ...` 标签（2026-08-04 改名后口径）。
+
+### D. 双端对齐
+
+14. **Go 新增三处**：`faas/internal/reviewdraft`（`ParseReview` / `NormalizedReview` / cadence 常量）+ `faas/internal/logapi` 的 `CreateReview`（INSERT … RETURNING，**参数顺序盯紧**，与 rename 坑 #4 同类）+ `faas/internal/httpx/server.go` 路由注册 `POST /api/log/review`（ApiToken 由 `withAuth` 自动覆盖；CORS 方法表已有 POST）。
+15. **TS 新增两处**：`src/lib/reviewdraft.ts`（`LOG_REVIEW_KEYS` / `CADENCES` / `parseReview`）+ `src/app/api/log/review/route.ts`。
+16. **错误文案字节一致**：新文案 3 条（§2.3）+ 沿用 helper 文案（`raw_content must not be blank` / `ai_analysis must not be blank` / `tags must be an array of strings` / `Invalid tag: ...`）。
+
+### E. 测试矩阵
+
+17. reviewdraft 单测（TS / Go 同读共享 fixture）；route 集成（成功 201 / tags 自动附加与顺序 / `happened_at` 带区 / 通知 schedule / 全部错误路径）；Go httpx 同矩阵；契约 fixtures（`review-request-valid.json` + invalid cadence 错误样例）；`openapi/paths/log.yaml` + `ReviewCadence` / `ReviewRequest` schema。
+
+### F. 文档收尾
+
+18. `docs/20260801-api-layering.md` 的 `reviewdraft` 行「待实现」标注 → 已落地；`docs/20260804-development-log.md` 待办勾选；本文档 §9 实施计划阶段勾选。
+
+## 9. 实施计划（分阶段，每阶段门闸自洽）
 
 | 阶段 | 内容 |
 |------|------|
@@ -151,7 +189,7 @@ strict unknown-key：未知键 → 400。
 | 5 | OpenAPI + fixtures + 契约测试；review 双端集成测试 |
 | 6 | 门闸全绿（lint / typecheck / openapi:lint / unit / integration / go test） |
 
-## 9. 文档同步（2026-08-04 已完成）
+## 10. 文档同步（2026-08-04 已完成）
 
 - 根 `AGENTS.md`：暂停条款 → 指向本文档
 - `docs/20260804-scope-closure.md`：终止项 7（PATCH 删除）+ §2.7 理由；§3 review 恢复 + 保留 tag 升级为语义约定
