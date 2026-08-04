@@ -358,7 +358,12 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(res.status).toBe(201)
       const body = await res.json()
-      expect(body).toEqual({ success: true, inserted: 2 })
+      expect(body).toEqual({
+        success: true,
+        inserted: 2,
+        type: 'expense',
+        sum: '37.50',
+      })
       expect(body.records).toBeUndefined()
 
       const q = await queryRecords(jsonGet(

@@ -797,7 +797,7 @@ LogTransactionRequest:
 
 TransactionBatchSuccess:
   type: object
-  required: [success, inserted]
+  required: [success, inserted, type, sum]
   additionalProperties: false
   properties:
     success:
@@ -807,3 +807,11 @@ TransactionBatchSuccess:
       type: integer
       minimum: 1
       description: Number of rows written (equals entries.length on success)
+    type:
+      $ref: '#/TransactionType'
+      description: Shared batch type echoed back (income | expense)
+    sum:
+      $ref: '#/DecimalString'
+      description: |
+        Algebraic total of the batch amounts (fixed-point, exactly two
+        fractional digits; negative reversals net out), e.g. `"15.50"`

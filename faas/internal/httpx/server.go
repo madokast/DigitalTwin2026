@@ -354,7 +354,7 @@ func (s *Server) handleLogTransaction(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	inserted, recs, status, err := logapi.CreateTransactionBatch(r.Context(), s.Pool, raw)
+	inserted, batchType, sum, recs, status, err := logapi.CreateTransactionBatch(r.Context(), s.Pool, raw)
 	if err != nil {
 		if status >= 500 {
 			log.Printf("Error creating transaction records: %v", err)
@@ -365,7 +365,12 @@ func (s *Server) handleLogTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go s.notify().NotifyTransactionBatchInserted(recs)
-	writeJSON(w, status, map[string]any{"success": true, "inserted": inserted})
+	writeJSON(w, status, map[string]any{
+		"success":  true,
+		"inserted": inserted,
+		"type":     batchType,
+		"sum":      sum,
+	})
 }
 
 func (s *Server) handleTelegramProbe(w http.ResponseWriter, r *http.Request) {

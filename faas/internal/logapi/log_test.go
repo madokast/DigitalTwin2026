@@ -230,7 +230,7 @@ func TestCreateTextRejectsTodoReservedTag(t *testing.T) {
 
 func TestCreateTransactionBatchRejectsEmptyEntries(t *testing.T) {
 	raw := []byte(`{"happened_at":"2026-08-01T12:30:00+08:00","type":"expense","entries":[]}`)
-	_, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
+	_, _, _, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
 	if status != 400 || err == nil || err.Error() != "entries must be a non-empty array" {
 		t.Fatalf("status=%d err=%v", status, err)
 	}
@@ -242,7 +242,7 @@ func TestCreateTransactionBatchRejectsJSONNumberAmount(t *testing.T) {
 		"type": "expense",
 		"entries": [{"amount": 25, "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
-	_, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
+	_, _, _, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
 	if status != 400 {
 		t.Fatalf("status %d", status)
 	}
@@ -256,7 +256,7 @@ func TestCreateTransactionBatchRejectsMissingType(t *testing.T) {
 		"happened_at": "2026-08-01T12:30:00+08:00",
 		"entries": [{"amount": "25.00", "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
-	_, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
+	_, _, _, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
 	if status != 400 || err == nil || err.Error() != "Missing required field: type" {
 		t.Fatalf("status=%d err=%v", status, err)
 	}
@@ -268,7 +268,7 @@ func TestCreateTransactionBatchRejectsZeroAmount(t *testing.T) {
 		"type": "income",
 		"entries": [{"amount": "0.00", "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
-	_, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
+	_, _, _, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
 	if status != 400 {
 		t.Fatalf("status %d", status)
 	}

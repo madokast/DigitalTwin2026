@@ -26,7 +26,12 @@ export async function POST(request: NextRequest) {
     )
 
     return NextResponse.json(
-      { success: true, inserted: result.inserted },
+      {
+        success: true,
+        inserted: result.inserted,
+        type: result.type,
+        sum: result.sum,
+      },
       { status: result.status },
     )
   } catch (error) {

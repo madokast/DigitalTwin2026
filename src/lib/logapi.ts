@@ -38,7 +38,7 @@ import {
   type LogTodoTransitionBody,
   type TodoState,
 } from '@/lib/tododraft'
-import { parseTransactionBatch } from '@/lib/transactiondraft'
+import { parseTransactionBatch, sumMoneyAmounts2, type TransactionType } from '@/lib/transactiondraft'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
 
 export const LOG_NUMBER_KEYS = [
@@ -82,6 +82,8 @@ export type CreateRecordResult = CreateRecordOk | LogApiError
 
 export type CreateBatchOk = {
   inserted: number
+  type: TransactionType
+  sum: string
   records: Record[]
   status: 201
 }
@@ -449,7 +451,13 @@ export async function createTransactionBatch(
       }
       return rows
     })
-    return { inserted: out.length, records: out, status: 201 }
+    return {
+      inserted: out.length,
+      type: parsed.type,
+      sum: sumMoneyAmounts2(parsed.entries.map((e) => e.amount)),
+      records: out,
+      status: 201,
+    }
   } catch (err) {
     console.error('Error creating transaction records:', err)
     return { error: 'Internal server error', status: 500 }

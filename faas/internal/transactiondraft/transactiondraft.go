@@ -76,8 +76,42 @@ func IsZeroDecimalLiteral(s string) bool {
 	return true
 }
 
-// NormalizeMoneyAmount2 将已通过金额校验的字面量规范为恰好两位小数（字符串补齐，禁止 float）。
-// 例：`10` → `10.00`，`10.5` → `10.50`，`-1.5` → `-1.50`。
+// SumMoneyAmounts2 恰好两位小数字符串列表 → 代数合计（定点分，无 float；与 summary 一致）。
+// 例：["12.50","-3.00"] → "9.50"。单笔上限 999999999999.99 → 分 1e14；100 笔总量远小于 int64。
+func SumMoneyAmounts2(amounts []string) string {
+	var cents int64
+	for _, amount := range amounts {
+		cents += centsFromAmount2(amount)
+	}
+	neg := cents < 0
+	if neg {
+		cents = -cents
+	}
+	return fmt.Sprintf("%s%d.%02d", negSign(neg), cents/100, cents%100)
+}
+
+func centsFromAmount2(amount string) int64 {
+	neg := strings.HasPrefix(amount, "-")
+	body := amount
+	if neg {
+		body = amount[1:]
+	}
+	body = strings.Replace(body, ".", "", 1)
+	var v int64
+	fmt.Sscanf(body, "%d", &v)
+	if neg {
+		v = -v
+	}
+	return v
+}
+
+func negSign(neg bool) string {
+	if neg {
+		return "-"
+	}
+	return ""
+}
+
 func NormalizeMoneyAmount2(s string) string {
 	neg := strings.HasPrefix(s, "-")
 	body := s

@@ -81,6 +81,20 @@ export function normalizeMoneyAmount2(s: string): string {
   return `${neg ? '-' : ''}${intPart}.${fracPart.padEnd(2, '0')}`
 }
 
+/**
+ * 恰好两位小数字符串列表 → 代数合计（定点分，无 float；与 summary 一致）。
+ * 例：["12.50","-3.00"] → "9.50"。
+ */
+export function sumMoneyAmounts2(amounts: string[]): string {
+  let cents = 0n
+  for (const amount of amounts) {
+    cents += BigInt(amount.replace('.', ''))
+  }
+  const neg = cents < 0n
+  const abs = neg ? -cents : cents
+  return `${neg ? '-' : ''}${abs / 100n}.${(abs % 100n).toString().padStart(2, '0')}`
+}
+
 function parseType(
   raw: unknown,
 ): { ok: true; value: TransactionType } | DraftValidationError {

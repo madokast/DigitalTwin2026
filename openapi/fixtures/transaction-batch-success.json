@@ -1,4 +1,6 @@
 {
   "success": true,
-  "inserted": 2
+  "inserted": 2,
+  "type": "expense",
+  "sum": "15.50"
 }
