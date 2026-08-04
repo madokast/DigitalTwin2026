@@ -183,7 +183,8 @@ Node 全量 `npm test` 在无安全 `DATABASE_URL` 时集成自动 Skip；Go 全
 
 - **`happened_at` 读出变形**：按隐列 `utc_offset` 还原为录入时的规范时区后缀（`Z` / `±HH:MM`，`Z` ≠ `+00:00` 禁止互相折叠），秒后统一补三位毫秒——如 `2026-07-30T08:00:00+08:00` 读回为 `2026-07-30T08:00:00.000+08:00`。
 - **`utc_offset` 隐列**：仅存库（`Z` / `±HH:MM`），**对外 JSON 一律不暴露**；供读出还原带区 `happened_at`。详见 [`docs/20260803-utc-offset.md`](docs/20260803-utc-offset.md)。
-- **`value_text` 变形**：todo 创建时以 `content` 别名写入；todo transition 的**审计行**中变形为审计文案（`Complete a to-do created at …: …`），非用户原文。详见 [`docs/20260802-todo-feature.md`](docs/20260802-todo-feature.md)。
+- **待办行变形（`happened_at`→`created_at`、`value_text`→`content`）**：凡响应中的**待办行**——`GET /api/query` 的 `records[]`、`POST /api/log/todo` 的 `201.record`——键名统一变形为 `created_at` / `content`（时间值仍按 `utc_offset` 带区格式化，只改键名不改值）；**审计行始终默认形状**，export JSONL **不**变形。详见 [`docs/20260802-todo-feature.md`](docs/20260802-todo-feature.md)。
+- **`value_text` 审计行变形**：todo transition 的审计行中变形为审计文案（`Complete a to-do created at …: …`），非用户原文；待办行正文则经 `content` 别名读写（见上一条）。
 
 ## 设计文档
 
