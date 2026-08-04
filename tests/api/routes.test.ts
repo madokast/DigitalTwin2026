@@ -324,6 +324,17 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(reservedTagError('transaction_entry'))
     })
+
+    it('rejects review reserved tag (only /api/log/review can write it)', async () => {
+      const res = await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-08-01T12:30:00+08:00',
+        raw_content: 'should fail',
+        tags: ['review:weekly'],
+        objective_context: 'x',
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(reservedTagError('review:weekly'))
+    })
   })
 
   describe('POST /api/log/review', () => {
@@ -1005,6 +1016,31 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.records[0].raw_content).toBe('reviewed physics notes')
     })
 
+    it('filters by review:* tag like any other tag', async () => {
+      const created = await postReview(
+        jsonPost('http://localhost/api/log/review', {
+          happened_at: '2026-08-09T19:00:00+08:00',
+          cadence: 'monthly',
+          raw_content: 'July monthly review',
+          objective_context: 'ctx',
+        }),
+      )
+      expect(created.status).toBe(201)
+      const review = (await created.json()).record as { id: string }
+
+      const res = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=review:monthly',
+      ))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      const row = (body.records as Array<Record<string, unknown>>).find(
+        (r) => r.id === review.id,
+      )
+      expect(row).toBeTruthy()
+      expect(row!.tags).toEqual(['review:monthly'])
+      expect(row!.raw_content).toBe('July monthly review')
+    })
+
     it('fuzzy-searches with q across text fields and tags', async () => {
       await seed()
       const res = await queryRecords(jsonGet('http://localhost/api/query?q=productive'))
@@ -1439,6 +1475,29 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         raw_content: null,
         tags: '["body:weight"]',
         objective_context: 'import-reserved',
+        ai_analysis: null,
+      })
+      const res = await importRecords(
+        multipartPost('http://localhost/api/admin/import/records', line),
+      )
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({
+        success: true,
+        inserted: 1,
+        updated: 0,
+        total: 1,
+        atomic: true,
+      })
+    })
+
+    it('allows review:* on import (reserved-tag exception)', async () => {
+      const id = '01900000-0000-7000-8000-0000000000bc'
+      const line = JSON.stringify({
+        id,
+        happened_at: '2026-08-09T19:00:00+08:00',
+        raw_content: 'Imported weekly review',
+        tags: '["review:weekly"]',
+        objective_context: 'import-review',
         ai_analysis: null,
       })
       const res = await importRecords(
