@@ -134,7 +134,7 @@ npm run test:integration   # 双端一起：Node tests/api + Go httpx/dbprobe
 1. 仓库根有 `.env.test`（由 `.env.test.example` 复制而来）
 2. `.env.test` 的 `DATABASE_URL` 指向测试库：host 或库名须含 `test` / `TestDigitalTwin`——缺失 / unsafe 一律拒绝（不 wipe、不旁路）
 
-清理策略：用例后共享连接 `DELETE FROM records`，**不 DROP** schema；Node 清全表（`tests/setup.ts` 自动加载 `.env.test`），Go 按 marker 定向删（自动加载仓库根 `.env.test`）。
+跑测前自动重建表结构：可达性检查 → DROP `records` 与 `drizzle.__drizzle_migrations` → migrate 重建（与基准 migration 一致，防 schema 漂移）；Go 段 `-count=1` 禁用 go test 缓存、保证真跑；用例间共享连接 `DELETE FROM records` 清理（Node 清全表，Go 按 marker 定向删），不逐测 DROP。
 
 ### Node / Go 分开跑
 

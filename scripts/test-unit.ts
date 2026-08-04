@@ -25,9 +25,14 @@ if (nodeStatus !== 0) {
 }
 
 console.log('Running Go unit tests (go test -short ./...)...')
-const goStatus = runInherited('go', ['test', '-short', './...'], {
-  cwd: resolve(REPO_ROOT, 'faas'),
-})
+const goStatus = runInherited(
+  'go',
+  // -count=1：与 CI 一致，禁用 go test 结果缓存，保证命令永远真跑
+  ['test', '-short', '-count=1', './...'],
+  {
+    cwd: resolve(REPO_ROOT, 'faas'),
+  },
+)
 if (goStatus !== 0) {
   console.error(`Go unit tests failed (exit ${goStatus}).`)
   process.exit(goStatus)
