@@ -16,13 +16,33 @@ import (
 
 // Record matches Next JSON shape（snake_case HTTP JSON）。
 type Record struct {
-	ID                       string  `json:"id"`
-	HappenedAt               string  `json:"happened_at"`
-	NumericValue              *string `json:"numeric_value"`
-	RawContent                *string `json:"raw_content"`
-	Tags                     string  `json:"tags"`
-	ObjectiveContext         string  `json:"objective_context"`
-	SubjectiveInterpretation *string `json:"subjective_interpretation"`
+	ID                       string   `json:"id"`
+	HappenedAt               string   `json:"happened_at"`
+	NumericValue              *string  `json:"numeric_value"`
+	RawContent                *string  `json:"raw_content"`
+	Tags                     []string `json:"tags"`
+	ObjectiveContext         string   `json:"objective_context"`
+	SubjectiveInterpretation *string  `json:"subjective_interpretation"`
+}
+
+// ParseTagsField DB text 列 → tags 数组；chk_tags 保证非空 JSON 数组形，
+// parse 失败或元素非 string 时过滤（与 TS parseTagsField 对齐）。
+func ParseTagsField(tags string) []string {
+	var parsed any
+	if err := json.Unmarshal([]byte(tags), &parsed); err != nil {
+		return []string{}
+	}
+	arr, ok := parsed.([]any)
+	if !ok {
+		return []string{}
+	}
+	out := make([]string, 0, len(arr))
+	for _, item := range arr {
+		if s, ok := item.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // FormatHappenedAt 一律 UTC Z（无 offset）。**仅**作隐列损坏时 FromDB / SerializeLine 回退；
@@ -51,7 +71,7 @@ func FromDB(
 		HappenedAt:               formatted,
 		NumericValue:              numericValue,
 		RawContent:                rawContent,
-		Tags:                     tags,
+		Tags:                     ParseTagsField(tags),
 		ObjectiveContext:         objectiveContext,
 		SubjectiveInterpretation: subjectiveInterpretation,
 	}

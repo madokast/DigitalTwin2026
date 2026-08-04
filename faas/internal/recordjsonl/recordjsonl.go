@@ -16,7 +16,8 @@ import (
 // RECORD JSONL 行编解码 / 校验（与 Next src/lib/recordjsonl.ts 同构）。
 //
 // 表示层 = OpenAPI Record snake_case；禁止 Todo deform 键（created_at / content）。
-// 语义对齐 draft（时间 / 小数 / 双 null / tags 格式），但 tags 在文件中为字符串化 JSON 数组。
+// 语义对齐 draft（时间 / 小数 / 双 null / tags 格式）。tags 在文件中为 JSON **数组**
+// （与 JSON API 一致）；ParseLine 兼容旧备份的字符串化 JSON 数组。
 //
 // 不调用 tags.AssertNoReservedTags：import 须可写保留 tag；若调用方需拒绝保留 tag，
 // 自行在 ParseLine 成功后调用 AssertNoReservedTags(row.Tags)。
@@ -35,8 +36,8 @@ var RecordJSONLKeys = []string{
 // InvalidJSONLine 非法 JSON 行（与 HTTP Invalid JSON body 区分）。
 const InvalidJSONLine = "Invalid JSON line"
 
-// TagsMustBeStringifiedArray tags 误传 JSON 数组类型（Record 要求 string）。
-const TagsMustBeStringifiedArray = "tags must be a stringified JSON array"
+// InvalidTags tags 类型非法（既非字符串化 JSON 数组，也非 JSON 数组）。
+const InvalidTags = "Invalid tags"
 
 // InvalidTagsJSON tags 字符串无法 JSON.parse。
 const InvalidTagsJSON = "Invalid tags JSON"
@@ -128,22 +129,16 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 		return nil, wrapErr("numeric_value and raw_content cannot both be null", lineNumber)
 	}
 
-	switch m["tags"].(type) {
-	case []any, []string:
-		return nil, wrapErr(TagsMustBeStringifiedArray, lineNumber)
+	// tags 双兼容：字符串化 JSON 数组（旧备份）或 JSON 数组（新格式）
+	var tagsRaw any = m["tags"]
+	if tagsStr, ok := tagsRaw.(string); ok {
+		if err := json.Unmarshal([]byte(tagsStr), &tagsRaw); err != nil {
+			return nil, wrapErr(InvalidTagsJSON, lineNumber)
+		}
 	}
-	tagsStr, ok := m["tags"].(string)
+	tagList, ok := tagsRaw.([]any)
 	if !ok {
-		return nil, wrapErr(TagsMustBeStringifiedArray, lineNumber)
-	}
-
-	var tagsParsed any
-	if err := json.Unmarshal([]byte(tagsStr), &tagsParsed); err != nil {
-		return nil, wrapErr(InvalidTagsJSON, lineNumber)
-	}
-	tagList, ok := tagsParsed.([]any)
-	if !ok {
-		return nil, wrapErr(tags.ErrTagsNotJSONArray.Error(), lineNumber)
+		return nil, wrapErr(InvalidTags, lineNumber)
 	}
 	tagsOut := make([]string, 0, len(tagList))
 	for _, item := range tagList {
@@ -185,13 +180,9 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	}, nil
 }
 
-// SerializeLine 领域行 → 一行 JSONL（无尾换行；happened_at 按 utc_offset 带区；tags 字符串化）。
+// SerializeLine 领域行 → 一行 JSONL（无尾换行；happened_at 按 utc_offset 带区；tags 数组）。
 // 键序固定，与 Next serializeLine 一致。
 func SerializeLine(row *Row) (string, error) {
-	tagsJSON, err := record.TagsJSON(row.Tags)
-	if err != nil {
-		return "", err
-	}
 	happenedAt, err := utcoffset.FormatHappenedAt(row.HappenedAt, row.UtcOffset)
 	if err != nil {
 		// 隐列损坏时仍可序列化；正常路径有写入校验
@@ -202,7 +193,7 @@ func SerializeLine(row *Row) (string, error) {
 		HappenedAt:               happenedAt,
 		NumericValue:              row.NumericValue,
 		RawContent:                row.RawContent,
-		Tags:                     tagsJSON,
+		Tags:                     row.Tags,
 		ObjectiveContext:         row.ObjectiveContext,
 		SubjectiveInterpretation: row.SubjectiveInterpretation,
 	}
@@ -229,11 +220,11 @@ func SerializeRecord(rec record.Record) (string, error) {
 
 // orderedRecord 字段声明序 = JSONL 键序。
 type orderedRecord struct {
-	ID                       string  `json:"id"`
-	HappenedAt               string  `json:"happened_at"`
-	NumericValue              *string `json:"numeric_value"`
-	RawContent                *string `json:"raw_content"`
-	Tags                     string  `json:"tags"`
-	ObjectiveContext         string  `json:"objective_context"`
-	SubjectiveInterpretation *string `json:"subjective_interpretation"`
+	ID                       string   `json:"id"`
+	HappenedAt               string   `json:"happened_at"`
+	NumericValue              *string  `json:"numeric_value"`
+	RawContent                *string  `json:"raw_content"`
+	Tags                     []string `json:"tags"`
+	ObjectiveContext         string   `json:"objective_context"`
+	SubjectiveInterpretation *string  `json:"subjective_interpretation"`
 }

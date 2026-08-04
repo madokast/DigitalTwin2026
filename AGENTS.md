@@ -23,6 +23,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **`POST /api/log/review`（复盘）暂停实现**——不要落地该路由或相关 OpenAPI/代码。
 - 若对话草稿或未提交文档仍有 review 规格，**不要继续写代码**；待 JSON 蛇形统一后再议。
 
+# 范围收口（终止项）
+
+- `happened_until` 时间段、LLM 接入层（tools/MCP）、设备上报、`source:*` 元 tag、records 数值聚合、图表/可视化、import/export gzip —— **全部终止，不再开发、不再重新讨论**；历史文档以 [`docs/20260804-scope-closure.md`](docs/20260804-scope-closure.md) 为准。
+
 # 数据库
 
 - **只用标准 PostgreSQL**：不依赖任何托管商特色（Neon branching、serverless driver 等），便于日后切国内云数据库或内网实例。

@@ -60,16 +60,8 @@ func ConfigError(cfg Config) string {
 	return "Telegram is not configured (missing " + strings.Join(cfg.Missing, ", ") + ")"
 }
 
-func formatTags(tagsJSON string) string {
-	var arr []any
-	if err := json.Unmarshal([]byte(tagsJSON), &arr); err != nil {
-		return tagsJSON
-	}
-	parts := make([]string, 0, len(arr))
-	for _, v := range arr {
-		parts = append(parts, fmt.Sprint(v))
-	}
-	return strings.Join(parts, ", ")
+func formatTags(tags []string) string {
+	return strings.Join(tags, ", ")
 }
 
 // FormatRecordMessage 英文纯文本排版。
@@ -213,17 +205,9 @@ func FormatTransactionBatchMessage(rows []record.Record) string {
 }
 
 // transactionTypeFromTags 从 tags JSON 取 transaction_entry:{type}。
-func transactionTypeFromTags(tagsJSON string) string {
-	var parsed []any
-	if err := json.Unmarshal([]byte(tagsJSON), &parsed); err != nil {
-		return ""
-	}
+func transactionTypeFromTags(tagList []string) string {
 	prefix := tags.ReservedTagTransactionEntry + ":"
-	for _, item := range parsed {
-		s, ok := item.(string)
-		if !ok {
-			continue
-		}
+	for _, s := range tagList {
 		if strings.HasPrefix(s, prefix) {
 			rest := s[len(prefix):]
 			if rest != "" {

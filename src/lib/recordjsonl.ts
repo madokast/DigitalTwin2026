@@ -2,7 +2,8 @@
  * Record JSONL 行编解码 / 校验（与 Go `recordjsonl` 同构）。
  *
  * 表示层 = OpenAPI Record snake_case；禁止 Todo deform 键（created_at / content）。
- * 语义对齐 draft（时间 / 小数 / 双 null / tags 格式），但 tags 在文件中为**字符串化** JSON 数组。
+ * 语义对齐 draft（时间 / 小数 / 双 null / tags 格式）。tags 在文件中为 JSON **数组**
+ * （与 JSON API 一致）；parse 兼容旧备份的字符串化 JSON 数组。
  *
  * **不**调用 `assertNoReservedTags`：import 须可写保留 tag；若调用方（如未来非 import 路径）
  * 需拒绝保留 tag，自行在 parse 成功后调用 `assertNoReservedTags(row.tags)`。
@@ -16,11 +17,10 @@ import {
 import {
   isValidRecordId,
   INVALID_RECORD_ID,
-  tagsJSON,
   type Record as ApiRecord,
 } from '@/lib/record'
 import { formatHappenedAt } from '@/lib/utcoffset'
-import { TAGS_NOT_JSON_ARRAY, validateTags } from '@/lib/tags'
+import { validateTags } from '@/lib/tags'
 import {
   BODY_MUST_BE_OBJECT,
   rejectUnknownKeys,
@@ -41,9 +41,8 @@ export const RECORD_JSONL_KEYS = [
 /** 非法 JSON 行（与 HTTP `Invalid JSON body` 区分） */
 export const INVALID_JSON_LINE = 'Invalid JSON line'
 
-/** tags 误传 JSON 数组类型（Record 要求 string） */
-export const TAGS_MUST_BE_STRINGIFIED_ARRAY =
-  'tags must be a stringified JSON array'
+/** tags 类型非法（既非字符串化 JSON 数组，也非 JSON 数组） */
+export const INVALID_TAGS = 'Invalid tags'
 
 /** tags 字符串无法 JSON.parse */
 export const INVALID_TAGS_JSON = 'Invalid tags JSON'
@@ -160,26 +159,22 @@ export function parseLine(
     )
   }
 
-  if (Array.isArray(body.tags)) {
-    return fail(TAGS_MUST_BE_STRINGIFIED_ARRAY, lineNumber)
+  // tags 双兼容：字符串化 JSON 数组（旧备份）或 JSON 数组（新格式）
+  let tagsRaw: unknown = body.tags
+  if (typeof tagsRaw === 'string') {
+    try {
+      tagsRaw = JSON.parse(tagsRaw)
+    } catch {
+      return fail(INVALID_TAGS_JSON, lineNumber)
+    }
   }
-  if (typeof body.tags !== 'string') {
-    return fail(TAGS_MUST_BE_STRINGIFIED_ARRAY, lineNumber)
+  if (!Array.isArray(tagsRaw)) {
+    return fail(INVALID_TAGS, lineNumber)
   }
-
-  let tagsParsed: unknown
-  try {
-    tagsParsed = JSON.parse(body.tags)
-  } catch {
-    return fail(INVALID_TAGS_JSON, lineNumber)
-  }
-  if (!Array.isArray(tagsParsed)) {
-    return fail(TAGS_NOT_JSON_ARRAY, lineNumber)
-  }
-  if (!tagsParsed.every((t) => typeof t === 'string')) {
+  if (!tagsRaw.every((t) => typeof t === 'string')) {
     return fail('tags must be an array of strings', lineNumber)
   }
-  const tags = tagsParsed as string[]
+  const tags = tagsRaw as string[]
   const tagsValidation = validateTags(tags)
   if (!tagsValidation.valid) {
     return fail(tagsValidation.error ?? 'Invalid tags', lineNumber)
@@ -216,7 +211,7 @@ export function parseLine(
 }
 
 /**
- * 领域行 → 一行 JSONL（无尾换行；happened_at 按 utc_offset 带区；tags 为字符串化数组）。
+ * 领域行 → 一行 JSONL（无尾换行；happened_at 按 utc_offset 带区；tags 为数组）。
  * 键序固定，与 Go SerializeLine 一致。
  */
 export function serializeLine(row: RecordJsonlRow): string {
@@ -225,7 +220,7 @@ export function serializeLine(row: RecordJsonlRow): string {
     happened_at: formatHappenedAt(row.happenedAt, row.utcOffset),
     numeric_value: row.numericValue,
     raw_content: row.rawContent,
-    tags: tagsJSON(row.tags),
+    tags: row.tags,
     objective_context: row.objectiveContext,
     subjective_interpretation: row.subjectiveInterpretation,
   })

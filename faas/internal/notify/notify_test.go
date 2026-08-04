@@ -344,7 +344,7 @@ func TestNotifyRecordInsertedFormats(t *testing.T) {
 		ID:               "id-1",
 		HappenedAt:       "2026-07-31T12:00:00.000Z",
 		NumericValue:      &num,
-		Tags:             `["weight"]`,
+		Tags:             []string{"weight"},
 		ObjectiveContext: "Scale",
 	})
 	if !strings.Contains(body, "New record") {
@@ -378,7 +378,7 @@ func TestNotifySkipsWhenUnconfigured(t *testing.T) {
 			return ""
 		}},
 	}
-	n.NotifyRecordInserted(record.Record{ID: "x", HappenedAt: "t", Tags: `["a"]`, ObjectiveContext: "o"})
+	n.NotifyRecordInserted(record.Record{ID: "x", HappenedAt: "t", Tags: []string{"a"}, ObjectiveContext: "o"})
 	if called {
 		t.Fatal("should not call when unconfigured")
 	}

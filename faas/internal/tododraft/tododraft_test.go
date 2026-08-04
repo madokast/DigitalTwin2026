@@ -53,7 +53,7 @@ func TestToTodoRecordJSONPreservesOffset(t *testing.T) {
 		ID:               "01900000-0000-7000-8000-000000000003",
 		HappenedAt:       "2026-08-02T10:00:00.000+08:00",
 		RawContent:        strPtr("Buy milk"),
-		Tags:             `["todo:in_progress","errand"]`,
+		Tags:             []string{"todo:in_progress", "errand"},
 		ObjectiveContext: "x",
 	}
 	got := ToTodoRecordJSON(rec)

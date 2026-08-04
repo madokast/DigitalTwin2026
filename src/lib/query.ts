@@ -141,23 +141,12 @@ export type FetchResult = {
 /** GET /api/query `records[]` 元素：待办行变形，其余默认 Record */
 export type QueryRecordJson = DomainRecord | TodoRecordJson
 
-/** 解析 records.tags JSON 字符串为 string[]；非法 / 非数组 → []（不变形） */
-function tagListFromField(tagsField: string): string[] {
-  try {
-    const parsed: unknown = JSON.parse(tagsField)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((t): t is string => typeof t === 'string')
-  } catch {
-    return []
-  }
-}
-
 /**
  * 查询响应单行序列化（与 Go `query.ToQueryRecordJSON` 对齐）。
  * 查询侧略宽：至少一枚四态 tag → TodoRecord；审计行与其它行保持默认 Record。
  */
 export function toQueryRecordJson(rec: DomainRecord): QueryRecordJson {
-  if (shouldDeformTodoRecordTags(tagListFromField(rec.tags))) {
+  if (shouldDeformTodoRecordTags(rec.tags)) {
     return toTodoRecordJson(rec)
   }
   return rec

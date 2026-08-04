@@ -52,7 +52,7 @@ func TestFormatRecordMessage(t *testing.T) {
 		ID:                       "id-1",
 		HappenedAt:               "2026-07-31T12:00:00.000Z",
 		NumericValue:              &num,
-		Tags:                     `["weight","morning"]`,
+		Tags:                     []string{"weight", "morning"},
 		ObjectiveContext:         "Scale reading",
 		SubjectiveInterpretation: &subj,
 	}
@@ -75,7 +75,7 @@ func TestFormatRecordMessage(t *testing.T) {
 		ID:               "id-2",
 		HappenedAt:       "2026-07-31T13:00:00.000Z",
 		RawContent:        &text,
-		Tags:             `["run"]`,
+		Tags:             []string{"run"},
 		ObjectiveContext: "Park loop",
 	}
 	got2 := FormatRecordMessage(rec2)
@@ -87,7 +87,7 @@ func TestFormatRecordMessage(t *testing.T) {
 		ID:         "id-3",
 		HappenedAt: "2026-07-31T20:00:00.000+08:00",
 		RawContent:  &text,
-		Tags:       `["run"]`,
+		Tags:       []string{"run"},
 		ObjectiveContext: "Park loop",
 	}
 	got3 := FormatRecordMessage(offsetRec)

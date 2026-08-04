@@ -140,7 +140,7 @@ func TestToQueryRecordJSON(t *testing.T) {
 		HappenedAt:               "2026-08-02T02:00:00.000Z",
 		NumericValue:              nil,
 		RawContent:                &todoText,
-		Tags:                     `["todo:in_progress","errand"]`,
+		Tags:                     []string{"todo:in_progress", "errand"},
 		ObjectiveContext:         "weekend grocery list",
 		SubjectiveInterpretation: nil,
 	}
@@ -171,7 +171,7 @@ func TestToQueryRecordJSON(t *testing.T) {
 		ID:               "01900000-0000-7000-8000-000000000004",
 		HappenedAt:       "2026-08-02T04:00:00.000Z",
 		RawContent:        &copyText,
-		Tags:             `["todo:transition"]`,
+		Tags:             []string{"todo:transition"},
 		ObjectiveContext: "Complete a to-do 01900000-0000-7000-8000-000000000003 created at 2026-08-02T02:00:00.000Z",
 	}
 	gotAudit := ToQueryRecordJSON(audit)
@@ -194,7 +194,7 @@ func TestToQueryRecordJSON(t *testing.T) {
 	}
 
 	dirty := todo
-	dirty.Tags = `["todo:completed","todo:transition"]`
+	dirty.Tags = []string{"todo:completed", "todo:transition"}
 	gotDirty := ToQueryRecordJSON(dirty)
 	db, err := json.Marshal(gotDirty)
 	if err != nil {

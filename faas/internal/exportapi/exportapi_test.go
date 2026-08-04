@@ -56,7 +56,7 @@ func TestBuildExportNdjsonAndFilename(t *testing.T) {
 		HappenedAt:               "2026-07-30T00:00:00.000Z",
 		NumericValue:              &num,
 		RawContent:                nil,
-		Tags:                     `["weight"]`,
+		Tags:                     []string{"weight"},
 		ObjectiveContext:         "scale",
 		SubjectiveInterpretation: nil,
 	}

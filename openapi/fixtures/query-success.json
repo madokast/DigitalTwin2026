@@ -9,7 +9,9 @@
       "happened_at": "2026-07-30T08:00:00.000+08:00",
       "numeric_value": "75.5",
       "raw_content": null,
-      "tags": "[\"weight\"]",
+      "tags": [
+        "weight"
+      ],
       "objective_context": "morning weigh-in",
       "subjective_interpretation": "a bit heavy"
     }

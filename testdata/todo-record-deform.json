@@ -4,7 +4,10 @@
     "happened_at": "2026-08-02T02:00:00.000Z",
     "numeric_value": null,
     "raw_content": "Buy milk",
-    "tags": "[\"todo:in_progress\",\"errand\"]",
+    "tags": [
+      "todo:in_progress",
+      "errand"
+    ],
     "objective_context": "weekend grocery list",
     "subjective_interpretation": "need it for breakfast"
   },
@@ -13,7 +16,10 @@
     "created_at": "2026-08-02T02:00:00.000Z",
     "numeric_value": null,
     "content": "Buy milk",
-    "tags": "[\"todo:in_progress\",\"errand\"]",
+    "tags": [
+      "todo:in_progress",
+      "errand"
+    ],
     "objective_context": "weekend grocery list",
     "subjective_interpretation": "need it for breakfast"
   }

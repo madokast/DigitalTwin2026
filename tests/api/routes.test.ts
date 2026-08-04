@@ -111,7 +111,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.success).toBe(true)
       expect(body.record.numeric_value).toBe('75.5')
       expect(body.record.raw_content).toBeNull()
-      expect(body.record.tags).toBe(JSON.stringify(['weight']))
+      expect(body.record.tags).toEqual(['weight'])
       expect(body.record.objective_context).toBe('morning weigh-in')
       expect(body.record.subjective_interpretation).toBe('a bit heavy')
     })
@@ -265,7 +265,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.success).toBe(true)
       expect(body.record.raw_content).toBe('studied 50 words')
       expect(body.record.numeric_value).toBeNull()
-      expect(body.record.tags).toBe(JSON.stringify(['study', 'vocabulary']))
+      expect(body.record.tags).toEqual(['study', 'vocabulary'])
     })
 
     it('rejects reserved tag', async () => {
@@ -321,7 +321,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(q.status).toBe(200)
       const qBody = await q.json()
       expect(qBody.count).toBe(2)
-      expect(qBody.records.every((r: { tags: string }) =>
+      expect(qBody.records.every((r: { tags: string[] }) =>
         r.tags.includes('transaction_entry:expense'),
       )).toBe(true)
     })
@@ -415,7 +415,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.success).toBe(true)
       expect(body.record.numeric_value).toBe('75.50')
       expect(body.record.raw_content).toBeNull()
-      expect(body.record.tags).toBe(JSON.stringify(['body:weight', 'morning']))
+      expect(body.record.tags).toEqual(['body:weight', 'morning'])
       expect(body.record.objective_context).toBe('morning weigh-in')
     })
 
@@ -457,7 +457,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.record.content).toBe('Buy milk')
       expect(body.record.created_at).toBe('2026-08-02T10:00:00.000+08:00')
       expect(body.record.numeric_value).toBeNull()
-      expect(body.record.tags).toBe(JSON.stringify(['todo:in_progress', 'errand']))
+      expect(body.record.tags).toEqual(['todo:in_progress', 'errand'])
       expect(body.record.objective_context).toBe('weekend grocery list')
       expect(body.record).not.toHaveProperty('happened_at')
       expect(body.record).not.toHaveProperty('raw_content')
@@ -514,7 +514,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(res.status).toBe(201)
       const body = await res.json()
-      return body.record as { id: string; created_at: string; content: string; tags: string }
+      return body.record as { id: string; created_at: string; content: string; tags: string[] }
     }
 
     it('transitions in_progress → completed with 200 shape and audit row', async () => {
@@ -542,13 +542,13 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       ))
       expect(qTodo.status).toBe(200)
       const todoRows = (await qTodo.json()).records as Array<{
-        tags: string
+        tags: string[]
         created_at?: string
         content?: string
         happened_at?: string
         raw_content?: string
       }>
-      expect(todoRows[0].tags).toBe(JSON.stringify(['todo:completed', 'errand']))
+      expect(todoRows[0].tags).toEqual(['todo:completed', 'errand'])
       expect(todoRows[0].created_at).toBe(todo.created_at)
       expect(todoRows[0].content).toBe(todo.content)
       expect(todoRows[0]).not.toHaveProperty('happened_at')
@@ -559,7 +559,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       ))
       const audits = (await qAudit.json()).records as Array<{
         raw_content: string
-        tags: string
+        tags: string[]
         objective_context: string
         subjective_interpretation: string | null
         happened_at: string
@@ -572,7 +572,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
           `Complete a to-do ${todo.id} created at ${todo.created_at}`,
       )
       expect(audit).toBeTruthy()
-      expect(audit!.tags).toBe(JSON.stringify(['todo:transition']))
+      expect(audit!.tags).toEqual(['todo:transition'])
       expect(audit!.happened_at).toBe('2026-08-02T12:00:00.000+08:00')
       // §3.1：审计行 raw_content = 待办正文逐字拷贝（非合成句）
       expect(audit!.raw_content).toBe(todo.content)
@@ -1115,7 +1115,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const body = await res.json()
       expect(body.success).toBe(true)
       expect(body.record.numeric_value).toBe('76')
-      expect(body.record.tags).toBe(JSON.stringify(['weight', 'source:device']))
+      expect(body.record.tags).toEqual(['weight', 'source:device'])
       expect(body.record.objective_context).toBe('updated context')
       expect(body.record.subjective_interpretation).toBeNull()
       expect(body.record.happened_at).toBe('2026-07-30T09:30:00.000+08:00')
@@ -1483,7 +1483,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         id: string
         happened_at: string
         numeric_value: string
-        tags: string
+        tags: string[]
         objective_context: string
       }
 
@@ -1518,7 +1518,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.records[0].id).toBe(rec.id)
       expect(body.records[0].numeric_value).toBe(rec.numeric_value)
       expect(body.records[0].objective_context).toBe(rec.objective_context)
-      expect(body.records[0].tags).toBe(rec.tags)
+      expect(body.records[0].tags).toEqual(rec.tags)
       expect(body.records[0].happened_at).toBe('2026-07-30T08:00:00.000+08:00')
       expect(body.records[0]).not.toHaveProperty('utc_offset')
     })

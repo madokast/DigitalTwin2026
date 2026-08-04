@@ -12,7 +12,7 @@ export type Record = {
   happened_at: string
   numeric_value: string | null
   raw_content: string | null
-  tags: string
+  tags: string[]
   objective_context: string
   subjective_interpretation: string | null
 }
@@ -50,14 +50,14 @@ function instantOf(value: Date | string): Date {
   return new Date(value)
 }
 
-/** 与 Go `record.FromDB` 对齐：DB 行 → API Record（happened_at = 瞬间 + utc_offset） */
+/** 与 Go `record.FromDB` 对齐：DB 行 → API Record（happened_at = 瞬间 + utc_offset；tags 解析为数组） */
 export function fromDB(row: RecordRow): Record {
   return {
     id: row.id,
     happened_at: formatWithUtcOffset(instantOf(row.happenedAt), row.utcOffset),
     numeric_value: row.numericValue,
     raw_content: row.rawContent,
-    tags: row.tags,
+    tags: parseTagsField(row.tags),
     objective_context: row.objectiveContext,
     subjective_interpretation: row.subjectiveInterpretation,
   }
@@ -66,6 +66,19 @@ export function fromDB(row: RecordRow): Record {
 /** 与 Go `record.TagsJSON` 对齐：tags 数组 → JSON 字符串 */
 export function tagsJSON(tags: string[]): string {
   return JSON.stringify(tags)
+}
+
+/** DB text 列 → tags 数组；chk_tags 保证非空 JSON 数组形，parse 失败按空数组兜底 */
+export function parseTagsField(tags: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(tags)
+    if (Array.isArray(parsed)) {
+      return parsed.filter((t): t is string => typeof t === 'string')
+    }
+  } catch {
+    // fallthrough
+  }
+  return []
 }
 
 export type UpdateRecordResult =

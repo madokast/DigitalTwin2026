@@ -132,7 +132,7 @@ Record:
   type: object
   description: |
     Persisted row as returned by both backends (snake_case JSON).
-    `tags` is a stringified JSON array. `numeric_value` is a decimal string.
+    `tags` is an array of tag names; `numeric_value` is a decimal string.
   required:
     - id
     - happened_at
@@ -160,11 +160,12 @@ Record:
     raw_content:
       type: [string, 'null']
     tags:
-      type: string
-      description: JSON array of strings, stored as text
-      examples:
-        - '["weight"]'
-        - '["study","vocabulary"]'
+      $ref: '#/TagList'
+      description: |
+        Array of tag names. DB storage is a stringified JSON array; the API
+        shape is always an array. Server-stored reserved tags
+        (`transaction_entry:*`, `body:weight`, `todo:*`, …) may appear on
+        read.
     objective_context:
       type: string
     subjective_interpretation:
@@ -503,10 +504,10 @@ TodoRecord:
       minLength: 1
       description: To-do body text (stored as `raw_content`)
     tags:
-      type: string
+      $ref: '#/TagList'
       description: |
-        JSON array of strings, stored as text. Normal create shape starts
-        with `todo:in_progress`, then optional client tags.
+        Array of tag names. Normal create shape starts with `todo:in_progress`,
+        then optional client tags.
       examples:
         - '["todo:in_progress"]'
         - '["todo:in_progress","errand"]'

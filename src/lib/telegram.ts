@@ -31,11 +31,11 @@ export type TelegramConfig = {
 export type NotifyRecord = {
   id: string
   happened_at: string
-  numeric_value?: string | null
-  raw_content?: string | null
-  tags: string
+  numeric_value: string | null
+  raw_content: string | null
+  tags: string[]
   objective_context: string
-  subjective_interpretation?: string | null
+  subjective_interpretation: string | null
 }
 
 export type SendResult = { ok: true } | { ok: false; error: string }
@@ -83,18 +83,6 @@ export function configError(env: EnvLike = processEnvLike()): string | null {
   return `Telegram is not configured (missing ${cfg.missing.join(', ')})`
 }
 
-function formatTags(tagsJson: string): string {
-  try {
-    const parsed: unknown = JSON.parse(tagsJson)
-    if (Array.isArray(parsed)) {
-      return parsed.map(String).join(', ')
-    }
-  } catch {
-    // 非 JSON 时原样展示
-  }
-  return tagsJson
-}
-
 /** 英文纯文本排版，非 JSON 倾倒；时间串原样（须已 format） */
 export function formatRecordMessage(record: NotifyRecord): string {
   const lines = [
@@ -109,7 +97,7 @@ export function formatRecordMessage(record: NotifyRecord): string {
     lines.push(`raw_content: ${record.raw_content ?? ''}`)
   }
 
-  lines.push(`tags: ${formatTags(record.tags)}`)
+  lines.push(`tags: ${record.tags.join(', ')}`)
   lines.push(`objective: ${record.objective_context}`)
 
   const subj = record.subjective_interpretation
@@ -144,21 +132,15 @@ export function formatTransactionBatchMessage(rows: NotifyRecord[]): string {
   ].join('\n')
 }
 
-/** 从 tags JSON 取 transaction_entry:{type} 中的 type */
-function transactionTypeFromTags(tagsJson: string | undefined): string | null {
-  if (!tagsJson) return null
-  try {
-    const parsed: unknown = JSON.parse(tagsJson)
-    if (!Array.isArray(parsed)) return null
-    const prefix = `${RESERVED_TAG_TRANSACTION_ENTRY}:`
-    for (const item of parsed) {
-      if (typeof item === 'string' && item.startsWith(prefix)) {
-        const rest = item.slice(prefix.length)
-        if (rest) return rest
-      }
+/** 从 tags 数组取 transaction_entry:{type} 中的 type */
+function transactionTypeFromTags(tagList: string[] | undefined): string | null {
+  if (!tagList) return null
+  const prefix = `${RESERVED_TAG_TRANSACTION_ENTRY}:`
+  for (const item of tagList) {
+    if (item.startsWith(prefix)) {
+      const rest = item.slice(prefix.length)
+      if (rest) return rest
     }
-  } catch {
-    // ignore
   }
   return null
 }

@@ -83,7 +83,7 @@ describe('toQueryRecordJson', () => {
     const audit: Record = {
       ...deformFixture.inputRecord,
       raw_content: 'Buy milk',
-      tags: JSON.stringify([TODO_TAG_TRANSITION]),
+      tags: [TODO_TAG_TRANSITION],
       objective_context:
         'Complete a to-do 01900000-0000-7000-8000-000000000003 created at 2026-08-02T02:00:00.000Z',
       subjective_interpretation: null,
@@ -95,7 +95,7 @@ describe('toQueryRecordJson', () => {
 
     const dirty: Record = {
       ...deformFixture.inputRecord,
-      tags: JSON.stringify(['todo:completed', TODO_TAG_TRANSITION]),
+      tags: ['todo:completed', TODO_TAG_TRANSITION],
     }
     const dirtyJson = toQueryRecordJson(dirty)
     expect(dirtyJson).toMatchObject({

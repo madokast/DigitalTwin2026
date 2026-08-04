@@ -41,22 +41,12 @@ type Draft = {
   subjectiveInterpretation: string | null
 }
 
-function parseTags(raw: string): string[] {
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((t): t is string => typeof t === 'string')
-  } catch {
-    return []
-  }
-}
-
 function recordToDraft(record: TwinRecord, tz: string): Draft {
   return {
     happenedLocal: isoToDatetimeLocalValue(record.happened_at, tz),
     numericValue: record.numeric_value ?? '',
     rawContent: record.raw_content,
-    tags: parseTags(record.tags),
+    tags: record.tags,
     objectiveContext: record.objective_context,
     subjectiveInterpretation: record.subjective_interpretation,
   }

@@ -56,7 +56,7 @@
 | `happened_at` | 可解析为带时区时间；**写入语义对齐 draft/log**（允许 `Z` / `±HH:MM` / `±HHMM`）。读出按隐列 `utc_offset` 保留录入规范区（`Z` 与 `±HH:MM`），**不再**一律 UTC `…Z`——见 [`docs/20260803-utc-offset.md`](20260803-utc-offset.md)。文件中**无** `utc_offset` 键 |
 | `numeric_value` | decimal **字符串**或 `null`；JSON **number 类型 → 400**（详细错误） |
 | `raw_content` | `string` 或 `null` |
-| `tags` | **字符串**（JSON 数组字面量）；误传数组类型 → 400 |
+| `tags` | **JSON 数组**（与 JSON API 一致，如 `["weight"]`）；import 同时兼容旧备份的**字符串化**数组（`"[\"weight\"]"`） |
 | `objective_context` | 非空 string |
 | `subjective_interpretation` | `string` 或 `null` |
 
@@ -67,7 +67,7 @@
 | 规则 | 行为 |
 |------|------|
 | 字段完备性 / 双 null / 时间可解析 | 与 `draft` / log / Admin PATCH **写校验语义对齐** |
-| `tags` 字符串 | `JSON.parse` → `string[]` 后走 **`validateTags` / `isValidTag`**（非空、字符集） |
+| `tags` | 数组或字符串化数组（双兼容）统一 `JSON.parse` → `string[]` 后走 **`validateTags` / `isValidTag`**（非空、字符集） |
 | **保留 tag** | import **跳过** `assertNoReservedTags`（可写 `todo:*` / `transaction_entry*` / `body:weight*` 等） |
 | `id` | 合法 UUID；非法 → **400**（文案与 Admin 对齐倾向，如含 `Invalid record id`）；**不**强制 UUIDv7 |
 
@@ -323,7 +323,7 @@ BEGIN
 
 **依赖 / 可并行：** 无前置。阶段 2、3 依赖本阶段。
 
-**落地备注：** `parseLine` / `ParseLine` **不**调用 `assertNoReservedTags`（包注释已写清）；语义错误复用 draft 文案（snake_case，如 `numeric_value must be a decimal string`）；表示层错误用 snake_case 缺键 / `tags must be a stringified JSON array` / `Invalid JSON line`。
+**落地备注：** `parseLine` / `ParseLine` **不**调用 `assertNoReservedTags`（包注释已写清）；语义错误复用 draft 文案（snake_case，如 `numeric_value must be a decimal string`）；表示层错误用 snake_case 缺键 / `Invalid tags` / `Invalid JSON line`。`tags` 文件格式已统一为 JSON 数组（2026-08-04 变更），import 双兼容旧字符串化数组。
 
 ---
 

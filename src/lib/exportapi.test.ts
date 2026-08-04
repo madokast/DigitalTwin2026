@@ -14,12 +14,12 @@ import { serializeRecord } from '@/lib/recordjsonl'
 
 const sample: Record = {
   id: '01900000-0000-7000-8000-000000000001',
-  happenedAt: '2026-07-30T00:00:00.000Z',
-  numericValue: '1.5',
-  rawContent: null,
-  tags: '["weight"]',
-  objectiveContext: 'scale',
-  subjectiveInterpretation: null,
+  happened_at: '2026-07-30T00:00:00.000Z',
+  numeric_value: '1.5',
+  raw_content: null,
+  tags: ['weight'],
+  objective_context: 'scale',
+  subjective_interpretation: null,
 }
 
 describe('parseExportRecordsParams', () => {

@@ -1,6 +1,6 @@
 # DigitalTwin2026 设想（续二）
 
-> **2026-08-04 变更提示**：`value_text` / `value_number` 已全量更名为 `raw_content` / `numeric_value`，todo 审计行存储语义亦已变更（本文正文保留当时原样）。详见 [`20260804-rename-value-text-to-raw-content.md`](20260804-rename-value-text-to-raw-content.md)。
+> **2026-08-04 变更提示**：`value_text` / `value_number` 已全量更名为 `raw_content` / `numeric_value`，todo 审计行存储语义亦已变更（本文正文保留当时原样）。详见 [`20260804-rename-value-text-to-raw-content.md`](20260804-rename-value-text-to-raw-content.md)。另：§5.7 records 不做服务端聚合（保留 transaction summary 例外）、§7.10 图表与可视化（含 v2 规划）**已范围收口为不做**，见 [`20260804-scope-closure.md`](20260804-scope-closure.md)。
 
 > 创建日期：2026-07-28
 > 状态：草稿，边讨论边写

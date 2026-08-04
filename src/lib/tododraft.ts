@@ -69,7 +69,7 @@ export type TodoRecordJson = {
   created_at: string
   numeric_value: null
   content: string
-  tags: string
+  tags: string[]
   objective_context: string
   subjective_interpretation: string | null
 }

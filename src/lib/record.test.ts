@@ -118,7 +118,7 @@ describe('update (injected store)', () => {
         happened_at: '2026-07-30T10:00:00.000Z',
         numeric_value: '80.0',
         raw_content: null,
-        tags: '["weight"]',
+        tags: ['weight'],
         objective_context: 'morning',
         subjective_interpretation: null,
       },

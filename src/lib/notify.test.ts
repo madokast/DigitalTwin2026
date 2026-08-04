@@ -48,7 +48,7 @@ const sampleNumber = {
   happened_at: '2026-07-31T12:00:00.000Z',
   numeric_value: '72.5',
   raw_content: null,
-  tags: JSON.stringify(['weight', 'morning']),
+  tags: ['weight', 'morning'],
   objective_context: 'Scale reading',
   subjective_interpretation: 'Feeling lighter',
 }

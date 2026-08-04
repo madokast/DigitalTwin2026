@@ -255,14 +255,6 @@ export type TransitionTodoOk = {
 }
 export type TransitionTodoResult = TransitionTodoOk | LogApiError
 
-function parseTagsList(tagsField: string): string[] {
-  const parsed: unknown = JSON.parse(tagsField)
-  if (!Array.isArray(parsed)) {
-    throw new Error('tags field is not a JSON array')
-  }
-  return parsed.filter((t): t is string => typeof t === 'string')
-}
-
 /**
  * 与 Go `logapi.TransitionTodo` 对齐：同事务 UPDATE 状态 tag + INSERT 审计。
  */
@@ -288,13 +280,7 @@ export async function transitionTodo(
     }
 
     const todoRec = fromDB(existing[0])
-    let tagList: string[]
-    try {
-      tagList = parseTagsList(todoRec.tags)
-    } catch {
-      console.error('Error parsing to-do tags for transition')
-      return { error: 'Internal server error', status: 500 }
-    }
+    const tagList = todoRec.tags
 
     if (isTodoAuditRecordTags(tagList)) {
       return { error: ERR_AUDIT_TRANSITION, status: 400 }

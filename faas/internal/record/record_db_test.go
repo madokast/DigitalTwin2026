@@ -119,7 +119,7 @@ func TestUpdate_successMapsReturning(t *testing.T) {
 	if rec.NumericValue == nil || *rec.NumericValue != "80.0" {
 		t.Fatalf("numericValue=%v", rec.NumericValue)
 	}
-	if rec.Tags != `["weight"]` || rec.ObjectiveContext != "morning" {
+	if len(rec.Tags) != 1 || rec.Tags[0] != "weight" || rec.ObjectiveContext != "morning" {
 		t.Fatalf("rec=%+v", rec)
 	}
 	// args: happenedAt, utcOffset, numericValue, rawContent, tagsJSON, objective, subjective, id

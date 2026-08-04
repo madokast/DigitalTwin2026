@@ -193,29 +193,10 @@ type FetchResult struct {
 	Records  []record.Record
 }
 
-// tagStringsFromField 解析 records.tags；非法 / 非数组 → nil（不变形）。
-func tagStringsFromField(tagsField string) []string {
-	var parsed any
-	if err := json.Unmarshal([]byte(tagsField), &parsed); err != nil {
-		return nil
-	}
-	arr, ok := parsed.([]any)
-	if !ok {
-		return nil
-	}
-	out := make([]string, 0, len(arr))
-	for _, item := range arr {
-		if s, ok := item.(string); ok {
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
 // ToQueryRecordJSON 查询响应单行序列化（与 Next toQueryRecordJson 对齐）。
 // 查询侧略宽：至少一枚四态 tag → TodoRecordJSON；审计行与其它行保持默认 Record。
 func ToQueryRecordJSON(rec record.Record) any {
-	if tododraft.ShouldDeformTodoRecordTags(tagStringsFromField(rec.Tags)) {
+	if tododraft.ShouldDeformTodoRecordTags(rec.Tags) {
 		return tododraft.ToTodoRecordJSON(rec)
 	}
 	return rec

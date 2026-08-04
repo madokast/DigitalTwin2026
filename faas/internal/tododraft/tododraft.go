@@ -59,7 +59,7 @@ type TodoRecordJSON struct {
 	CreatedAt                string  `json:"created_at"`
 	NumericValue              *string `json:"numeric_value"`
 	Content                  string  `json:"content"`
-	Tags                     string  `json:"tags"`
+	Tags                     []string `json:"tags"`
 	ObjectiveContext         string  `json:"objective_context"`
 	SubjectiveInterpretation *string `json:"subjective_interpretation"`
 }
