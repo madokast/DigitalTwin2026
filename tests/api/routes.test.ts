@@ -968,7 +968,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'follow-up weigh-in',
       }))
 
-      const res = await queryTags(jsonGet('http://localhost/api/query/tags'))
+      const res = await queryTags()
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.success).toBe(true)
@@ -982,7 +982,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
 
     it('returns empty tags object when there are no records', async () => {
-      const res = await queryTags(jsonGet('http://localhost/api/query/tags'))
+      const res = await queryTags()
       expect(res.status).toBe(200)
       await expect(res.json()).resolves.toEqual({ success: true, tags: {} })
     })
@@ -1035,7 +1035,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(200)
       await expect(res.json()).resolves.toEqual({ success: true, updated: 2 })
 
-      const tagsRes = await queryTags(jsonGet('http://localhost/api/query/tags'))
+      const tagsRes = await queryTags()
       const body = await tagsRes.json()
       expect(body.tags).toEqual({
         morning: 1,

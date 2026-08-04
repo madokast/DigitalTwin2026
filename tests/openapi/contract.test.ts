@@ -29,7 +29,7 @@ describe('OpenAPI contract (Phase 2)', () => {
     await assertValidSchema('RecordSuccess', numberOk)
     await assertValidSchema('RecordSuccess', textOk)
 
-    const numRec = (numberOk as { record: { happened_at: string; numericValue: string } })
+    const numRec = (numberOk as { record: { happened_at: string; numeric_value: string } })
       .record
     expect(numRec.happened_at).toMatch(HAPPENED_AT_OUTPUT)
     expect(numRec.numeric_value).toMatch(NUMERIC_VALUE_DECIMAL)

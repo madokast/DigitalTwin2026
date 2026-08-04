@@ -16,7 +16,7 @@ import { loadTestEnv, REPO_ROOT, TEST_ENV_FILE } from './lib/test-env'
 
 loadTestEnv({ override: true })
 
-const url = process.env.DATABASE_URL?.trim()
+const url = process.env.DATABASE_URL?.trim() ?? ''
 if (!url) {
   console.error(
     `DATABASE_URL is required for API integration tests. ${SAFE_TEST_DATABASE_HINT}`,

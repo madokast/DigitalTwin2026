@@ -7,7 +7,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const limit = vi.fn()
 const where = vi.fn(() => ({ limit }))
 const from = vi.fn(() => ({ where }))
-const select = vi.fn(() => ({ from }))
+const select = vi.fn<(...args: unknown[]) => { from: typeof from }>(
+  () => ({ from }),
+)
 
 const txWhere = vi.fn().mockResolvedValue({ count: 1 })
 const txSet = vi.fn(() => ({ where: txWhere }))
@@ -15,8 +17,11 @@ const txUpdate = vi.fn(() => ({ set: txSet }))
 const txValues = vi.fn().mockResolvedValue(undefined)
 const txInsert = vi.fn(() => ({ values: txValues }))
 const transaction = vi.fn(
-  async (fn: (tx: { update: typeof txUpdate; insert: typeof txInsert }) => Promise<void>) =>
-    fn({ update: txUpdate, insert: txInsert }),
+  async (...args: unknown[]) =>
+    (args[0] as (tx: { update: typeof txUpdate; insert: typeof txInsert }) => Promise<void>)({
+      update: txUpdate,
+      insert: txInsert,
+    }),
 )
 
 vi.mock('@/db', () => ({

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Interface as ReadlineInterface } from 'node:readline'
+import type { SpawnSyncOptions } from 'node:child_process'
 
 vi.mock('./lib/cli-prompt', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./lib/cli-prompt')>()
@@ -134,14 +135,16 @@ describe('promptDbMigrateIfNeeded', () => {
 
 describe('runDbMigrate', () => {
   it('runs npm run db:migrate with DATABASE_URL in child env (does not print URL)', () => {
-    const run = vi.fn(() => 0)
+    const run = vi.fn<
+      (cmd: string, args: string[], opts?: SpawnSyncOptions) => number
+    >(() => 0)
     runDbMigrate('postgres://secret-prod-url', { run })
 
     expect(run).toHaveBeenCalledTimes(1)
     const [cmd, args, opts] = run.mock.calls[0]!
     expect(cmd).toBe('npm')
     expect(args).toEqual(['run', 'db:migrate'])
-    expect(opts.env?.DATABASE_URL).toBe('postgres://secret-prod-url')
+    expect(opts?.env?.DATABASE_URL).toBe('postgres://secret-prod-url')
   })
 
   it('non-zero exit → throws English error', () => {
