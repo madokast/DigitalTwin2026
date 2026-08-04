@@ -199,3 +199,27 @@ func TestImportRecordsRejectsOversizedNonFilePart(t *testing.T) {
 		t.Fatalf("error %v", errBody)
 	}
 }
+
+// D5：文本 part 名为 file → Go 视作 filename="" / CT="" → 400 unsupported Content-Type
+// （与 Next route 对齐：非 file-required 文案）。
+func TestImportRecordsTextPartNamedFile(t *testing.T) {
+	h := importTestServer().Handler()
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+	_ = w.WriteField("file", `{"id":"01900000-0000-7000-8000-000000000001","happened_at":"2026-07-30T00:00:00.000Z","value_number":"1","tags":["weight"],"objective_context":"x"}`)
+	_ = w.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/import/records", &b)
+	req.Header.Set("Authorization", "Bearer admin-tok")
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var errBody map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &errBody)
+	if errBody["error"] != importapi.ErrUnsupportedFileContentType.Error() {
+		t.Fatalf("error %v", errBody)
+	}
+}

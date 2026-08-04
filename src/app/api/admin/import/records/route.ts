@@ -81,8 +81,10 @@ export async function POST(request: NextRequest) {
 
     const part = parts[0]
     if (typeof part === 'string' || part == null) {
+      // 与 Go 对齐（实测）：文本 part 名为 file → Go 视作 filename="" / CT="" →
+      // IsAcceptedImportFilePart 拒绝 → unsupported file Content-Type（非 file-required）
       return NextResponse.json(
-        { error: MULTIPART_FILE_REQUIRED },
+        { error: UNSUPPORTED_FILE_CONTENT_TYPE },
         { status: 400 },
       )
     }

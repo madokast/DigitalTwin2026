@@ -118,4 +118,18 @@ describe('POST /api/admin/import/records non-file part size gate', () => {
       error: 'multipart form field "file" is required',
     })
   })
+
+  it('text part named file → 400 unsupported Content-Type (Go: filename=/CT= empty)', async () => {
+    const res = await importRecords(
+      rawPost(
+        multipartContentType(),
+        multipartBody([{ name: 'file', value: '{"line":1}' }]),
+      ),
+    )
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error:
+        'unsupported file Content-Type; use application/x-ndjson, application/jsonl, or application/octet-stream with a .jsonl filename',
+    })
+  })
 })
