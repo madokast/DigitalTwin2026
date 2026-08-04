@@ -396,6 +396,31 @@ func TestLogTextRejectsReservedTag(t *testing.T) {
 	}
 }
 
+func TestLogNumberRejectsWhitespacePaddedTag(t *testing.T) {
+	h := testServer().Handler()
+	for _, bad := range []string{" weight", "weight ", " weight ", "体重"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
+			"happened_at": "2026-08-01T12:30:00+08:00",
+			"numeric_value": "1",
+			"tags": ["`+bad+`"],
+			"objective_context": "x",
+			"raw_content": "x"
+		}`))
+		req.Header.Set("Authorization", "Bearer ai-tok")
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if rr.Code != 400 {
+			t.Fatalf("%q: status %d body %s", bad, rr.Code, rr.Body.String())
+		}
+		var body map[string]string
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		if !strings.Contains(body["error"], "Invalid tag") {
+			t.Fatalf("%q: error %v", bad, body["error"])
+		}
+	}
+}
+
 func TestLogNumberRejectsBodyWeightReservedTag(t *testing.T) {
 	h := testServer().Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
