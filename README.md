@@ -114,33 +114,40 @@ npm run db:check      # 验证表结构
 
 ## 测试
 
-**对外主命令（日常只用这两个）**：
+### 单元测试（无 DB，秒级）
 
 ```bash
-npm run test:unit         # 双端单元测 + 无 DB 契约测；不加载 .env.test，无需数据库
-npm run test:integration  # 双端 API 集成测：Node tests/api + Go httpx/dbprobe
-                          # 读 .env.test；无合法 DATABASE_URL 时直接报错（不 Skip）
+npm run test:unit   # 双端一起：Node + Go
 ```
 
-- `test:unit` = Node `vitest run --exclude 'tests/api/**'`（src/lib、src/proxy、OpenAPI 契约 fixtures）+ Go `go test -short ./...`。
-- `test:integration` 门闸为**安全** `DATABASE_URL`（host 或库名须含 `test` / `TestDigitalTwin`）：缺失 / unsafe 一律 fail-fast 报错退出（不 Skip、不 wipe、不旁路）。
+- Node：`npx vitest run --exclude 'tests/api/**'`（`src/lib`、`src/proxy`、scripts 等）
+- Go：`cd faas && go test -short ./...`（`-short` 为 Go 单测专属入口，跳过全部 DB 集成）
+- 含双端契约 fixtures（`tests/openapi`、`faas/internal/contract`）
 
-**参考命令**（需要单独跑某一段时）：
+### 集成测试（连真实 PG）
 
 ```bash
-npm test                              # Node 全量：单元 + tests/api（有安全 DATABASE_URL 时含集成，否则 Skip）
-npx vitest run tests/api              # 仅 Node API 集成测
-cd faas && go test ./...              # Go 全量：单元 + DB 集成（自动加载仓库根 .env.test）
-cd faas && go test -short ./...       # 仅 Go 单元测
-cd faas && go test ./internal/httpx/ ./internal/dbprobe/   # 仅 Go DB 集成测
-cd faas && go test ./internal/contract/                    # 仅 Go 契约
-npm run test:openapi                  # 仅 Node 契约 fixture
-npm run openapi:lint                  # Redocly 校验 openapi.yaml（改 API 时必跑）
-npm run openapi:preview               # 生成 Redoc 静态页 openapi/redoc-static.html
-npm run test:watch                    # vitest watch
+npm run test:integration   # 双端一起：Node tests/api + Go httpx/dbprobe
 ```
 
-Node 端 `.env.test` 由 `tests/setup.ts` 自动加载（覆盖环境变量）；Go 同语义（`faas/internal/db/testenv.go`：`.env.test` 优先于环境变量；`go test -short` 为 Go 单测专属入口）。API 集成测连真实 PG（migrate → 用例后共享连接 `DELETE FROM records`，对齐 Go 用 DELETE 而非每测 `TRUNCATE`+新建连接；Node 因全表断言 / transaction 批量不回传 id 而清全表，Go 冒烟按 marker 定向删；**不再 DROP** schema）。CI 默认可跑单元测；配置 GitHub secrets `DATABASE_URL`（及可选 Token）可启用 CI 集成测 job（CI 检出不含 `.env.test`，Go 集成自动 Skip）。契约测与 DB 无关，见 `openapi/README.md`。
+前置要求（不满足直接报错退出，不 Skip）：
+1. 仓库根有 `.env.test`（由 `.env.test.example` 复制而来）
+2. `.env.test` 的 `DATABASE_URL` 指向测试库：host 或库名须含 `test` / `TestDigitalTwin`——缺失 / unsafe 一律拒绝（不 wipe、不旁路）
+
+清理策略：用例后共享连接 `DELETE FROM records`，**不 DROP** schema；Node 清全表（`tests/setup.ts` 自动加载 `.env.test`），Go 按 marker 定向删（自动加载仓库根 `.env.test`）。
+
+### Node / Go 分开跑
+
+| 侧 | 单元测（无 DB） | 集成测 | 全量 |
+|--|--|--|--|
+| Node | `npx vitest run --exclude 'tests/api/**'` | `npx vitest run tests/api` | `npm test` |
+| Go（faas/ 下） | `go test -short ./...` | `go test ./internal/httpx/ ./internal/dbprobe/` | `go test ./...` |
+
+Node 全量 `npm test` 在无安全 `DATABASE_URL` 时集成自动 Skip；Go 全量 `go test ./...` 同理（CI 检出无 `.env.test`，集成自动 Skip）。
+
+### OpenAPI 契约（与测试分开，见 [`openapi/README.md`](openapi/README.md)）
+
+`npm run openapi:lint`（Redocly 校验）、`npm run test:openapi`（契约 fixtures）、`npm run openapi:preview`（Redoc 静态页）——改 API 的完整流程见 AGENTS.md。
 
 ## 项目结构
 
