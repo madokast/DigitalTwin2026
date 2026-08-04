@@ -1,7 +1,7 @@
 # DigitalTwin2026：双后端（Next / Go FaaS）API 一致性审计与差异清单
 
 > 创建日期：2026-08-03  
-> 状态：**部分修复**（D1、D2、D2' 已于 2026-08-04 修复；其余差异未修复）  
+> 状态：**已全部修复**（D1、D2、D2'、D3–D8 均已于 2026-08-04 修复；仅存 1 处已注释的不可对齐点——见 D4）  
 > 性质：audit 记录；修复前必读，改动双端时对照本清单逐一收敛
 
 > 相关：[`docs/20260801-api-layering.md`](20260801-api-layering.md)（分层同构规范）、[`AGENTS.md`](../AGENTS.md)（双后端必须同时维护）、[`openapi/openapi.yaml`](../openapi/openapi.yaml)（契约基准）
@@ -72,16 +72,18 @@
 
 ---
 
-## 3. 代码层面差异（未逐一实测；同为低优先边界）
+## 3. 代码层面差异（低优先边界；2026-08-04 全部修复）
 
-| # | 严重度 | 场景 | Next | Go | 位置 |
-|---|--------|------|------|-----|------|
-| D3 | 低-中 | import multipart 缺 boundary | **500** `Internal server error`（formData 抛错落 catch） | **400** `ErrMultipartContentType` | `src/app/api/admin/import/records/route.ts:32,95-100` vs `faas/internal/httpx/server.go:666-670` |
-| D4 | 低 | import 非 file part 超 4MiB | 无 per-part 上限（可能 200） | **400** `ErrMultipartPartTooLarge` | route.ts vs server.go:690-699 |
-| D5 | 低 | import 文本 part 名为 `file` | 400 `multipart form field "file" is required` | 400 `Invalid JSON line`（文案不同） | route.ts:48-53 vs server.go:722-725 |
-| D6 | 低 | transaction summary 脏数据金额字面量 | 严格正则，不匹配**跳过该行** | `big.Rat.SetString` 接受前导零 / 科学计数，**计入聚合** | `src/lib/query.ts:334-348` vs `faas/internal/query/query.go:597-600`（正常写入路径不产生此类数据） |
-| D7 | 低 | todo transition UPDATE 影响行数 | 不校验（SELECT 与 UPDATE 间记录被删仍 200 + 插审计行） | `RowsAffected() != 1` → **500** | `src/lib/logapi.ts:314-329` vs `faas/internal/logapi/todo.go:176-178`（并发竞态） |
-| D8 | 低 | db/probe 连接超时 | `connect_timeout: 15` | 无显式 ConnectTimeout | `src/lib/dbprobe.ts:49-53` vs `faas/internal/dbprobe/dbprobe.go:44`（不可达 DB 时等待时长不同） |
+| # | 严重度 | 场景 | 修复前 Next | 修复前 Go | 修复后（2026-08-04） | 不可对齐点 |
+|---|--------|------|------|-----|------|------------|
+| D3 | 低-中 | import multipart 缺 boundary | **500** `Internal server error`（formData 抛错落 catch） | **400** `ErrMultipartContentType` | 双端 400 同文案：Next 前置 `extractMultipartBoundary` 检查 + formData 抛错转 400 | 无 |
+| D4 | 低 | import 非 file part 超 4MiB | 无 per-part 上限（可能 200） | **400** `ErrMultipartPartTooLarge` | 双端 400 同文案：Next 对非 file entries 按字节数检查（TextEncoder） | **有**：Go 用 `LimitReader` 流式截断，Next 须先整体缓冲 `formData` 再检查——状态码 / 文案一致，内存占用特性不同（route.ts 已注释） |
+| D5 | 低 | import 文本 part 名为 `file` | 400 `multipart form field "file" is required` | 实测为 400 `unsupported file Content-Type`（审计原记 "Invalid JSON line" 不准确） | 双端 400 同文案：Next 对齐 Go「filename="" / CT="" → unsupported」 | 无 |
+| D6 | 低 | transaction summary 脏数据金额字面量 | 严格正则，不匹配**跳过该行** | `big.Rat.SetString` 接受前导零 / 科学计数，**计入聚合** | 双端同规则：Go 复用 `draft.ValidateDecimalString`（无前导零 / 科学计数 / 分数 / +；int≤28、frac≤10），非法跳过该行；共享 fixture `dirty-amount-skipped` 双端同测 | 无 |
+| D7 | 低 | todo transition UPDATE 影响行数 | 不校验（SELECT 与 UPDATE 间记录被删仍 200 + 插审计行） | `RowsAffected() != 1` → **500** | 双端 500 同文案 `todo update affected N rows`：Next 检查 drizzle update `res.count`，≠1 回滚不插审计行 | 无 |
+| D8 | 低 | db/probe 连接超时 | `connect_timeout: 15` | 无显式 ConnectTimeout（依赖 OS TCP 超时） | 双端 15s：Go `ConnectTimeout` 常量 + `ConnectConfig` | 无 |
+
+> D5 更正：2026-08-04 实测 Go 对「文本 part 名为 file」返回 `ErrUnsupportedFileContentType`（filename="" / CT=""），非审计时记录的 `Invalid JSON line`——以实测为准。
 
 ---
 
@@ -96,13 +98,13 @@
 
 ---
 
-## 5. 后续修复建议（未实施）
+## 5. 后续修复建议（已全部实施，2026-08-04）
 
-1. **D1（已完成，2026-08-04）**：Next probe 将 `JSON.parse` 失败（含尾部垃圾）改为 400 `Invalid JSON body`（对齐 Go 的 `RejectUnknownObjectKeys` 流程），避免静默真发消息；契约同步至 OpenAPI，双端加测试。
-2. **D2/D2'（已完成，2026-08-04）**：统一 `httpjson.ts` 对顶层 `null`/数组/字面量的处理为 Go 的 `Request body must be a JSON object`（400），删除错误的「Go zero-value」注释并修正实现陷阱（重导出会致绑定失效被 catch 吞掉）。
-3. **D3–D5**：import 边界对齐（缺 boundary → 400、per-part 上限、文本 file part 文案统一）。
-4. **D6–D8**：视需要对齐（脏数据解析、并发竞态校验、连接超时）。
-5. 每项修复需同步更新 OpenAPI fixtures（如契约钉死这些边界）并双端加测试。
+1. **D1（已完成）**：Next probe 将 `JSON.parse` 失败（含尾部垃圾）改为 400 `Invalid JSON body`（对齐 Go 的 `RejectUnknownObjectKeys` 流程），避免静默真发消息；契约同步至 OpenAPI，双端加测试。
+2. **D2/D2'（已完成）**：统一 `httpjson.ts` 对顶层 `null`/数组/字面量的处理为 Go 的 `Request body must be a JSON object`（400），删除错误的「Go zero-value」注释并修正实现陷阱（重导出会致绑定失效被 catch 吞掉）。
+3. **D3–D5（已完成）**：import 边界对齐（缺 boundary → 400、非 file part 4MiB 上限、文本 file part 统一为 unsupported Content-Type）；D4 的「Go 流式截断 vs Next 整体缓冲」差异已在 route.ts 注释明确。
+4. **D6–D8（已完成）**：脏金额字面量（Go 复用 `ValidateDecimalString`，共享 fixture 双端同测）、todo transition 影响行数校验（双端 500 同文案）、db/probe 连接超时 15s 对齐。
+5. 每项修复均同步双端测试；OpenAPI fixtures 未受影响（这些边界未在契约中钉死具体文案，仅 400 通用 Error schema）。
 
 ---
 
