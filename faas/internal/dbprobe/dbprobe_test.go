@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -41,13 +40,9 @@ func TestProbeConnectFailure(t *testing.T) {
 
 // 有安全 DATABASE_URL 时真实连库；无则 Skip；unsafe 则 Fatal（与 httpx integration 一致）。
 func TestProbeIntegration(t *testing.T) {
-	url := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if url == "" {
-		t.Skip("DATABASE_URL not set; skipping dbprobe integration. " + db.TestDatabaseURLHint)
-	}
-	if err := db.AssertSafeTestDatabaseURL(url); err != nil {
-		t.Fatalf("%v", err)
-	}
+	url := db.TestDatabaseURL(t)
+	// Probe 从传入的 env 函数读 DATABASE_URL；.env.test 自动加载只作用于门闸，须显式注入
+	t.Setenv("DATABASE_URL", url)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	res, status, errMsg := Probe(ctx, os.Getenv)

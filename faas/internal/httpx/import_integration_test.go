@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -44,13 +43,9 @@ func buildImportMultipartBytes(t *testing.T, filename, contentType, content stri
 }
 
 func TestImportRecordsIntegration(t *testing.T) {
-	url := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if url == "" {
-		t.Skip("DATABASE_URL not set; skipping Go import integration test. " + db.TestDatabaseURLHint)
-	}
-	if err := db.AssertSafeTestDatabaseURL(url); err != nil {
-		t.Fatalf("%v", err)
-	}
+	url := db.TestDatabaseURL(t)
+	// db.Open 内部读 env DATABASE_URL；.env.test 自动加载只作用于门闸，须显式注入
+	t.Setenv("DATABASE_URL", url)
 
 	ctx := context.Background()
 	pool, err := db.Open(ctx)
