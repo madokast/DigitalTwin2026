@@ -180,14 +180,14 @@ strict unknown-key：未知键 → 400。
 
 ## 9. 实施计划（分阶段，每阶段门闸自洽）
 
-| 阶段 | 内容 |
-|------|------|
-| 1 | 保留 tag 双端：`RESERVED_TAG_PREFIXES` + Go `tags` 增 `review`，hint 文案；`tags.test.ts` / Go 测试补用例 |
-| 2 | `reviewdraft` 双端（键集 / cadence 枚举 / 校验 / 自动附加 tag 组装） |
-| 3 | `route.ts` + Go handler + 路由注册 + 通知（全文；超 4000 字符截断，见 §3.1） |
-| 4 | PATCH 删除：双端路由 / handler / OpenAPI 路径 / 前端编辑 UI / 测试全部移除（已完成） |
-| 5 | OpenAPI + fixtures + 契约测试；review 双端集成测试 |
-| 6 | 门闸全绿（lint / typecheck / openapi:lint / unit / integration / go test） |
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| 1 | 保留 tag 双端：`RESERVED_TAG_PREFIXES` + Go `tags` 增 `review`，hint 文案；`tags.test.ts` / Go 测试补用例 | ✅ 已完成 |
+| 2 | `reviewdraft` 双端（键集 / cadence 枚举 / 校验 / 自动附加 tag 组装） | ✅ 已完成 |
+| 3 | `route.ts` + Go handler + 路由注册 + 通知（全文；超 4000 字符截断，见 §3.1） | ✅ 已完成 |
+| 4 | PATCH 删除：双端路由 / handler / OpenAPI 路径 / 前端编辑 UI / 测试全部移除 | ✅ 已完成 |
+| 5 | OpenAPI + fixtures + 契约测试；review 双端集成测试 | ✅ 已完成 |
+| 6 | 门闸全绿（lint / typecheck / openapi:lint / unit / integration / go test） | ✅ 已完成 |
 
 ## 10. 文档同步（2026-08-04 已完成）
 

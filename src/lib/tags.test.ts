@@ -73,6 +73,10 @@ describe('reserved tags', () => {
     expect(isReservedTag('todo:in_progress')).toBe(true)
     expect(isReservedTag('todo:completed')).toBe(true)
     expect(isReservedTag('todolist')).toBe(false)
+    expect(isReservedTag('review')).toBe(true)
+    expect(isReservedTag('review:weekly')).toBe(true)
+    expect(isReservedTag('review:weekly:extra')).toBe(true)
+    expect(isReservedTag('reviewpoint')).toBe(false)
     expect(isReservedTag('weight')).toBe(false)
   })
 
@@ -101,11 +105,20 @@ describe('reserved tags', () => {
       valid: false,
       error: reservedTagError('todo:in_progress'),
     })
+    expect(assertNoReservedTags(['review'])).toEqual({
+      valid: false,
+      error: reservedTagError('review'),
+    })
+    expect(assertNoReservedTags(['review:weekly'])).toEqual({
+      valid: false,
+      error: reservedTagError('review:weekly'),
+    })
     expect(assertNoReservedTags(['weight'])).toEqual({ valid: true })
     expect(assertNoReservedTags(['transaction_entrypoint'])).toEqual({
       valid: true,
     })
     expect(assertNoReservedTags(['todolist'])).toEqual({ valid: true })
+    expect(assertNoReservedTags(['reviewpoint'])).toEqual({ valid: true })
   })
 
   it('reservedTagError picks path by matched prefix', () => {
@@ -123,6 +136,12 @@ describe('reserved tags', () => {
     )
     expect(reservedTagError('todo:in_progress')).toBe(
       'tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries',
+    )
+    expect(reservedTagError('review')).toBe(
+      'tag "review" is reserved; use POST /api/log/review for review records',
+    )
+    expect(reservedTagError('review:weekly')).toBe(
+      'tag "review:weekly" is reserved; use POST /api/log/review for review records',
     )
   })
 })
@@ -224,6 +243,14 @@ describe('validateRename', () => {
     expect(validateRename('errand', 'todo:in_progress')).toEqual({
       valid: false,
       error: reservedTagError('todo:in_progress'),
+    })
+    expect(validateRename('review', 'insight')).toEqual({
+      valid: false,
+      error: reservedTagError('review'),
+    })
+    expect(validateRename('insight', 'review:weekly')).toEqual({
+      valid: false,
+      error: reservedTagError('review:weekly'),
     })
   })
 

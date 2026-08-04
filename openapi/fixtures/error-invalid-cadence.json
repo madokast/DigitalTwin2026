@@ -1,0 +1,3 @@
+{
+  "error": "Invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly"
+}

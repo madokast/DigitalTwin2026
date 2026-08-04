@@ -39,6 +39,11 @@ import {
   type TodoState,
 } from '@/lib/tododraft'
 import { parseTransactionBatch, sumMoneyAmounts2, type TransactionType } from '@/lib/transactiondraft'
+import {
+  parseReview,
+  reviewTagsForCadence,
+  type LogReviewBody,
+} from '@/lib/reviewdraft'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
 
 export const LOG_NUMBER_KEYS = [
@@ -412,6 +417,36 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     return { record, status: 201 }
   } catch (err) {
     console.error('Error creating text record:', err)
+    return { error: 'Internal server error', status: 500 }
+  }
+}
+
+/**
+ * 与 Go `logapi.CreateReview` 对齐：解析委托 `parseReview`，
+ * 落库 tags = `[review:{cadence}, ...clientTags]`（自动附加，客户端不得传 `review:*`）。
+ */
+export async function createReview(
+  body: unknown,
+): Promise<CreateRecordResult> {
+  const parsed = parseReview(body as LogReviewBody)
+  if ('error' in parsed) {
+    return { error: parsed.error, status: 400 }
+  }
+
+  try {
+    const record = await insertReturning(db, {
+      id: uuidv7(),
+      happenedAt: parsed.happenedAt,
+      utcOffset: parsed.utcOffset,
+      numericValue: null,
+      rawContent: parsed.rawContent,
+      tags: tagsJSON(reviewTagsForCadence(parsed.cadence, parsed.tags)),
+      objectiveContext: parsed.objectiveContext,
+      aiAnalysis: parsed.aiAnalysis,
+    })
+    return { record, status: 201 }
+  } catch (err) {
+    console.error('Error creating review record:', err)
     return { error: 'Internal server error', status: 500 }
   }
 }

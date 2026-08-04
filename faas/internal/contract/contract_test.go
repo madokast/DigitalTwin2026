@@ -97,6 +97,8 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"log-todo-transition-request-valid.json", "LogTodoTransitionRequest"},
 		{"todo-transition-success.json", "TodoTransitionSuccess"},
 		{"log-text-request-valid.json", "LogTextRequest"},
+		{"review-request-valid.json", "ReviewRequest"},
+		{"error-invalid-cadence.json", "Error"},
 		{"tags-success.json", "TagsSuccess"},
 		{"rename-tags-request-valid.json", "RenameTagsRequest"},
 		{"rename-tags-success.json", "RenameTagsSuccess"},

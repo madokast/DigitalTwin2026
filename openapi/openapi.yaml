@@ -59,6 +59,8 @@ paths:
     $ref: './paths/log.yaml#/~1api~1log~1todo~1transition'
   /api/log/text:
     $ref: './paths/log.yaml#/~1api~1log~1text'
+  /api/log/review:
+    $ref: './paths/log.yaml#/~1api~1log~1review'
   /api/log/transaction:
     $ref: './paths/log.yaml#/~1api~1log~1transaction'
   /api/telegram/probe:
@@ -176,6 +178,10 @@ components:
       $ref: './components/schemas.yaml#/LogTodoRequest'
     LogTodoTransitionRequest:
       $ref: './components/schemas.yaml#/LogTodoTransitionRequest'
+    ReviewCadence:
+      $ref: './components/schemas.yaml#/ReviewCadence'
+    ReviewRequest:
+      $ref: './components/schemas.yaml#/ReviewRequest'
     TodoTransitionSuccess:
       $ref: './components/schemas.yaml#/TodoTransitionSuccess'
     LogTextRequest:

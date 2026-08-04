@@ -5,6 +5,7 @@ import { POST as postBodyWeight } from '@/app/api/log/body/weight/route'
 import { POST as postTodo } from '@/app/api/log/todo/route'
 import { POST as postTodoTransition } from '@/app/api/log/todo/transition/route'
 import { POST as postText } from '@/app/api/log/text/route'
+import { POST as postReview } from '@/app/api/log/review/route'
 import { POST as postTransaction } from '@/app/api/log/transaction/route'
 import { GET as queryRecords } from '@/app/api/query/route'
 import { GET as querySummary } from '@/app/api/query/summary/route'
@@ -322,6 +323,109 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(reservedTagError('transaction_entry'))
+    })
+  })
+
+  describe('POST /api/log/review', () => {
+    const validReview = {
+      happened_at: '2026-08-09T19:00:00+08:00',
+      cadence: 'weekly',
+      raw_content: 'This week I slept better and finished the report.',
+      objective_context: 'Weekly review covering 2026-08-03..2026-08-09',
+      ai_analysis: 'Deeper work in the morning helped.',
+      tags: ['work'],
+    }
+
+    it('creates a weekly review with auto-attached review tag', async () => {
+      const res = await postReview(jsonPost('http://localhost/api/log/review', validReview))
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body.success).toBe(true)
+      expect(body.record.tags).toEqual(['review:weekly', 'work'])
+      expect(body.record.raw_content).toBe(validReview.raw_content)
+      expect(body.record.ai_analysis).toBe(validReview.ai_analysis)
+      expect(body.record.happened_at).toBe('2026-08-09T19:00:00.000+08:00')
+      expect(body.record).not.toHaveProperty('numeric_value')
+    })
+
+    it('auto-attaches review tag with empty client tags', async () => {
+      const res = await postReview(
+        jsonPost('http://localhost/api/log/review', {
+          ...validReview,
+          tags: [],
+        }),
+      )
+      expect(res.status).toBe(201)
+      expect((await res.json()).record.tags).toEqual(['review:weekly'])
+    })
+
+    it('accepts semiannually cadence', async () => {
+      const res = await postReview(
+        jsonPost('http://localhost/api/log/review', {
+          ...validReview,
+          cadence: 'semiannually',
+        }),
+      )
+      expect(res.status).toBe(201)
+      expect((await res.json()).record.tags).toEqual(['review:semiannually', 'work'])
+    })
+
+    it('rejects missing cadence', async () => {
+      const { cadence: _omit, ...withoutCadence } = validReview
+      void _omit
+      const res = await postReview(
+        jsonPost('http://localhost/api/log/review', withoutCadence),
+      )
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('Missing required field: cadence')
+    })
+
+    it('rejects invalid cadence with all allowed values', async () => {
+      for (const cadence of ['WEEKLY', ' weekly', 'weekly2']) {
+        const res = await postReview(
+          jsonPost('http://localhost/api/log/review', {
+            ...validReview,
+            cadence,
+          }),
+        )
+        expect(res.status, cadence).toBe(400)
+        expect((await res.json()).error).toBe(
+          'Invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly',
+        )
+      }
+    })
+
+    it('rejects client-provided review reserved tag', async () => {
+      const res = await postReview(
+        jsonPost('http://localhost/api/log/review', {
+          ...validReview,
+          tags: ['review:weekly'],
+        }),
+      )
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(reservedTagError('review:weekly'))
+    })
+
+    it('rejects numeric_value as unknown key', async () => {
+      const res = await postReview(
+        jsonPost('http://localhost/api/log/review', {
+          ...validReview,
+          numeric_value: '1',
+        }),
+      )
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('Unknown JSON key: numeric_value')
+    })
+
+    it('rejects blank raw_content', async () => {
+      const res = await postReview(
+        jsonPost('http://localhost/api/log/review', {
+          ...validReview,
+          raw_content: '   ',
+        }),
+      )
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('raw_content must not be blank')
     })
   })
 

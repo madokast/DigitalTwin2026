@@ -71,6 +71,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/log/todo", s.handleLogTodo)
 	mux.HandleFunc("POST /api/log/todo/transition", s.handleLogTodoTransition)
 	mux.HandleFunc("POST /api/log/text", s.handleLogText)
+	mux.HandleFunc("POST /api/log/review", s.handleLogReview)
 	mux.HandleFunc("POST /api/log/transaction", s.handleLogTransaction)
 	mux.HandleFunc("POST /api/telegram/probe", s.handleTelegramProbe)
 	mux.HandleFunc("POST /api/qqbot/probe", s.handleQqbotProbe)
@@ -326,6 +327,25 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 			"to":   result.To,
 		},
 	})
+}
+
+func (s *Server) handleLogReview(w http.ResponseWriter, r *http.Request) {
+	raw, ok := readBodyOrError(w, r)
+	if !ok {
+		return
+	}
+	rec, status, err := logapi.CreateReview(r.Context(), s.Pool, raw)
+	if err != nil {
+		if status >= 500 {
+			log.Printf("Error creating review record: %v", err)
+			writeInternalError(w, err)
+			return
+		}
+		writeError(w, status, err.Error())
+		return
+	}
+	go s.notify().NotifyRecordInserted(rec)
+	writeJSON(w, status, map[string]any{"success": true, "record": rec})
 }
 
 func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {

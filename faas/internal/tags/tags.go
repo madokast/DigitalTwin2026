@@ -18,19 +18,21 @@ var tagPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$
 // ReservedTagPrefixes 保留 tag **前缀**列表（非仅精确匹配）。
 // 某 tag 视为保留当且仅当：tag == P 或 strings.HasPrefix(tag, P+":")
 // （冒号边界，避免误伤 transaction_entrypoint）。
-// 当前 P：transaction_entry、body:weight、todo。
+// 当前 P：transaction_entry、body:weight、todo、review。
 // 仅专用 API 可写入带此前缀的 tag；通用 log / Admin 草稿 / rename 的 from/to 均拒绝。
-var ReservedTagPrefixes = []string{"transaction_entry", "body:weight", "todo"}
+var ReservedTagPrefixes = []string{"transaction_entry", "body:weight", "todo", "review"}
 
 const ReservedTagTransactionEntry = "transaction_entry"
 const ReservedTagBodyWeight = "body:weight"
 const ReservedTagTodo = "todo"
+const ReservedTagReview = "review"
 
 // reservedTagHints 按前缀指向专用写入路径（与 TS reservedTagError 同句）。
 var reservedTagHints = map[string]string{
 	ReservedTagTransactionEntry: "use POST /api/log/transaction for transaction line entries",
 	ReservedTagBodyWeight:       "use POST /api/log/body/weight for body weight entries",
 	ReservedTagTodo:             "use POST /api/log/todo for to-do entries",
+	ReservedTagReview:           "use POST /api/log/review for review records",
 }
 
 // ErrTagsNotJSONArray 与 TS TAGS_NOT_JSON_ARRAY 同文案：根不是 JSON 数组。

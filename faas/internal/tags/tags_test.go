@@ -68,6 +68,18 @@ func TestAssertNoReservedTags(t *testing.T) {
 	if IsReservedTag("todolist") {
 		t.Fatal("colon boundary: todolist must not be reserved")
 	}
+	if !IsReservedTag("review") {
+		t.Fatal("expected review reserved")
+	}
+	if !IsReservedTag("review:weekly") {
+		t.Fatal("expected review:weekly reserved")
+	}
+	if !IsReservedTag("review:weekly:extra") {
+		t.Fatal("expected review:weekly:extra reserved")
+	}
+	if IsReservedTag("reviewpoint") {
+		t.Fatal("colon boundary: reviewpoint must not be reserved")
+	}
 	r := AssertNoReservedTags([]string{"weight", "transaction_entry"})
 	if r.Valid || r.Error != ReservedTagError("transaction_entry") {
 		t.Fatalf("%+v", r)
@@ -88,6 +100,14 @@ func TestAssertNoReservedTags(t *testing.T) {
 	if r.Valid || r.Error != ReservedTagError("todo:in_progress") {
 		t.Fatalf("%+v", r)
 	}
+	r = AssertNoReservedTags([]string{"review"})
+	if r.Valid || r.Error != ReservedTagError("review") {
+		t.Fatalf("%+v", r)
+	}
+	r = AssertNoReservedTags([]string{"review:weekly"})
+	if r.Valid || r.Error != ReservedTagError("review:weekly") {
+		t.Fatalf("%+v", r)
+	}
 	if r := AssertNoReservedTags([]string{"weight"}); !r.Valid {
 		t.Fatalf("%+v", r)
 	}
@@ -95,6 +115,9 @@ func TestAssertNoReservedTags(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 	if r := AssertNoReservedTags([]string{"todolist"}); !r.Valid {
+		t.Fatalf("%+v", r)
+	}
+	if r := AssertNoReservedTags([]string{"reviewpoint"}); !r.Valid {
 		t.Fatalf("%+v", r)
 	}
 
@@ -113,6 +136,14 @@ func TestAssertNoReservedTags(t *testing.T) {
 	wantTodoPrefixed := `tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries`
 	if ReservedTagError("todo:in_progress") != wantTodoPrefixed {
 		t.Fatalf("todo prefixed hint: %q", ReservedTagError("todo:in_progress"))
+	}
+	wantReview := `tag "review" is reserved; use POST /api/log/review for review records`
+	if ReservedTagError("review") != wantReview {
+		t.Fatalf("review hint: %q", ReservedTagError("review"))
+	}
+	wantReviewPrefixed := `tag "review:weekly" is reserved; use POST /api/log/review for review records`
+	if ReservedTagError("review:weekly") != wantReviewPrefixed {
+		t.Fatalf("review prefixed hint: %q", ReservedTagError("review:weekly"))
 	}
 }
 

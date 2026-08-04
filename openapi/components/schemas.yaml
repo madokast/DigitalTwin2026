@@ -581,6 +581,50 @@ LogTodoRequest:
         Optional extra non-reserved tags (e.g. `errand`). Omitted or `[]`
         → only `todo:in_progress` is stored.
 
+ReviewCadence:
+  type: string
+  description: |
+    Review period literal (strict lowercase; not trimmed). `cadence` is
+    required; missing / null / non-string → `Missing required field: cadence`;
+    any other value → `Invalid cadence: must be one of daily, weekly, monthly,
+    quarterly, semiannually, yearly`.
+  enum: [daily, weekly, monthly, quarterly, semiannually, yearly]
+  examples: [daily, weekly, monthly, quarterly, semiannually, yearly]
+
+ReviewRequest:
+  type: object
+  required: [happened_at, cadence, raw_content, objective_context]
+  additionalProperties: false
+  description: |
+    Create one review record. `cadence` is a required enum; the server stores
+    tags with `review:{cadence}` first, then any optional client `tags`.
+    Clients must not send `review` / `review:*` tags (reserved) or
+    `numeric_value` / `utc_offset` (unknown keys → 400).
+  properties:
+    happened_at:
+      $ref: '#/HappenedAtInput'
+    cadence:
+      $ref: '#/ReviewCadence'
+    raw_content:
+      type: string
+      minLength: 1
+      description: Review full text (may contain paragraphs/newlines)
+    objective_context:
+      type: string
+      minLength: 1
+    ai_analysis:
+      type: string
+      description: |
+        Optional; empty / omitted / null → null. Non-string JSON → 400
+        (`Invalid ai_analysis`).
+    tags:
+      type: array
+      items:
+        $ref: '#/TagName'
+      description: |
+        Optional extra non-reserved tags (e.g. `work`). Omitted or `[]`
+        → only `review:{cadence}` is stored.
+
 LogTodoTransitionRequest:
   type: object
   required: [id, target, happened_at]

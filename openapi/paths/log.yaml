@@ -225,6 +225,53 @@
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
+/api/log/review:
+  post:
+    operationId: logReview
+    tags: [log]
+    summary: Create a review record
+    description: |
+      Inserts a text record with `raw_content` set and `numeric_value` null.
+      Required `cadence` enum (`daily` | `weekly` | `monthly` | `quarterly`
+      | `semiannually` | `yearly`); the server always prepends reserved tag
+      `review:{cadence}` (optional client `tags` follow). Clients must not
+      send `review` / `review:*` tags (reserved prefix) nor `numeric_value` /
+      `utc_offset` (unknown keys → 400). Review records are ordinary records
+      queryable via `GET /api/query?tag=review:{cadence}`.
+      On success, notification via notify_user is always scheduled
+      (best-effort) and does not change the 201 response.
+      Auth: ApiToken (AI token or Admin token).
+    security:
+      - ApiToken: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/ReviewRequest'
+          example:
+            happened_at: '2026-08-09T19:00:00+08:00'
+            cadence: weekly
+            raw_content: This week I slept better and finished the report.
+            objective_context: Weekly review covering 2026-08-03..2026-08-09
+            ai_analysis: Deeper work in the morning helped.
+            tags: [work]
+    responses:
+      '201':
+        description: Record created
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/RecordSuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
 /api/log/transaction:
   post:
     operationId: logTransaction

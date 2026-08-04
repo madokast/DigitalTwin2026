@@ -1,0 +1,14 @@
+{
+  "cadences": [
+    "daily",
+    "weekly",
+    "monthly",
+    "quarterly",
+    "semiannually",
+    "yearly"
+  ],
+  "missing_message": "Missing required field: cadence",
+  "invalid_message": "Invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly",
+  "missing": [null, "", 123],
+  "invalid": ["WEEKLY", " Weekly", "weekly ", "weekly2", "month", "Daily", "semiannual"]
+}

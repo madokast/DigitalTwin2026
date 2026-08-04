@@ -391,6 +391,143 @@ func TestLogTextRejectsReservedTag(t *testing.T) {
 	}
 }
 
+func TestLogTextRejectsReviewReservedTag(t *testing.T) {
+	h := testServer().Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/log/text", strings.NewReader(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"raw_content": "should fail",
+		"tags": ["review:weekly"],
+		"objective_context": "x"
+	}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	want := `tag "review:weekly" is reserved; use POST /api/log/review for review records`
+	if body["error"] != want {
+		t.Fatalf("error: %v", body)
+	}
+}
+
+func TestLogReviewRejectsMissingCadence(t *testing.T) {
+	h := testServer().Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/log/review", strings.NewReader(`{
+		"happened_at": "2026-08-09T19:00:00+08:00",
+		"raw_content": "x",
+		"objective_context": "ctx"
+	}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["error"] != "Missing required field: cadence" {
+		t.Fatalf("error: %v", body)
+	}
+}
+
+func TestLogReviewRejectsInvalidCadence(t *testing.T) {
+	h := testServer().Handler()
+	for _, cadence := range []string{"WEEKLY", " weekly", "weekly2"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/log/review", strings.NewReader(`{
+			"happened_at": "2026-08-09T19:00:00+08:00",
+			"cadence": "`+cadence+`",
+			"raw_content": "x",
+			"objective_context": "ctx"
+		}`))
+		req.Header.Set("Authorization", "Bearer ai-tok")
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if rr.Code != 400 {
+			t.Fatalf("%q: status %d body %s", cadence, rr.Code, rr.Body.String())
+		}
+		var body map[string]string
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		if body["error"] != "Invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly" {
+			t.Fatalf("%q: error %v", cadence, body)
+		}
+	}
+}
+
+func TestLogReviewRejectsReservedTag(t *testing.T) {
+	h := testServer().Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/log/review", strings.NewReader(`{
+		"happened_at": "2026-08-09T19:00:00+08:00",
+		"cadence": "weekly",
+		"raw_content": "x",
+		"objective_context": "ctx",
+		"tags": ["review:weekly"]
+	}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	want := `tag "review:weekly" is reserved; use POST /api/log/review for review records`
+	if body["error"] != want {
+		t.Fatalf("error: %v", body)
+	}
+}
+
+func TestLogReviewRejectsUnknownKey(t *testing.T) {
+	h := testServer().Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/log/review", strings.NewReader(`{
+		"happened_at": "2026-08-09T19:00:00+08:00",
+		"cadence": "weekly",
+		"raw_content": "x",
+		"objective_context": "ctx",
+		"numeric_value": "1"
+	}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["error"] != "Unknown JSON key: numeric_value" {
+		t.Fatalf("error: %v", body)
+	}
+}
+
+func TestLogReviewRejectsBlankRawContent(t *testing.T) {
+	h := testServer().Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/log/review", strings.NewReader(`{
+		"happened_at": "2026-08-09T19:00:00+08:00",
+		"cadence": "weekly",
+		"raw_content": "   ",
+		"objective_context": "ctx"
+	}`))
+	req.Header.Set("Authorization", "Bearer ai-tok")
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["error"] != "raw_content must not be blank" {
+		t.Fatalf("error: %v", body)
+	}
+}
+
 func TestLogNumberRejectsWhitespacePaddedTag(t *testing.T) {
 	h := testServer().Handler()
 	for _, bad := range []string{" weight", "weight ", " weight ", "体重"} {

@@ -20,13 +20,14 @@ export function isValidTag(tag: string): boolean {
  * 保留 tag **前缀**列表（非仅精确匹配）。
  * 某 tag 视为保留当且仅当：`tag === P` 或 `tag.startsWith(P + ":")`
  *（冒号边界，避免误伤 `transaction_entrypoint`）。
- * 当前 P：`transaction_entry`、`body:weight`、`todo`。
+ * 当前 P：`transaction_entry`、`body:weight`、`todo`、`review`。
  * 仅专用 API 可写入带此前缀的 tag；通用 log / Admin 草稿 / rename 的 from/to 均拒绝。
  */
 export const RESERVED_TAG_PREFIXES = [
   'transaction_entry',
   'body:weight',
   'todo',
+  'review',
 ] as const
 
 export type ReservedTagPrefix = (typeof RESERVED_TAG_PREFIXES)[number]
@@ -34,6 +35,7 @@ export type ReservedTagPrefix = (typeof RESERVED_TAG_PREFIXES)[number]
 export const RESERVED_TAG_TRANSACTION_ENTRY: ReservedTagPrefix = 'transaction_entry'
 export const RESERVED_TAG_BODY_WEIGHT: ReservedTagPrefix = 'body:weight'
 export const RESERVED_TAG_TODO: ReservedTagPrefix = 'todo'
+export const RESERVED_TAG_REVIEW: ReservedTagPrefix = 'review'
 
 /** 按前缀指向专用写入路径（与 Go ReservedTagError 同句） */
 const RESERVED_TAG_HINTS: Record<ReservedTagPrefix, string> = {
@@ -41,6 +43,7 @@ const RESERVED_TAG_HINTS: Record<ReservedTagPrefix, string> = {
     'use POST /api/log/transaction for transaction line entries',
   'body:weight': 'use POST /api/log/body/weight for body weight entries',
   todo: 'use POST /api/log/todo for to-do entries',
+  review: 'use POST /api/log/review for review records',
 }
 
 /** 组装落库用的类型 tag：`transaction_entry:income` / `transaction_entry:expense` */

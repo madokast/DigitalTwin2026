@@ -76,6 +76,14 @@ describe('OpenAPI contract (Phase 2)', () => {
     await assertValidSchema('Error', readFixture('error-import-duplicate-id.json'))
     await assertValidSchema('Error', readFixture('error-import-multipart.json'))
     await assertValidSchema(
+      'ReviewRequest',
+      readFixture('review-request-valid.json'),
+    )
+    await assertValidSchema(
+      'Error',
+      readFixture('error-invalid-cadence.json'),
+    )
+    await assertValidSchema(
       'Error',
       readFixture('error-import-non-file-part-too-large.json'),
     )
