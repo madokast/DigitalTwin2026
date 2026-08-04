@@ -1,11 +1,14 @@
 package notify
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -19,6 +22,65 @@ import (
 func TestMain(m *testing.M) {
 	_ = os.Setenv("SUPPRESS_BOT_NOTIFICATION", "1")
 	os.Exit(m.Run())
+}
+
+type truncateCases struct {
+	MaxLen int `json:"max_len"`
+	Suffix string `json:"suffix"`
+	Cases  []struct {
+		Name      string `json:"name"`
+		Length    int    `json:"length"`
+		CJK       bool   `json:"cjk"`
+		Truncated bool   `json:"truncated"`
+	} `json:"cases"`
+}
+
+func loadTruncateCases(t *testing.T) truncateCases {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
+	b, err := os.ReadFile(filepath.Join(root, "testdata", "notify-truncate-cases.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cases truncateCases
+	if err := json.Unmarshal(b, &cases); err != nil {
+		t.Fatal(err)
+	}
+	return cases
+}
+
+func TestTruncateNotifyMessage(t *testing.T) {
+	cases := loadTruncateCases(t)
+	if NotifyMessageMaxLen != cases.MaxLen || NotifyTruncationSuffix != cases.Suffix {
+		t.Fatalf("constants mismatch fixture: len=%d suffix=%q", cases.MaxLen, cases.Suffix)
+	}
+	for _, tc := range cases.Cases {
+		unit := "a"
+		if tc.CJK {
+			unit = "字"
+		}
+		input := strings.Repeat(unit, tc.Length)
+		out := TruncateNotifyMessage(input)
+		if !tc.Truncated {
+			if out != input {
+				t.Fatalf("%s: want unchanged", tc.Name)
+			}
+			continue
+		}
+		if len([]rune(out)) != NotifyMessageMaxLen {
+			t.Fatalf("%s: len=%d want %d", tc.Name, len([]rune(out)), NotifyMessageMaxLen)
+		}
+		if !strings.HasSuffix(out, NotifyTruncationSuffix) {
+			t.Fatalf("%s: missing suffix", tc.Name)
+		}
+		if !strings.HasPrefix(out, strings.Repeat(unit, 10)) {
+			t.Fatalf("%s: missing head", tc.Name)
+		}
+	}
 }
 
 func TestShouldSuppressBotNotification(t *testing.T) {

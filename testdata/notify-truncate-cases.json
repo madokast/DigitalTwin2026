@@ -1,0 +1,12 @@
+{
+  "max_len": 4000,
+  "suffix": "\n… (truncated)",
+  "cases": [
+    { "name": "short_ascii", "length": 10, "cjk": false, "truncated": false },
+    { "name": "exact_max_ascii", "length": 4000, "cjk": false, "truncated": false },
+    { "name": "just_over_ascii", "length": 4001, "cjk": false, "truncated": true },
+    { "name": "long_ascii", "length": 5000, "cjk": false, "truncated": true },
+    { "name": "short_cjk", "length": 10, "cjk": true, "truncated": false },
+    { "name": "long_cjk", "length": 5000, "cjk": true, "truncated": true }
+  ]
+}

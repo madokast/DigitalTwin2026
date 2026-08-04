@@ -67,7 +67,7 @@ daily | weekly | monthly | quarterly | semiannually | yearly
 | 方法 / 路径 | `POST /api/log/review` |
 | 鉴权 | ApiToken（`verifyApiAccess`，与 `/api/log/*` 一致） |
 | 成功 | `201`，`{ success: true, record: Record }`（与 `/api/log/text` 同包络） |
-| 通知 | 写成功即 `scheduleBestEffortNotify(() => notifyRecordInserted(record))`（**全文**，不截断不摘要） |
+| 通知 | 写成功即 `scheduleBestEffortNotify(() => notifyRecordInserted(record))`（**全文**；>4000 字符由通知层统一截断——`notify_user` / `NotifyUser` 入口，全类型共用，保留前 3987 字符 + `\n… (truncated)`，总长 4000，Telegram 4096 / QQ 同类留余量；共享 fixture `testdata/notify-truncate-cases.json`） |
 
 ### 3.2 键集（`LOG_REVIEW_KEYS`，不复用 `RECORD_DRAFT_KEYS`）
 
@@ -148,7 +148,7 @@ strict unknown-key：未知键 → 400。
 |------|------|
 | 1 | 保留 tag 双端：`RESERVED_TAG_PREFIXES` + Go `tags` 增 `review`，hint 文案；`tags.test.ts` / Go 测试补用例 |
 | 2 | `reviewdraft` 双端（键集 / cadence 枚举 / 校验 / 自动附加 tag 组装） |
-| 3 | `route.ts` + Go handler + 路由注册 + 通知（全文） |
+| 3 | `route.ts` + Go handler + 路由注册 + 通知（全文；超 4000 字符截断，见 §3.1） |
 | 4 | PATCH 废弃：双端 410 + OpenAPI + 前端编辑 UI 移除（详情页只读、表格入口删除、`patchRecord` 清理） |
 | 5 | OpenAPI + fixtures + 契约测试；review 双端集成测试 |
 | 6 | 门闸全绿（lint / typecheck / openapi:lint / unit / integration / go test） |

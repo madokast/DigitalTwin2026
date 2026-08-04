@@ -1,15 +1,62 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
+  NOTIFY_MESSAGE_MAX_LEN,
+  NOTIFY_TRUNCATION_SUFFIX,
   notify_user,
   notifyRecordInserted,
   scheduleBestEffortNotify,
   shouldSuppressBotNotification,
+  truncateNotifyMessage,
 } from './notify'
 import { clearAccessTokenCacheForTests } from './qqbot'
 
 afterEach(() => {
   clearAccessTokenCacheForTests()
   vi.restoreAllMocks()
+})
+
+const truncateCases = JSON.parse(
+  readFileSync(
+    path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../testdata/notify-truncate-cases.json',
+    ),
+    'utf8',
+  ),
+) as {
+  max_len: number
+  suffix: string
+  cases: Array<{
+    name: string
+    length: number
+    cjk: boolean
+    truncated: boolean
+  }>
+}
+
+describe('truncateNotifyMessage', () => {
+  it('constants stay byte-identical to Go notify', () => {
+    expect(NOTIFY_MESSAGE_MAX_LEN).toBe(truncateCases.max_len)
+    expect(NOTIFY_TRUNCATION_SUFFIX).toBe(truncateCases.suffix)
+  })
+
+  it('passes shared fixtures', () => {
+    for (const tc of truncateCases.cases) {
+      const unit = tc.cjk ? '字' : 'a'
+      const input = unit.repeat(tc.length)
+      const out = truncateNotifyMessage(input)
+      if (!tc.truncated) {
+        expect(out, tc.name).toBe(input)
+        continue
+      }
+      expect(out.length, tc.name).toBe(NOTIFY_MESSAGE_MAX_LEN)
+      expect(out.endsWith(NOTIFY_TRUNCATION_SUFFIX), tc.name).toBe(true)
+      expect(out.startsWith(unit.repeat(10)), tc.name).toBe(true)
+    }
+  })
 })
 
 describe('shouldSuppressBotNotification', () => {
@@ -105,6 +152,29 @@ describe('notify_user', () => {
     })
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0][0]).toContain('api.telegram.org')
+  })
+
+  it('truncates overlong text before sending to any channel', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    })
+    const long = 'a'.repeat(5000)
+    await notify_user(long, {
+      env: {
+        TELEGRAM_BOT_TOKEN: 'tok',
+        TELEGRAM_USER_ID: '9',
+        SUPPRESS_BOT_NOTIFICATION: '0',
+      },
+      fetch: fetchMock,
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1].body)) as {
+      text: string
+    }
+    expect(body.text.length).toBe(NOTIFY_MESSAGE_MAX_LEN)
+    expect(body.text.endsWith(NOTIFY_TRUNCATION_SUFFIX)).toBe(true)
   })
 
   it('sends QQ only when only QQ is configured', async () => {

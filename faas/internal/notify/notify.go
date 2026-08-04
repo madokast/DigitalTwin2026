@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
@@ -15,6 +16,30 @@ import (
 
 // ParallelTimeout 双渠道并行等待上限（与 Next NOTIFY_PARALLEL_TIMEOUT_MS 对齐）。
 const ParallelTimeout = 15 * time.Second
+
+// NotifyMessageMaxLen 单条通知文本长度上限（字符）。Telegram sendMessage 上限
+// 4096（UTF-16 code units），QQ 同类；统一留余量截断，防止长文（如复盘全文）
+// 被渠道拒收。与 Next NOTIFY_MESSAGE_MAX_LEN 同值。
+const NotifyMessageMaxLen = 4000
+
+// NotifyTruncationSuffix 截断尾部标记（英文，用户可见）。
+const NotifyTruncationSuffix = "\n… (truncated)"
+
+// TruncateNotifyMessage 通知文本统一截断：≤上限原样；超出 → 保留前
+// (maxLen − suffix) 字符 + 后缀，总长恰为 maxLen。
+// 按 rune 计数（中文与 Next UTF-16 计长一致；仅 BMP 外代理对边界近似）。
+// 与 Next truncateNotifyMessage 同构；边界样例见 testdata/notify-truncate-cases.json。
+func TruncateNotifyMessage(text string) string {
+	if utf8.RuneCountInString(text) <= NotifyMessageMaxLen {
+		return text
+	}
+	keep := NotifyMessageMaxLen - utf8.RuneCountInString(NotifyTruncationSuffix)
+	if keep < 0 {
+		keep = 0
+	}
+	runes := []rune(text)
+	return string(runes[:keep]) + NotifyTruncationSuffix
+}
 
 // Notifier 聚合 Telegram / QQ 渠道；可注入便于单测。
 type Notifier struct {
@@ -113,6 +138,9 @@ func (n *Notifier) NotifyUser(text string) {
 	if ShouldSuppressBotNotification(getenv) {
 		return
 	}
+
+	// 统一截断：保护各渠道长度限制（Telegram 4096 等），先截断再分发
+	text = TruncateNotifyMessage(text)
 
 	tg := n.telegramSender()
 	qq := n.qqbotSender()

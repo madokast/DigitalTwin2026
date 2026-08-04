@@ -22,6 +22,27 @@ import {
 /** 双渠道并行等待上限（与单渠道 HTTP 超时同量级） */
 export const NOTIFY_PARALLEL_TIMEOUT_MS = 15_000
 
+/**
+ * 单条通知文本长度上限（字符）。Telegram sendMessage 上限 4096（UTF-16
+ * code units），QQ 同类；统一留余量截断，防止长文（如复盘全文）被渠道拒收。
+ * 与 Go notify.NotifyMessageMaxLen 同值。
+ */
+export const NOTIFY_MESSAGE_MAX_LEN = 4000
+
+/** 截断尾部标记（英文，用户可见） */
+export const NOTIFY_TRUNCATION_SUFFIX = '\n… (truncated)'
+
+/**
+ * 通知文本统一截断：≤上限原样；超出 → 保留前 (maxLen − suffix) 字符 + 后缀，
+ * 总长恰为 maxLen。UTF-16 code unit 计长（与 Telegram 同计法）。
+ * 与 Go notify.TruncateNotifyMessage 同构；边界样例见 testdata/notify-truncate-cases.json。
+ */
+export function truncateNotifyMessage(text: string): string {
+  if (text.length <= NOTIFY_MESSAGE_MAX_LEN) return text
+  const keep = NOTIFY_MESSAGE_MAX_LEN - NOTIFY_TRUNCATION_SUFFIX.length
+  return text.slice(0, keep) + NOTIFY_TRUNCATION_SUFFIX
+}
+
 export type EnvLike = TelegramEnvLike &
   QqbotEnvLike & {
     SUPPRESS_BOT_NOTIFICATION?: string
@@ -93,6 +114,9 @@ export async function notify_user(
     return
   }
 
+  // 统一截断：保护各渠道长度限制（Telegram 4096 等），先截断再分发
+  const message = truncateNotifyMessage(text)
+
   const fetchFn = options?.fetch
   const timeoutMs = options?.timeoutMs ?? NOTIFY_PARALLEL_TIMEOUT_MS
   const tasks: Promise<void>[] = []
@@ -100,7 +124,7 @@ export async function notify_user(
   if (isTelegramConfigured(env)) {
     tasks.push(
       (async () => {
-        const result = await sendTelegramMessage(text, {
+        const result = await sendTelegramMessage(message, {
           env,
           fetch: fetchFn,
         })
@@ -114,7 +138,7 @@ export async function notify_user(
   if (isQqbotConfigured(env)) {
     tasks.push(
       (async () => {
-        const result = await sendQqMessage(text, {
+        const result = await sendQqMessage(message, {
           env,
           fetch: fetchFn,
         })
