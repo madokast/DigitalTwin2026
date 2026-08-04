@@ -108,6 +108,20 @@ function optionalSubjective(
   return { value: raw }
 }
 
+/** tags optional：省略 / null / [] → []；非数组或元素非 string → 400 */
+function optionalTagList(raw: unknown): { value: string[] } | { error: string } {
+  if (raw === undefined || raw === null) {
+    return { value: [] }
+  }
+  if (!Array.isArray(raw)) {
+    return { error: 'tags must be an array of strings' }
+  }
+  if (!raw.every((t) => typeof t === 'string')) {
+    return { error: 'tags must be an array of strings' }
+  }
+  return { value: raw }
+}
+
 async function insertReturning(
   executor: InsertExecutor,
   values: InsertValues,
@@ -141,20 +155,15 @@ export async function createNumber(
     return { error: 'Missing required field: numeric_value', status: 400 }
   }
 
-  if (!Array.isArray(body.tags) || body.tags.length === 0) {
-    return {
-      error: 'Missing required field: tags (non-empty array)',
-      status: 400,
-    }
+  const tagListResult = optionalTagList(body.tags)
+  if ('error' in tagListResult) {
+    return { error: tagListResult.error, status: 400 }
   }
-  if (!body.tags.every((t) => typeof t === 'string')) {
-    return { error: 'tags must be an array of strings', status: 400 }
-  }
-  const tagsValidation = validateTags(body.tags)
+  const tagsValidation = validateTags(tagListResult.value)
   if (!tagsValidation.valid) {
     return { error: tagsValidation.error!, status: 400 }
   }
-  const reserved = assertNoReservedTags(body.tags)
+  const reserved = assertNoReservedTags(tagListResult.value)
   if (!reserved.valid) {
     return { error: reserved.error!, status: 400 }
   }
@@ -175,7 +184,7 @@ export async function createNumber(
       utcOffset: happenedResult.utcOffset,
       numericValue: numberResult.value,
       rawContent: null,
-      tags: tagsJSON(body.tags),
+      tags: tagsJSON(tagListResult.value),
       objectiveContext: body.objective_context,
       subjectiveInterpretation: subjective.value,
     })
@@ -363,20 +372,15 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     return { error: 'Missing required field: raw_content', status: 400 }
   }
 
-  if (!Array.isArray(body.tags) || body.tags.length === 0) {
-    return {
-      error: 'Missing required field: tags (non-empty array)',
-      status: 400,
-    }
+  const tagListResult = optionalTagList(body.tags)
+  if ('error' in tagListResult) {
+    return { error: tagListResult.error, status: 400 }
   }
-  if (!body.tags.every((t) => typeof t === 'string')) {
-    return { error: 'tags must be an array of strings', status: 400 }
-  }
-  const tagsValidation = validateTags(body.tags)
+  const tagsValidation = validateTags(tagListResult.value)
   if (!tagsValidation.valid) {
     return { error: tagsValidation.error!, status: 400 }
   }
-  const reserved = assertNoReservedTags(body.tags)
+  const reserved = assertNoReservedTags(tagListResult.value)
   if (!reserved.valid) {
     return { error: reserved.error!, status: 400 }
   }
@@ -397,7 +401,7 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
       utcOffset: happenedResult.utcOffset,
       numericValue: null,
       rawContent: body.raw_content,
-      tags: tagsJSON(body.tags),
+      tags: tagsJSON(tagListResult.value),
       objectiveContext: body.objective_context,
       subjectiveInterpretation: subjective.value,
     })

@@ -172,17 +172,22 @@ export function parseRecordDraft(
     return { error: 'numeric_value and raw_content cannot both be null' }
   }
 
-  if (!Array.isArray(body.tags) || body.tags.length === 0) {
-    return { error: 'Missing required field: tags (non-empty array)' }
-  }
-  if (!body.tags.every((t) => typeof t === 'string')) {
+  let tagList: string[]
+  if (body.tags === undefined || body.tags === null) {
+    tagList = []
+  } else if (Array.isArray(body.tags)) {
+    if (!body.tags.every((t) => typeof t === 'string')) {
+      return { error: 'tags must be an array of strings' }
+    }
+    tagList = body.tags
+  } else {
     return { error: 'tags must be an array of strings' }
   }
-  const tagsValidation = validateTags(body.tags)
+  const tagsValidation = validateTags(tagList)
   if (!tagsValidation.valid) {
     return { error: tagsValidation.error ?? 'Invalid tags' }
   }
-  const reserved = assertNoReservedTags(body.tags)
+  const reserved = assertNoReservedTags(tagList)
   if (!reserved.valid) {
     return { error: reserved.error! }
   }
@@ -210,7 +215,7 @@ export function parseRecordDraft(
     utcOffset,
     numericValue,
     rawContent,
-    tags: body.tags,
+    tags: tagList,
     objectiveContext: body.objective_context,
     subjectiveInterpretation,
   }

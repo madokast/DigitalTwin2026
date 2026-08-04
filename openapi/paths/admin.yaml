@@ -139,7 +139,12 @@
                 format: binary
                 description: |
                   UTF-8 NDJSON of OpenAPI `Record` objects (one JSON object per
-                  non-empty line). Max 1000 non-empty lines and 4 MiB.
+                  non-empty line). Every line must include the `tags` key with
+                  an array value; `[]` is allowed, but omitting the key or
+                  sending `null` is rejected (`Missing required field: tags` /
+                  `Invalid tags`). Legacy stringified-array values
+                  (e.g. `"[\"weight\"]"`) are still accepted. Max 1000
+                  non-empty lines and 4 MiB.
     responses:
       '200':
         description: |

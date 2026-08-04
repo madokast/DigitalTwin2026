@@ -153,7 +153,7 @@ describe('createNumber', () => {
         objective_context: 'x',
       }),
     ).toEqual({
-      error: 'Missing required field: tags (non-empty array)',
+      error: 'tags must be an array of strings',
       status: 400,
     })
     expect(

@@ -30,10 +30,9 @@ TagName:
 
 TagList:
   type: array
-  minItems: 1
   items:
     $ref: '#/TagName'
-  description: Non-empty array of valid tag names
+  description: Array of valid tag names; may be empty (`[]`) on read and on write
 
 DecimalString:
   type: string
@@ -405,9 +404,11 @@ ImportRecordsSuccess:
 
 LogNumberRequest:
   type: object
-  required: [happened_at, numeric_value, tags, objective_context]
+  required: [happened_at, numeric_value, objective_context]
   additionalProperties: false
-  description: "Unknown JSON keys -> 400 (Unknown JSON key: <name>)."
+  description: |
+    Unknown JSON keys -> 400 (Unknown JSON key: <name>). `tags` optional;
+    omitted / null / `[]` → stored as `[]`.
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
@@ -608,8 +609,11 @@ TodoTransitionSuccess:
 
 LogTextRequest:
   type: object
-  required: [happened_at, raw_content, tags, objective_context]
+  required: [happened_at, raw_content, objective_context]
   additionalProperties: false
+  description: |
+    Unknown JSON keys -> 400 (Unknown JSON key: <name>). `tags` optional;
+    omitted / null / `[]` → stored as `[]`.
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
@@ -632,9 +636,10 @@ RecordDraftRequest:
   description: |
     Editable snapshot for PATCH. Aligns with `parseRecordDraft`:
     empty strings on nullable fields become null; `objective_context` must
-    be a non-empty string; `numeric_value` is string | null only (JSON number → 400).
+    be a non-empty string; `numeric_value` is string | null only (JSON number → 400);
+    `tags` optional — omitted / null / `[]` → stored as `[]`.
     Unknown JSON keys -> 400 (Unknown JSON key: <name>).
-  required: [happened_at, tags, objective_context]
+  required: [happened_at, objective_context]
   additionalProperties: false
   properties:
     happened_at:

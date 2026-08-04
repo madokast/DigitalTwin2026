@@ -170,20 +170,21 @@ func parseRecordDraft(body RecordDraftBody, hasHappenedAt bool) (*NormalizedReco
 		return nil, fmt.Errorf("numeric_value and raw_content cannot both be null")
 	}
 
-	tagList, ok := body.Tags.([]any)
-	if !ok {
-		// also accept []string via JSON re-decode path
-		if sl, ok2 := body.Tags.([]string); ok2 {
-			tagList = make([]any, len(sl))
-			for i, t := range sl {
-				tagList[i] = t
+	var tagList []any
+	if body.Tags != nil {
+		var ok bool
+		tagList, ok = body.Tags.([]any)
+		if !ok {
+			// also accept []string via JSON re-decode path
+			if sl, ok2 := body.Tags.([]string); ok2 {
+				tagList = make([]any, len(sl))
+				for i, t := range sl {
+					tagList[i] = t
+				}
+			} else {
+				return nil, fmt.Errorf("tags must be an array of strings")
 			}
-		} else {
-			return nil, fmt.Errorf("Missing required field: tags (non-empty array)")
 		}
-	}
-	if len(tagList) == 0 {
-		return nil, fmt.Errorf("Missing required field: tags (non-empty array)")
 	}
 	tagsStr := make([]string, 0, len(tagList))
 	for _, item := range tagList {

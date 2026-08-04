@@ -15,7 +15,7 @@ func TestCreateNumberTypeMismatchMessages(t *testing.T) {
 		want string
 	}{
 		{`{"happened_at":123,"numeric_value":"1","tags":["weight"],"objective_context":"x"}`, "Missing required field: happened_at"},
-		{`{"happened_at":"2026-07-30T08:00:00Z","numeric_value":"1","tags":"x","objective_context":"x"}`, "Missing required field: tags (non-empty array)"},
+		{`{"happened_at":"2026-07-30T08:00:00Z","numeric_value":"1","tags":"x","objective_context":"x"}`, "tags must be an array of strings"},
 		{`{"happened_at":"2026-07-30T08:00:00Z","numeric_value":"1","tags":["weight"],"objective_context":123}`, "Missing required field: objective_context"},
 	}
 	for _, c := range cases {

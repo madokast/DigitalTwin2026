@@ -84,9 +84,6 @@ func AssertNoReservedTags(tagList []string) ValidationResult {
 }
 
 func ValidateTags(tags []string) ValidationResult {
-	if len(tags) == 0 {
-		return ValidationResult{Valid: false, Error: "tags must be a non-empty array"}
-	}
 	for _, tag := range tags {
 		if !IsValidTag(tag) {
 			return ValidationResult{

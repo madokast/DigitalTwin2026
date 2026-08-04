@@ -22,7 +22,7 @@ func TestIsValidTag(t *testing.T) {
 }
 
 func TestValidateTags(t *testing.T) {
-	if r := ValidateTags(nil); r.Valid || r.Error != "tags must be a non-empty array" {
+	if r := ValidateTags(nil); !r.Valid {
 		t.Fatalf("empty: %+v", r)
 	}
 	r := ValidateTags([]string{"weight", "体重"})

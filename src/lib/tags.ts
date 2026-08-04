@@ -92,12 +92,12 @@ export function assertNoReservedTags(tags: string[]): ValidationResult {
 
 /**
  * 验证 tags 数组
- * - 非空数组
+ * - 可为空数组（[] 合法）
  * - 每个 tag 都符合格式
  */
 export function validateTags(tags: string[]): ValidationResult {
-  if (!Array.isArray(tags) || tags.length === 0) {
-    return { valid: false, error: 'tags must be a non-empty array' }
+  if (!Array.isArray(tags)) {
+    return { valid: false, error: 'tags must be an array of strings' }
   }
 
   for (const tag of tags) {

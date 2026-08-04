@@ -39,11 +39,8 @@ describe('isValidTag', () => {
 })
 
 describe('validateTags', () => {
-  it('rejects empty array', () => {
-    expect(validateTags([])).toEqual({
-      valid: false,
-      error: 'tags must be a non-empty array',
-    })
+  it('accepts empty array', () => {
+    expect(validateTags([])).toEqual({ valid: true })
   })
 
   it('rejects non-array', () => {

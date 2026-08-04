@@ -56,7 +56,7 @@
 | `happened_at` | 可解析为带时区时间；**写入语义对齐 draft/log**（允许 `Z` / `±HH:MM` / `±HHMM`）。读出按隐列 `utc_offset` 保留录入规范区（`Z` 与 `±HH:MM`），**不再**一律 UTC `…Z`——见 [`docs/20260803-utc-offset.md`](20260803-utc-offset.md)。文件中**无** `utc_offset` 键 |
 | `numeric_value` | decimal **字符串**或 `null`；JSON **number 类型 → 400**（详细错误） |
 | `raw_content` | `string` 或 `null` |
-| `tags` | **JSON 数组**（与 JSON API 一致，如 `["weight"]`）；import 同时兼容旧备份的**字符串化**数组（`"[\"weight\"]"`） |
+| `tags` | **JSON 数组**（与 JSON API 一致，如 `["weight"]`，可为 `[]`）；键**必须存在**：省略 → `Missing required field: tags`，`null` → `Invalid tags`；兼容旧备份的**字符串化**数组（`"[\"weight\"]"`，含 `"[]"`） |
 | `objective_context` | 非空 string |
 | `subjective_interpretation` | `string` 或 `null` |
 

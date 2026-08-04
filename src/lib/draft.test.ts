@@ -231,15 +231,14 @@ describe('parseRecordDraft', () => {
     expect(parsed.error).toContain('Invalid tag')
   })
 
-  it('rejects empty tags array', () => {
-    expect(
-      parseRecordDraft({
-        ...validBase,
-        tags: [],
-      }),
-    ).toEqual({
-      error: 'Missing required field: tags (non-empty array)',
+  it('accepts empty tags array', () => {
+    const parsed = parseRecordDraft({
+      ...validBase,
+      tags: [],
     })
+    expect('error' in parsed).toBe(false)
+    if ('error' in parsed) return
+    expect(parsed.tags).toEqual([])
   })
 
   it('rejects reserved tag transaction_entry', () => {

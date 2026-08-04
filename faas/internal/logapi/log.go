@@ -70,9 +70,12 @@ func requireNonEmptyString(raw any, missingMsg string) (string, error) {
 	return s, nil
 }
 
-// tagsStringSlice 与 Next createNumber/createText：非数组或空 → Missing tags；
-// 元素非 string → tags must be an array of strings（与 PATCH draft 一致）。
-func tagsStringSlice(raw any) ([]string, error) {
+// optionalTagList 与 Next createNumber/createText：省略 / null / [] → []；
+// 非数组或元素非 string → tags must be an array of strings（与 PATCH draft 一致）。
+func optionalTagList(raw any) ([]string, error) {
+	if raw == nil {
+		return []string{}, nil
+	}
 	tagList, ok := raw.([]any)
 	if !ok {
 		if sl, ok2 := raw.([]string); ok2 {
@@ -81,11 +84,8 @@ func tagsStringSlice(raw any) ([]string, error) {
 				tagList[i] = t
 			}
 		} else {
-			return nil, fmt.Errorf("Missing required field: tags (non-empty array)")
+			return nil, fmt.Errorf("tags must be an array of strings")
 		}
-	}
-	if len(tagList) == 0 {
-		return nil, fmt.Errorf("Missing required field: tags (non-empty array)")
 	}
 	out := make([]string, 0, len(tagList))
 	for _, item := range tagList {
@@ -159,7 +159,7 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	if numStr == nil {
 		return record.Record{}, 400, fmt.Errorf("Missing required field: numeric_value")
 	}
-	tagList, err := tagsStringSlice(body.Tags)
+	tagList, err := optionalTagList(body.Tags)
 	if err != nil {
 		return record.Record{}, 400, err
 	}
@@ -214,7 +214,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	if err != nil {
 		return record.Record{}, 400, err
 	}
-	tagList, err := tagsStringSlice(body.Tags)
+	tagList, err := optionalTagList(body.Tags)
 	if err != nil {
 		return record.Record{}, 400, err
 	}

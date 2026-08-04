@@ -116,6 +116,35 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.record.subjective_interpretation).toBe('a bit heavy')
     })
 
+    it('accepts omitted / [] / null tags and returns tags: []', async () => {
+      for (const body of [
+        {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          numeric_value: '70',
+          objective_context: 'no tags',
+        },
+        {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          numeric_value: '70',
+          tags: [],
+          objective_context: 'empty tags',
+        },
+        {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          numeric_value: '70',
+          tags: null,
+          objective_context: 'null tags',
+        },
+      ]) {
+        const res = await postNumber(
+          jsonPost('http://localhost/api/log/number', body),
+        )
+        expect(res.status).toBe(201)
+        const parsed = await res.json()
+        expect(parsed.record.tags).toEqual([])
+      }
+    })
+
     it('returns 400 when happened_at lacks timezone', async () => {
       const bare = await postNumber(jsonPost('http://localhost/api/log/number', {
         happened_at: '2026-07-30',
