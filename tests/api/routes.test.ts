@@ -88,17 +88,19 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       )
     })
 
-    it('returns 400 for invalid tags', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-        happened_at: '2026-07-30T08:00:00+08:00',
-        numeric_value: '75.5',
-        tags: ['体重'],
-        objective_context: 'morning weigh-in',
-        raw_content: 'x',
-      }))
-      expect(res.status).toBe(400)
-      const body = await res.json()
-      expect(body.error).toContain('Invalid tag')
+    it('returns 400 for invalid tags (non-ASCII / whitespace-padded)', async () => {
+      for (const tags of [['体重'], [' weight'], ['weight '], [' weight ']]) {
+        const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+          happened_at: '2026-07-30T08:00:00+08:00',
+          numeric_value: '75.5',
+          tags,
+          objective_context: 'morning weigh-in',
+          raw_content: 'x',
+        }))
+        expect(res.status, JSON.stringify(tags)).toBe(400)
+        const body = await res.json()
+        expect(body.error, JSON.stringify(tags)).toContain('Invalid tag')
+      }
     })
 
     it('creates a number record', async () => {
@@ -1246,22 +1248,24 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.error).toMatch(/both be null/)
     })
 
-    it('returns 400 for invalid tags', async () => {
+    it('returns 400 for invalid tags (non-ASCII / whitespace-padded)', async () => {
       const record = await createNumber()
-      const res = await patchRecord(
-        jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
-          happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '1',
-          raw_content: null,
-          tags: ['体重'],
-          objective_context: 'x',
-          subjective_interpretation: null,
-        }),
-        { params: Promise.resolve({ id: record.id }) },
-      )
-      expect(res.status).toBe(400)
-      const body = await res.json()
-      expect(body.error).toContain('Invalid tag')
+      for (const tags of [['体重'], [' weight'], ['weight '], [' weight ']]) {
+        const res = await patchRecord(
+          jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
+            happened_at: '2026-07-30T08:00:00+08:00',
+            numeric_value: '1',
+            raw_content: null,
+            tags,
+            objective_context: 'x',
+            subjective_interpretation: null,
+          }),
+          { params: Promise.resolve({ id: record.id }) },
+        )
+        expect(res.status, JSON.stringify(tags)).toBe(400)
+        const body = await res.json()
+        expect(body.error, JSON.stringify(tags)).toContain('Invalid tag')
+      }
     })
 
     it('rejects reserved tag in tags', async () => {
