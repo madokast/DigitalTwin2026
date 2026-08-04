@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { maskValue, replaceEnvLine } from './rotate-test-secrets'
+import { maskValue, replaceEnvLine, sslFromUrl } from './rotate-test-secrets'
 
 describe('maskValue', () => {
   it('masks password inside DATABASE_URL', () => {
@@ -32,5 +32,16 @@ describe('replaceEnvLine', () => {
 
   it('throws when key missing', () => {
     expect(() => replaceEnvLine('FOO=1\n', 'DATABASE_URL', 'x')).toThrow(/Missing line/)
+  })
+})
+
+describe('sslFromUrl', () => {
+  it('disable → false (no TLS)', () => {
+    expect(sslFromUrl('postgresql://u:p@db.example.com/db?sslmode=disable')).toBe(false)
+  })
+
+  it('require / missing → require (old default)', () => {
+    expect(sslFromUrl('postgresql://u:p@db.example.com/db?sslmode=require')).toBe('require')
+    expect(sslFromUrl('postgresql://u:p@db.example.com/db')).toBe('require')
   })
 })

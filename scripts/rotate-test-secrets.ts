@@ -1,6 +1,7 @@
 /**
- * 轮换本地测试密钥：Neon DB 密码 + 两个 Bearer Token。
+ * 轮换本地测试密钥：测试库 DB 密码 + 两个 Bearer Token。
  * 只改根目录 `.env.test` 中匹配行；打印旧/新值（中间掩码）。
+ * SSL 由 DATABASE_URL 的 sslmode 参数推导（disable → 明文；其余 → require）。
  *
  * 用法: npm run secrets:rotate-test
  * 之后若需同步 FaaS：npm run deploy -- test
@@ -82,6 +83,12 @@ function withPassword(url: string, password: string): string {
   return u.toString()
 }
 
+/** 按 URL 的 sslmode 推导 postgres.js ssl 选项：disable → false；其余（含缺失）→ 'require'（旧默认，防静默明文）。 */
+export function sslFromUrl(url: string): boolean | 'require' {
+  const mode = parseDatabaseUrl(url).searchParams.get('sslmode')
+  return mode === 'disable' ? false : 'require'
+}
+
 function genDbPassword(): string {
   return randomBytes(32).toString('base64url')
 }
@@ -124,7 +131,7 @@ async function main() {
   }
 
   console.log(`Connecting to test DB and ALTER ROLE ${role} ...`)
-  const sql = postgres(currentDbUrl, { max: 1, ssl: 'require' })
+  const sql = postgres(currentDbUrl, { max: 1, ssl: sslFromUrl(currentDbUrl) })
   try {
     const escaped = newDbPassword.replace(/'/g, "''")
     await sql.unsafe(`ALTER ROLE ${role} WITH PASSWORD '${escaped}'`)
@@ -133,7 +140,7 @@ async function main() {
   }
 
   console.log('Verifying connection with new password ...')
-  const verify = postgres(newDbUrl, { max: 1, ssl: 'require' })
+  const verify = postgres(newDbUrl, { max: 1, ssl: sslFromUrl(newDbUrl) })
   try {
     await verify`select 1 as ok`
   } finally {
