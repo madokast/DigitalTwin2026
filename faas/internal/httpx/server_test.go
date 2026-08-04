@@ -295,26 +295,6 @@ func TestWriteEndpointsRejectNonObjectJSON(t *testing.T) {
 	}
 }
 
-func TestPatchRecordRetiredGone(t *testing.T) {
-	h := testServer().Handler()
-	// 编辑 API 已废弃（410 Gone）：不读 body、不校验，任何 PATCH 一律 410（与 Next 对齐）
-	for _, payload := range []string{`null`, `{"numeric_value":"1"}`, ``} {
-		req := httptest.NewRequest(http.MethodPatch, "/api/admin/records/01900000-0000-7000-8000-000000000001", strings.NewReader(payload))
-		req.Header.Set("Authorization", "Bearer admin-tok")
-		req.Header.Set("Content-Type", "application/json")
-		rr := httptest.NewRecorder()
-		h.ServeHTTP(rr, req)
-		if rr.Code != http.StatusGone {
-			t.Fatalf("payload %q: status %d body %s", payload, rr.Code, rr.Body.String())
-		}
-		var body map[string]string
-		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if body["error"] != RecordEditRetired {
-			t.Fatalf("payload %q: error %v", payload, body)
-		}
-	}
-}
-
 func TestImportRecordsRejectsMissingOrMalformedBoundary(t *testing.T) {
 	h := testServer().Handler()
 	for _, ct := range []string{

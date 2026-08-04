@@ -23,7 +23,7 @@
 | 4 | `source:*` 元 tag 语义约定 | initial-vision §7.4 | **不定案、不引入** |
 | 5 | records 数值聚合 API（S3 体重趋势等） | fuzzy-time §5.7（§9.3 账单例外已落地） | **不做**（维持"聚合让 AI 自己算"） |
 | 6 | 图表 / 可视化（v1 + v2）与 import/export gzip | fuzzy-time §7.10；records-import-export「一期无 gzip」 | **不做**（v2 规划一并作废） |
-| 7 | 记录编辑 API `PATCH /api/admin/records/:id` | 现行 API（OpenAPI `admin.yaml`） | **废弃**（2026-08-04 定案，配合复盘 API 恢复）：对**一切记录**一律返回 **410 Gone**；前端记录编辑 UI 移除；纠错走 export → 修改 → import 或专用接口 |
+| 7 | 记录编辑 API `PATCH /api/admin/records/:id` | 现行 API（OpenAPI `admin.yaml`） | **已删除**（2026-08-04 定案，配合复盘 API 恢复）：路由 / handler / OpenAPI 路径 / 前端编辑 UI / 测试**全部移除**，效果 = 该 API 从未存在；纠错走 export → 修改 → import 或专用接口 |
 
 ## 2. 逐条决定与理由
 
@@ -68,12 +68,12 @@
 - **fuzzy-time §7.10 的 "v2 前端：图表与可视化"规划作废**，不再有 v2 图表规划。
 - import / export 不实现 gzip 压缩（records-import-export 文档"一期无 gzip"升级为永久决定）。
 
-### 2.7 记录编辑 API（`PATCH /api/admin/records/:id`）—— 废弃（410 Gone）
+### 2.7 记录编辑 API（`PATCH /api/admin/records/:id`）—— 已删除
 
-- 2026-08-04 随复盘 API 恢复一并定案：编辑 API **整体废弃**，对**一切记录**一律返回 **410 Gone**；前端记录编辑 UI 移除。
-- 直接诱因：保留 tag 记录（`todo:*` / `review:*` / `transaction_entry:*` / `body:weight:*`）的 tags 含保留前缀，前端编辑提交完整 tags 必然触发保留前缀 400——保留 tag 记录天然不可安全编辑；与其按记录类型分叉编辑策略，不如**统一废弃编辑**，语义最简单。
+- 2026-08-04 随复盘 API 恢复一并定案：编辑 API **彻底删除**——路由 / handler / OpenAPI 路径 / 前端编辑 UI / 相关测试全部移除，**效果 = 该 API 从未存在**（无 410 残留契约，未注册的 PATCH 走框架 404/405）。
+- 直接诱因：保留 tag 记录（`todo:*` / `review:*` / `transaction_entry:*` / `body:weight:*`）的 tags 含保留前缀，前端编辑提交完整 tags 必然触发保留前缀 400——保留 tag 记录天然不可安全编辑；与其按记录类型分叉编辑策略，不如**统一删除编辑**，语义最简单。
 - 纠错路径：export（NDJSON）→ 外部修改 → import upsert（覆盖）；或删除后重录（无 DELETE 接口，同样经 import 覆盖语义）。
-- 连带：`parseRecordDraft` 的 Update 分支 / PATCH 相关测试 / OpenAPI `admin.yaml` PATCH 路径 / 前端编辑页一并移除或改为 410 契约。
+- 连带：`parseRecordDraft` / `record.Update` / 前端编辑页等编辑链全部清理（2026-08-04 两个提交完成）。
 
 ## 3. 不受影响的现有能力
 

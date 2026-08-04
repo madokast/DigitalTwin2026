@@ -131,4 +131,4 @@
 - [ ] 手动验收清单续跑（后台双服务期间多轮 curl 已过，正式部署前再跑一轮）
 - [ ] Dashboard 支出组件 / 网页录入 UI（既有待办，与今日收口无关）
 - [ ] 复盘 `POST /api/log/review`：**已恢复开发**（2026-08-04 定案：单一接口 + `cadence` 枚举 + 自动附加 `review:{cadence}` tag + 保留 tag；规格 [`20260804-log-review.md`](20260804-log-review.md)；双端实现 + OpenAPI 待做）
-- [ ] 记录编辑 API 废弃（2026-08-04 定案）：`PATCH /api/admin/records/:id` 一律 410 Gone，前端编辑 UI 移除（见 [`20260804-scope-closure.md`](20260804-scope-closure.md) 终止项 7）
+- [ ] 记录编辑 API 删除（2026-08-04 定案并完成）：`PATCH /api/admin/records/:id` 路由 / handler / OpenAPI / 前端编辑 UI / 测试全部移除，效果 = 从未存在（见 [`20260804-scope-closure.md`](20260804-scope-closure.md) 终止项 7）

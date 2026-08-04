@@ -98,14 +98,14 @@ flowchart LR
 | Stem | Go | TS | 备注 |
 |------|----|----|------|
 | `tags` | `faas/internal/tags` | `src/lib/tags.ts` | 已有；含 `RenameAcrossRecords` |
-| `draft` | `faas/internal/draft` | `src/lib/draft.ts` | 共享 helper：`ParseHappenedAt` / `RequireTrimmedText` / `OptionalTrimmedNullable` / `ValidateDecimalString` / `ParseNumericValue` / `EmptyStringToNull`。编辑草稿解析 `ParseRecordDraft` 已随 PATCH 废弃删除（2026-08-04） |
+| `draft` | `faas/internal/draft` | `src/lib/draft.ts` | 共享 helper：`ParseHappenedAt` / `RequireTrimmedText` / `OptionalTrimmedNullable` / `ValidateDecimalString` / `ParseNumericValue` / `EmptyStringToNull`。编辑草稿解析 `ParseRecordDraft` 已随 PATCH 删除（2026-08-04） |
 | `transactiondraft` | `faas/internal/transactiondraft` | `src/lib/transactiondraft.ts` | **独立成包**（已落地）；TS 已由 `transaction-draft.ts` 改名；Go 已从 `logapi` 抽出纯解析 |
 | `bodyweightdraft` | `faas/internal/bodyweightdraft` | `src/lib/bodyweightdraft.ts` | **独立成包**；体重 `numeric_value` 解析/规范化；落库 tags 组装含 `body:weight` |
 | `tododraft` | `faas/internal/tododraft` | `src/lib/tododraft.ts` | **独立成包**；待办创建 / transition 纯解析；状态 tag 组装与替换；审计 `objective_context` 合成句与 `TodoAuditNotifyText` 通知模板；待办行 HTTP JSON 变形（`created_at`/`content`）；查询侧略宽判定 `ShouldDeformTodoRecordTags` / `shouldDeformTodoRecordTags` |
 | `reviewdraft` | `faas/internal/reviewdraft` | `src/lib/reviewdraft.ts` | **独立成包**（待实现）；复盘 `cadence` 枚举与纯解析；`review:{cadence}` tag 组装；规格 [`docs/20260804-log-review.md`](20260804-log-review.md) |
 | `query` | `faas/internal/query` | `src/lib/query.ts` | 列表过滤 / 分页 / summary / tags / transaction summary；`ToQueryRecordJSON` / `toQueryRecordJson`（query `records[]` 待办变形） |
 | `logapi` | `faas/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` / `bodyweightdraft` / `tododraft` / `reviewdraft` |
-| `record` | `faas/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `FromDB` / `TagsJSON` / type `Record`。`Update` 已随 PATCH 废弃删除（2026-08-04） |
+| `record` | `faas/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `FromDB` / `TagsJSON` / type `Record`。`Update` 已随 PATCH 删除（2026-08-04） |
 | `recordjsonl` | `faas/internal/recordjsonl` | `src/lib/recordjsonl.ts` | Record JSONL 行 parse / serialize；表示层 snake_case；**不**调用 `assertNoReservedTags`（由调用方决定）；规格 [`docs/20260803-records-import-export.md`](20260803-records-import-export.md) |
 | `exportapi` | `faas/internal/exportapi` | `src/lib/exportapi.ts` | `GET /api/export/records`：游标参数解析、按 `id ASC` `LIMIT` 拉取、有界组 NDJSON / 文件名 / Notify 文案；HTTP 层写出成功后再 Notify；规格同上 |
 | `importapi` | `faas/internal/importapi` | `src/lib/importapi.ts` | `POST /api/admin/import/records`：multipart 校验、file≤4MiB 有界读入后 JSONL 单事务逐行 upsert、计数 / Notify 文案；HTTP 层负责 multipart 与 200 写出后再 Notify；**bypass** 256KiB JSON body 门闸；规格同上 |

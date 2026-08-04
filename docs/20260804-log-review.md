@@ -7,7 +7,7 @@
 
 ## 0. 一句话结论
 
-`POST /api/log/review` 单一接口；请求体 JSON（snake_case）带**必填** `cadence`（6 档枚举）+ 复盘全文等；后端**自动附加** `review:{cadence}` tag 落库；`review` / `review:*` 成为**保留 tag 前缀**，仅本接口可写；记录为普通记录（query / export / import 等通用能力自动适用）；ApiToken 鉴权；写成功照常全文通知。连带定案：记录编辑 API（Admin PATCH）**整体废弃**（410 Gone），前端编辑 UI 移除。
+`POST /api/log/review` 单一接口；请求体 JSON（snake_case）带**必填** `cadence`（6 档枚举）+ 复盘全文等；后端**自动附加** `review:{cadence}` tag 落库；`review` / `review:*` 成为**保留 tag 前缀**，仅本接口可写；记录为普通记录（query / export / import 等通用能力自动适用）；ApiToken 鉴权；写成功照常全文通知。连带定案：记录编辑 API（Admin PATCH）**已彻底删除**（2026-08-04，效果 = 从未存在），前端编辑 UI 移除。
 
 ## 1. 背景与需求（为什么恢复）
 
@@ -118,12 +118,12 @@ strict unknown-key：未知键 → 400。
 - 与原始记录不关联（§7.7）
 - 通用能力自动适用：query（tag AND / 排序 / 分页）、export（正常导出）、import（**可写 `review:*`**——`recordjsonl` 不调 `assertNoReservedTags`，与 todo / transaction 保留 tag 同规则）、tag rename（from / to 不得为 `review:*`）
 
-## 5. 记录编辑 API 废弃（连带定案）
+## 5. 记录编辑 API 删除（连带定案）
 
-`PATCH /api/admin/records/:id` **整体废弃**（不限于 review 记录，适用于**一切**记录），一律返回 **410 Gone**；前端记录编辑 UI 移除。详见 scope-closure 终止项 7：
+`PATCH /api/admin/records/:id` **已彻底删除**（2026-08-04，适用于**一切**记录；OpenAPI、双端代码、前端编辑 UI、测试全部移除，效果 = 该 API 从未存在）。详见 scope-closure 终止项 7：
 
 - 直接诱因：保留 tag 记录（`todo:*` / `review:*` / `transaction_entry:*` / `body:weight:*`）的 tags 含保留前缀，前端编辑提交完整 tags 必然触发保留前缀 400——保留 tag 记录天然不可安全编辑；
-- 与其按记录类型分叉编辑策略，不如统一废弃编辑，语义最简单；
+- 与其按记录类型分叉编辑策略，不如统一删除编辑，语义最简单；
 - 纠错路径：export（NDJSON）→ 外部修改 → import upsert 覆盖。
 
 ## 6. 双端同构（对齐 api-layering）
@@ -132,14 +132,12 @@ strict unknown-key：未知键 → 400。
 |------|---------|
 | `src/lib/reviewdraft.ts`（`LOG_REVIEW_KEYS` / `CADENCES` / `parseReview`） | `faas/internal/reviewdraft/reviewdraft.go`（`ParseReview`） |
 | `src/app/api/log/review/route.ts`（ApiToken + notify） | `faas/internal/logapi` review handler + `httpx` 路由（同 `/api/log/text`） |
-| `src/app/api/admin/records/[id]/route.ts` → 410 | `faas/internal/adminapi` PATCH → 410 |
 
 ## 7. OpenAPI / 测试
 
 - `openapi/paths/log.yaml`：新增 `/api/log/review`（请求 `ReviewRequest`；响应 `Record`；403 ApiToken）
-- `openapi/paths/admin.yaml`：PATCH 标记废弃（`deprecated: true`，410 契约）
 - `openapi/components/schemas.yaml`：`ReviewCadence`（enum 六档）、`ReviewRequest`
-- fixtures / contract tests / testdata：cadence 缺省 / 非法值 / 大小写、`review:*` 保留 tag 拒绝（log/text、rename）、自动附加断言、import 可写 `review:*`、PATCH → 410、双端集成一致
+- fixtures / contract tests / testdata：cadence 缺省 / 非法值 / 大小写、`review:*` 保留 tag 拒绝（log/text、rename）、自动附加断言、import 可写 `review:*`、双端集成一致
 - 门闸：`npm run openapi:lint`、`npm run test:unit`、`npm run test:integration`、`cd faas && go test`
 
 ## 8. 实施计划（分阶段，每阶段门闸自洽）
@@ -149,14 +147,14 @@ strict unknown-key：未知键 → 400。
 | 1 | 保留 tag 双端：`RESERVED_TAG_PREFIXES` + Go `tags` 增 `review`，hint 文案；`tags.test.ts` / Go 测试补用例 |
 | 2 | `reviewdraft` 双端（键集 / cadence 枚举 / 校验 / 自动附加 tag 组装） |
 | 3 | `route.ts` + Go handler + 路由注册 + 通知（全文；超 4000 字符截断，见 §3.1） |
-| 4 | PATCH 废弃：双端 410 + OpenAPI + 前端编辑 UI 移除（详情页只读、表格入口删除、`patchRecord` 清理） |
+| 4 | PATCH 删除：双端路由 / handler / OpenAPI 路径 / 前端编辑 UI / 测试全部移除（已完成） |
 | 5 | OpenAPI + fixtures + 契约测试；review 双端集成测试 |
 | 6 | 门闸全绿（lint / typecheck / openapi:lint / unit / integration / go test） |
 
 ## 9. 文档同步（2026-08-04 已完成）
 
 - 根 `AGENTS.md`：暂停条款 → 指向本文档
-- `docs/20260804-scope-closure.md`：终止项 7（PATCH 废弃）+ §2.7 理由；§3 review 恢复 + 保留 tag 升级为语义约定
+- `docs/20260804-scope-closure.md`：终止项 7（PATCH 删除）+ §2.7 理由；§3 review 恢复 + 保留 tag 升级为语义约定
 - `docs/20260803-utc-offset.md`：6 处「复盘仍暂停」更新
 - `docs/20260728-fuzzy-time.md`：顶部 pointer；§7.3 / §7.6 中文 tag 示例 → `review:*`；§7.4 / §7.6 / §7.9 / §8.2 S20 / §9.4 旧字段名 → 新名；§9.4 复盘 URL 形态标注作废
 - `docs/20260729-schema-v1.md`：顶部 pointer；§3.2 URL 形态作废；§3.3 / §6.2 / §6.3 字段名与 tags 语义更新

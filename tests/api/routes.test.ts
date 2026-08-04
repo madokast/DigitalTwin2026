@@ -12,7 +12,6 @@ import { GET as queryTags } from '@/app/api/query/tags/route'
 import { GET as exportRecords } from '@/app/api/export/records/route'
 import { POST as importRecords } from '@/app/api/admin/import/records/route'
 import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
-import { PATCH as patchRecord } from '@/app/api/admin/records/[id]/route'
 import { closeDb } from '@/db'
 import {
   assertSafeTestDatabaseUrl,
@@ -20,7 +19,7 @@ import {
   openTestAdminClient,
   SAFE_TEST_DATABASE_HINT,
 } from '../helpers/db'
-import { jsonGet, jsonPatch, jsonPost, multipartPost } from '../helpers/http'
+import { jsonGet, jsonPost, multipartPost } from '../helpers/http'
 import { reservedTagError } from '@/lib/tags'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -1149,28 +1148,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
   })
 
-  describe('PATCH /api/admin/records/[id] (retired → 410 Gone)', () => {
-    it('returns 410 Gone for any request without reading the body', async () => {
-      for (const body of [null, { numeric_value: '1' }]) {
-        const res = await patchRecord(
-          jsonPatch(
-            'http://localhost/api/admin/records/01900000-0000-7000-8000-000000000001',
-            body,
-          ),
-          {
-            params: Promise.resolve({
-              id: '01900000-0000-7000-8000-000000000001',
-            }),
-          },
-        )
-        expect(res.status, JSON.stringify(body)).toBe(410)
-        expect((await res.json()).error).toBe(
-          'The record editing API is retired (Gone)',
-        )
-      }
-    })
-  })
-
 
   describe('GET /api/export/records', () => {
     it('returns empty NDJSON with headers when table is empty', async () => {
@@ -1349,7 +1326,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect((await listed2.json()).records).toHaveLength(0)
     })
 
-    it('allows reserved tags on import; editing API is retired (410)', async () => {
+    it('allows reserved tags on import', async () => {
       const id = '01900000-0000-7000-8000-0000000000bb'
       const line = JSON.stringify({
         id,
@@ -1371,17 +1348,6 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         total: 1,
         atomic: true,
       })
-
-      const patch = await patchRecord(
-        jsonPatch(`http://localhost/api/admin/records/${id}`, {
-          happened_at: '2026-07-30T08:00:00+08:00',
-        }),
-        { params: Promise.resolve({ id }) },
-      )
-      expect(patch.status).toBe(410)
-      expect((await patch.json()).error).toBe(
-        'The record editing API is retired (Gone)',
-      )
     })
 
     it('round-trips export → import', async () => {

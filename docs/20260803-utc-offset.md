@@ -146,9 +146,11 @@ formatHappenedAt(happened_at, utc_offset)   // 唯一格式化入口
 
 ---
 
-## 7. PATCH（`PATCH /api/admin/records/:id`）
+## 7. PATCH（`PATCH /api/admin/records/:id`）—— **已删除**
 
-| 请求是否带 `happened_at` | 行为 |
+> **2026-08-04 变更**：记录编辑 API 已**彻底删除**（OpenAPI / 双端代码 / 前端 / 测试全部移除，效果 = 从未存在，见 [`20260804-log-review.md`](20260804-log-review.md) §5 与 [`20260804-scope-closure.md`](20260804-scope-closure.md) 终止项 7）。本节保留为当时实现记录；`utc_offset` 语义对现存写路径（log/*、import upsert）不变。
+
+| 请求是否带 `happened_at` | 行为（已删除，仅存照） |
 |--------------------------|------|
 | **带**（合法带区串） | 更新 `happened_at` 瞬间；**同时**按新字符串重算并写入 `utc_offset`。 |
 | **不带** | 不改 `happened_at`，也**不**改 `utc_offset`。 |

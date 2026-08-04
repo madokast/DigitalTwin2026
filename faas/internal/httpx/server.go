@@ -80,7 +80,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/query/tags", s.handleTags)
 	mux.HandleFunc("GET /api/query/transaction/summary", s.handleTransactionSummary)
 	mux.HandleFunc("POST /api/admin/tags/rename", s.handleRenameTags)
-	mux.HandleFunc("PATCH /api/admin/records/{id}", s.handlePatchRecord)
 	mux.HandleFunc("POST /api/admin/import/records", s.handleImportRecords)
 	mux.HandleFunc("GET /api/export/records", s.handleExportRecords)
 	// 404/405 → {error} JSON。Next 仍用框架默认（见 api-layering §1.1）；业务 4xx 两端已对齐。
@@ -150,7 +149,7 @@ func withJSONErrorPages(next http.Handler) http.Handler {
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
 		w.Header().Set("Access-Control-Max-Age", "86400")
 		if r.Method == http.MethodOptions {
@@ -587,14 +586,6 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]any{"success": true, "updated": updated})
-}
-
-// RecordEditRetired 与 Next RECORD_EDIT_RETIRED_ERROR 同文案：
-// 记录编辑 API 已废弃（2026-08-04，见 docs/20260804-log-review.md §5），一律 410 Gone。
-const RecordEditRetired = "The record editing API is retired (Gone)"
-
-func (s *Server) handlePatchRecord(w http.ResponseWriter, r *http.Request) {
-	writeError(w, http.StatusGone, RecordEditRetired)
 }
 
 func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
