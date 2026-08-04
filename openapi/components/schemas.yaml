@@ -404,16 +404,22 @@ ImportRecordsSuccess:
 
 LogNumberRequest:
   type: object
-  required: [happened_at, numeric_value, objective_context]
+  required: [happened_at, numeric_value, raw_content, objective_context]
   additionalProperties: false
   description: |
     Unknown JSON keys -> 400 (Unknown JSON key: <name>). `tags` optional;
-    omitted / null / `[]` → stored as `[]`.
+    omitted / null / `[]` → stored as `[]`. `raw_content` required and must
+    not be blank (`raw_content must not be blank` when whitespace-only).
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
     numeric_value:
       $ref: '#/DecimalString'
+    raw_content:
+      type: string
+      minLength: 1
+      description: |
+        Required non-blank body text; stored verbatim (no trimming).
     tags:
       $ref: '#/TagList'
     objective_context:
@@ -613,7 +619,8 @@ LogTextRequest:
   additionalProperties: false
   description: |
     Unknown JSON keys -> 400 (Unknown JSON key: <name>). `tags` optional;
-    omitted / null / `[]` → stored as `[]`.
+    omitted / null / `[]` → stored as `[]`. `raw_content` must not be blank
+    (`raw_content must not be blank` when whitespace-only).
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'

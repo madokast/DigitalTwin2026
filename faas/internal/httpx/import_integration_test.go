@@ -151,6 +151,7 @@ SELECT EXISTS (
 		"happened_at":"2026-07-30T08:00:00+08:00",
 		"numeric_value": "99",
 		"tags": ["go_rt"],
+		"raw_content": "rt row",
 		"objective_context": %q
 	}`, marker+"-rt")
 	createReq := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(createBody))

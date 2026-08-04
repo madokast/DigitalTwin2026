@@ -1,6 +1,9 @@
 {
   "happened_at": "2026-07-30T08:00:00+08:00",
   "numeric_value": "1e3",
-  "tags": ["weight"],
-  "objective_context": "scientific notation"
+  "tags": [
+    "weight"
+  ],
+  "objective_context": "scientific notation",
+  "raw_content": "Morning weigh-in on the scale"
 }

@@ -76,6 +76,7 @@ SELECT EXISTS (
 			"happened_at":"2026-07-30T08:00:00+08:00",
 			"numeric_value": "` + n + `",
 			"tags": ["go_export"],
+			"raw_content": "export row",
 			"objective_context": "` + marker + `-` + n + `"
 		}`
 		req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(body))

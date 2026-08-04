@@ -53,6 +53,7 @@ SELECT EXISTS (
 	body := `{
 		"happened_at":"2026-07-30T08:00:00+08:00",
 		"numeric_value": "42.5",
+		"raw_content": "fc smoke",
 		"tags": ["go_fc_test"],
 		"objective_context": "` + marker + `"
 	}`

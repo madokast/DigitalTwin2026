@@ -39,6 +39,7 @@ import { rejectUnknownKeys } from '@/lib/unknown-keys'
 export const LOG_NUMBER_KEYS = [
   'happened_at',
   'numeric_value',
+  'raw_content',
   'tags',
   'objective_context',
   'subjective_interpretation',
@@ -55,6 +56,7 @@ export const LOG_TEXT_KEYS = [
 export type NumberBody = {
   happened_at?: unknown
   numeric_value?: unknown
+  raw_content?: unknown
   tags?: unknown
   objective_context?: unknown
   subjective_interpretation?: unknown
@@ -122,6 +124,19 @@ function optionalTagList(raw: unknown): { value: string[] } | { error: string } 
   return { value: raw }
 }
 
+/** raw_content 必填：缺失 / null / 非 string → Missing；空白串（trim 后空）→ must not be blank；原样存储 */
+function requireRawContent(
+  raw: unknown,
+): { value: string } | { error: string } {
+  if (typeof raw !== 'string' || raw === '') {
+    return { error: 'Missing required field: raw_content' }
+  }
+  if (raw.trim() === '') {
+    return { error: 'raw_content must not be blank' }
+  }
+  return { value: raw }
+}
+
 async function insertReturning(
   executor: InsertExecutor,
   values: InsertValues,
@@ -155,6 +170,11 @@ export async function createNumber(
     return { error: 'Missing required field: numeric_value', status: 400 }
   }
 
+  const rawContentResult = requireRawContent(body.raw_content)
+  if ('error' in rawContentResult) {
+    return { error: rawContentResult.error, status: 400 }
+  }
+
   const tagListResult = optionalTagList(body.tags)
   if ('error' in tagListResult) {
     return { error: tagListResult.error, status: 400 }
@@ -183,7 +203,7 @@ export async function createNumber(
       happenedAt: happenedResult.value,
       utcOffset: happenedResult.utcOffset,
       numericValue: numberResult.value,
-      rawContent: null,
+      rawContent: rawContentResult.value,
       tags: tagsJSON(tagListResult.value),
       objectiveContext: body.objective_context,
       subjectiveInterpretation: subjective.value,
@@ -368,9 +388,11 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     return { error: happenedResult.error, status: 400 }
   }
 
-  if (!body.raw_content || typeof body.raw_content !== 'string') {
-    return { error: 'Missing required field: raw_content', status: 400 }
+  const rawContentResult = requireRawContent(body.raw_content)
+  if ('error' in rawContentResult) {
+    return { error: rawContentResult.error, status: 400 }
   }
+  const rawContent = rawContentResult.value
 
   const tagListResult = optionalTagList(body.tags)
   if ('error' in tagListResult) {
@@ -400,7 +422,7 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
       happenedAt: happenedResult.value,
       utcOffset: happenedResult.utcOffset,
       numericValue: null,
-      rawContent: body.raw_content,
+      rawContent: rawContentResult.value,
       tags: tagsJSON(tagListResult.value),
       objectiveContext: body.objective_context,
       subjectiveInterpretation: subjective.value,

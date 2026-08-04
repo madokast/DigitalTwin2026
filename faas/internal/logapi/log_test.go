@@ -62,7 +62,8 @@ func TestCreateNumberRejectsJSONNumber(t *testing.T) {
 		"happened_at": "2026-07-30T08:00:00+08:00",
 		"numeric_value": 75.5,
 		"tags": ["weight"],
-		"objective_context": "x"
+		"objective_context": "x",
+		"raw_content": "x"
 	}`)
 	_, status, err := CreateNumber(context.Background(), nil, raw)
 	if status != 400 {
@@ -126,7 +127,8 @@ func TestCreateNumberRejectsReservedTag(t *testing.T) {
 		"happened_at": "2026-08-01T12:30:00+08:00",
 		"numeric_value": "1",
 		"tags": ["transaction_entry"],
-		"objective_context": "x"
+		"objective_context": "x",
+		"raw_content": "x"
 	}`)
 	_, status, err := CreateNumber(context.Background(), nil, raw)
 	if status != 400 {
@@ -143,7 +145,8 @@ func TestCreateNumberRejectsReservedPrefixedTag(t *testing.T) {
 		"happened_at": "2026-08-01T12:30:00+08:00",
 		"numeric_value": "1",
 		"tags": ["transaction_entry:income"],
-		"objective_context": "x"
+		"objective_context": "x",
+		"raw_content": "x"
 	}`)
 	_, status, err := CreateNumber(context.Background(), nil, raw)
 	if status != 400 {
@@ -160,7 +163,8 @@ func TestCreateNumberRejectsTodoReservedTag(t *testing.T) {
 		"happened_at": "2026-08-01T12:30:00+08:00",
 		"numeric_value": "1",
 		"tags": ["todo"],
-		"objective_context": "x"
+		"objective_context": "x",
+		"raw_content": "x"
 	}`)
 	_, status, err := CreateNumber(context.Background(), nil, raw)
 	if status != 400 {
@@ -177,7 +181,8 @@ func TestCreateNumberRejectsTodoPrefixedReservedTag(t *testing.T) {
 		"happened_at": "2026-08-01T12:30:00+08:00",
 		"numeric_value": "1",
 		"tags": ["todo:in_progress"],
-		"objective_context": "x"
+		"objective_context": "x",
+		"raw_content": "x"
 	}`)
 	_, status, err := CreateNumber(context.Background(), nil, raw)
 	if status != 400 {

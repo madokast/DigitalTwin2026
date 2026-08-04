@@ -3,6 +3,7 @@ package logapi
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,7 @@ import (
 type NumberBody struct {
 	HappenedAt               any `json:"happened_at"`
 	NumericValue              any `json:"numeric_value"`
+	RawContent                any `json:"raw_content"`
 	Tags                     any `json:"tags"`
 	ObjectiveContext         any `json:"objective_context"`
 	SubjectiveInterpretation any `json:"subjective_interpretation"`
@@ -33,7 +35,7 @@ type TextBody struct {
 }
 
 var logNumberKeys = []string{
-	"happened_at", "numeric_value", "tags", "objective_context",
+	"happened_at", "numeric_value", "raw_content", "tags", "objective_context",
 	"subjective_interpretation",
 }
 
@@ -66,6 +68,18 @@ func requireNonEmptyString(raw any, missingMsg string) (string, error) {
 	s, ok := raw.(string)
 	if !ok || s == "" {
 		return "", fmt.Errorf("%s", missingMsg)
+	}
+	return s, nil
+}
+
+// requireRawContent 必填：缺失 / null / 非 string → Missing；空白串（trim 后空）→ must not be blank；原样存储。
+func requireRawContent(raw any) (string, error) {
+	s, ok := raw.(string)
+	if !ok || s == "" {
+		return "", fmt.Errorf("Missing required field: raw_content")
+	}
+	if strings.TrimSpace(s) == "" {
+		return "", fmt.Errorf("raw_content must not be blank")
 	}
 	return s, nil
 }
@@ -159,6 +173,10 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	if numStr == nil {
 		return record.Record{}, 400, fmt.Errorf("Missing required field: numeric_value")
 	}
+	rawContent, err := requireRawContent(body.RawContent)
+	if err != nil {
+		return record.Record{}, 400, err
+	}
 	tagList, err := optionalTagList(body.Tags)
 	if err != nil {
 		return record.Record{}, 400, err
@@ -189,7 +207,7 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	}
 
 	rec, err := insertReturning(
-		ctx, pool, id.String(), happenedAt, utcOffset, numStr, nil,
+		ctx, pool, id.String(), happenedAt, utcOffset, numStr, &rawContent,
 		tagsJSON, objCtx, subj,
 	)
 	if err != nil {
@@ -210,7 +228,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	if err != nil {
 		return record.Record{}, 400, err
 	}
-	rawContent, err := requireNonEmptyString(body.RawContent, "Missing required field: raw_content")
+	rawContent, err := requireRawContent(body.RawContent)
 	if err != nil {
 		return record.Record{}, 400, err
 	}

@@ -402,7 +402,8 @@ func TestLogNumberRejectsBodyWeightReservedTag(t *testing.T) {
 		"happened_at": "2026-08-01T12:30:00+08:00",
 		"numeric_value": "1",
 		"tags": ["body:weight"],
-		"objective_context": "x"
+		"objective_context": "x",
+		"raw_content": "x"
 	}`))
 	req.Header.Set("Authorization", "Bearer ai-tok")
 	req.Header.Set("Content-Type", "application/json")
@@ -425,7 +426,8 @@ func TestLogNumberRejectsTodoReservedTag(t *testing.T) {
 		"happened_at": "2026-08-01T12:30:00+08:00",
 		"numeric_value": "1",
 		"tags": ["todo:in_progress"],
-		"objective_context": "x"
+		"objective_context": "x",
+		"raw_content": "x"
 	}`))
 	req.Header.Set("Authorization", "Bearer ai-tok")
 	req.Header.Set("Content-Type", "application/json")

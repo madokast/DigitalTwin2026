@@ -1,6 +1,9 @@
 {
   "happened_at": "2026-07-30T08:00:00+0800",
   "numeric_value": "75.5",
-  "tags": ["weight"],
-  "objective_context": "compact offset without colon"
+  "tags": [
+    "weight"
+  ],
+  "objective_context": "compact offset without colon",
+  "raw_content": "Morning weigh-in on the scale"
 }

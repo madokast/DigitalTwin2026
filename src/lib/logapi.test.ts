@@ -15,6 +15,25 @@ import { ERR_INVALID_TARGET } from '@/lib/tododraft'
 import { AMOUNT_MUST_BE_STRING, INVALID_AMOUNT } from '@/lib/transactiondraft'
 
 describe('createNumber', () => {
+  it('rejects missing / empty / whitespace-only raw_content', async () => {
+    for (const raw of [undefined, '', '   ']) {
+      const result = await createNumber({
+        happened_at: '2026-07-30T08:00:00+08:00',
+        numeric_value: '1',
+        tags: ['weight'],
+        objective_context: 'x',
+        raw_content: raw,
+      })
+      expect(result).toEqual({
+        error:
+          raw === undefined || raw === ''
+            ? 'Missing required field: raw_content'
+            : 'raw_content must not be blank',
+        status: 400,
+      })
+    }
+  })
+
   it('rejects happened_at without timezone', async () => {
     for (const happened of ['2026-07-30', '2026-07-30T08:00:00']) {
       const result = await createNumber({
@@ -22,6 +41,7 @@ describe('createNumber', () => {
         numeric_value: '1',
         tags: ['weight'],
         objective_context: 'x',
+        raw_content: 'x',
       })
       expect(result).toEqual({
         error: 'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
@@ -36,6 +56,7 @@ describe('createNumber', () => {
       numeric_value: 75.5,
       tags: ['weight'],
       objective_context: 'x',
+        raw_content: 'x',
     })
     expect(result).toEqual({
       error: NUMERIC_VALUE_MUST_BE_STRING,
@@ -50,6 +71,7 @@ describe('createNumber', () => {
         numeric_value: bad,
         tags: ['weight'],
         objective_context: 'x',
+        raw_content: 'x',
       })
       expect(result).toEqual({ error: 'Invalid numeric_value', status: 400 })
     }
@@ -61,6 +83,7 @@ describe('createNumber', () => {
       numeric_value: '1',
       tags: ['transaction_entry'],
       objective_context: 'x',
+        raw_content: 'x',
     })
     expect(result).toEqual({
       error: reservedTagError('transaction_entry'),
@@ -74,6 +97,7 @@ describe('createNumber', () => {
       numeric_value: '1',
       tags: ['transaction_entry:income'],
       objective_context: 'x',
+        raw_content: 'x',
     })
     expect(result).toEqual({
       error: reservedTagError('transaction_entry:income'),
@@ -87,6 +111,7 @@ describe('createNumber', () => {
       numeric_value: '1',
       tags: ['body:weight'],
       objective_context: 'x',
+        raw_content: 'x',
     })
     expect(result).toEqual({
       error: reservedTagError('body:weight'),
@@ -100,6 +125,7 @@ describe('createNumber', () => {
       numeric_value: '1',
       tags: ['todo'],
       objective_context: 'x',
+        raw_content: 'x',
     })
     expect(result).toEqual({
       error: reservedTagError('todo'),
@@ -113,6 +139,7 @@ describe('createNumber', () => {
       numeric_value: '1',
       tags: ['todo:in_progress'],
       objective_context: 'x',
+        raw_content: 'x',
     })
     expect(result).toEqual({
       error: reservedTagError('todo:in_progress'),
@@ -127,6 +154,7 @@ describe('createNumber', () => {
         numeric_value: '1',
         tags: ['weight'],
         objective_context: 'x',
+        raw_content: 'x',
         subjective_interpretation: bad,
       })
       expect(result).toEqual({
@@ -143,6 +171,7 @@ describe('createNumber', () => {
         numeric_value: '1',
         tags: ['weight'],
         objective_context: 'x',
+        raw_content: 'x',
       }),
     ).toEqual({ error: 'Missing required field: happened_at', status: 400 })
     expect(
@@ -151,6 +180,7 @@ describe('createNumber', () => {
         numeric_value: '1',
         tags: 'x',
         objective_context: 'x',
+        raw_content: 'x',
       }),
     ).toEqual({
       error: 'tags must be an array of strings',
@@ -162,6 +192,7 @@ describe('createNumber', () => {
         numeric_value: '1',
         tags: ['weight'],
         objective_context: 123,
+        raw_content: 'x',
       }),
     ).toEqual({
       error: 'Missing required field: objective_context',
@@ -273,6 +304,22 @@ describe('transitionTodo', () => {
 })
 
 describe('createText', () => {
+  it('rejects whitespace-only raw_content', async () => {
+    for (const raw of ['', '   ', '\t']) {
+      const result = await createText({
+        happened_at: '2026-07-30T10:00:00Z',
+        raw_content: raw,
+        tags: ['study'],
+        objective_context: 'x',
+      })
+      expect(result).toEqual({
+        error:
+          raw === '' ? 'Missing required field: raw_content' : 'raw_content must not be blank',
+        status: 400,
+      })
+    }
+  })
+
   it('rejects happened_at without timezone', async () => {
     const result = await createText({
       happened_at: '2026-07-30T10:00:00',
