@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { VALUE_NUMBER_MUST_BE_STRING } from '@/lib/draft'
 import { INVALID_WEIGHT } from '@/lib/bodyweightdraft'
 import {
@@ -10,14 +10,6 @@ import {
   createTransactionBatch,
 } from '@/lib/logapi'
 import { INVALID_RECORD_ID } from '@/lib/record'
-
-// D7 竞态测试：mock db 层（vi.mock 提升，须 hoisted）
-const mockDb = vi.hoisted(() => ({
-  select: vi.fn(),
-  transaction: vi.fn(),
-}))
-vi.mock('@/db', () => ({ default: mockDb }))
-vi.mock('@/db/schema', () => ({ records: {} }))
 import { reservedTagError } from '@/lib/tags'
 import { ERR_INVALID_TARGET } from '@/lib/tododraft'
 import { AMOUNT_MUST_BE_STRING, INVALID_AMOUNT } from '@/lib/transactiondraft'
@@ -277,58 +269,6 @@ describe('transitionTodo', () => {
         happened_at: '2026-08-02T12:00:00+08:00',
       }),
     ).toEqual({ error: INVALID_RECORD_ID, status: 400 })
-  })
-})
-
-describe('transitionTodo race on UPDATE affected rows (D7)', () => {
-  const TODO_ID = '01900000-0000-7000-8000-000000000001'
-  const row = {
-    id: TODO_ID,
-    happenedAt: new Date('2026-08-02T04:00:00Z'),
-    utcOffset: '+08:00',
-    valueNumber: null,
-    valueText: 'buy milk',
-    tags: '["todo:in_progress"]',
-    objectiveContext: 'grocery',
-    subjectiveInterpretation: null,
-  }
-  const body = {
-    id: TODO_ID,
-    target: 'completed',
-    happened_at: '2026-08-02T12:00:00+08:00',
-  }
-
-  function installMockDb(affected: number) {
-    const insert = vi.fn(async () => [])
-    const tx = {
-      update: () => ({
-        set: () => ({ where: async () => ({ count: affected }) }),
-      }),
-      insert: () => ({ values: insert }),
-    }
-    mockDb.select.mockImplementation(() => ({
-      from: () => ({ where: () => ({ limit: async () => [row] }) }),
-    }))
-    mockDb.transaction.mockImplementation(
-      async (fn: (t: typeof tx) => Promise<void>) => fn(tx),
-    )
-    return insert
-  }
-
-  it('affected 0 → 500 with Go-matching message, no audit insert', async () => {
-    const insert = installMockDb(0)
-    await expect(transitionTodo(body)).resolves.toEqual({
-      error: 'todo update affected 0 rows',
-      status: 500,
-    })
-    expect(insert).not.toHaveBeenCalled()
-  })
-
-  it('affected 1 → 200 success and audit inserted', async () => {
-    const insert = installMockDb(1)
-    const result = await transitionTodo(body)
-    expect(result.status).toBe(200)
-    expect(insert).toHaveBeenCalledTimes(1)
   })
 })
 

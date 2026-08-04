@@ -9,7 +9,7 @@ const where = vi.fn(() => ({ limit }))
 const from = vi.fn(() => ({ where }))
 const select = vi.fn(() => ({ from }))
 
-const txWhere = vi.fn().mockResolvedValue(undefined)
+const txWhere = vi.fn().mockResolvedValue({ count: 1 })
 const txSet = vi.fn(() => ({ where: txWhere }))
 const txUpdate = vi.fn(() => ({ set: txSet }))
 const txValues = vi.fn().mockResolvedValue(undefined)
@@ -168,5 +168,22 @@ describe('transitionTodo mid-transaction failure (mocked db)', () => {
     await expect(transaction.mock.results[0]?.value).rejects.toThrow(
       'audit insert failed',
     )
+  })
+})
+
+describe('transitionTodo UPDATE affected rows race (D7)', () => {
+  // SELECT 与 UPDATE 之间记录被删 → Go 同款 500 + 文案，不插审计行（对齐 todo.go RowsAffected）。
+  it('affected 0 → 500 todo update affected 0 rows; no audit insert', async () => {
+    limit.mockResolvedValueOnce([
+      todoRow(JSON.stringify(['todo:in_progress', 'errand'])),
+    ])
+    txWhere.mockResolvedValueOnce({ count: 0 })
+
+    await expect(transitionTodo(body)).resolves.toEqual({
+      error: 'todo update affected 0 rows',
+      status: 500,
+    })
+    expect(txUpdate).toHaveBeenCalled()
+    expect(txInsert).not.toHaveBeenCalled()
   })
 })
