@@ -57,7 +57,7 @@ function todoRow(tags: string, rawContent = 'Buy milk') {
     rawContent,
     tags,
     objectiveContext: 'weekend grocery list',
-    subjectiveInterpretation: null,
+    aiAnalysis: null,
   }
 }
 
@@ -151,7 +151,7 @@ describe('transitionTodo success (mocked db)', () => {
         rawContent: 'Buy milk', // 审计行 = 待办原文逐字拷贝
         tags: JSON.stringify(['todo:transition']),
         objectiveContext: wantObjCtx,
-        subjectiveInterpretation: null,
+        aiAnalysis: null,
       }),
     )
   })

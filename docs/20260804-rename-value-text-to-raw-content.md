@@ -73,7 +73,7 @@
 |------|------|
 | `raw_content` | **逐字拷贝**流转前待办行的 `raw_content` 原文（如待办「回家前取快递」，审计行同为「回家前取快递」），不得拼接、不得改写 |
 | `objective_context` | 合成句 `{Verb} a to-do {todo.id} created at {todo.happened_at}`（四动词：`Complete` / `Cancel` / `Pause` / `Resume`；`{todo.happened_at}` 为 `fromDB` 已按 `utc_offset` 格式化的带区串，零成本）——取代旧值 `The index of the to-do is {todo.id}` |
-| `subjective_interpretation` | null（不变） |
+| `ai_analysis` | null（不变） |
 
 **信息保全性 ✓**：动词 + uuid + 待办创建时间全在 `objective_context`，正文在 `raw_content`，无信息丢失；uuid 可溯源到原待办行。
 
@@ -108,7 +108,7 @@ todo 待办行的对外别名 `content` / `created_at` **保持不动**，仅底
 
 ### 3.4 明确不动项
 
-- `happened_at`、`utc_offset`、`tags`、`objective_context`、`subjective_interpretation`。
+- `happened_at`、`utc_offset`、`tags`、`objective_context`、`ai_analysis`。
 - 驼峰拒绝行为：`valueText` / `valueNumber` 作为请求键仍 → 400（`tests/openapi/contract.test.ts:245` 用例**保留不变**，其语义是「驼峰键非法」）。
 - 无索引、无外键涉及这两列（`0000` 建表 SQL 仅 3 条 CHECK），改名无索引副作用。
 
@@ -181,7 +181,7 @@ dev logs、`20260727-initial-vision.md`、`20260729-schema-v1.md`、`20260728-fu
 - `tests/api/routes.test.ts`（37 处：请求体、断言、错误文案）、`tests/openapi/contract.test.ts`（`value_text: null` 合法补丁键；`:245` 驼峰拒绝用例**不动**）。
 - 各 `src/lib/*.test.ts`、Go 各 `*_test.go`。
 - `testdata/record-jsonl-cases.json`（27 处 JSONL 行 + 双 null 错误文案）、`todo-record-deform.json`、`todo-transition-audit.json`。
-- 审计相关断言（§3.1 行为变更，**commit A**）：`raw_content`（当时键名仍 `value_text`）= 待办正文逐字拷贝；`objective_context` = 新合成句（含 uuid 与带区时间）；`subjective_interpretation` = null；`testdata/todo-transition-audit.json` 4 行**值**重写；`todo.go:74,197` / `logapi.ts:253,345` 通知字段改名 **`TodoAuditNotifyText` / `todoAuditNotifyText`**（D6 模板，含 `": "` + 正文断言）。键名替换归 commit B。
+- 审计相关断言（§3.1 行为变更，**commit A**）：`raw_content`（当时键名仍 `value_text`）= 待办正文逐字拷贝；`objective_context` = 新合成句（含 uuid 与带区时间）；`ai_analysis` = null；`testdata/todo-transition-audit.json` 4 行**值**重写；`todo.go:74,197` / `logapi.ts:253,345` 通知字段改名 **`TodoAuditNotifyText` / `todoAuditNotifyText`**（D6 模板，含 `": "` + 正文断言）。键名替换归 commit B。
 
 ### 阶段 6 — 文档（living 仅；行为部分随 commit A，机械改名部分随 commit B）
 

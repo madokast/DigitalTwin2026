@@ -42,13 +42,13 @@ func TestRequireTrimmedTextAndOptionalTrimmedNullable(t *testing.T) {
 	if v, err := RequireTrimmedText("  ok  ", "raw_content"); err != nil || v != "ok" {
 		t.Fatalf("trim: (%q, %v)", v, err)
 	}
-	if v, err := OptionalTrimmedNullable(nil, "subjective_interpretation"); err != nil || v != nil {
+	if v, err := OptionalTrimmedNullable(nil, "ai_analysis"); err != nil || v != nil {
 		t.Fatalf("nil: (%v, %v)", v, err)
 	}
-	if _, err := OptionalTrimmedNullable("", "subjective_interpretation"); err == nil || err.Error() != "subjective_interpretation must not be blank" {
+	if _, err := OptionalTrimmedNullable("", "ai_analysis"); err == nil || err.Error() != "ai_analysis must not be blank" {
 		t.Fatalf("empty: %v", err)
 	}
-	if v, err := OptionalTrimmedNullable("  ok  ", "subjective_interpretation"); err != nil || v == nil || *v != "ok" {
+	if v, err := OptionalTrimmedNullable("  ok  ", "ai_analysis"); err != nil || v == nil || *v != "ok" {
 		t.Fatalf("trim: (%v, %v)", v, err)
 	}
 }

@@ -42,7 +42,7 @@ describe('fromDB', () => {
       rawContent: null,
       tags: '["weight"]',
       objectiveContext: 'morning',
-      subjectiveInterpretation: null,
+      aiAnalysis: null,
     })
     expect(rec.happened_at).toBe('2026-07-30T10:00:00.000Z')
     expect(typeof rec.happened_at).toBe('string')
@@ -58,7 +58,7 @@ describe('fromDB', () => {
       rawContent: null,
       tags: '["weight"]',
       objectiveContext: 'x',
-      subjectiveInterpretation: null,
+      aiAnalysis: null,
     })
     expect(rec.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
   })

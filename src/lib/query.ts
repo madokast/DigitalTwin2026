@@ -143,7 +143,7 @@ export function parseRecordQueryParams(
       or(
         like(records.rawContent, searchPattern),
         like(records.objectiveContext, searchPattern),
-        like(records.subjectiveInterpretation, searchPattern),
+        like(records.aiAnalysis, searchPattern),
         like(records.tags, searchPattern),
       )!,
     )

@@ -39,7 +39,7 @@ const sampleRecord = {
   rawContent: null,
   tags: '[]',
   objectiveContext: 'x',
-  subjectiveInterpretation: null,
+  aiAnalysis: null,
 }
 
 beforeEach(() => {

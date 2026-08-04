@@ -10,7 +10,7 @@ export const records = pgTable('records', {
   rawContent: text('raw_content'),
   tags: text('tags').notNull(),
   objectiveContext: text('objective_context').notNull(),
-  subjectiveInterpretation: text('subjective_interpretation'),
+  aiAnalysis: text('ai_analysis'),
 }, (table) => [
   // 确保 numeric_value 和 raw_content 至少填一个
   check('chk_raw_content', sql`${table.numericValue} IS NOT NULL OR ${table.rawContent} IS NOT NULL`),

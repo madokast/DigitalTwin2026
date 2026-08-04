@@ -20,7 +20,7 @@ const sampleNumber = {
   raw_content: null,
   tags: ['weight', 'morning'],
   objective_context: 'Scale reading',
-  subjective_interpretation: 'Feeling lighter',
+  ai_analysis: 'Feeling lighter',
 }
 
 const sampleText = {
@@ -29,7 +29,7 @@ const sampleText = {
   raw_content: 'Ran 5k',
   tags: ['run'],
   objective_context: 'Park loop',
-  subjective_interpretation: null as string | null,
+  ai_analysis: null as string | null,
 }
 
 describe('loadConfig / isTelegramConfigured', () => {
@@ -105,12 +105,12 @@ describe('formatRecordMessage', () => {
         'numeric_value: 72.5',
         'tags: weight, morning',
         'objective: Scale reading',
-        'subjective: Feeling lighter',
+        'ai_analysis: Feeling lighter',
       ].join('\n'),
     )
   })
 
-  it('formats a text record and uses (null) for empty subjective', () => {
+  it('formats a text record and uses (null) for empty ai_analysis', () => {
     expect(formatRecordMessage(sampleText)).toBe(
       [
         'New record',
@@ -119,7 +119,7 @@ describe('formatRecordMessage', () => {
         'raw_content: Ran 5k',
         'tags: run',
         'objective: Park loop',
-        'subjective: (null)',
+        'ai_analysis: (null)',
       ].join('\n'),
     )
   })

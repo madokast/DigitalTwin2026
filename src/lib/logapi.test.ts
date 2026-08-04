@@ -147,7 +147,7 @@ describe('createNumber', () => {
     })
   })
 
-  it('rejects non-string subjective_interpretation', async () => {
+  it('rejects non-string ai_analysis', async () => {
     for (const bad of [1, true, [], {}]) {
       const result = await createNumber({
         happened_at: '2026-07-30T08:00:00+08:00',
@@ -155,10 +155,10 @@ describe('createNumber', () => {
         tags: ['weight'],
         objective_context: 'x',
         raw_content: 'x',
-        subjective_interpretation: bad,
+        ai_analysis: bad,
       })
       expect(result).toEqual({
-        error: 'Invalid subjective_interpretation',
+        error: 'Invalid ai_analysis',
         status: 400,
       })
     }
@@ -359,16 +359,16 @@ describe('createText', () => {
     })
   })
 
-  it('rejects non-string subjective_interpretation', async () => {
+  it('rejects non-string ai_analysis', async () => {
     const result = await createText({
       happened_at: '2026-08-01T12:30:00+08:00',
       raw_content: 'hello',
       tags: ['study'],
       objective_context: 'x',
-      subjective_interpretation: 42,
+      ai_analysis: 42,
     })
     expect(result).toEqual({
-      error: 'Invalid subjective_interpretation',
+      error: 'Invalid ai_analysis',
       status: 400,
     })
   })

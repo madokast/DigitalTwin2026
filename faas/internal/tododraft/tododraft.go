@@ -34,13 +34,13 @@ type LogTodoBody struct {
 	CreatedAt                any `json:"created_at"`
 	Content                  any `json:"content"`
 	ObjectiveContext         any `json:"objective_context"`
-	SubjectiveInterpretation any `json:"subjective_interpretation"`
+	AiAnalysis any `json:"ai_analysis"`
 	Tags                     any `json:"tags"`
 }
 
 var logTodoKeys = []string{
 	"created_at", "content", "objective_context",
-	"subjective_interpretation", "tags",
+	"ai_analysis", "tags",
 }
 
 // NormalizedTodo 校验后的待办行（落库列语义）。
@@ -50,7 +50,7 @@ type NormalizedTodo struct {
 	RawContent                string
 	Tags                     []string
 	ObjectiveContext         string
-	SubjectiveInterpretation any // string or nil
+	AiAnalysis any // string or nil
 }
 
 // TodoRecordJSON 待办行 HTTP JSON（别名键；其余与 Record snake_case 一致）。
@@ -60,7 +60,7 @@ type TodoRecordJSON struct {
 	Content                  string  `json:"content"`
 	Tags                     []string `json:"tags"`
 	ObjectiveContext         string  `json:"objective_context"`
-	SubjectiveInterpretation *string `json:"subjective_interpretation"`
+	AiAnalysis *string `json:"ai_analysis"`
 }
 
 // ToTodoRecordJSON 将内部 Record 变形为待办对外形状（去掉 happened_at / raw_content）。
@@ -75,7 +75,7 @@ func ToTodoRecordJSON(rec record.Record) TodoRecordJSON {
 		Content:                  content,
 		Tags:                     rec.Tags,
 		ObjectiveContext:         rec.ObjectiveContext,
-		SubjectiveInterpretation: rec.SubjectiveInterpretation,
+		AiAnalysis: rec.AiAnalysis,
 	}
 }
 
@@ -360,7 +360,7 @@ func ParseTodo(raw []byte) (NormalizedTodo, error) {
 	if err != nil {
 		return NormalizedTodo{}, err
 	}
-	subj, err := draft.OptionalTrimmedNullable(body.SubjectiveInterpretation, "subjective_interpretation")
+	subj, err := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
 	if err != nil {
 		return NormalizedTodo{}, err
 	}
@@ -379,6 +379,6 @@ func ParseTodo(raw []byte) (NormalizedTodo, error) {
 		RawContent:                content,
 		Tags:                     tagsOut,
 		ObjectiveContext:         objCtx,
-		SubjectiveInterpretation: subj,
+		AiAnalysis: subj,
 	}, nil
 }

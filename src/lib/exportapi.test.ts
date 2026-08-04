@@ -19,7 +19,7 @@ const sample: Record = {
   raw_content: null,
   tags: ['weight'],
   objective_context: 'scale',
-  subjective_interpretation: null,
+  ai_analysis: null,
 }
 
 describe('parseExportRecordsParams', () => {

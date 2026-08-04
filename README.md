@@ -177,7 +177,7 @@ Node 全量 `npm test` 在无安全 `DATABASE_URL` 时集成自动 Skip；Go 全
 | raw_content | TEXT | 文本（可空；与数值至少填一；部分 API 会变形，见下） |
 | tags | TEXT | JSON 数组 |
 | objective_context | TEXT | 客观背景（必填） |
-| subjective_interpretation | TEXT | 主观解读（可空） |
+| ai_analysis | TEXT | 主观解读（可空） |
 
 字段说明：
 

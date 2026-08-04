@@ -58,7 +58,7 @@ func TestBuildExportNdjsonAndFilename(t *testing.T) {
 		RawContent:                nil,
 		Tags:                     []string{"weight"},
 		ObjectiveContext:         "scale",
-		SubjectiveInterpretation: nil,
+		AiAnalysis: nil,
 	}
 	line, err := recordjsonl.SerializeRecord(rec)
 	if err != nil {

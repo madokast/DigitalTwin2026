@@ -64,7 +64,7 @@
 | 项 | 约定 |
 |----|------|
 | 路径 | `POST /api/log/body/weight`（ApiToken） |
-| Body | `happened_at` + `value_number`（kg，`WeightAmountString`）+ `objective_context`；可选 `subjective_interpretation` / `tags`（当时另可选 `suppress_notification`，**已删**） |
+| Body | `happened_at` + `value_number`（kg，`WeightAmountString`）+ `objective_context`；可选 `ai_analysis` / `tags`（当时另可选 `suppress_notification`，**已删**） |
 | 数值 | 正数、≤2 位小数、**1.00–500.00**；规范为两位小数入库；JSON number → 400 |
 | 落库 tags | `["body:weight", ...可选客户端 tags]`（保留 tag 在前） |
 | 保留 tag | 前缀 `body:weight` / `body:weight:*`（与 `transaction_entry` 并列）；number/text/Admin/rename 拒绝，文案指向专用路径 |
@@ -78,7 +78,7 @@
 curl -sS -X POST "$BASE/api/log/body/weight" \
   -H "Authorization: Bearer $AI_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"happened_at":"2026-08-02T08:00:00+08:00","value_number":"75.5","objective_context":"morning weigh-in","subjective_interpretation":"a bit heavy","tags":["morning"]}'
+  -d '{"happened_at":"2026-08-02T08:00:00+08:00","value_number":"75.5","objective_context":"morning weigh-in","ai_analysis":"a bit heavy","tags":["morning"]}'
 ```
 
 相关：`src/lib/bodyweightdraft.ts`、`faas/internal/bodyweightdraft`、`logapi.CreateBodyWeight`、OpenAPI `LogBodyWeightRequest` / `WeightAmountString`。
@@ -104,7 +104,7 @@ curl -sS -X POST "$BASE/api/log/body/weight" \
 | 项 | 约定 |
 |----|------|
 | 路径 | `POST /api/log/todo`（ApiToken：AI 或 Admin） |
-| 请求 | `created_at`（→ `happened_at`）、`content`（→ `value_text`）、`objective_context` 必填；可选 `subjective_interpretation` / `tags`（当时另可选 body suppress，**已删**） |
+| 请求 | `created_at`（→ `happened_at`）、`content`（→ `value_text`）、`objective_context` 必填；可选 `ai_analysis` / `tags`（当时另可选 body suppress，**已删**） |
 | 禁键 | 请求不得带 `happened_at` / `value_text` / `value_number`（未知键 400） |
 | 落库 tags | `["todo:in_progress", ...clientTags]`（状态 tag 在前） |
 | 成功 | `201` + `{ success, record }`；`record` 为 **TodoRecord**（`created_at`/`content`，无 `happenedAt`/`valueText`） |

@@ -8,7 +8,7 @@
       "errand"
     ],
     "objective_context": "weekend grocery list",
-    "subjective_interpretation": "need it for breakfast"
+    "ai_analysis": "need it for breakfast"
   },
   "todoRecordJson": {
     "id": "01900000-0000-7000-8000-000000000003",
@@ -19,6 +19,6 @@
       "errand"
     ],
     "objective_context": "weekend grocery list",
-    "subjective_interpretation": "need it for breakfast"
+    "ai_analysis": "need it for breakfast"
   }
 }

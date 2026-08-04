@@ -17,7 +17,7 @@ type validCase struct {
 	ExpectNumericValue              *string  `json:"expectNumericValue"`
 	ExpectRawContent                *string  `json:"expectRawContent"`
 	ExpectObjectiveContext         string   `json:"expectObjectiveContext"`
-	ExpectSubjectiveInterpretation *string  `json:"expectSubjectiveInterpretation"`
+	ExpectAiAnalysis *string  `json:"expectAiAnalysis"`
 	ExpectHappenedAtUtcMs          int64    `json:"expectHappenedAtUtcMs"`
 	Serialized                     string   `json:"serialized"`
 }
@@ -100,8 +100,8 @@ func TestParseLineValid(t *testing.T) {
 			if row.ObjectiveContext != c.ExpectObjectiveContext {
 				t.Fatalf("objectiveContext %q", row.ObjectiveContext)
 			}
-			if !ptrStrEq(row.SubjectiveInterpretation, c.ExpectSubjectiveInterpretation) {
-				t.Fatalf("subjective %#v want %#v", row.SubjectiveInterpretation, c.ExpectSubjectiveInterpretation)
+			if !ptrStrEq(row.AiAnalysis, c.ExpectAiAnalysis) {
+				t.Fatalf("ai_analysis %#v want %#v", row.AiAnalysis, c.ExpectAiAnalysis)
 			}
 			if row.HappenedAt.UTC().UnixMilli() != c.ExpectHappenedAtUtcMs {
 				t.Fatalf("happenedAt ms %d want %d", row.HappenedAt.UTC().UnixMilli(), c.ExpectHappenedAtUtcMs)
@@ -216,8 +216,8 @@ func TestSerializeRoundTrip(t *testing.T) {
 			if twice.ObjectiveContext != once.ObjectiveContext {
 				t.Fatal("objective_context")
 			}
-			if !ptrStrEq(twice.SubjectiveInterpretation, once.SubjectiveInterpretation) {
-				t.Fatal("subjective")
+			if !ptrStrEq(twice.AiAnalysis, once.AiAnalysis) {
+				t.Fatal("ai_analysis")
 			}
 		})
 	}

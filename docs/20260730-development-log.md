@@ -95,7 +95,7 @@ npm install -D drizzle-kit
 | value_text | TEXT | 可空 | 文本型记录（叙事、复盘等） |
 | tags | TEXT | NOT NULL | JSON 数组，标签 |
 | objective_context | TEXT | NOT NULL | 客观背景描述 |
-| subjective_interpretation | TEXT | 可空 | 主观解读 |
+| ai_analysis | TEXT | 可空 | 主观解读 |
 
 **约束**：
 - `chk_value`：value_number 和 value_text 不能同时为空
@@ -104,7 +104,7 @@ npm install -D drizzle-kit
 ### 2.4 字段演进过程
 
 1. **初始设计**：`context` 字段（可空）
-2. **第一次修改**：`context` → `objective_context`（必填），新增 `subjective_interpretation`（可空）
+2. **第一次修改**：`context` → `objective_context`（必填），新增 `ai_analysis`（可空）
 3. **第二次修改**：`value_numeric` → `value_number`（更符合业务命名习惯）
 
 ## 3. API 接口开发
@@ -152,7 +152,7 @@ Authorization: Bearer <token>
 支持的过滤条件：
 - `from` / `to`：时间区间（ISO 8601 **必须**带时区 `Z`/`±offset`；无偏移或纯日期拒绝），半开区间 `[from, to)`
 - `tag`：多 tag 过滤（AND 语义）
-- `q`：模糊搜索（value_text、objective_context、subjective_interpretation、tags）
+- `q`：模糊搜索（value_text、objective_context、ai_analysis、tags）
 
 ### 3.5 标签计数与全局替换
 

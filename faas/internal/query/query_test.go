@@ -150,7 +150,7 @@ func TestToQueryRecordJSON(t *testing.T) {
 		RawContent:                &todoText,
 		Tags:                     []string{"todo:in_progress", "errand"},
 		ObjectiveContext:         "weekend grocery list",
-		SubjectiveInterpretation: nil,
+		AiAnalysis: nil,
 	}
 	got := ToQueryRecordJSON(todo)
 	b, err := json.Marshal(got)

@@ -86,7 +86,7 @@ describe('toQueryRecordJson', () => {
       tags: [TODO_TAG_TRANSITION],
       objective_context:
         'Complete a to-do 01900000-0000-7000-8000-000000000003 created at 2026-08-02T02:00:00.000Z',
-      subjective_interpretation: null,
+      ai_analysis: null,
     }
     const auditJson = toQueryRecordJson(audit)
     expect(auditJson).toEqual(audit)
@@ -116,7 +116,7 @@ describe('parseTodo', () => {
   it('prepends todo:in_progress and maps aliases', () => {
     const parsed = parseTodo({
       ...base,
-      subjective_interpretation: 'need it for breakfast',
+      ai_analysis: 'need it for breakfast',
       tags: ['errand'],
     })
     expect('error' in parsed).toBe(false)
@@ -124,7 +124,7 @@ describe('parseTodo', () => {
     expect(parsed.rawContent).toBe('Buy milk')
     expect(parsed.tags).toEqual([TODO_TAG_IN_PROGRESS, 'errand'])
     expect(parsed.objectiveContext).toBe('weekend grocery list')
-    expect(parsed.subjectiveInterpretation).toBe('need it for breakfast')
+    expect(parsed.aiAnalysis).toBe('need it for breakfast')
     expect(parsed.happenedAt.toISOString()).toBe('2026-08-02T02:00:00.000Z')
   })
 

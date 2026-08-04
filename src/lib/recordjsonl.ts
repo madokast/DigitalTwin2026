@@ -36,7 +36,7 @@ export const RECORD_JSONL_KEYS = [
   'raw_content',
   'tags',
   'objective_context',
-  'subjective_interpretation',
+  'ai_analysis',
 ] as const
 
 /** 非法 JSON 行（与 HTTP `Invalid JSON body` 区分） */
@@ -59,7 +59,7 @@ export type RecordJsonlRow = {
   rawContent: string | null
   tags: string[]
   objectiveContext: string
-  subjectiveInterpretation: string | null
+  aiAnalysis: string | null
 }
 
 export type RecordJsonlError = { error: string }
@@ -190,12 +190,12 @@ export function parseLine(
     return fail(objCtx.error, lineNumber)
   }
 
-  const subjective = optionalTrimmedNullable(
-    body.subjective_interpretation,
-    'subjective_interpretation',
+  const aiAnalysis = optionalTrimmedNullable(
+    body.ai_analysis,
+    'ai_analysis',
   )
-  if ('error' in subjective) {
-    return fail(subjective.error, lineNumber)
+  if ('error' in aiAnalysis) {
+    return fail(aiAnalysis.error, lineNumber)
   }
 
   return {
@@ -206,7 +206,7 @@ export function parseLine(
     rawContent,
     tags,
     objectiveContext: objCtx.value,
-    subjectiveInterpretation: subjective.value,
+    aiAnalysis: aiAnalysis.value,
   }
 }
 
@@ -223,7 +223,7 @@ export function serializeLine(row: RecordJsonlRow): string {
     raw_content: row.rawContent,
     tags: row.tags,
     objective_context: row.objectiveContext,
-    subjective_interpretation: row.subjectiveInterpretation,
+    ai_analysis: row.aiAnalysis,
   })
 }
 
@@ -241,7 +241,7 @@ export function serializeRecord(rec: ApiRecord): string {
     raw_content: rec.raw_content,
     tags: rec.tags,
     objective_context: rec.objective_context,
-    subjective_interpretation: rec.subjective_interpretation,
+    ai_analysis: rec.ai_analysis,
   })
 }
 

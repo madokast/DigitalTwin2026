@@ -32,7 +32,7 @@
 ## 1. Admin PATCH
 
 - 路径：`PATCH /api/admin/records/[id]`
-- Body：可编辑字段快照（`happened_at`、`value_number`、`value_text`、`tags`、`objective_context`、`subjective_interpretation`）
+- Body：可编辑字段快照（`happened_at`、`value_number`、`value_text`、`tags`、`objective_context`、`ai_analysis`）
 - 规则要点：
   - 空串 → `null`（`objective_context` 除外，不允许空）
   - `value_number` / `value_text` 不能同时为空

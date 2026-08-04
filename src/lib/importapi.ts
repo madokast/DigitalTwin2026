@@ -142,7 +142,7 @@ function rowValues(row: RecordJsonlRow) {
     rawContent: row.rawContent,
     tags: tagsJSON(row.tags),
     objectiveContext: row.objectiveContext,
-    subjectiveInterpretation: row.subjectiveInterpretation,
+    aiAnalysis: row.aiAnalysis,
   }
 }
 
@@ -173,7 +173,7 @@ function defaultStore(): ImportStore {
                 rawContent: v.rawContent,
                 tags: v.tags,
                 objectiveContext: v.objectiveContext,
-                subjectiveInterpretation: v.subjectiveInterpretation,
+                aiAnalysis: v.aiAnalysis,
               })
               .where(eq(records.id, row.id))
           },

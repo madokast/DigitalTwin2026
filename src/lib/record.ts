@@ -11,7 +11,7 @@ export type Record = {
   raw_content: string | null
   tags: string[]
   objective_context: string
-  subjective_interpretation: string | null
+  ai_analysis: string | null
 }
 
 type RecordRow = {
@@ -23,7 +23,7 @@ type RecordRow = {
   rawContent: string | null
   tags: string
   objectiveContext: string
-  subjectiveInterpretation: string | null
+  aiAnalysis: string | null
 }
 
 /**
@@ -56,7 +56,7 @@ export function fromDB(row: RecordRow): Record {
     raw_content: row.rawContent,
     tags: parseTagsField(row.tags),
     objective_context: row.objectiveContext,
-    subjective_interpretation: row.subjectiveInterpretation,
+    ai_analysis: row.aiAnalysis,
   }
 }
 

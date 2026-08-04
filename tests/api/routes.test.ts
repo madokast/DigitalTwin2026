@@ -109,7 +109,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         tags: ['weight'],
         objective_context: 'morning weigh-in',
         raw_content: 'x',
-        subjective_interpretation: 'a bit heavy',
+        ai_analysis: 'a bit heavy',
       }))
       expect(res.status).toBe(201)
       const body = await res.json()
@@ -118,7 +118,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.record.raw_content).toBe('x')
       expect(body.record.tags).toEqual(['weight'])
       expect(body.record.objective_context).toBe('morning weigh-in')
-      expect(body.record.subjective_interpretation).toBe('a bit heavy')
+      expect(body.record.ai_analysis).toBe('a bit heavy')
     })
 
     it('accepts omitted / [] / null tags and returns tags: []', async () => {
@@ -463,7 +463,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         happened_at: '2026-08-02T08:00:00+08:00',
         numeric_value: '75.5',
         objective_context: 'morning weigh-in',
-        subjective_interpretation: 'a bit heavy',
+        ai_analysis: 'a bit heavy',
         tags: ['morning'],
       }))
       expect(res.status).toBe(201)
@@ -504,7 +504,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         created_at: '2026-08-02T10:00:00+08:00',
         content: 'Buy milk',
         objective_context: 'weekend grocery list',
-        subjective_interpretation: 'need it for breakfast',
+        ai_analysis: 'need it for breakfast',
         tags: ['errand'],
       }))
       expect(res.status).toBe(201)
@@ -617,7 +617,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         raw_content: string
         tags: string[]
         objective_context: string
-        subjective_interpretation: string | null
+        ai_analysis: string | null
         happened_at: string
         created_at?: string
         content?: string
@@ -635,7 +635,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(audit!.objective_context).toBe(
         `Complete a to-do ${todo.id} created at ${todo.created_at}`,
       )
-      expect(audit!.subjective_interpretation).toBeNull()
+      expect(audit!.ai_analysis).toBeNull()
       expect(audit!).not.toHaveProperty('created_at')
       expect(audit!).not.toHaveProperty('content')
     })
@@ -826,7 +826,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         raw_content: 'reviewed physics notes',
         tags: ['study', 'physics'],
         objective_context: 'focused session',
-        subjective_interpretation: 'felt productive',
+        ai_analysis: 'felt productive',
       }))
       await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-31T12:00:00+08:00',
@@ -907,7 +907,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.count).toBe(1)
-      expect(body.records[0].subjective_interpretation).toBe('felt productive')
+      expect(body.records[0].ai_analysis).toBe('felt productive')
 
       const byTag = await queryRecords(jsonGet('http://localhost/api/query?q=weight'))
       expect(byTag.status).toBe(200)
@@ -1295,7 +1295,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         raw_content: null,
         tags: '["weight"]',
         objective_context: 'import-dup',
-        subjective_interpretation: null,
+        ai_analysis: null,
       })
       const dup = await importRecords(
         multipartPost(
@@ -1335,7 +1335,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         raw_content: null,
         tags: '["body:weight"]',
         objective_context: 'import-reserved',
-        subjective_interpretation: null,
+        ai_analysis: null,
       })
       const res = await importRecords(
         multipartPost('http://localhost/api/admin/import/records', line),
@@ -1416,7 +1416,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         raw_content: null,
         tags: '["weight"]',
         objective_context: 'import-utc-offset',
-        subjective_interpretation: null,
+        ai_analysis: null,
       })
       const res = await importRecords(
         multipartPost('http://localhost/api/admin/import/records', line),

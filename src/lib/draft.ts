@@ -111,10 +111,10 @@ export function requireTrimmedText(
   return { ok: true, value: raw.trim() }
 }
 
-/** 可空文本（subjective_interpretation）：不传 / null → null；非 string → Invalid；空串或空白串 → must not be blank；存 trim 后值 */
+/** 可空文本（ai_analysis）：不传 / null → null；非 string → Invalid；空串或空白串 → must not be blank；存 trim 后值 */
 export function optionalTrimmedNullable(
   raw: unknown,
-  field: 'subjective_interpretation',
+  field: 'ai_analysis',
 ): { ok: true; value: string | null } | DraftValidationError {
   if (raw === undefined || raw === null) {
     return { ok: true, value: null }

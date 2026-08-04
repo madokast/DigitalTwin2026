@@ -24,7 +24,7 @@ const sampleRecord = {
   raw_content: null,
   tags: '["weight"]',
   objective_context: 'Scale',
-  subjective_interpretation: null,
+  ai_analysis: null,
 }
 
 function post(body: unknown): NextRequest {

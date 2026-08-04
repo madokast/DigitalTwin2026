@@ -220,7 +220,7 @@ describe('OpenAPI contract (Phase 2)', () => {
       raw_content: null,
       tags: '["weight"]',
       objective_context: 'x',
-      subjective_interpretation: null,
+      ai_analysis: null,
     })
   })
 
@@ -241,7 +241,7 @@ describe('OpenAPI contract (Phase 2)', () => {
       rawContent: null,
       tags: '["weight"]',
       objectiveContext: 'morning',
-      subjectiveInterpretation: null,
+      aiAnalysis: null,
     })
     await assertValidSchema('Record', rec)
     expect(rec.happened_at).toBe('2026-07-30T08:00:00.000+08:00')

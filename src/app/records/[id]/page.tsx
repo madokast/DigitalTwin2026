@@ -119,12 +119,12 @@ export default function RecordDetailPage() {
           </div>
 
           <div>
-            <dt className="text-xs text-muted-foreground">Subjective Interpretation</dt>
+            <dt className="text-xs text-muted-foreground">AI Analysis</dt>
             <dd className="text-sm whitespace-pre-wrap">
-              {record.subjective_interpretation === null ? (
+              {record.ai_analysis === null ? (
                 <NullBadge />
               ) : (
-                record.subjective_interpretation
+                record.ai_analysis
               )}
             </dd>
           </div>

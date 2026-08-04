@@ -199,7 +199,7 @@ func TestRecordRejectsNumericNumericValue(t *testing.T) {
 		"raw_content":                nil,
 		"tags":                     `["weight"]`,
 		"objective_context":         "x",
-		"subjective_interpretation": nil,
+		"ai_analysis": nil,
 	}
 	visitJSONExpectFail(t, schema(t, doc, "Record"), bad)
 }

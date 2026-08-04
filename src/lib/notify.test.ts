@@ -97,7 +97,7 @@ const sampleNumber = {
   raw_content: null,
   tags: ['weight', 'morning'],
   objective_context: 'Scale reading',
-  subjective_interpretation: 'Feeling lighter',
+  ai_analysis: 'Feeling lighter',
 }
 
 describe('scheduleBestEffortNotify', () => {

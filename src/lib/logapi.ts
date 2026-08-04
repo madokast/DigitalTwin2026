@@ -47,7 +47,7 @@ export const LOG_NUMBER_KEYS = [
   'raw_content',
   'tags',
   'objective_context',
-  'subjective_interpretation',
+  'ai_analysis',
 ] as const
 
 export const LOG_TEXT_KEYS = [
@@ -55,7 +55,7 @@ export const LOG_TEXT_KEYS = [
   'raw_content',
   'tags',
   'objective_context',
-  'subjective_interpretation',
+  'ai_analysis',
 ] as const
 
 export type NumberBody = {
@@ -64,7 +64,7 @@ export type NumberBody = {
   raw_content?: unknown
   tags?: unknown
   objective_context?: unknown
-  subjective_interpretation?: unknown
+  ai_analysis?: unknown
 }
 
 export type TextBody = {
@@ -72,7 +72,7 @@ export type TextBody = {
   raw_content?: unknown
   tags?: unknown
   objective_context?: unknown
-  subjective_interpretation?: unknown
+  ai_analysis?: unknown
 }
 
 export type LogApiError = { error: string; status: number }
@@ -97,7 +97,7 @@ type InsertValues = {
   rawContent: string | null
   tags: string
   objectiveContext: string
-  subjectiveInterpretation: string | null
+  aiAnalysis: string | null
 }
 
 type InsertExecutor = {
@@ -174,9 +174,9 @@ export async function createNumber(
     return { error: objCtxResult.error, status: 400 }
   }
 
-  const subjective = optionalTrimmedNullable(body.subjective_interpretation, 'subjective_interpretation')
-  if ('error' in subjective) {
-    return { error: subjective.error, status: 400 }
+  const aiAnalysis = optionalTrimmedNullable(body.ai_analysis, 'ai_analysis')
+  if ('error' in aiAnalysis) {
+    return { error: aiAnalysis.error, status: 400 }
   }
 
   try {
@@ -188,7 +188,7 @@ export async function createNumber(
       rawContent: rawContentResult.value,
       tags: tagsJSON(tagListResult.value),
       objectiveContext: objCtxResult.value,
-      subjectiveInterpretation: subjective.value,
+      aiAnalysis: aiAnalysis.value,
     })
     return { record, status: 201 }
   } catch (err) {
@@ -218,7 +218,7 @@ export async function createBodyWeight(
       rawContent: null,
       tags: tagsJSON(parsed.tags),
       objectiveContext: parsed.objectiveContext,
-      subjectiveInterpretation: parsed.subjectiveInterpretation,
+      aiAnalysis: parsed.aiAnalysis,
     })
     return { record, status: 201 }
   } catch (err) {
@@ -248,7 +248,7 @@ export async function createTodo(
       rawContent: parsed.rawContent,
       tags: tagsJSON(parsed.tags),
       objectiveContext: parsed.objectiveContext,
-      subjectiveInterpretation: parsed.subjectiveInterpretation,
+      aiAnalysis: parsed.aiAnalysis,
     })
     return { record, status: 201 }
   } catch (err) {
@@ -338,7 +338,7 @@ export async function transitionTodo(
         rawContent: content,
         tags: tagsJSON([TODO_TAG_TRANSITION]),
         objectiveContext: objCtx,
-        subjectiveInterpretation: null,
+        aiAnalysis: null,
       })
     })
     if (raceError) {
@@ -393,9 +393,9 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     return { error: objCtxResult.error, status: 400 }
   }
 
-  const subjective = optionalTrimmedNullable(body.subjective_interpretation, 'subjective_interpretation')
-  if ('error' in subjective) {
-    return { error: subjective.error, status: 400 }
+  const aiAnalysis = optionalTrimmedNullable(body.ai_analysis, 'ai_analysis')
+  if ('error' in aiAnalysis) {
+    return { error: aiAnalysis.error, status: 400 }
   }
 
   try {
@@ -407,7 +407,7 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
       rawContent: rawContentResult.value,
       tags: tagsJSON(tagListResult.value),
       objectiveContext: objCtxResult.value,
-      subjectiveInterpretation: subjective.value,
+      aiAnalysis: aiAnalysis.value,
     })
     return { record, status: 201 }
   } catch (err) {
@@ -444,7 +444,7 @@ export async function createTransactionBatch(
             rawContent: null,
             tags: tagsJSON(entry.tags),
             objectiveContext: entry.memo,
-            subjectiveInterpretation: null,
+            aiAnalysis: null,
           })
           .returning()
         rows.push(fromDB(result[0]))

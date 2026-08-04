@@ -228,7 +228,7 @@ func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 			"Buy milk", // 审计行 raw_content = 待办原文逐字拷贝
 			`["todo:transition"]`,
 			wantObjCtx,
-			nil, // subjective_interpretation 恒 null
+			nil, // ai_analysis 恒 null
 		}},
 	}
 	db := &fakeTransitionDB{

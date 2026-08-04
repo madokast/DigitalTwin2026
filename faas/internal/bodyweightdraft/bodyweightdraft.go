@@ -28,13 +28,13 @@ type LogBodyWeightBody struct {
 	HappenedAt               any `json:"happened_at"`
 	NumericValue              any `json:"numeric_value"`
 	ObjectiveContext         any `json:"objective_context"`
-	SubjectiveInterpretation any `json:"subjective_interpretation"`
+	AiAnalysis any `json:"ai_analysis"`
 	Tags                     any `json:"tags"`
 }
 
 var logBodyWeightKeys = []string{
 	"happened_at", "numeric_value", "objective_context",
-	"subjective_interpretation", "tags",
+	"ai_analysis", "tags",
 }
 
 // NormalizedBodyWeight 校验后的体重行。
@@ -44,7 +44,7 @@ type NormalizedBodyWeight struct {
 	NumericValue              string
 	Tags                     []string
 	ObjectiveContext         string
-	SubjectiveInterpretation any // string or nil
+	AiAnalysis any // string or nil
 }
 
 // WeightCentsInRange 已通过体重正则并规范为两位小数的字面量是否在 [1.00, 500.00]。
@@ -152,7 +152,7 @@ func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, error) {
 	if err != nil {
 		return NormalizedBodyWeight{}, err
 	}
-	subj, err := draft.OptionalTrimmedNullable(body.SubjectiveInterpretation, "subjective_interpretation")
+	subj, err := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
 	if err != nil {
 		return NormalizedBodyWeight{}, err
 	}
@@ -171,6 +171,6 @@ func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, error) {
 		NumericValue:              numericValue,
 		Tags:                     tagsOut,
 		ObjectiveContext:         objCtx,
-		SubjectiveInterpretation: subj,
+		AiAnalysis: subj,
 	}, nil
 }

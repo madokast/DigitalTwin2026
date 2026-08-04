@@ -84,7 +84,7 @@
 | `created_at` | 是 | `happened_at` | 格式与其它 API 的 `happened_at` 相同（ISO 8601 带时区）；**不传 → 400**。请求里**不要**再传 `happened_at`（未知键拒绝）。读出保留录入规范区（`Z` / `±HH:MM`），与隐列 `utc_offset` 同源格式化——见 [`docs/20260803-utc-offset.md`](20260803-utc-offset.md) §6.1 |
 | `content` | 是 | `raw_content` | 待办正文（清单内容）；非空字符串。请求里**不要**再传 `raw_content` |
 | `objective_context` | 是 | `objective_context` | 创建时的客观背景；**不传 → 400** |
-| `subjective_interpretation` | 否 | 同名 | 主观解释 |
+| `ai_analysis` | 否 | 同名 | 主观解释 |
 | `tags` | 否 | `tags` | 额外 tags；省略或 `[]` 均可。**不得**含任何保留 tag（含 `todo` / `todo:*`） |
 
 `numeric_value`：**不接受**。`happened_at` / `raw_content` 作为请求键名亦**不接受**（避免与别名混用）。**无**请求体 `suppress_notification`（未知键 → 400）；业务静音见进程 env `SUPPRESS_BOT_NOTIFICATION`（[`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。
@@ -187,7 +187,7 @@
 | `numeric_value` | null |
 | `raw_content` | 流转前待办行 `raw_content` 的**逐字拷贝**（不得拼接、不得改写） |
 | `objective_context` | 合成句 `{Verb} a to-do {todo.id} created at {todo.happened_at}`（见 §4.1） |
-| `subjective_interpretation` | null（或不传） |
+| `ai_analysis` | null（或不传） |
 | `tags` | `["todo:transition"]` |
 
 ### 4.1 `objective_context` 合成句（英文，与状态一致）
@@ -295,7 +295,7 @@ AI 工作流示意：query 活跃 → 读 `id` 与 `content` → transition。
 3. 路径：`POST /api/log/todo`、`POST /api/log/todo/transition`。  
 4. 创建允许额外非保留 tags；服务端前缀加入 `todo:in_progress`。  
 5. transition **只**替换代表状态 tag，不动其它 tags / 字段。  
-6. **创建** JSON：`created_at`（→ 库 `happened_at`）、`content`（→ 库 `raw_content`）、`objective_context` 必填；`subjective_interpretation` / `tags` 可选。请求禁止再传 `happened_at` / `raw_content` 键名；**无** body `suppress_notification`。  
+6. **创建** JSON：`created_at`（→ 库 `happened_at`）、`content`（→ 库 `raw_content`）、`objective_context` 必填；`ai_analysis` / `tags` 可选。请求禁止再传 `happened_at` / `raw_content` 键名；**无** body `suppress_notification`。  
 7. **流转** JSON：仍用 `happened_at`（审计时间），**不用** `created_at` / `content`。  
 8. **Notify**：创建成功一律 schedule `notify_user`。transition **成功恰好 notify 一次**；正文与插入审计行的 `raw_content` **字节级一致**；**不**就待办行再 notify。双端必须一致。真发与否仅看 `SUPPRESS_BOT_NOTIFICATION`（见 [`20260803-suppress-bot-notification.md`](20260803-suppress-bot-notification.md)）。  
 9. AI 与 Admin 均可调 transition。  

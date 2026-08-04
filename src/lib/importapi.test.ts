@@ -24,7 +24,7 @@ function sampleLine(id: string, tags = '["weight"]'): string {
     raw_content: null,
     tags,
     objective_context: 'scale',
-    subjective_interpretation: null,
+    ai_analysis: null,
   })
 }
 
@@ -157,7 +157,7 @@ describe('importRecordsJsonl', () => {
       rawContent: null,
       tags: ['body:weight'],
       objectiveContext: 'import reserved',
-      subjectiveInterpretation: null,
+      aiAnalysis: null,
     })
     const text = `${sampleLine(ID1)}\n${reserved}`
     const result = await importRecordsJsonl(text, text.length, mem.store)

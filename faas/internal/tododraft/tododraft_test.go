@@ -92,7 +92,7 @@ func TestParseTodo(t *testing.T) {
 		"created_at": "2026-08-02T10:00:00+08:00",
 		"content": "Buy milk",
 		"objective_context": "weekend grocery list",
-		"subjective_interpretation": "need it for breakfast",
+		"ai_analysis": "need it for breakfast",
 		"tags": ["errand"]
 	}`)
 	got, err := ParseTodo(raw)

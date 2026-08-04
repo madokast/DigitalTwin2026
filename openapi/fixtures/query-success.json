@@ -13,7 +13,7 @@
         "weight"
       ],
       "objective_context": "morning weigh-in",
-      "subjective_interpretation": "a bit heavy"
+      "ai_analysis": "a bit heavy"
     }
   ],
   "sort_by": "happened_at",

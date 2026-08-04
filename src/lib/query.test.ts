@@ -141,7 +141,7 @@ describe('parseRecordQueryParams q OR grouping', () => {
     const sql = whereSQL(new URLSearchParams({ q: 'foo', tag: 'x' }))
     // 必须是 tag AND (vt OR obj OR subj OR tags)，不能是 (tag AND vt) OR obj OR ...
     expect(sql).toMatch(
-      /like \$1 and \("records"\."raw_content" like \$2 or "records"\."objective_context" like \$3 or "records"\."subjective_interpretation" like \$4 or "records"\."tags" like \$5\)/i,
+      /like \$1 and \("records"\."raw_content" like \$2 or "records"\."objective_context" like \$3 or "records"\."ai_analysis" like \$4 or "records"\."tags" like \$5\)/i,
     )
     expect(sql).not.toMatch(
       /like \$1 and "records"\."raw_content" like \$2 or "records"\."objective_context"/i,
@@ -156,7 +156,7 @@ describe('parseRecordQueryParams q OR grouping', () => {
       }),
     )
     expect(sql).toMatch(
-      /and \("records"\."raw_content" like .+ or "records"\."objective_context" like .+ or "records"\."subjective_interpretation" like .+ or "records"\."tags" like .+\)/i,
+      /and \("records"\."raw_content" like .+ or "records"\."objective_context" like .+ or "records"\."ai_analysis" like .+ or "records"\."tags" like .+\)/i,
     )
   })
 })

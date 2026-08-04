@@ -23,7 +23,7 @@ export function RecordsTable({ records }: Props) {
             <th className="px-3 py-2 text-left text-sm">Text</th>
             <th className="px-3 py-2 text-left text-sm">Tags</th>
             <th className="px-3 py-2 text-left text-sm">Objective Context</th>
-            <th className="px-3 py-2 text-left text-sm">Subjective Interpretation</th>
+            <th className="px-3 py-2 text-left text-sm">AI Analysis</th>
           </tr>
         </thead>
         <tbody>
@@ -49,7 +49,7 @@ export function RecordsTable({ records }: Props) {
                 {record.objective_context}
               </td>
               <td className="px-3 py-2 text-xs max-w-[160px] truncate whitespace-nowrap">
-                {record.subjective_interpretation || '-'}
+                {record.ai_analysis || '-'}
               </td>
             </tr>
           ))}

@@ -75,7 +75,7 @@
 
 ### 4.4 全字段 trim 入库
 
-`fc414b5` 所有文本输入 trim 后入库；空串/空白串拒绝。共享 helper：TS `requireTrimmedText` / `optionalTrimmedNullable`（`src/lib/draft.ts`）= Go `RequireTrimmedText` / `OptionalTrimmedNullable`（`faas/internal/draft/draft.go`）；`emptyStringToNull` 删除。`subjective_interpretation` 例外：不传/null → null，`""`/空白 → 400（清空用 null）。weight/amount 反转旧「禁止 trim」设计，fixtures 空格用例从 reject 移入 accept。
+`fc414b5` 所有文本输入 trim 后入库；空串/空白串拒绝。共享 helper：TS `requireTrimmedText` / `optionalTrimmedNullable`（`src/lib/draft.ts`）= Go `RequireTrimmedText` / `OptionalTrimmedNullable`（`faas/internal/draft/draft.go`）；`emptyStringToNull` 删除。`ai_analysis` 例外：不传/null → null，`""`/空白 → 400（清空用 null）。weight/amount 反转旧「禁止 trim」设计，fixtures 空格用例从 reject 移入 accept。
 
 ### 4.5 tag 严格校验端到端
 
@@ -83,7 +83,7 @@
 
 ### 4.6 `numeric_value` null 时省略键
 
-`021a535` 读侧（Record / todo / query / export）null 时**省略** `numeric_value` 键：TS 条件键 + Go `omitempty`；`subjective_interpretation` 恒 null 仍显式返回。import 两侧 required 循环跳过 `numeric_value`（可省略或显式 null，双 null 校验保留）。
+`021a535` 读侧（Record / todo / query / export）null 时**省略** `numeric_value` 键：TS 条件键 + Go `omitempty`；`ai_analysis` 恒 null 仍显式返回。import 两侧 required 循环跳过 `numeric_value`（可省略或显式 null，双 null 校验保留）。
 
 ---
 

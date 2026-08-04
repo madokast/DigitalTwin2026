@@ -79,7 +79,7 @@ strict unknown-key：未知键 → 400。
 | `cadence` | **必填** | 枚举 §2.2；缺省 / 非法 → 400 |
 | `raw_content` | **必填** | `requireTrimmedText`：trim 后入库；空串 / 空白 → 400。复盘全文（可含段落换行） |
 | `objective_context` | **必填** | `requireTrimmedText`：AI 一句话客观说明（如 `Weekly review covering 2026-08-03..2026-08-09`）。对齐全部写路径惯例；`objective_context` 列 NOT NULL |
-| `subjective_interpretation` | 可选 | `optionalTrimmedNullable`：省略 / null → null；`""` / 空白 → 400 |
+| `ai_analysis` | 可选 | `optionalTrimmedNullable`：省略 / null → null；`""` / 空白 → 400 |
 | `tags` | 可选 | 客户端附加 tag；空数组合法；含 `review` / `review:*` → 400（保留前缀） |
 
 **禁止键**（unknown key → 400）：
@@ -108,7 +108,7 @@ strict unknown-key：未知键 → 400。
 
 ### 3.5 落库与响应
 
-- `tags` = `[review:{cadence}, ...clientTags]`；`numeric_value` = NULL；`objective_context` / `subjective_interpretation` / `happened_at` + `utc_offset` 同普通记录；
+- `tags` = `[review:{cadence}, ...clientTags]`；`numeric_value` = NULL；`objective_context` / `ai_analysis` / `happened_at` + `utc_offset` 同普通记录；
 - 响应 = 标准 Record JSON：snake_case；`tags` 数组（含 `review:*`）；`happened_at` 带录入规范区；`numeric_value` null 时省略键（现行规则）。
 
 ## 4. 语义（沿用 fuzzy-time §7）

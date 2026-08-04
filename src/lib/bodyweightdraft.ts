@@ -21,7 +21,7 @@ export const LOG_BODY_WEIGHT_KEYS = [
   'happened_at',
   'numeric_value',
   'objective_context',
-  'subjective_interpretation',
+  'ai_analysis',
   'tags',
 ] as const
 
@@ -38,7 +38,7 @@ export type LogBodyWeightBody = {
   happened_at?: unknown
   numeric_value?: unknown
   objective_context?: unknown
-  subjective_interpretation?: unknown
+  ai_analysis?: unknown
   tags?: unknown
 }
 
@@ -48,7 +48,7 @@ export type NormalizedBodyWeight = {
   numericValue: string
   tags: string[]
   objectiveContext: string
-  subjectiveInterpretation: string | null
+  aiAnalysis: string | null
 }
 
 /** 已通过体重正则并规范为两位小数的字面量是否在 [1.00, 500.00] */
@@ -148,12 +148,12 @@ export function parseBodyWeight(
     return { error: objCtxResult.error }
   }
 
-  const subjective = optionalTrimmedNullable(
-    body.subjective_interpretation,
-    'subjective_interpretation',
+  const aiAnalysis = optionalTrimmedNullable(
+    body.ai_analysis,
+    'ai_analysis',
   )
-  if ('error' in subjective) {
-    return { error: subjective.error }
+  if ('error' in aiAnalysis) {
+    return { error: aiAnalysis.error }
   }
 
   const clientTags = parseOptionalClientTags(body.tags)
@@ -167,6 +167,6 @@ export function parseBodyWeight(
     numericValue: amount.value,
     tags: [RESERVED_TAG_BODY_WEIGHT, ...clientTags.value],
     objectiveContext: objCtxResult.value,
-    subjectiveInterpretation: subjective.value,
+    aiAnalysis: aiAnalysis.value,
   }
 }

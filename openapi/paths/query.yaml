@@ -7,7 +7,7 @@
       Filters combine with AND. Multiple `tag` query params each require that
       tag substring match in the stored tags JSON string (`LIKE %"<tag>"%`);
       `_` / `%` / `\` in tag are escaped for literal match (tag names may contain `_`).
-      `q` searches `raw_content`, `objective_context`, `subjective_interpretation`, and `tags` (LIKE, same escaping).
+      `q` searches `raw_content`, `objective_context`, `ai_analysis`, and `tags` (LIKE, same escaping).
       When `id` is set, pagination is ignored; returns 0–1 rows with `page: 1`
       and `page_size` equal to the result length (or 1 if empty).
       Results ordered by `happened_at` ascending, then `id` ascending

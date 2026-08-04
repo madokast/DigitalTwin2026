@@ -14,7 +14,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - **所有对外 HTTP JSON 与 JSONL 的键名一律 `snake_case`，无一例外**（请求体、响应体、success 包络、OpenAPI schema/fixtures、import/export JSONL）。
 - **禁止**再引入 camelCase JSON 键（例如不得出现 `happenedAt`、`numericValue`、`pageSize`、`databaseReachable`）。
-- 示例（Record）：`happened_at`、`numeric_value`、`raw_content`、`objective_context`、`subjective_interpretation`；包络示例：`page_size`；探测示例：`database_reachable`、`connect_ms`。
+- 示例（Record）：`happened_at`、`numeric_value`、`raw_content`、`objective_context`、`ai_analysis`；包络示例：`page_size`；探测示例：`database_reachable`、`connect_ms`。
 - 内部 TS/Go **变量名、Drizzle 属性、struct 字段名**可仍用惯用 camelCase / PascalCase；**仅序列化到 JSON/JSONL 的键**必须 snake。Go 用 `json:"happened_at"`；TS 组装响应对象时用 snake 键字面量（或显式 serializer），禁止 `JSON.stringify` 直接 dump Drizzle 行导致驼峰漏网。
 - 查询串参数与 JSON 键对齐时也用 snake（如 `page_size`）；错误文案里的字段名与契约键一致。
 

@@ -23,7 +23,7 @@
             numeric_value: '8000'
             tags: [steps]
             objective_context: daily step count
-            subjective_interpretation: good pace
+            ai_analysis: good pace
     responses:
       '201':
         description: Record created
@@ -68,7 +68,7 @@
             happened_at: '2026-08-02T08:00:00+08:00'
             numeric_value: '75.5'
             objective_context: morning weigh-in
-            subjective_interpretation: a bit heavy
+            ai_analysis: a bit heavy
             tags: [morning]
     responses:
       '201':

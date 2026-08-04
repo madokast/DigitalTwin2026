@@ -58,7 +58,7 @@
 | `raw_content` | `string` 或 `null` |
 | `tags` | **JSON 数组**（与 JSON API 一致，如 `["weight"]`，可为 `[]`）；键**必须存在**：省略 → `Missing required field: tags`，`null` → `Invalid tags`；兼容旧备份的**字符串化**数组（`"[\"weight\"]"`，含 `"[]"`） |
 | `objective_context` | 非空 string |
-| `subjective_interpretation` | `string` 或 `null` |
+| `ai_analysis` | `string` 或 `null` |
 
 出现 `created_at` / `content` / 未知键 → **字段级详细英文错误**（含行号）。
 

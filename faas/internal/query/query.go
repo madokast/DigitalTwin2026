@@ -194,7 +194,7 @@ func buildWhere(p *ParsedQuery) (string, []any) {
 	if p.Q != "" {
 		pattern := `%` + EscapeLikePattern(p.Q) + `%`
 		parts = append(parts, fmt.Sprintf(
-			`(raw_content LIKE $%d OR objective_context LIKE $%d OR subjective_interpretation LIKE $%d OR tags LIKE $%d)`,
+			`(raw_content LIKE $%d OR objective_context LIKE $%d OR ai_analysis LIKE $%d OR tags LIKE $%d)`,
 			n, n+1, n+2, n+3,
 		))
 		args = append(args, pattern, pattern, pattern, pattern)
@@ -255,7 +255,7 @@ func FetchFilteredRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedQuer
 		return nil, err
 	}
 
-	selectSQL := `SELECT id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation
+	selectSQL := `SELECT id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis
 FROM records`
 	if where != "" {
 		selectSQL += " WHERE " + where

@@ -54,7 +54,7 @@ func TestFormatRecordMessage(t *testing.T) {
 		NumericValue:              &num,
 		Tags:                     []string{"weight", "morning"},
 		ObjectiveContext:         "Scale reading",
-		SubjectiveInterpretation: &subj,
+		AiAnalysis: &subj,
 	}
 	got := FormatRecordMessage(rec)
 	want := strings.Join([]string{
@@ -64,7 +64,7 @@ func TestFormatRecordMessage(t *testing.T) {
 		"numeric_value: 72.5",
 		"tags: weight, morning",
 		"objective: Scale reading",
-		"subjective: Feeling lighter",
+		"ai_analysis: Feeling lighter",
 	}, "\n")
 	if got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
@@ -79,7 +79,7 @@ func TestFormatRecordMessage(t *testing.T) {
 		ObjectiveContext: "Park loop",
 	}
 	got2 := FormatRecordMessage(rec2)
-	if !strings.Contains(got2, "raw_content: Ran 5k") || !strings.Contains(got2, "subjective: (null)") {
+	if !strings.Contains(got2, "raw_content: Ran 5k") || !strings.Contains(got2, "ai_analysis: (null)") {
 		t.Fatalf("unexpected:\n%s", got2)
 	}
 

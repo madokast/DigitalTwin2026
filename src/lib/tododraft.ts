@@ -46,7 +46,7 @@ export const LOG_TODO_KEYS = [
   'created_at',
   'content',
   'objective_context',
-  'subjective_interpretation',
+  'ai_analysis',
   'tags',
 ] as const
 
@@ -54,7 +54,7 @@ export type LogTodoBody = {
   created_at?: unknown
   content?: unknown
   objective_context?: unknown
-  subjective_interpretation?: unknown
+  ai_analysis?: unknown
   tags?: unknown
 }
 
@@ -64,7 +64,7 @@ export type NormalizedTodo = {
   rawContent: string
   tags: string[]
   objectiveContext: string
-  subjectiveInterpretation: string | null
+  aiAnalysis: string | null
 }
 
 /** 待办行 HTTP JSON（别名键；其余字段与 Record snake_case 一致；numeric_value 恒 null → 省略） */
@@ -74,7 +74,7 @@ export type TodoRecordJson = {
   content: string
   tags: string[]
   objective_context: string
-  subjective_interpretation: string | null
+  ai_analysis: string | null
 }
 
 /** 将内部 Record 变形为待办对外形状（去掉 happened_at / raw_content / numeric_value） */
@@ -85,7 +85,7 @@ export function toTodoRecordJson(rec: Record): TodoRecordJson {
     content: rec.raw_content ?? '',
     tags: rec.tags,
     objective_context: rec.objective_context,
-    subjective_interpretation: rec.subjective_interpretation,
+    ai_analysis: rec.ai_analysis,
   }
 }
 
@@ -354,12 +354,12 @@ export function parseTodo(
     return { error: objCtxResult.error }
   }
 
-  const subjective = optionalTrimmedNullable(
-    body.subjective_interpretation,
-    'subjective_interpretation',
+  const aiAnalysis = optionalTrimmedNullable(
+    body.ai_analysis,
+    'ai_analysis',
   )
-  if ('error' in subjective) {
-    return { error: subjective.error }
+  if ('error' in aiAnalysis) {
+    return { error: aiAnalysis.error }
   }
 
   const clientTags = parseOptionalClientTags(body.tags)
@@ -373,6 +373,6 @@ export function parseTodo(
     rawContent: content,
     tags: [TODO_TAG_IN_PROGRESS, ...clientTags.value],
     objectiveContext: objCtxResult.value,
-    subjectiveInterpretation: subjective.value,
+    aiAnalysis: aiAnalysis.value,
   }
 }

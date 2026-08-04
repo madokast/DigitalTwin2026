@@ -30,7 +30,7 @@ var RecordJSONLKeys = []string{
 	"raw_content",
 	"tags",
 	"objective_context",
-	"subjective_interpretation",
+	"ai_analysis",
 }
 
 // InvalidJSONLine 非法 JSON 行（与 HTTP Invalid JSON body 区分）。
@@ -53,7 +53,7 @@ type Row struct {
 	RawContent                *string
 	Tags                     []string
 	ObjectiveContext         string
-	SubjectiveInterpretation *string
+	AiAnalysis *string
 }
 
 // FormatLineError 可选行号包装：`line N: …`（1-based）。lineNumber < 1 时原样返回。
@@ -167,7 +167,7 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 		return nil, wrapErr(err.Error(), lineNumber)
 	}
 
-	subjective, err := draft.OptionalTrimmedNullable(m["subjective_interpretation"], "subjective_interpretation")
+	aiAnalysis, err := draft.OptionalTrimmedNullable(m["ai_analysis"], "ai_analysis")
 	if err != nil {
 		return nil, wrapErr(err.Error(), lineNumber)
 	}
@@ -180,7 +180,7 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 		RawContent:                rawContent,
 		Tags:                     tagsOut,
 		ObjectiveContext:         objCtx,
-		SubjectiveInterpretation: subjective,
+		AiAnalysis: aiAnalysis,
 	}, nil
 }
 
@@ -199,7 +199,7 @@ func SerializeLine(row *Row) (string, error) {
 		RawContent:                row.RawContent,
 		Tags:                     row.Tags,
 		ObjectiveContext:         row.ObjectiveContext,
-		SubjectiveInterpretation: row.SubjectiveInterpretation,
+		AiAnalysis: row.AiAnalysis,
 	}
 	return SerializeRecord(rec)
 }
@@ -214,7 +214,7 @@ func SerializeRecord(rec record.Record) (string, error) {
 		RawContent:                rec.RawContent,
 		Tags:                     rec.Tags,
 		ObjectiveContext:         rec.ObjectiveContext,
-		SubjectiveInterpretation: rec.SubjectiveInterpretation,
+		AiAnalysis: rec.AiAnalysis,
 	})
 	if err != nil {
 		return "", err
@@ -230,5 +230,5 @@ type orderedRecord struct {
 	RawContent                *string  `json:"raw_content"`
 	Tags                     []string `json:"tags"`
 	ObjectiveContext         string   `json:"objective_context"`
-	SubjectiveInterpretation *string  `json:"subjective_interpretation"`
+	AiAnalysis *string  `json:"ai_analysis"`
 }

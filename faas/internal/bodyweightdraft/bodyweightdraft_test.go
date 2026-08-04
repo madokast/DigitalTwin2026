@@ -77,7 +77,7 @@ func TestParseBodyWeight(t *testing.T) {
 		"happened_at": "2026-08-02T08:00:00+08:00",
 		"numeric_value": "75.5",
 		"objective_context": "morning weigh-in",
-		"subjective_interpretation": "a bit heavy",
+		"ai_analysis": "a bit heavy",
 		"tags": ["morning"]
 	}`)
 	got, err := ParseBodyWeight(raw)

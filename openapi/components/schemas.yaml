@@ -139,7 +139,7 @@ Record:
     - raw_content
     - tags
     - objective_context
-    - subjective_interpretation
+    - ai_analysis
   properties:
     id:
       type: string
@@ -167,7 +167,7 @@ Record:
         read.
     objective_context:
       type: string
-    subjective_interpretation:
+    ai_analysis:
       type: [string, 'null']
 
 RecordSuccess:
@@ -440,11 +440,11 @@ LogNumberRequest:
     objective_context:
       type: string
       minLength: 1
-    subjective_interpretation:
+    ai_analysis:
       type: string
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
-        (`Invalid subjective_interpretation`).
+        (`Invalid ai_analysis`).
 
 LogBodyWeightRequest:
   type: object
@@ -464,11 +464,11 @@ LogBodyWeightRequest:
     objective_context:
       type: string
       minLength: 1
-    subjective_interpretation:
+    ai_analysis:
       type: string
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
-        (`Invalid subjective_interpretation`).
+        (`Invalid ai_analysis`).
     tags:
       type: array
       items:
@@ -504,7 +504,7 @@ TodoRecord:
     - content
     - tags
     - objective_context
-    - subjective_interpretation
+    - ai_analysis
   additionalProperties: false
   properties:
     id:
@@ -533,7 +533,7 @@ TodoRecord:
         - '["todo:in_progress","errand"]'
     objective_context:
       type: string
-    subjective_interpretation:
+    ai_analysis:
       type: [string, 'null']
 
 TodoRecordSuccess:
@@ -568,11 +568,11 @@ LogTodoRequest:
     objective_context:
       type: string
       minLength: 1
-    subjective_interpretation:
+    ai_analysis:
       type: string
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
-        (`Invalid subjective_interpretation`).
+        (`Invalid ai_analysis`).
     tags:
       type: array
       items:
@@ -645,11 +645,11 @@ LogTextRequest:
     objective_context:
       type: string
       minLength: 1
-    subjective_interpretation:
+    ai_analysis:
       type: string
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
-        (`Invalid subjective_interpretation`).
+        (`Invalid ai_analysis`).
 
 TelegramProbeRequest:
   type: object

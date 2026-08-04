@@ -83,10 +83,10 @@ func FormatRecordMessage(rec record.Record) string {
 	lines = append(lines, "tags: "+formatTags(rec.Tags))
 	lines = append(lines, "objective: "+rec.ObjectiveContext)
 	subj := "(null)"
-	if rec.SubjectiveInterpretation != nil && *rec.SubjectiveInterpretation != "" {
-		subj = *rec.SubjectiveInterpretation
+	if rec.AiAnalysis != nil && *rec.AiAnalysis != "" {
+		subj = *rec.AiAnalysis
 	}
-	lines = append(lines, "subjective: "+subj)
+	lines = append(lines, "ai_analysis: "+subj)
 	return strings.Join(lines, "\n")
 }
 

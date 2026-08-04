@@ -22,7 +22,7 @@ type NumberBody struct {
 	RawContent                any `json:"raw_content"`
 	Tags                     any `json:"tags"`
 	ObjectiveContext         any `json:"objective_context"`
-	SubjectiveInterpretation any `json:"subjective_interpretation"`
+	AiAnalysis any `json:"ai_analysis"`
 }
 
 type TextBody struct {
@@ -30,17 +30,17 @@ type TextBody struct {
 	RawContent                any `json:"raw_content"`
 	Tags                     any `json:"tags"`
 	ObjectiveContext         any `json:"objective_context"`
-	SubjectiveInterpretation any `json:"subjective_interpretation"`
+	AiAnalysis any `json:"ai_analysis"`
 }
 
 var logNumberKeys = []string{
 	"happened_at", "numeric_value", "raw_content", "tags", "objective_context",
-	"subjective_interpretation",
+	"ai_analysis",
 }
 
 var logTextKeys = []string{
 	"happened_at", "raw_content", "tags", "objective_context",
-	"subjective_interpretation",
+	"ai_analysis",
 }
 
 func happenedAtString(raw any) string {
@@ -99,9 +99,9 @@ func insertReturning(
 		outNum, outText, outSubj          *string
 	)
 	err := q.QueryRow(ctx, `
-INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation)
+INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
-RETURNING id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation
+RETURNING id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis
 `, id, happenedAt, utcOffset, numericValue, rawContent, tagsJSON, objectiveContext, subj).Scan(
 		&outID, &outHappened, &outOffset, &outNum, &outText, &outTags, &outObj, &outSubj,
 	)
@@ -156,7 +156,7 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	if err != nil {
 		return record.Record{}, 400, err
 	}
-	subj, err := draft.OptionalTrimmedNullable(body.SubjectiveInterpretation, "subjective_interpretation")
+	subj, err := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
 	if err != nil {
 		return record.Record{}, 400, err
 	}
@@ -211,7 +211,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	if err != nil {
 		return record.Record{}, 400, err
 	}
-	subj, err := draft.OptionalTrimmedNullable(body.SubjectiveInterpretation, "subjective_interpretation")
+	subj, err := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
 	if err != nil {
 		return record.Record{}, 400, err
 	}

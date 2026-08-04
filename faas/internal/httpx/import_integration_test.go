@@ -102,7 +102,7 @@ SELECT EXISTS (
 	}
 
 	id1 := "01900000-0000-7000-8000-0000000000c1"
-	line1 := fmt.Sprintf(`{"id":%q,"happened_at":"2026-07-30T00:00:00.000Z","numeric_value":"1","raw_content":null,"tags":"[\"weight\"]","objective_context":%q,"subjective_interpretation":null}`, id1, marker+"-1")
+	line1 := fmt.Sprintf(`{"id":%q,"happened_at":"2026-07-30T00:00:00.000Z","numeric_value":"1","raw_content":null,"tags":"[\"weight\"]","objective_context":%q,"ai_analysis":null}`, id1, marker+"-1")
 
 	// duplicate → 400, no notify, no row
 	notified = nil
@@ -132,7 +132,7 @@ SELECT EXISTS (
 	// reserved tag insert OK
 	notified = nil
 	id2 := "01900000-0000-7000-8000-0000000000c2"
-	reserved := fmt.Sprintf(`{"id":%q,"happened_at":"2026-07-30T00:00:00.000Z","numeric_value":"70","raw_content":null,"tags":"[\"body:weight\"]","objective_context":%q,"subjective_interpretation":null}`, id2, marker+"-reserved")
+	reserved := fmt.Sprintf(`{"id":%q,"happened_at":"2026-07-30T00:00:00.000Z","numeric_value":"70","raw_content":null,"tags":"[\"body:weight\"]","objective_context":%q,"ai_analysis":null}`, id2, marker+"-reserved")
 	resBody, resCT := buildImportMultipartBytes(t, "records.jsonl", "application/x-ndjson", reserved)
 	resReq := httptest.NewRequest(http.MethodPost, "/api/admin/import/records", resBody)
 	resReq.Header.Set("Authorization", "Bearer admin-tok")

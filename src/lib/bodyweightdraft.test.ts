@@ -56,7 +56,7 @@ describe('parseBodyWeight', () => {
   it('prepends body:weight and normalizes value', () => {
     const parsed = parseBodyWeight({
       ...base,
-      subjective_interpretation: 'a bit heavy',
+      ai_analysis: 'a bit heavy',
       tags: ['morning'],
     })
     expect('error' in parsed).toBe(false)
@@ -64,7 +64,7 @@ describe('parseBodyWeight', () => {
     expect(parsed.numericValue).toBe('75.50')
     expect(parsed.tags).toEqual(['body:weight', 'morning'])
     expect(parsed.objectiveContext).toBe('morning weigh-in')
-    expect(parsed.subjectiveInterpretation).toBe('a bit heavy')
+    expect(parsed.aiAnalysis).toBe('a bit heavy')
   })
 
   it('allows omitted or empty tags (only body:weight)', () => {

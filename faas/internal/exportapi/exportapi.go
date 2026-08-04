@@ -68,7 +68,7 @@ func ParseExportRecordsParams(q url.Values) (*ParsedExport, error) {
 	return &ParsedExport{From: from, Limit: limit}, nil
 }
 
-const selectCols = `id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, subjective_interpretation`
+const selectCols = `id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis`
 
 // FetchExportRecords 有 from 时先确认存在，再 id >= from ORDER BY id ASC LIMIT。
 // 成功 (recs, 200, nil)；from 不存在 (nil, 404, ExportFromNotFound)。

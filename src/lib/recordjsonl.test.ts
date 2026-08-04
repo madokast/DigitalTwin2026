@@ -17,7 +17,7 @@ type ValidCase = {
   expectNumericValue: string | null
   expectRawContent: string | null
   expectObjectiveContext: string
-  expectSubjectiveInterpretation: string | null
+  expectAiAnalysis: string | null
   expectHappenedAtUtcMs: number
   serialized: string
 }
@@ -62,8 +62,8 @@ describe('parseLine valid', () => {
     expect(got.numericValue).toBe(c.expectNumericValue)
     expect(got.rawContent).toBe(c.expectRawContent)
     expect(got.objectiveContext).toBe(c.expectObjectiveContext)
-    expect(got.subjectiveInterpretation).toBe(
-      c.expectSubjectiveInterpretation,
+    expect(got.aiAnalysis).toBe(
+      c.expectAiAnalysis,
     )
     expect(got.happenedAt.getTime()).toBe(c.expectHappenedAtUtcMs)
     expect(serializeLine(got)).toBe(c.serialized)
@@ -120,8 +120,8 @@ describe('serializeLine round-trip', () => {
       expect(twice.rawContent).toBe(once.rawContent)
       expect(twice.tags).toEqual(once.tags)
       expect(twice.objectiveContext).toBe(once.objectiveContext)
-      expect(twice.subjectiveInterpretation).toBe(
-        once.subjectiveInterpretation,
+      expect(twice.aiAnalysis).toBe(
+        once.aiAnalysis,
       )
     }
   })

@@ -17,7 +17,7 @@ type Record struct {
 	RawContent                *string  `json:"raw_content"`
 	Tags                     []string `json:"tags"`
 	ObjectiveContext         string   `json:"objective_context"`
-	SubjectiveInterpretation *string  `json:"subjective_interpretation"`
+	AiAnalysis *string  `json:"ai_analysis"`
 }
 
 // ParseTagsField DB text 列 → tags 数组；chk_tags 保证非空 JSON 数组形，
@@ -54,7 +54,7 @@ func FromDB(
 	rawContent *string,
 	tags string,
 	objectiveContext string,
-	subjectiveInterpretation *string,
+	aiAnalysis *string,
 ) Record {
 	formatted, err := utcoffset.FormatHappenedAt(happenedAt, utcOffset)
 	if err != nil {
@@ -68,7 +68,7 @@ func FromDB(
 		RawContent:                rawContent,
 		Tags:                     ParseTagsField(tags),
 		ObjectiveContext:         objectiveContext,
-		SubjectiveInterpretation: subjectiveInterpretation,
+		AiAnalysis: aiAnalysis,
 	}
 }
 

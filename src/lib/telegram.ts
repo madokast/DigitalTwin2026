@@ -35,7 +35,7 @@ export type NotifyRecord = {
   raw_content: string | null
   tags: string[]
   objective_context: string
-  subjective_interpretation: string | null
+  ai_analysis: string | null
 }
 
 export type SendResult = { ok: true } | { ok: false; error: string }
@@ -100,9 +100,9 @@ export function formatRecordMessage(record: NotifyRecord): string {
   lines.push(`tags: ${record.tags.join(', ')}`)
   lines.push(`objective: ${record.objective_context}`)
 
-  const subj = record.subjective_interpretation
+  const subj = record.ai_analysis
   lines.push(
-    `subjective: ${subj != null && subj !== '' ? subj : '(null)'}`,
+    `ai_analysis: ${subj != null && subj !== '' ? subj : '(null)'}`,
   )
 
   return lines.join('\n')
