@@ -53,6 +53,17 @@
       "expectObjectiveContext": "x",
       "expectSubjectiveInterpretation": null,
       "expectHappenedAtUtcMs": 1785369600000
+    },
+    {
+      "name": "tags-as-empty-array",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000005\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":[],\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "expectTags": [],
+      "expectNumericValue": "1",
+      "expectRawContent": null,
+      "expectObjectiveContext": "x",
+      "expectSubjectiveInterpretation": null,
+      "expectHappenedAtUtcMs": 1785369600000,
+      "serialized": "{\"id\":\"01900000-0000-7000-8000-000000000005\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":[],\"objective_context\":\"x\",\"subjective_interpretation\":null}"
     }
   ],
   "invalid": [
@@ -100,6 +111,16 @@
       "name": "tags-as-number",
       "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":7,\"objective_context\":\"x\",\"subjective_interpretation\":null}",
       "error": "Invalid tags"
+    },
+    {
+      "name": "tags-null",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":null,\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "error": "Invalid tags"
+    },
+    {
+      "name": "tags-missing",
+      "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"objective_context\":\"x\",\"subjective_interpretation\":null}",
+      "error": "Missing required field: tags"
     }
   ],
   "withLineNumber": {

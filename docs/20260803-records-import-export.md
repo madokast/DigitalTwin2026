@@ -67,7 +67,7 @@
 | 规则 | 行为 |
 |------|------|
 | 字段完备性 / 双 null / 时间可解析 | 与 `draft` / log / Admin PATCH **写校验语义对齐** |
-| `tags` | 数组或字符串化数组（双兼容）统一 `JSON.parse` → `string[]` 后走 **`validateTags` / `isValidTag`**（非空、字符集） |
+| `tags` | 数组或字符串化数组（双兼容）统一 `JSON.parse` → `string[]` 后走 **`validateTags` / `isValidTag`**（可为空数组；字符集校验） |
 | **保留 tag** | import **跳过** `assertNoReservedTags`（可写 `todo:*` / `transaction_entry*` / `body:weight*` 等） |
 | `id` | 合法 UUID；非法 → **400**（文案与 Admin 对齐倾向，如含 `Invalid record id`）；**不**强制 UUIDv7 |
 

@@ -68,7 +68,7 @@ export function tagsJSON(tags: string[]): string {
   return JSON.stringify(tags)
 }
 
-/** DB text 列 → tags 数组；chk_tags 保证非空 JSON 数组形，parse 失败按空数组兜底 */
+/** DB text 列 → tags 数组；chk_tags 保证 JSON 数组形（可为 []），parse 失败按空数组兜底 */
 export function parseTagsField(tags: string): string[] {
   try {
     const parsed: unknown = JSON.parse(tags)
