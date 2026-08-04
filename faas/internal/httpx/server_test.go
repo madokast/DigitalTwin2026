@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
+	"github.com/mdk/digitaltwin2026/faas/internal/importapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/faas/internal/query"
 	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
@@ -295,6 +296,30 @@ func TestWriteEndpointsRejectNonObjectJSON(t *testing.T) {
 			if body["error"] != "Request body must be a JSON object" {
 				t.Fatalf("%s %s body=%s: error %v", tc.method, tc.path, payload, body)
 			}
+		}
+	}
+}
+
+func TestImportRecordsRejectsMissingOrMalformedBoundary(t *testing.T) {
+	h := testServer().Handler()
+	for _, ct := range []string{
+		"multipart/form-data",            // 缺 boundary
+		"multipart/form-data; boundary=", // 空 boundary
+		`multipart/form-data; boundary="unterminated`, // 引号不闭合 → ParseMediaType 报错
+		"application/json",               // 非 multipart
+	} {
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/import/records", strings.NewReader("x"))
+		req.Header.Set("Authorization", "Bearer admin-tok")
+		req.Header.Set("Content-Type", ct)
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if rr.Code != 400 {
+			t.Fatalf("Content-Type %q: status %d body %s", ct, rr.Code, rr.Body.String())
+		}
+		var body map[string]string
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		if body["error"] != importapi.ErrMultipartContentType.Error() {
+			t.Fatalf("Content-Type %q: error %v", ct, body)
 		}
 	}
 }

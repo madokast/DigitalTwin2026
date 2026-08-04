@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  extractMultipartBoundary,
   formatImportNotifyMessage,
   IMPORT_LIMITS_ERROR,
   importRecordsJsonl,
@@ -27,9 +28,25 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
+    // 与 Go mime.ParseMediaType 对齐：缺 boundary → 400，勿等 formData() 抛错落 500 catch
+    if (!extractMultipartBoundary(contentType)) {
+      return NextResponse.json(
+        { error: MULTIPART_CONTENT_TYPE },
+        { status: 400 },
+      )
+    }
 
     // 勿用 readJsonBody：multipart file 可达 4MiB，须 bypass 256KiB 门闸。
-    const form = await request.formData()
+    let form: FormData
+    try {
+      form = await request.formData()
+    } catch {
+      // boundary 存在但格式非法（如引号不闭合）：Go ParseMediaType 同样 400
+      return NextResponse.json(
+        { error: MULTIPART_CONTENT_TYPE },
+        { status: 400 },
+      )
+    }
     const parts = form.getAll('file')
     if (parts.length === 0) {
       return NextResponse.json(

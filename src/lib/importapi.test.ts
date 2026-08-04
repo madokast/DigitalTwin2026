@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  extractMultipartBoundary,
   formatDuplicateIdError,
   formatImportNotifyMessage,
   IMPORT_LIMITS_ERROR,
@@ -189,5 +190,28 @@ describe('importRecordsJsonl', () => {
     const result = await importRecordsJsonl(text, text.length, store)
     expect(result.ok).toBe(false)
     expect(insert).not.toHaveBeenCalled()
+  })
+})
+
+describe('extractMultipartBoundary', () => {
+  it('returns unquoted boundary', () => {
+    expect(extractMultipartBoundary('multipart/form-data; boundary=abc123')).toBe('abc123')
+  })
+
+  it('returns quoted boundary', () => {
+    expect(
+      extractMultipartBoundary('multipart/form-data; boundary="abc 123"'),
+    ).toBe('abc 123')
+  })
+
+  it('returns null when boundary missing or empty', () => {
+    expect(extractMultipartBoundary('multipart/form-data')).toBeNull()
+    expect(extractMultipartBoundary('multipart/form-data; boundary=')).toBeNull()
+    expect(extractMultipartBoundary('multipart/form-data; boundary=""')).toBeNull()
+  })
+
+  it('returns null on malformed content type (no semicolon params)', () => {
+    expect(extractMultipartBoundary('multipart/form-data')).toBeNull()
+    expect(extractMultipartBoundary('')).toBeNull()
   })
 })

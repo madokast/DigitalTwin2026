@@ -38,6 +38,27 @@ export const MULTIPART_MULTIPLE_FILE =
 export const MULTIPART_CONTENT_TYPE =
   'expected Content-Type multipart/form-data'
 
+/**
+ * 从 Content-Type 提取 multipart boundary；缺失 / 解析失败返回 null。
+ * 与 Go mime.ParseMediaType 语义对齐：boundary 缺失或格式错误 → 400
+ * （Next request.formData() 会抛错，若不前置检查会落 500 catch）。
+ */
+export function extractMultipartBoundary(contentType: string): string | null {
+  const parts = contentType.split(';')
+  for (let i = 1; i < parts.length; i++) {
+    const param = parts[i].trim()
+    const eq = param.indexOf('=')
+    if (eq <= 0) continue
+    if (param.slice(0, eq).trim().toLowerCase() !== 'boundary') continue
+    let value = param.slice(eq + 1).trim()
+    if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+      value = value.slice(1, -1)
+    }
+    return value.length > 0 ? value : null
+  }
+  return null
+}
+
 /** 与 Go ErrUnsupportedFileContentType 同文案 */
 export const UNSUPPORTED_FILE_CONTENT_TYPE =
   'unsupported file Content-Type; use application/x-ndjson, application/jsonl, or application/octet-stream with a .jsonl filename'
