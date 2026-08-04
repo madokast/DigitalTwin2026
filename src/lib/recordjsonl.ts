@@ -121,7 +121,9 @@ export function parseLine(
 
   const body = parsed as { [key: string]: unknown }
 
+  // 除 numeric_value 外全部 required：numeric_value 可省略（= null；双 null 校验在下方）
   for (const key of RECORD_JSONL_KEYS) {
+    if (key === 'numeric_value') continue
     if (!hasOwn(body, key)) {
       return fail(`Missing required field: ${key}`, lineNumber)
     }
@@ -209,14 +211,15 @@ export function parseLine(
 }
 
 /**
- * 领域行 → 一行 JSONL（无尾换行；happened_at 按 utc_offset 带区；tags 为数组）。
+ * 领域行 → 一行 JSONL（无尾换行；happened_at 按 utc_offset 带区；tags 为数组；
+ * numeric_value 为 null 时键省略）。
  * 键序固定，与 Go SerializeLine 一致。
  */
 export function serializeLine(row: RecordJsonlRow): string {
   return serializeRecord({
     id: row.id,
     happened_at: formatHappenedAt(row.happenedAt, row.utcOffset),
-    numeric_value: row.numericValue,
+    ...(row.numericValue !== null ? { numeric_value: row.numericValue } : {}),
     raw_content: row.rawContent,
     tags: row.tags,
     objective_context: row.objectiveContext,
@@ -226,12 +229,15 @@ export function serializeLine(row: RecordJsonlRow): string {
 
 /**
  * 已是 API Record 形状时直接序列化（导出路径）；键序与 SerializeLine 一致。
+ * numeric_value 为 null 时键省略。
  */
 export function serializeRecord(rec: ApiRecord): string {
   return JSON.stringify({
     id: rec.id,
     happened_at: rec.happened_at,
-    numeric_value: rec.numeric_value,
+    ...(rec.numeric_value !== undefined && rec.numeric_value !== null
+      ? { numeric_value: rec.numeric_value }
+      : {}),
     raw_content: rec.raw_content,
     tags: rec.tags,
     objective_context: rec.objective_context,

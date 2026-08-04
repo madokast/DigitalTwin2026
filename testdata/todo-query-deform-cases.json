@@ -2,42 +2,63 @@
   "cases": [
     {
       "name": "normal_todo_in_progress",
-      "tags": ["todo:in_progress", "errand"],
+      "tags": [
+        "todo:in_progress",
+        "errand"
+      ],
       "deform": true
     },
     {
       "name": "todo_completed",
-      "tags": ["todo:completed"],
+      "tags": [
+        "todo:completed"
+      ],
       "deform": true
     },
     {
       "name": "todo_cancelled",
-      "tags": ["todo:cancelled", "errand"],
+      "tags": [
+        "todo:cancelled",
+        "errand"
+      ],
       "deform": true
     },
     {
       "name": "todo_paused",
-      "tags": ["todo:paused"],
+      "tags": [
+        "todo:paused"
+      ],
       "deform": true
     },
     {
       "name": "audit_transition_only",
-      "tags": ["todo:transition"],
+      "tags": [
+        "todo:transition"
+      ],
       "deform": false
     },
     {
       "name": "dirty_state_plus_transition_prefers_deform",
-      "tags": ["todo:completed", "todo:transition"],
+      "tags": [
+        "todo:completed",
+        "todo:transition"
+      ],
       "deform": true
     },
     {
       "name": "dirty_multiple_state_tags",
-      "tags": ["todo:in_progress", "todo:paused"],
+      "tags": [
+        "todo:in_progress",
+        "todo:paused"
+      ],
       "deform": true
     },
     {
       "name": "plain_text_tags",
-      "tags": ["errand", "study"],
+      "tags": [
+        "errand",
+        "study"
+      ],
       "deform": false
     },
     {

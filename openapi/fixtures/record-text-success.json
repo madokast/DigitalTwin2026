@@ -3,7 +3,6 @@
   "record": {
     "id": "01900000-0000-7000-8000-000000000002",
     "happened_at": "2026-07-30T10:00:00.000+08:00",
-    "numeric_value": null,
     "raw_content": "studied 50 words",
     "tags": [
       "study",

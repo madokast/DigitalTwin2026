@@ -10,7 +10,8 @@ import { formatHappenedAt as formatWithUtcOffset } from '@/lib/utcoffset'
 export type Record = {
   id: string
   happened_at: string
-  numeric_value: string | null
+  /** 仅非 null 时输出该键（text/todo 行省略） */
+  numeric_value?: string
   raw_content: string | null
   tags: string[]
   objective_context: string
@@ -50,12 +51,12 @@ function instantOf(value: Date | string): Date {
   return new Date(value)
 }
 
-/** 与 Go `record.FromDB` 对齐：DB 行 → API Record（happened_at = 瞬间 + utc_offset；tags 解析为数组） */
+/** 与 Go `record.FromDB` 对齐：DB 行 → API Record（happened_at = 瞬间 + utc_offset；tags 解析为数组；numeric_value null → 键省略） */
 export function fromDB(row: RecordRow): Record {
   return {
     id: row.id,
     happened_at: formatWithUtcOffset(instantOf(row.happenedAt), row.utcOffset),
-    numeric_value: row.numericValue,
+    ...(row.numericValue !== null ? { numeric_value: row.numericValue } : {}),
     raw_content: row.rawContent,
     tags: parseTagsField(row.tags),
     objective_context: row.objectiveContext,

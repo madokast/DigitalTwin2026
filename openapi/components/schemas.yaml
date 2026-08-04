@@ -131,11 +131,11 @@ Record:
   type: object
   description: |
     Persisted row as returned by both backends (snake_case JSON).
-    `tags` is an array of tag names; `numeric_value` is a decimal string.
+    `tags` is an array of tag names; `numeric_value` is a decimal string,
+    and the key is **omitted** when the value is null (text/todo rows).
   required:
     - id
     - happened_at
-    - numeric_value
     - raw_content
     - tags
     - objective_context
@@ -149,13 +149,13 @@ Record:
       $ref: '#/HappenedAtOutput'
     numeric_value:
       description: |
-        Decimal as string, or null for text-only records.
+        Decimal string when the row has a numeric value; **key omitted**
+        when null (text-only / to-do rows). On read the key never appears
+        with null. Import lines may omit the key or send explicit null.
         On write (log/number and PATCH), JSON **number is rejected** (400:
         `numeric_value must be a decimal string`). Validated literal stored
         as TEXT (no Number round-trip; trailing zeros preserved).
-      oneOf:
-        - $ref: '#/DecimalString'
-        - type: 'null'
+      $ref: '#/DecimalString'
     raw_content:
       type: [string, 'null']
     tags:
@@ -481,12 +481,12 @@ TodoRecord:
     `todo:paused`; query-side wide rule). Alias keys: `created_at`
     (DB `happened_at`) and `content` (DB `raw_content`). Response **must not**
     also include `happened_at` / `raw_content` for this shape. Other fields match
-    `Record` snake_case. `numeric_value` is always null for to-dos.
-    Audit rows (`todo:transition` without a state tag) stay as `Record`.
+    `Record` snake_case. `numeric_value` is always null for to-dos and the
+    key is omitted. Audit rows (`todo:transition` without a state tag) stay
+    as `Record`.
   required:
     - id
     - created_at
-    - numeric_value
     - content
     - tags
     - objective_context
@@ -505,8 +505,6 @@ TodoRecord:
         `happened_at` + private `utc_offset`); JSON key only. Alias does
         **not** change timezone semantics — still preserves canonical
         offset (`Z` / `±HH:MM`), never forced to UTC `Z`.
-    numeric_value:
-      type: 'null'
     content:
       type: string
       minLength: 1

@@ -94,7 +94,11 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 		return nil, wrapErr(InvalidJSONLine, lineNumber)
 	}
 
+	// 除 numeric_value 外全部 required：numeric_value 可省略（= null；双 null 校验在下方）
 	for _, key := range RecordJSONLKeys {
+		if key == "numeric_value" {
+			continue
+		}
 		if _, ok := m[key]; !ok {
 			return nil, wrapErr("Missing required field: "+key, lineNumber)
 		}
@@ -222,7 +226,7 @@ func SerializeRecord(rec record.Record) (string, error) {
 type orderedRecord struct {
 	ID                       string   `json:"id"`
 	HappenedAt               string   `json:"happened_at"`
-	NumericValue              *string  `json:"numeric_value"`
+	NumericValue              *string  `json:"numeric_value,omitempty"`
 	RawContent                *string  `json:"raw_content"`
 	Tags                     []string `json:"tags"`
 	ObjectiveContext         string   `json:"objective_context"`

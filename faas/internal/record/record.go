@@ -18,7 +18,7 @@ import (
 type Record struct {
 	ID                       string   `json:"id"`
 	HappenedAt               string   `json:"happened_at"`
-	NumericValue              *string  `json:"numeric_value"`
+	NumericValue              *string  `json:"numeric_value,omitempty"`
 	RawContent                *string  `json:"raw_content"`
 	Tags                     []string `json:"tags"`
 	ObjectiveContext         string   `json:"objective_context"`

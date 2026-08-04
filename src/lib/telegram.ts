@@ -31,7 +31,7 @@ export type TelegramConfig = {
 export type NotifyRecord = {
   id: string
   happened_at: string
-  numeric_value: string | null
+  numeric_value?: string
   raw_content: string | null
   tags: string[]
   objective_context: string

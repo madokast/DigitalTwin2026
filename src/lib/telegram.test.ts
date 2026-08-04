@@ -26,7 +26,6 @@ const sampleNumber = {
 const sampleText = {
   id: '01900000-0000-7000-8000-000000000002',
   happened_at: '2026-07-31T13:00:00.000Z',
-  numeric_value: null,
   raw_content: 'Ran 5k',
   tags: ['run'],
   objective_context: 'Park loop',

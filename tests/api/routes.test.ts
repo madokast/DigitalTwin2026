@@ -310,7 +310,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const body = await res.json()
       expect(body.success).toBe(true)
       expect(body.record.raw_content).toBe('studied 50 words')
-      expect(body.record.numeric_value).toBeNull()
+      expect(body.record).not.toHaveProperty('numeric_value')
       expect(body.record.tags).toEqual(['study', 'vocabulary'])
     })
 
@@ -507,7 +507,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.success).toBe(true)
       expect(body.record.content).toBe('Buy milk')
       expect(body.record.created_at).toBe('2026-08-02T10:00:00.000+08:00')
-      expect(body.record.numeric_value).toBeNull()
+      expect(body.record).not.toHaveProperty('numeric_value')
       expect(body.record.tags).toEqual(['todo:in_progress', 'errand'])
       expect(body.record.objective_context).toBe('weekend grocery list')
       expect(body.record).not.toHaveProperty('happened_at')

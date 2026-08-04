@@ -67,23 +67,21 @@ export type NormalizedTodo = {
   subjectiveInterpretation: string | null
 }
 
-/** 待办行 HTTP JSON（别名键；其余字段与 Record snake_case 一致） */
+/** 待办行 HTTP JSON（别名键；其余字段与 Record snake_case 一致；numeric_value 恒 null → 省略） */
 export type TodoRecordJson = {
   id: string
   created_at: string
-  numeric_value: null
   content: string
   tags: string[]
   objective_context: string
   subjective_interpretation: string | null
 }
 
-/** 将内部 Record 变形为待办对外形状（去掉 happened_at / raw_content） */
+/** 将内部 Record 变形为待办对外形状（去掉 happened_at / raw_content / numeric_value） */
 export function toTodoRecordJson(rec: Record): TodoRecordJson {
   return {
     id: rec.id,
     created_at: rec.happened_at,
-    numeric_value: null,
     content: rec.raw_content ?? '',
     tags: rec.tags,
     objective_context: rec.objective_context,

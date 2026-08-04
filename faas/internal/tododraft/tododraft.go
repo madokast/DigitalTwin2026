@@ -57,7 +57,6 @@ type NormalizedTodo struct {
 type TodoRecordJSON struct {
 	ID                       string  `json:"id"`
 	CreatedAt                string  `json:"created_at"`
-	NumericValue              *string `json:"numeric_value"`
 	Content                  string  `json:"content"`
 	Tags                     []string `json:"tags"`
 	ObjectiveContext         string  `json:"objective_context"`
@@ -73,7 +72,6 @@ func ToTodoRecordJSON(rec record.Record) TodoRecordJSON {
 	return TodoRecordJSON{
 		ID:                       rec.ID,
 		CreatedAt:                rec.HappenedAt,
-		NumericValue:              nil,
 		Content:                  content,
 		Tags:                     rec.Tags,
 		ObjectiveContext:         rec.ObjectiveContext,
