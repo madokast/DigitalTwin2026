@@ -171,10 +171,10 @@ Node 全量 `npm test` 在无安全 `DATABASE_URL` 时集成自动 Skip；Go 全
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | UUID (v7) | 主键，时间有序 |
-| happened_at | TIMESTAMPTZ | 事件时间（读出时按 `utc_offset` 还原为录入规范带区格式） |
+| happened_at | TIMESTAMPTZ | 事件时间；**读出 API 中会变形**：按 `utc_offset` 还原为录入规范时区后缀（`Z` / `±HH:MM`，`Z` ≠ `+00:00` 禁止折叠），秒后统一补三位毫秒（如 `2026-07-30T08:00:00+08:00` → `2026-07-30T08:00:00.000+08:00`） |
 | utc_offset | TEXT | **隐列：仅存库，对外 JSON 一律不暴露**；记录录入时的时区偏移（`Z` / `±HH:MM`），供读出还原带区 `happened_at`。见 [`docs/20260803-utc-offset.md`](docs/20260803-utc-offset.md) |
 | value_number | TEXT | 十进制数字符串字面量（可空；JSON/API 一律 string，禁止 number） |
-| value_text | TEXT | 文本（可空；与数值至少填一） |
+| value_text | TEXT | 文本（可空；与数值至少填一）。**部分 API 中会变形**：todo 创建时以 `content` 别名写入；todo transition 的**审计行**中变形为审计文案（`Complete a to-do created at …: …`），非用户原文 |
 | tags | TEXT | JSON 数组 |
 | objective_context | TEXT | 客观背景（必填） |
 | subjective_interpretation | TEXT | 主观解读（可空） |
