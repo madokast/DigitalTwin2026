@@ -392,7 +392,6 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
   if ('error' in rawContentResult) {
     return { error: rawContentResult.error, status: 400 }
   }
-  const rawContent = rawContentResult.value
 
   const tagListResult = optionalTagList(body.tags)
   if ('error' in tagListResult) {
