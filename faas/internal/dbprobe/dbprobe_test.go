@@ -56,3 +56,24 @@ func TestProbeIntegration(t *testing.T) {
 		t.Fatalf("negative timings: %+v", res)
 	}
 }
+
+// D8：连接超时须与 Next connect_timeout:15 对齐（防不可达 DB 时双端等待时长分叉）。
+func TestConnectTimeoutValue(t *testing.T) {
+	if ConnectTimeout != 15*time.Second {
+		t.Fatalf("ConnectTimeout=%v, want 15s (Next connect_timeout)", ConnectTimeout)
+	}
+}
+
+// 实测：不可达地址连接在 ConnectTimeout 内失败（不依赖 OS TCP 超时）。
+func TestProbeUnreachableBoundedByConnectTimeout(t *testing.T) {
+	start := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	_, err := connectWithTimeout(ctx, "postgresql://u:p@10.255.255.1:5432/db?sslmode=disable")
+	if err == nil {
+		t.Fatal("expected connect error for unroutable host")
+	}
+	if elapsed := time.Since(start); elapsed > 20*time.Second {
+		t.Fatalf("connect took %v; ConnectTimeout=%v not honored", elapsed, ConnectTimeout)
+	}
+}

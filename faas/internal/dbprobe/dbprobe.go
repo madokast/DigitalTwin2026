@@ -17,6 +17,11 @@ const (
 	DatabaseUnreachable = "Database unreachable"
 )
 
+// ConnectTimeout 与 Next dbprobe 的 connect_timeout: 15 对齐：
+// 不可达 DB 时连接等待上限 15 秒（pgx 默认不设 ConnectTimeout，会依赖 OS TCP 超时，
+// 等待时长不可控——双端探测响应时间会分叉）。
+const ConnectTimeout = 15 * time.Second
+
 // Result 成功探测体（HTTP 200）；ok = reachable ∧ records 存在。
 type Result struct {
 	Ok                   bool    `json:"ok"`
@@ -41,7 +46,17 @@ type connectFunc func(ctx context.Context, connString string) (*pgx.Conn, error)
 
 // Probe 打开短命连接并测三段延迟。失败时返回 status=503 与英文 error。
 func Probe(ctx context.Context, getenv func(string) string) (result Result, status int, errMsg string) {
-	return probeWith(ctx, getenv, pgx.Connect)
+	return probeWith(ctx, getenv, connectWithTimeout)
+}
+
+// connectWithTimeout 与 Next `connect_timeout: 15` 对齐（见 ConnectTimeout）。
+func connectWithTimeout(ctx context.Context, connString string) (*pgx.Conn, error) {
+	cfg, err := pgx.ParseConfig(connString)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConnectTimeout = ConnectTimeout
+	return pgx.ConnectConfig(ctx, cfg)
 }
 
 func probeWith(ctx context.Context, getenv func(string) string, connect connectFunc) (Result, int, string) {
