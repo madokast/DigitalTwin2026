@@ -190,6 +190,25 @@ func TestTransitionTodo_fourDomainErrors(t *testing.T) {
 	}
 }
 
+// D7：UPDATE 影响行数 ≠ 1（SELECT 与 UPDATE 间记录被删的并发竞态）→ 500、回滚、不插审计行。
+// 与 Next transitionTodo（logapi.ts）对齐：同样 500 + "todo update affected N rows"。
+func TestTransitionTodo_updateAffectedNotOne(t *testing.T) {
+	fdb := &fakeTransitionDB{
+		selectRow: sampleTodoSelect(`["todo:in_progress"]`, "Buy milk"),
+		tx:        &fakeTx{rowsAff: 2},
+	}
+	_, status, err := transitionTodo(context.Background(), fdb, []byte(todoBody))
+	if status != 500 || err == nil || !strings.Contains(err.Error(), "todo update affected 2 rows") {
+		t.Fatalf("status=%d err=%v", status, err)
+	}
+	if fdb.tx.commitN != 0 {
+		t.Fatal("must not commit when affected != 1")
+	}
+	if fdb.tx.rollbackN == 0 {
+		t.Fatal("expected rollback")
+	}
+}
+
 func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 	t.Parallel()
 	happened := time.Date(2026, 8, 2, 2, 0, 0, 0, time.UTC)

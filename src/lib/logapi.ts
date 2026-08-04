@@ -311,11 +311,18 @@ export async function transitionTodo(
     const auditText = auditValueText(parsed.target, todoRec.happened_at, content)
     const newTags = replaceTodoStateInTags(tagList, parsed.target)
 
+    // D7 对齐 Go（todo.go RowsAffected() != 1 → 500）：SELECT 与 UPDATE 之间记录被删的
+    // 并发竞态 —— 影响行数 ≠ 1 时不插审计行、事务回滚，错误文案含实际行数。
+    let raceError: string | null = null
     await db.transaction(async (tx) => {
-      await tx
+      const res = (await tx
         .update(records)
         .set({ tags: tagsJSON(newTags) })
-        .where(eq(records.id, parsed.id))
+        .where(eq(records.id, parsed.id))) as { count: number }
+      if (res.count !== 1) {
+        raceError = `todo update affected ${res.count} rows`
+        return
+      }
       await tx.insert(records).values({
         id: uuidv7(),
         happenedAt: parsed.happenedAt,
@@ -327,6 +334,9 @@ export async function transitionTodo(
         subjectiveInterpretation: null,
       })
     })
+    if (raceError) {
+      return { error: raceError, status: 500 }
+    }
 
     return {
       id: parsed.id,
