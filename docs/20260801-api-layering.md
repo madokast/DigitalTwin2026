@@ -18,7 +18,7 @@
 
 | 允许 | 说明 |
 |------|------|
-| 大小写 | Go 导出 `ParseRecordDraft`；TS `parseRecordDraft`（同一 **stem**） |
+| 大小写 | Go 导出 `ParseHappenedAt`；TS `parseHappenedAt`（同一 **stem**） |
 | 运行时类型 | Go `error` / `(T, status, error)`；TS 对等的 `{ error, status }` 或现有 Result 联合（**两端选同一种形状**，不用单端专有 Result 库） |
 | DB / HTTP 适配器 | `pgx` vs Drizzle；`http.Request` vs `NextRequest` — **只出现在适配边界**，不进纯逻辑 |
 | 前端专用 | `prefs` / `datetime-ui` / `api-client` 仅 TS，**不进**对照表 |
@@ -73,7 +73,7 @@ flowchart LR
 
 以下偏差已在 Phase 2–5 落地，两端同构，**不再是缺口**：
 
-- TS：`src/app/api/log/*`、rename/patch、query summary/tags 的业务 Drizzle 已抽到 `src/lib`（`logapi` / `tags` / `record` / `query`），与 Go 同构。
+- TS：`src/app/api/log/*`、rename、query summary/tags 的业务 Drizzle 已抽到 `src/lib`（`logapi` / `tags` / `record` / `query`），与 Go 同构。
 - Go：`server.go` 业务 SQL 已抽到 `tags` / `record` / `query` / `logapi`。
 - 交易纯解析在 `transactiondraft`（两端独立模块）。
 - 体重纯解析在 `bodyweightdraft`（两端独立模块）。
@@ -83,10 +83,10 @@ flowchart LR
 ## 3. 同构规则
 
 1. **同 stem**：`CreateNumber` ↔ `createNumber`；`RenameAcrossRecords` ↔ `renameAcrossRecords`；`FetchFilteredRecords` ↔ `fetchFilteredRecords`。
-2. **同参数语义顺序**：Go 为 `(ctx, db, …)`；TS 用模块内默认 `db`，其余参数顺序与 Go 去掉 `ctx` / pool 后一致。写库路径：`RenameAcrossRecords` 接受 `*pgxpool.Pool`（内开事务 + `pg_advisory_xact_lock`）；TS `renameAcrossRecords` 生产同语义，可选末参 `store` 注入同构边界供单测（无真实锁）。`Update` 等仍可用 `db.Querier`。
+2. **同参数语义顺序**：Go 为 `(ctx, db, …)`；TS 用模块内默认 `db`，其余参数顺序与 Go 去掉 `ctx` / pool 后一致。写库路径：`RenameAcrossRecords` 接受 `*pgxpool.Pool`（内开事务 + `pg_advisory_xact_lock`）；TS `renameAcrossRecords` 生产同语义，可选末参 `store` 注入同构边界供单测（无真实锁）。
 3. **同结构体字段名**：对外 JSON / JSONL 键一律 **snake_case**（见根 [`AGENTS.md`](../AGENTS.md)）；内部 DTO / Drizzle / Go struct 字段名可仍用惯用 camelCase / PascalCase，经 `json:"…"` 或显式序列化映射。API 记录类型两端都叫 **`Record`**（TS 已收敛原 `ApiRecord` / `TwinRecord` 到共享后端域的 `Record`；前端 `api-client` 可再导出别名）。
 4. **同错误文案**：用户可见英文错误字符串必须字节级一致（契约测继续守）。
-5. **先表后码**：本轮新建 / 迁移的符号必须先写入本文对照表再实现；禁止「Go 叫 `Update`、TS 叫 `updateRecord`」这类不对齐命名。
+5. **先表后码**：本轮新建 / 迁移的符号必须先写入本文对照表再实现；禁止「Go 叫 `CreateText`、TS 叫 `makeText`」这类不对齐命名。
 6. **包级函数 + 普通类型**：不用 class 承载业务。
 
 ---
@@ -98,13 +98,14 @@ flowchart LR
 | Stem | Go | TS | 备注 |
 |------|----|----|------|
 | `tags` | `faas/internal/tags` | `src/lib/tags.ts` | 已有；含 `RenameAcrossRecords` |
-| `draft` | `faas/internal/draft` | `src/lib/draft.ts` | TS 已由 `record-draft.ts` 改名 |
+| `draft` | `faas/internal/draft` | `src/lib/draft.ts` | 共享 helper：`ParseHappenedAt` / `RequireTrimmedText` / `OptionalTrimmedNullable` / `ValidateDecimalString` / `ParseNumericValue` / `EmptyStringToNull`。编辑草稿解析 `ParseRecordDraft` 已随 PATCH 废弃删除（2026-08-04） |
 | `transactiondraft` | `faas/internal/transactiondraft` | `src/lib/transactiondraft.ts` | **独立成包**（已落地）；TS 已由 `transaction-draft.ts` 改名；Go 已从 `logapi` 抽出纯解析 |
 | `bodyweightdraft` | `faas/internal/bodyweightdraft` | `src/lib/bodyweightdraft.ts` | **独立成包**；体重 `numeric_value` 解析/规范化；落库 tags 组装含 `body:weight` |
 | `tododraft` | `faas/internal/tododraft` | `src/lib/tododraft.ts` | **独立成包**；待办创建 / transition 纯解析；状态 tag 组装与替换；审计 `objective_context` 合成句与 `TodoAuditNotifyText` 通知模板；待办行 HTTP JSON 变形（`created_at`/`content`）；查询侧略宽判定 `ShouldDeformTodoRecordTags` / `shouldDeformTodoRecordTags` |
+| `reviewdraft` | `faas/internal/reviewdraft` | `src/lib/reviewdraft.ts` | **独立成包**（待实现）；复盘 `cadence` 枚举与纯解析；`review:{cadence}` tag 组装；规格 [`docs/20260804-log-review.md`](20260804-log-review.md) |
 | `query` | `faas/internal/query` | `src/lib/query.ts` | 列表过滤 / 分页 / summary / tags / transaction summary；`ToQueryRecordJSON` / `toQueryRecordJson`（query `records[]` 待办变形） |
-| `logapi` | `faas/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` / `bodyweightdraft` / `tododraft` |
-| `record` | `faas/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `Update` / `FromDB` / `TagsJSON` / type `Record` |
+| `logapi` | `faas/internal/logapi` | `src/lib/logapi.ts` | TS 已新建；勿用 `log-api`；只保留创建 + SQL，解析委托 `draft` / `transactiondraft` / `bodyweightdraft` / `tododraft` / `reviewdraft` |
+| `record` | `faas/internal/record` | `src/lib/record.ts` | TS 已合并原 `record-json.ts`；含 `FromDB` / `TagsJSON` / type `Record`。`Update` 已随 PATCH 废弃删除（2026-08-04） |
 | `recordjsonl` | `faas/internal/recordjsonl` | `src/lib/recordjsonl.ts` | Record JSONL 行 parse / serialize；表示层 snake_case；**不**调用 `assertNoReservedTags`（由调用方决定）；规格 [`docs/20260803-records-import-export.md`](20260803-records-import-export.md) |
 | `exportapi` | `faas/internal/exportapi` | `src/lib/exportapi.ts` | `GET /api/export/records`：游标参数解析、按 `id ASC` `LIMIT` 拉取、有界组 NDJSON / 文件名 / Notify 文案；HTTP 层写出成功后再 Notify；规格同上 |
 | `importapi` | `faas/internal/importapi` | `src/lib/importapi.ts` | `POST /api/admin/import/records`：multipart 校验、file≤4MiB 有界读入后 JSONL 单事务逐行 upsert、计数 / Notify 文案；HTTP 层负责 multipart 与 200 写出后再 Notify；**bypass** 256KiB JSON body 门闸；规格同上 |
@@ -125,6 +126,8 @@ flowchart LR
 
 **`tododraft` 独立**：待办纯解析与对外 JSON 变形不得长期留在 `logapi` / HTTP；`logapi.CreateTodo` / `createTodo` 与 `TransitionTodo` / `transitionTodo` 只做校验结果落库 / 事务；HTTP 创建成功响应用 `ToTodoRecordJSON` / `toTodoRecordJson` 变形；query `records[]` 用 `ShouldDeformTodoRecordTags` + `ToQueryRecordJSON` / `toQueryRecordJson`；transition 成功体无 record。
 
+**`reviewdraft` 独立**：复盘纯解析不得长期留在 `logapi`；`logapi.CreateReview` / `createReview` 只做校验结果落库（自动附加 `review:{cadence}` tag，客户端不得传 `review:*`——保留前缀）。
+
 ---
 
 ## 5. 关键函数 / 类型对照
@@ -133,13 +136,13 @@ flowchart LR
 
 | Stem | Go | TS |
 |------|----|----|
-| logapi | `CreateNumber` / `CreateText` / `CreateTransactionBatch` / `CreateBodyWeight` / `CreateTodo` / `TransitionTodo` | `createNumber` / `createText` / `createTransactionBatch` / `createBodyWeight` / `createTodo` / `transitionTodo` |
+| logapi | `CreateNumber` / `CreateText` / `CreateTransactionBatch` / `CreateBodyWeight` / `CreateTodo` / `TransitionTodo` / `CreateReview` | `createNumber` / `createText` / `createTransactionBatch` / `createBodyWeight` / `createTodo` / `transitionTodo` / `createReview` |
 | transactiondraft | `ParseTransactionBatch`（及同包输入 / 归一化类型） | `parseTransactionBatch` |
 | bodyweightdraft | `ParseBodyWeight` / `ParseWeightAmount` | `parseBodyWeight` / `parseWeightAmount` |
 | tododraft | `ParseTodo` / `ParseTodoTransition` / `ToTodoRecordJSON` / `ShouldDeformTodoRecordTags` / `AuditObjectiveContext` / `TodoAuditNotifyText` / type `TodoRecordJSON` | `parseTodo` / `parseTodoTransition` / `toTodoRecordJson` / `shouldDeformTodoRecordTags` / `auditObjectiveContext` / `todoAuditNotifyText` / type `TodoRecordJson` |
+| reviewdraft | `ParseReview` / type `NormalizedReview` | `parseReview` / type `NormalizedReview` |
 | query | `ParseRecordQueryParams` / `FetchFilteredRecords` / `ToQueryRecordJSON` / `RecordsForResponse` / … | `parseRecordQueryParams` / `fetchFilteredRecords` / `toQueryRecordJson` / … |
 | tags | `RenameAcrossRecords` / `ValidateRename` | `renameAcrossRecords`（`tagsdb`）/ `validateRename`（`tags`） |
-| record | `Update` | `update` |
 | record | `FromDB` / `TagsJSON` / type `Record` | `fromDB` / `tagsJSON` / type `Record`（已取代 `toApiRecord` / `ApiRecord`，或薄包装同名） |
 | record | `FormatHappenedAt` | `formatHappenedAt`（读路径：瞬间 + 隐列 `utc_offset` 带区；无 offset 重载仅作损坏回退。见 [`docs/20260803-utc-offset.md`](20260803-utc-offset.md)） |
 | record | `IsValidID` / `InvalidID` | `isValidRecordId` / `INVALID_RECORD_ID` |
@@ -151,7 +154,6 @@ flowchart LR
 
 | Stem | Go | TS |
 |------|----|----|
-| draft | `ParseRecordDraft` / `ParseRecordDraftJSON` | `parseRecordDraft`（JSON 入口按需同名） |
 | draft | `EmptyStringToNull` / `ParseHappenedAt` / `ValidateDecimalString` / `ParseNumericValue` | `emptyStringToNull` / `parseHappenedAt` / `validateDecimalString` / `parseNumericValue` |
 | tags | `IsValidTag` / `IsReservedTag` / `ValidateTags` / `AssertNoReservedTags` / `ValidateRename` / `RenameTagInTagsJSON` / `AggregateTagCounts` / `RenameAcrossRecords` | `isValidTag` / … / `aggregateTagCounts`（`@/lib/tags`，可进 Client）；`renameAcrossRecords`（`@/lib/tagsdb`，仅服务端，避免 Client 打进 postgres） |
 | tags | `ValidationResult{Valid, Error}` | `ValidationResult{ valid, error? }`（`assertNoReservedTags` / `validateTags` / `validateRename` 共用） |
@@ -162,7 +164,7 @@ flowchart LR
 | auth | `VerifyAPIAccess` / `VerifyAdminAccess` / `BearerToken` | `verifyApiAccess` / `verifyAdminAccess`（Bearer 适配器可保留框架差异） |
 | telegram | `LoadConfig` / `ConfigError` / `FormatRecordMessage` / `FormatTransactionBatchMessage` / `SendMessage` | 同 stem：`loadConfig`、`configError`、`formatRecordMessage`、`formatTransactionBatchMessage`、`sendTelegramMessage` |
 | qqbot | `LoadConfig` / `ConfigError` / `SendMessage` / `Configured` | 同 stem：`loadConfig`、`configError`、`sendQqMessage`、`isConfigured` |
-| notify | `ShouldSkipNotifyInTest` / `NotifyUser` / `NotifyRecordInserted` / `NotifyTransactionBatchInserted` | 同 stem：`shouldSkipNotifyInTest`、`notify_user`、`notifyRecordInserted`、`notifyTransactionBatchInserted` |
+| notify | `ShouldSuppressBotNotification` / `NotifyUser` / `NotifyRecordInserted` / `NotifyTransactionBatchInserted` / `TruncateNotifyMessage` | 同 stem：`shouldSuppressBotNotification`、`notify_user`、`notifyRecordInserted`、`notifyTransactionBatchInserted`、`truncateNotifyMessage`（>4000 字符统一截断，2026-08-04） |
 | dbprobe | `Probe` / `SanitizeProbeError` / type `Result` | `probeDatabase` / `sanitizeProbeError` / type `DbProbeResult` |
 
 后续若发现表内遗漏符号，**先改本文再改代码**。
