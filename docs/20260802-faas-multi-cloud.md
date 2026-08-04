@@ -30,7 +30,7 @@
 |----|------|
 | 海外默认 API | Vercel（Next `src/app/api`） |
 | 国内加速 | 阿里云 FC3（`faas/providers/aliyun-fc`，Serverless Devs `s.yaml`，custom runtime，端口 **9000**）；腾讯云 SCF Web（`faas/providers/tencent-scf`，`runtime: Go1` + `scf_bootstrap`，端口 **9000**） |
-| 共享库 | Neon / 标准 PostgreSQL；test / prod 与 Vercel 对齐 |
+| 共享库 | 标准 PostgreSQL（任意实例：Neon / 内网 / 本地）；test / prod 与 Vercel 对齐 |
 | 生产密钥脚本 | `npm run deploy -- prod`：先问 Vercel / FC / SCF（均默认 N）；任一 Y → `collect-prod-env`（DB 校验后可选 migrate）→ 临时 `.env.prod` → 仅部署所选。`deploy -- test` 用 `.env.test`、跳过 Vercel |
 | CI / 自动化 | **没有**向阿里云 FC 部署的 CI；仅对 `faas/` 跑 `go test`。prefs / api-client 测试里的 `*.fcapp.run` **只是** URL 字符串样例，不触发部署 |
 | 客户端 | Settings → **API Accelerate URL**（prefs）；空 = 同源 Vercel |
@@ -65,7 +65,7 @@ flowchart TB
     INT["internal/*\n(no import of providers/*)"]
   end
 
-  DB[(PostgreSQL / Neon)]
+  DB[(PostgreSQL)]
 
   UI -->|"empty base"| Vercel
   UI -->|"paste FC or SCF URL"| FC
