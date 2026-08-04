@@ -314,11 +314,11 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 		writeError(w, status, err.Error())
 		return
 	}
-	// §4.2：恰好一次 notify，正文 = 审计 value_text
+	// D6：恰好一次 notify，正文 = objective_context 句 + ": " + 原文
 	if s.NotifyUser != nil {
-		s.NotifyUser(result.AuditValueText)
+		s.NotifyUser(result.TodoAuditNotifyText)
 	} else {
-		go s.notify().NotifyUser(result.AuditValueText)
+		go s.notify().NotifyUser(result.TodoAuditNotifyText)
 	}
 	writeJSON(w, status, map[string]any{
 		"success": true,
@@ -484,11 +484,11 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]any{
-		"success":  true,
-		"count":    result.Total,
-		"page":     result.Page,
+		"success":   true,
+		"count":     result.Total,
+		"page":      result.Page,
 		"page_size": result.PageSize,
-		"records":  query.RecordsForResponse(result.Records),
+		"records":   query.RecordsForResponse(result.Records),
 	})
 }
 

@@ -18,8 +18,8 @@ vi.mock('@/lib/notify', () => ({
 import { POST } from './route'
 
 const todoId = '01900000-0000-7000-8000-000000000003'
-const auditText =
-  'Complete a to-do created at 2026-08-02T02:00:00.000Z: Buy milk'
+const notifyText =
+  'Complete a to-do 01900000-0000-7000-8000-000000000003 created at 2026-08-02T02:00:00.000Z: Buy milk'
 
 const validBody = {
   id: todoId,
@@ -47,7 +47,7 @@ beforeEach(() => {
     id: todoId,
     from: 'in_progress',
     to: 'completed',
-    auditValueText: auditText,
+    todoAuditNotifyText: notifyText,
   })
 })
 
@@ -65,12 +65,12 @@ describe('POST /api/log/todo/transition', () => {
     expect(body).not.toHaveProperty('audit_record')
   })
 
-  it('notifies once with exact audit value_text', async () => {
+  it('notifies once with exact D6 notify text', async () => {
     const res = await POST(post(validBody))
     expect(res.status).toBe(200)
     expect(scheduleBestEffortNotify).toHaveBeenCalledTimes(1)
     expect(notify_user).toHaveBeenCalledTimes(1)
-    expect(notify_user).toHaveBeenCalledWith(auditText)
+    expect(notify_user).toHaveBeenCalledWith(notifyText)
   })
 
   it('returns 400 for unknown suppress_notification key before transition', async () => {

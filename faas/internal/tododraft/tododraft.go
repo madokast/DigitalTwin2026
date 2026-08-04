@@ -206,23 +206,29 @@ func ReplaceTodoStateInTags(tagList []string, target string) []string {
 	return out
 }
 
-// AuditValueText §4.1 审计 value_text。
-func AuditValueText(target, todoHappenedAt, todoValueText string) string {
-	verb := "Resume"
-	switch target {
-	case TodoStateCompleted:
-		verb = "Complete"
-	case TodoStateCancelled:
-		verb = "Cancel"
-	case TodoStatePaused:
-		verb = "Pause"
-	}
-	return verb + " a to-do created at " + todoHappenedAt + ": " + todoValueText
+// AuditObjectiveContext §3.1 审计行 objective_context 合成句。
+// todoHappenedAt 为流转前待办行 fromDB 按 utc_offset 格式化后的带区串。
+func AuditObjectiveContext(target, todoID, todoHappenedAt string) string {
+	return verbFor(target) + " a to-do " + todoID + " created at " + todoHappenedAt
 }
 
-// AuditObjectiveContext 审计行 objective_context 备查 id。
-func AuditObjectiveContext(todoID string) string {
-	return "The index of the to-do is " + todoID
+// TodoAuditNotifyText D6 通知正文：审计行 objective_context 句 + ": " + 待办正文逐字拷贝。
+// 与审计行 objective_context / raw_content 两字段可还原，非字节级一致。
+func TodoAuditNotifyText(target, todoID, todoHappenedAt, todoValueText string) string {
+	return AuditObjectiveContext(target, todoID, todoHappenedAt) + ": " + todoValueText
+}
+
+func verbFor(target string) string {
+	switch target {
+	case TodoStateCompleted:
+		return "Complete"
+	case TodoStateCancelled:
+		return "Cancel"
+	case TodoStatePaused:
+		return "Pause"
+	default:
+		return "Resume"
+	}
 }
 
 func isValidTodoState(s string) bool {

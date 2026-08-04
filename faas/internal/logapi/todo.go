@@ -68,10 +68,10 @@ func CreateTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 
 // TransitionResult 成功流转结果（供 HTTP 组 200 JSON + notify）。
 type TransitionResult struct {
-	ID             string
-	From           string
-	To             string
-	AuditValueText string
+	ID                  string
+	From                string
+	To                  string
+	TodoAuditNotifyText string
 }
 
 func parseTagsList(tagsJSON string) ([]string, error) {
@@ -147,7 +147,8 @@ FROM records WHERE id = $1
 	if todoRec.ValueText != nil {
 		content = *todoRec.ValueText
 	}
-	auditText := tododraft.AuditValueText(parsed.Target, todoRec.HappenedAt, content)
+	notifyText := tododraft.TodoAuditNotifyText(parsed.Target, parsed.ID, todoRec.HappenedAt, content)
+	objCtx := tododraft.AuditObjectiveContext(parsed.Target, todoID, todoRec.HappenedAt)
 	newTags := tododraft.ReplaceTodoStateInTags(tagList, parsed.Target)
 	newTagsJSON, err := record.TagsJSON(newTags)
 	if err != nil {
@@ -161,7 +162,6 @@ FROM records WHERE id = $1
 	if err != nil {
 		return TransitionResult{}, 500, err
 	}
-	objCtx := tododraft.AuditObjectiveContext(todoID)
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -177,7 +177,7 @@ FROM records WHERE id = $1
 		return TransitionResult{}, 500, fmt.Errorf("todo update affected %d rows", ct.RowsAffected())
 	}
 
-	vt := auditText
+	vt := content
 	_, err = insertReturning(
 		ctx, tx, auditID.String(), parsed.HappenedAt, parsed.UtcOffset, nil, &vt,
 		auditTagsJSON, objCtx, nil,
@@ -191,9 +191,9 @@ FROM records WHERE id = $1
 	}
 
 	return TransitionResult{
-		ID:             todoID,
-		From:           from,
-		To:             parsed.Target,
-		AuditValueText: auditText,
+		ID:                  todoID,
+		From:                from,
+		To:                  parsed.Target,
+		TodoAuditNotifyText: notifyText,
 	}, 200, nil
 }

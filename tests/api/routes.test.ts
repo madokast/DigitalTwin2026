@@ -561,19 +561,25 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         value_text: string
         tags: string
         objective_context: string
+        subjective_interpretation: string | null
         happened_at: string
         created_at?: string
         content?: string
       }>
       const audit = audits.find(
-        (r) => r.objective_context === `The index of the to-do is ${todo.id}`,
+        (r) =>
+          r.objective_context ===
+          `Complete a to-do ${todo.id} created at ${todo.created_at}`,
       )
       expect(audit).toBeTruthy()
       expect(audit!.tags).toBe(JSON.stringify(['todo:transition']))
       expect(audit!.happened_at).toBe('2026-08-02T12:00:00.000+08:00')
-      expect(audit!.value_text).toBe(
-        `Complete a to-do created at ${todo.created_at}: ${todo.content}`,
+      // §3.1：审计行 value_text = 待办正文逐字拷贝（非合成句）
+      expect(audit!.value_text).toBe(todo.content)
+      expect(audit!.objective_context).toBe(
+        `Complete a to-do ${todo.id} created at ${todo.created_at}`,
       )
+      expect(audit!.subjective_interpretation).toBeNull()
       expect(audit!).not.toHaveProperty('created_at')
       expect(audit!).not.toHaveProperty('content')
     })
@@ -628,7 +634,9 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: string
       }>
       const auditId = audits.find(
-        (r) => r.objective_context === `The index of the to-do is ${todo.id}`,
+        (r) =>
+          r.objective_context ===
+          `Complete a to-do ${todo.id} created at ${todo.created_at}`,
       )!.id
       const onAudit = await postTodoTransition(jsonPost(
         'http://localhost/api/log/todo/transition',

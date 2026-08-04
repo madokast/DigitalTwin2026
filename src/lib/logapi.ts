@@ -18,7 +18,7 @@ import {
 import { assertNoReservedTags, validateTags } from '@/lib/tags'
 import {
   auditObjectiveContext,
-  auditValueText,
+  todoAuditNotifyText,
   ERR_ALREADY_TARGET,
   ERR_AUDIT_TRANSITION,
   ERR_NOT_A_TODO,
@@ -250,7 +250,7 @@ export type TransitionTodoOk = {
   id: string
   from: TodoState
   to: TodoState
-  auditValueText: string
+  todoAuditNotifyText: string
   status: 200
 }
 export type TransitionTodoResult = TransitionTodoOk | LogApiError
@@ -308,7 +308,17 @@ export async function transitionTodo(
     }
 
     const content = todoRec.value_text ?? ''
-    const auditText = auditValueText(parsed.target, todoRec.happened_at, content)
+    const notifyText = todoAuditNotifyText(
+      parsed.target,
+      parsed.id,
+      todoRec.happened_at,
+      content,
+    )
+    const objCtx = auditObjectiveContext(
+      parsed.target,
+      parsed.id,
+      todoRec.happened_at,
+    )
     const newTags = replaceTodoStateInTags(tagList, parsed.target)
 
     // D7 对齐 Go（todo.go RowsAffected() != 1 → 500）：SELECT 与 UPDATE 之间记录被删的
@@ -328,9 +338,9 @@ export async function transitionTodo(
         happenedAt: parsed.happenedAt,
         utcOffset: parsed.utcOffset,
         valueNumber: null,
-        valueText: auditText,
+        valueText: content,
         tags: tagsJSON([TODO_TAG_TRANSITION]),
-        objectiveContext: auditObjectiveContext(parsed.id),
+        objectiveContext: objCtx,
         subjectiveInterpretation: null,
       })
     })
@@ -342,7 +352,7 @@ export async function transitionTodo(
       id: parsed.id,
       from,
       to: parsed.target,
-      auditValueText: auditText,
+      todoAuditNotifyText: notifyText,
       status: 200,
     }
   } catch (err) {

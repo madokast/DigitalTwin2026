@@ -48,13 +48,13 @@ func (r *fakeRow) Scan(dest ...any) error {
 }
 
 type fakeTx struct {
-	execSQL    []string
-	execArgs   [][]any
-	insertRow  *fakeRow
-	commitN    int
-	rollbackN  int
-	execErr    error
-	rowsAff    int64
+	execSQL   []string
+	execArgs  [][]any
+	insertRow *fakeRow
+	commitN   int
+	rollbackN int
+	execErr   error
+	rowsAff   int64
 }
 
 func (t *fakeTx) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
@@ -160,7 +160,7 @@ func TestTransitionTodo_fourDomainErrors(t *testing.T) {
 		{
 			name: "audit record",
 			db: &fakeTransitionDB{
-				selectRow: sampleTodoSelect(`["todo:transition"]`, "Complete a to-do created at x: y"),
+				selectRow: sampleTodoSelect(`["todo:transition"]`, "Buy milk"),
 			},
 			want:   tododraft.ErrAuditTransition,
 			status: 400,
@@ -212,17 +212,23 @@ func TestTransitionTodo_updateAffectedNotOne(t *testing.T) {
 func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 	t.Parallel()
 	happened := time.Date(2026, 8, 2, 2, 0, 0, 0, time.UTC)
-	auditText := tododraft.AuditValueText("completed", "2026-08-02T02:00:00.000Z", "Buy milk")
+	// D6 通知正文；审计行客观上下文句（todoID + 带区时间，无正文）
+	wantNotify := tododraft.TodoAuditNotifyText(
+		"completed", todoID, "2026-08-02T02:00:00.000Z", "Buy milk",
+	)
+	wantObjCtx := tododraft.AuditObjectiveContext(
+		"completed", todoID, "2026-08-02T02:00:00.000Z",
+	)
 	tx := &fakeTx{
 		insertRow: &fakeRow{vals: []any{
 			"01900000-0000-7000-8000-000000000099",
 			time.Date(2026, 8, 2, 4, 0, 0, 0, time.UTC),
 			"+08:00",
 			nil,
-			auditText,
+			"Buy milk", // 审计行 value_text = 待办原文逐字拷贝
 			`["todo:transition"]`,
-			tododraft.AuditObjectiveContext(todoID),
-			nil,
+			wantObjCtx,
+			nil, // subjective_interpretation 恒 null
 		}},
 	}
 	db := &fakeTransitionDB{
@@ -249,8 +255,8 @@ func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 	if result.ID != todoID || result.From != "in_progress" || result.To != "completed" {
 		t.Fatalf("result=%+v", result)
 	}
-	if result.AuditValueText != auditText {
-		t.Fatalf("audit=%q want %q", result.AuditValueText, auditText)
+	if result.TodoAuditNotifyText != wantNotify {
+		t.Fatalf("notify=%q want %q", result.TodoAuditNotifyText, wantNotify)
 	}
 	if tx.commitN != 1 {
 		t.Fatalf("commitN=%d", tx.commitN)

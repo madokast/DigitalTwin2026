@@ -199,27 +199,41 @@ export function replaceTodoStateInTags(
 }
 
 /**
- * §4.1 审计 value_text；happenedAt / valueText 为流转前待办行字段全文。
+ * §3.1 审计行 objective_context 合成句；happenedAt 为流转前待办行
+ * `fromDB` 按 utc_offset 格式化后的带区串（不得传 time.Time 原始值）。
  */
-export function auditValueText(
+export function auditObjectiveContext(
   target: TodoState,
+  todoId: string,
+  todoHappenedAt: string,
+): string {
+  return `${verbFor(target)} a to-do ${todoId} created at ${todoHappenedAt}`
+}
+
+/**
+ * D6 通知正文：审计行 objective_context 句 + `": "` + 待办正文逐字拷贝。
+ * 与审计行 `objective_context` / `raw_content` 两字段可还原，非字节级一致。
+ */
+export function todoAuditNotifyText(
+  target: TodoState,
+  todoId: string,
   todoHappenedAt: string,
   todoValueText: string,
 ): string {
-  const verb =
-    target === 'completed'
-      ? 'Complete'
-      : target === 'cancelled'
-        ? 'Cancel'
-        : target === 'paused'
-          ? 'Pause'
-          : 'Resume'
-  return `${verb} a to-do created at ${todoHappenedAt}: ${todoValueText}`
+  return `${verbFor(target)} a to-do ${todoId} created at ${todoHappenedAt}: ${todoValueText}`
 }
 
-/** 审计行 objective_context 备查 id */
-export function auditObjectiveContext(todoId: string): string {
-  return `The index of the to-do is ${todoId}`
+function verbFor(target: TodoState): string {
+  switch (target) {
+    case 'completed':
+      return 'Complete'
+    case 'cancelled':
+      return 'Cancel'
+    case 'paused':
+      return 'Pause'
+    default:
+      return 'Resume'
+  }
 }
 
 /**

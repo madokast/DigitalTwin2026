@@ -166,13 +166,13 @@ func TestToQueryRecordJSON(t *testing.T) {
 		t.Fatalf("todo must not have valueText: %s", b)
 	}
 
-	auditText := "Complete a to-do created at 2026-08-02T02:00:00.000Z: Buy milk"
+	copyText := "Buy milk"
 	audit := record.Record{
 		ID:               "01900000-0000-7000-8000-000000000004",
 		HappenedAt:       "2026-08-02T04:00:00.000Z",
-		ValueText:        &auditText,
+		ValueText:        &copyText,
 		Tags:             `["todo:transition"]`,
-		ObjectiveContext: "The index of the to-do is 01900000-0000-7000-8000-000000000003",
+		ObjectiveContext: "Complete a to-do 01900000-0000-7000-8000-000000000003 created at 2026-08-02T02:00:00.000Z",
 	}
 	gotAudit := ToQueryRecordJSON(audit)
 	ab, err := json.Marshal(gotAudit)

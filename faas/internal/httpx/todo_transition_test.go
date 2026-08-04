@@ -16,18 +16,18 @@ import (
 
 func TestLogTodoTransitionSuccessBodyAndNotify(t *testing.T) {
 	const (
-		todoID    = "01900000-0000-7000-8000-000000000003"
-		auditText = "Complete a to-do created at 2026-08-02T02:00:00.000Z: Buy milk"
+		todoID     = "01900000-0000-7000-8000-000000000003"
+		notifyText = "Complete a to-do 01900000-0000-7000-8000-000000000003 created at 2026-08-02T02:00:00.000Z: Buy milk"
 	)
 	var notified []string
 	s := &Server{
 		Tokens: auth.Tokens{AI: "ai-tok", Admin: "admin-tok"},
 		TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ []byte) (logapi.TransitionResult, int, error) {
 			return logapi.TransitionResult{
-				ID:             todoID,
-				From:           tododraft.TodoStateInProgress,
-				To:             tododraft.TodoStateCompleted,
-				AuditValueText: auditText,
+				ID:                  todoID,
+				From:                tododraft.TodoStateInProgress,
+				To:                  tododraft.TodoStateCompleted,
+				TodoAuditNotifyText: notifyText,
 			}, 200, nil
 		},
 		NotifyUser: func(text string) {
@@ -66,8 +66,8 @@ func TestLogTodoTransitionSuccessBodyAndNotify(t *testing.T) {
 	if _, has := body["audit_record"]; has {
 		t.Fatal("must not include audit_record")
 	}
-	if len(notified) != 1 || notified[0] != auditText {
-		t.Fatalf("notified=%v want [%q]", notified, auditText)
+	if len(notified) != 1 || notified[0] != notifyText {
+		t.Fatalf("notified=%v want [%q]", notified, notifyText)
 	}
 }
 

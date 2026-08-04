@@ -28,11 +28,12 @@ vi.mock('@/db', () => ({
 
 import { transitionTodo } from '@/lib/logapi'
 import {
+  auditObjectiveContext,
+  todoAuditNotifyText,
   ERR_ALREADY_TARGET,
   ERR_AUDIT_TRANSITION,
   ERR_NOT_A_TODO,
   ERR_TODO_NOT_FOUND,
-  auditValueText,
 } from '@/lib/tododraft'
 
 const todoId = '01900000-0000-7000-8000-000000000003'
@@ -89,7 +90,7 @@ describe('transitionTodo domain errors (mocked db)', () => {
 
   it('returns cannot transition a to-do audit record', async () => {
     limit.mockResolvedValueOnce([
-      todoRow(JSON.stringify(['todo:transition']), 'Complete a to-do created at x: y'),
+      todoRow(JSON.stringify(['todo:transition']), 'Buy milk'),
     ])
     await expect(transitionTodo(body)).resolves.toEqual({
       error: ERR_AUDIT_TRANSITION,
@@ -111,21 +112,27 @@ describe('transitionTodo domain errors (mocked db)', () => {
 })
 
 describe('transitionTodo success (mocked db)', () => {
-  it('returns from/to TodoState and auditValueText; runs transaction', async () => {
+  it('inserts audit row exactly and returns notify text', async () => {
     limit.mockResolvedValueOnce([
       todoRow(JSON.stringify(['todo:in_progress', 'errand'])),
     ])
-    const wantAudit = auditValueText(
+    const wantNotify = todoAuditNotifyText(
       'completed',
+      todoId,
       '2026-08-02T02:00:00.000Z',
       'Buy milk',
+    )
+    const wantObjCtx = auditObjectiveContext(
+      'completed',
+      todoId,
+      '2026-08-02T02:00:00.000Z',
     )
     const result = await transitionTodo(body)
     expect(result).toEqual({
       id: todoId,
       from: 'in_progress',
       to: 'completed',
-      auditValueText: wantAudit,
+      todoAuditNotifyText: wantNotify,
       status: 200,
     })
     expect(result).not.toHaveProperty('record')
@@ -135,9 +142,11 @@ describe('transitionTodo success (mocked db)', () => {
     expect(txInsert).toHaveBeenCalled()
     expect(txValues).toHaveBeenCalledWith(
       expect.objectContaining({
-        valueText: wantAudit,
+        valueNumber: null,
+        valueText: 'Buy milk', // 审计行 = 待办原文逐字拷贝
         tags: JSON.stringify(['todo:transition']),
-        objectiveContext: `The index of the to-do is ${todoId}`,
+        objectiveContext: wantObjCtx,
+        subjectiveInterpretation: null,
       }),
     )
   })
@@ -158,7 +167,7 @@ describe('transitionTodo mid-transaction failure (mocked db)', () => {
     })
     expect(result).not.toHaveProperty('id')
     expect(result).not.toHaveProperty('from')
-    expect(result).not.toHaveProperty('auditValueText')
+    expect(result).not.toHaveProperty('todoAuditNotifyText')
     expect(transaction).toHaveBeenCalledTimes(1)
     expect(txUpdate).toHaveBeenCalled()
     expect(txSet).toHaveBeenCalled()

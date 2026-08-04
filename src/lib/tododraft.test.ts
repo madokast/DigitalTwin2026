@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { reservedTagError } from './tags'
 import {
   auditObjectiveContext,
-  auditValueText,
+  todoAuditNotifyText,
   ERR_INVALID_TARGET,
   isTodoAuditRecordTags,
   parseTodo,
@@ -82,9 +82,10 @@ describe('toQueryRecordJson', () => {
 
     const audit: Record = {
       ...deformFixture.inputRecord,
-      value_text: 'Complete a to-do created at 2026-08-02T02:00:00.000Z: Buy milk',
+      value_text: 'Buy milk',
       tags: JSON.stringify([TODO_TAG_TRANSITION]),
-      objective_context: 'The index of the to-do is 01900000-0000-7000-8000-000000000003',
+      objective_context:
+        'Complete a to-do 01900000-0000-7000-8000-000000000003 created at 2026-08-02T02:00:00.000Z',
       subjective_interpretation: null,
     }
     const auditJson = toQueryRecordJson(audit)
@@ -196,25 +197,34 @@ const auditFixture = JSON.parse(
 ) as {
   cases: Array<{
     target: TodoState
+    todoId: string
     todoHappenedAt: string
     todoValueText: string
-    value_text: string
+    objective_context: string
+    notify_text: string
   }>
 }
 
-describe('auditValueText shared fixture', () => {
-  it('matches §4.1 templates for all targets', () => {
+describe('todoAuditNotifyText shared fixture', () => {
+  it('matches §3.1 notify templates for all targets', () => {
     for (const c of auditFixture.cases) {
-      expect(auditValueText(c.target, c.todoHappenedAt, c.todoValueText)).toBe(
-        c.value_text,
-      )
+      expect(
+        todoAuditNotifyText(
+          c.target,
+          c.todoId,
+          c.todoHappenedAt,
+          c.todoValueText,
+        ),
+      ).toBe(c.notify_text)
     }
   })
 
-  it('builds audit objective_context with todo id', () => {
-    expect(auditObjectiveContext('01900000-0000-7000-8000-000000000003')).toBe(
-      'The index of the to-do is 01900000-0000-7000-8000-000000000003',
-    )
+  it('builds audit objective_context with verb, todo id and time', () => {
+    for (const c of auditFixture.cases) {
+      expect(
+        auditObjectiveContext(c.target, c.todoId, c.todoHappenedAt),
+      ).toBe(c.objective_context)
+    }
   })
 })
 

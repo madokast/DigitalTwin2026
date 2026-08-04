@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // §4.2：恰好一次 notify，正文 = 审计 value_text（非待办行格式化）
-    scheduleBestEffortNotify(() => notify_user(result.auditValueText))
+    scheduleBestEffortNotify(() => notify_user(result.todoAuditNotifyText))
 
     return NextResponse.json(
       {

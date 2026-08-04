@@ -50,10 +50,10 @@ func TestToTodoRecordJSONSharedFixture(t *testing.T) {
 
 func TestToTodoRecordJSONPreservesOffset(t *testing.T) {
 	rec := record.Record{
-		ID:         "01900000-0000-7000-8000-000000000003",
-		HappenedAt: "2026-08-02T10:00:00.000+08:00",
-		ValueText:  strPtr("Buy milk"),
-		Tags:       `["todo:in_progress","errand"]`,
+		ID:               "01900000-0000-7000-8000-000000000003",
+		HappenedAt:       "2026-08-02T10:00:00.000+08:00",
+		ValueText:        strPtr("Buy milk"),
+		Tags:             `["todo:in_progress","errand"]`,
 		ObjectiveContext: "x",
 	}
 	got := ToTodoRecordJSON(rec)
@@ -183,31 +183,33 @@ func TestIsStrictTodoRecordTags(t *testing.T) {
 	}
 }
 
-func TestAuditValueTextSharedFixture(t *testing.T) {
+func TestTodoAuditNotifyTextSharedFixture(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(repoRoot(t), "testdata", "todo-transition-audit.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var fx struct {
 		Cases []struct {
-			Target         string `json:"target"`
-			TodoHappenedAt string `json:"todoHappenedAt"`
-			TodoValueText  string `json:"todoValueText"`
-			ValueText      string `json:"value_text"`
+			Target           string `json:"target"`
+			TodoID           string `json:"todoId"`
+			TodoHappenedAt   string `json:"todoHappenedAt"`
+			TodoValueText    string `json:"todoValueText"`
+			ObjectiveContext string `json:"objective_context"`
+			NotifyText       string `json:"notify_text"`
 		} `json:"cases"`
 	}
 	if err := json.Unmarshal(b, &fx); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range fx.Cases {
-		got := AuditValueText(c.Target, c.TodoHappenedAt, c.TodoValueText)
-		if got != c.ValueText {
-			t.Fatalf("target=%s got=%q want=%q", c.Target, got, c.ValueText)
+		got := TodoAuditNotifyText(c.Target, c.TodoID, c.TodoHappenedAt, c.TodoValueText)
+		if got != c.NotifyText {
+			t.Fatalf("target=%s notify got=%q want=%q", c.Target, got, c.NotifyText)
 		}
-	}
-	wantObj := "The index of the to-do is 01900000-0000-7000-8000-000000000003"
-	if AuditObjectiveContext("01900000-0000-7000-8000-000000000003") != wantObj {
-		t.Fatalf("objective=%q", AuditObjectiveContext("01900000-0000-7000-8000-000000000003"))
+		gotObj := AuditObjectiveContext(c.Target, c.TodoID, c.TodoHappenedAt)
+		if gotObj != c.ObjectiveContext {
+			t.Fatalf("target=%s objective got=%q want=%q", c.Target, gotObj, c.ObjectiveContext)
+		}
 	}
 }
 
