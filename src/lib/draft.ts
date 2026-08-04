@@ -136,9 +136,40 @@ function hasOwnKey(obj: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(obj, key)
 }
 
+/** 必填文本（raw_content / objective_context / content / memo）：缺失或空串或非 string → Missing；空白串 → must not be blank；存 trim 后值 */
+export function requireTrimmedText(
+  raw: unknown,
+  field: 'raw_content' | 'objective_context' | 'content' | 'memo',
+): { ok: true; value: string } | DraftValidationError {
+  if (typeof raw !== 'string' || raw === '') {
+    return { error: `Missing required field: ${field}` }
+  }
+  if (raw.trim() === '') {
+    return { error: `${field} must not be blank` }
+  }
+  return { ok: true, value: raw.trim() }
+}
+
+/** 可空文本（subjective_interpretation）：不传 / null → null；非 string → Invalid；空串或空白串 → must not be blank；存 trim 后值 */
+export function optionalTrimmedNullable(
+  raw: unknown,
+  field: 'subjective_interpretation',
+): { ok: true; value: string | null } | DraftValidationError {
+  if (raw === undefined || raw === null) {
+    return { ok: true, value: null }
+  }
+  if (typeof raw !== 'string') {
+    return { error: `Invalid ${field}` }
+  }
+  if (raw.trim() === '') {
+    return { error: `${field} must not be blank` }
+  }
+  return { ok: true, value: raw.trim() }
+}
+
 /**
  * 校验并可编辑字段快照归一化（前后端共用；Admin PATCH）。
- * 空串在可空字段上变为 null；objective_context 不允许空。
+ * 文本字段 trim 后入库；空串 / 空白串拒绝（清空用显式 null）；objective_context 不允许空。
  * `happened_at` 可省略（§7：两列都不动）；带则解析瞬间并抽出 utc_offset。
  */
 export function parseRecordDraft(
@@ -162,10 +193,9 @@ export function parseRecordDraft(
 
   let rawContent: string | null = null
   if (body.raw_content !== null && body.raw_content !== undefined) {
-    if (typeof body.raw_content !== 'string') {
-      return { error: 'Invalid raw_content' }
-    }
-    rawContent = emptyStringToNull(body.raw_content)
+    const rc = requireTrimmedText(body.raw_content, 'raw_content')
+    if ('error' in rc) return rc
+    rawContent = rc.value
   }
 
   if (numericValue === null && rawContent === null) {
@@ -192,23 +222,14 @@ export function parseRecordDraft(
     return { error: reserved.error! }
   }
 
-  if (
-    typeof body.objective_context !== 'string' ||
-    body.objective_context === ''
-  ) {
-    return { error: 'Missing required field: objective_context' }
-  }
+  const objCtx = requireTrimmedText(body.objective_context, 'objective_context')
+  if ('error' in objCtx) return objCtx
 
-  let subjectiveInterpretation: string | null = null
-  if (
-    body.subjective_interpretation !== null &&
-    body.subjective_interpretation !== undefined
-  ) {
-    if (typeof body.subjective_interpretation !== 'string') {
-      return { error: 'Invalid subjective_interpretation' }
-    }
-    subjectiveInterpretation = emptyStringToNull(body.subjective_interpretation)
-  }
+  const subjective = optionalTrimmedNullable(
+    body.subjective_interpretation,
+    'subjective_interpretation',
+  )
+  if ('error' in subjective) return subjective
 
   return {
     happenedAt,
@@ -216,7 +237,7 @@ export function parseRecordDraft(
     numericValue,
     rawContent,
     tags: tagList,
-    objectiveContext: body.objective_context,
-    subjectiveInterpretation,
+    objectiveContext: objCtx.value,
+    subjectiveInterpretation: subjective.value,
   }
 }

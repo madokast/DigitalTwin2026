@@ -281,17 +281,17 @@ func TestCreateTransactionBatchRejectsZeroAmount(t *testing.T) {
 func TestOptionalSubjective(t *testing.T) {
 	t.Parallel()
 
-	if v, err := optionalSubjective(nil); err != nil || v != nil {
+	if v, err := draft.OptionalTrimmedNullable(nil, "subjective_interpretation"); err != nil || v != nil {
 		t.Fatalf("nil: got (%v, %v)", v, err)
 	}
-	if v, err := optionalSubjective(""); err != nil || v != nil {
+	if v, err := draft.OptionalTrimmedNullable("", "subjective_interpretation"); err == nil || err.Error() != "subjective_interpretation must not be blank" {
 		t.Fatalf("empty: got (%v, %v)", v, err)
 	}
-	if v, err := optionalSubjective("ok"); err != nil || v != "ok" {
+	if v, err := draft.OptionalTrimmedNullable("  ok  ", "subjective_interpretation"); err != nil || v == nil || *v != "ok" {
 		t.Fatalf("string: got (%v, %v)", v, err)
 	}
 	for _, bad := range []any{1, true, []any{}, map[string]any{}} {
-		if _, err := optionalSubjective(bad); err == nil || err.Error() != "Invalid subjective_interpretation" {
+		if _, err := draft.OptionalTrimmedNullable(bad, "subjective_interpretation"); err == nil || err.Error() != "Invalid subjective_interpretation" {
 			t.Fatalf("%v: want Invalid subjective_interpretation, got %v", bad, err)
 		}
 	}

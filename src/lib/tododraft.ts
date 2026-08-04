@@ -10,6 +10,10 @@ import {
   isValidTag,
   assertNoReservedTags,
 } from '@/lib/tags'
+import {
+  optionalTrimmedNullable,
+  requireTrimmedText,
+} from '@/lib/draft'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
 import type { Record } from '@/lib/record'
 
@@ -289,18 +293,6 @@ function parseCreatedAt(
   return result
 }
 
-function optionalSubjective(
-  raw: unknown,
-): { value: string | null } | DraftValidationError {
-  if (raw === undefined || raw === null || raw === '') {
-    return { value: null }
-  }
-  if (typeof raw !== 'string') {
-    return { error: 'Invalid subjective_interpretation' }
-  }
-  return { value: raw }
-}
-
 /**
  * 可选额外 tags：省略 / null → []；[] 合法；非空则校验格式并拒保留前缀。
  */
@@ -350,15 +342,24 @@ export function parseTodo(
     return { error: createdResult.error }
   }
 
-  if (!body.content || typeof body.content !== 'string') {
-    return { error: 'Missing required field: content' }
+  const contentResult = requireTrimmedText(body.content, 'content')
+  if ('error' in contentResult) {
+    return { error: contentResult.error }
+  }
+  const content = contentResult.value
+
+  const objCtxResult = requireTrimmedText(
+    body.objective_context,
+    'objective_context',
+  )
+  if ('error' in objCtxResult) {
+    return { error: objCtxResult.error }
   }
 
-  if (!body.objective_context || typeof body.objective_context !== 'string') {
-    return { error: 'Missing required field: objective_context' }
-  }
-
-  const subjective = optionalSubjective(body.subjective_interpretation)
+  const subjective = optionalTrimmedNullable(
+    body.subjective_interpretation,
+    'subjective_interpretation',
+  )
   if ('error' in subjective) {
     return { error: subjective.error }
   }
@@ -371,9 +372,9 @@ export function parseTodo(
   return {
     happenedAt: createdResult.value,
     utcOffset: createdResult.utcOffset,
-    rawContent: body.content,
+    rawContent: content,
     tags: [TODO_TAG_IN_PROGRESS, ...clientTags.value],
-    objectiveContext: body.objective_context,
+    objectiveContext: objCtxResult.value,
     subjectiveInterpretation: subjective.value,
   }
 }

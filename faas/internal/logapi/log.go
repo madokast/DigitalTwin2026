@@ -3,7 +3,6 @@ package logapi
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,44 +43,9 @@ var logTextKeys = []string{
 	"subjective_interpretation",
 }
 
-// optionalSubjective 与 draft / PATCH 对齐：非 string → 错误；空串 / null / omit → nil
-func optionalSubjective(raw any) (any, error) {
-	if raw == nil {
-		return nil, nil
-	}
-	s, ok := raw.(string)
-	if !ok {
-		return nil, fmt.Errorf("Invalid subjective_interpretation")
-	}
-	if s == "" {
-		return nil, nil
-	}
-	return s, nil
-}
-
 func happenedAtString(raw any) string {
 	s, _ := raw.(string)
 	return s
-}
-
-func requireNonEmptyString(raw any, missingMsg string) (string, error) {
-	s, ok := raw.(string)
-	if !ok || s == "" {
-		return "", fmt.Errorf("%s", missingMsg)
-	}
-	return s, nil
-}
-
-// requireRawContent 必填：缺失 / null / 非 string → Missing；空白串（trim 后空）→ must not be blank；原样存储。
-func requireRawContent(raw any) (string, error) {
-	s, ok := raw.(string)
-	if !ok || s == "" {
-		return "", fmt.Errorf("Missing required field: raw_content")
-	}
-	if strings.TrimSpace(s) == "" {
-		return "", fmt.Errorf("raw_content must not be blank")
-	}
-	return s, nil
 }
 
 // optionalTagList 与 Next createNumber/createText：省略 / null / [] → []；
@@ -173,7 +137,7 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	if numStr == nil {
 		return record.Record{}, 400, fmt.Errorf("Missing required field: numeric_value")
 	}
-	rawContent, err := requireRawContent(body.RawContent)
+	rawContent, err := draft.RequireTrimmedText(body.RawContent, "raw_content")
 	if err != nil {
 		return record.Record{}, 400, err
 	}
@@ -188,11 +152,11 @@ func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	if rv := tags.AssertNoReservedTags(tagList); !rv.Valid {
 		return record.Record{}, 400, fmt.Errorf("%s", rv.Error)
 	}
-	objCtx, err := requireNonEmptyString(body.ObjectiveContext, "Missing required field: objective_context")
+	objCtx, err := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
 	if err != nil {
 		return record.Record{}, 400, err
 	}
-	subj, err := optionalSubjective(body.SubjectiveInterpretation)
+	subj, err := draft.OptionalTrimmedNullable(body.SubjectiveInterpretation, "subjective_interpretation")
 	if err != nil {
 		return record.Record{}, 400, err
 	}
@@ -228,7 +192,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	if err != nil {
 		return record.Record{}, 400, err
 	}
-	rawContent, err := requireRawContent(body.RawContent)
+	rawContent, err := draft.RequireTrimmedText(body.RawContent, "raw_content")
 	if err != nil {
 		return record.Record{}, 400, err
 	}
@@ -243,11 +207,11 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	if rv := tags.AssertNoReservedTags(tagList); !rv.Valid {
 		return record.Record{}, 400, fmt.Errorf("%s", rv.Error)
 	}
-	objCtx, err := requireNonEmptyString(body.ObjectiveContext, "Missing required field: objective_context")
+	objCtx, err := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
 	if err != nil {
 		return record.Record{}, 400, err
 	}
-	subj, err := optionalSubjective(body.SubjectiveInterpretation)
+	subj, err := draft.OptionalTrimmedNullable(body.SubjectiveInterpretation, "subjective_interpretation")
 	if err != nil {
 		return record.Record{}, 400, err
 	}

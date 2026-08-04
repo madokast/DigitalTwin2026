@@ -7,7 +7,12 @@ import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
 import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
-import { parseHappenedAt, parseNumericValue } from '@/lib/draft'
+import {
+  optionalTrimmedNullable,
+  parseHappenedAt,
+  parseNumericValue,
+  requireTrimmedText,
+} from '@/lib/draft'
 import {
   fromDB,
   isValidRecordId,
@@ -97,19 +102,6 @@ type InsertExecutor = {
   insert: typeof db.insert
 }
 
-/** 与 draft / PATCH 对齐：非 string → 400；空串 / null / omit → null */
-function optionalSubjective(
-  raw: unknown,
-): { value: string | null } | { error: string } {
-  if (raw === undefined || raw === null || raw === '') {
-    return { value: null }
-  }
-  if (typeof raw !== 'string') {
-    return { error: 'Invalid subjective_interpretation' }
-  }
-  return { value: raw }
-}
-
 /** tags optional：省略 / null / [] → []；非数组或元素非 string → 400 */
 function optionalTagList(raw: unknown): { value: string[] } | { error: string } {
   if (raw === undefined || raw === null) {
@@ -120,19 +112,6 @@ function optionalTagList(raw: unknown): { value: string[] } | { error: string } 
   }
   if (!raw.every((t) => typeof t === 'string')) {
     return { error: 'tags must be an array of strings' }
-  }
-  return { value: raw }
-}
-
-/** raw_content 必填：缺失 / null / 非 string → Missing；空白串（trim 后空）→ must not be blank；原样存储 */
-function requireRawContent(
-  raw: unknown,
-): { value: string } | { error: string } {
-  if (typeof raw !== 'string' || raw === '') {
-    return { error: 'Missing required field: raw_content' }
-  }
-  if (raw.trim() === '') {
-    return { error: 'raw_content must not be blank' }
   }
   return { value: raw }
 }
@@ -170,7 +149,7 @@ export async function createNumber(
     return { error: 'Missing required field: numeric_value', status: 400 }
   }
 
-  const rawContentResult = requireRawContent(body.raw_content)
+  const rawContentResult = requireTrimmedText(body.raw_content, 'raw_content')
   if ('error' in rawContentResult) {
     return { error: rawContentResult.error, status: 400 }
   }
@@ -188,11 +167,12 @@ export async function createNumber(
     return { error: reserved.error!, status: 400 }
   }
 
-  if (!body.objective_context || typeof body.objective_context !== 'string') {
-    return { error: 'Missing required field: objective_context', status: 400 }
+  const objCtxResult = requireTrimmedText(body.objective_context, 'objective_context')
+  if ('error' in objCtxResult) {
+    return { error: objCtxResult.error, status: 400 }
   }
 
-  const subjective = optionalSubjective(body.subjective_interpretation)
+  const subjective = optionalTrimmedNullable(body.subjective_interpretation, 'subjective_interpretation')
   if ('error' in subjective) {
     return { error: subjective.error, status: 400 }
   }
@@ -205,7 +185,7 @@ export async function createNumber(
       numericValue: numberResult.value,
       rawContent: rawContentResult.value,
       tags: tagsJSON(tagListResult.value),
-      objectiveContext: body.objective_context,
+      objectiveContext: objCtxResult.value,
       subjectiveInterpretation: subjective.value,
     })
     return { record, status: 201 }
@@ -388,7 +368,7 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     return { error: happenedResult.error, status: 400 }
   }
 
-  const rawContentResult = requireRawContent(body.raw_content)
+  const rawContentResult = requireTrimmedText(body.raw_content, 'raw_content')
   if ('error' in rawContentResult) {
     return { error: rawContentResult.error, status: 400 }
   }
@@ -406,11 +386,12 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     return { error: reserved.error!, status: 400 }
   }
 
-  if (!body.objective_context || typeof body.objective_context !== 'string') {
-    return { error: 'Missing required field: objective_context', status: 400 }
+  const objCtxResult = requireTrimmedText(body.objective_context, 'objective_context')
+  if ('error' in objCtxResult) {
+    return { error: objCtxResult.error, status: 400 }
   }
 
-  const subjective = optionalSubjective(body.subjective_interpretation)
+  const subjective = optionalTrimmedNullable(body.subjective_interpretation, 'subjective_interpretation')
   if ('error' in subjective) {
     return { error: subjective.error, status: 400 }
   }
@@ -423,7 +404,7 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
       numericValue: null,
       rawContent: rawContentResult.value,
       tags: tagsJSON(tagListResult.value),
-      objectiveContext: body.objective_context,
+      objectiveContext: objCtxResult.value,
       subjectiveInterpretation: subjective.value,
     })
     return { record, status: 201 }

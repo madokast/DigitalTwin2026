@@ -1164,7 +1164,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
           raw_content: null,
           tags: ['weight', 'source:device'],
           objective_context: 'updated context',
-          subjective_interpretation: '',
+          subjective_interpretation: null,
         }),
         { params: Promise.resolve({ id: record.id }) },
       )
@@ -1234,7 +1234,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         jsonPatch(`http://localhost/api/admin/records/${record.id}`, {
           happened_at: '2026-07-30T08:00:00+08:00',
           numeric_value: null,
-          raw_content: '',
+          raw_content: null,
           tags: ['weight'],
           objective_context: 'x',
           subjective_interpretation: null,

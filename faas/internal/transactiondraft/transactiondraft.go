@@ -117,14 +117,14 @@ func parseAmount(raw any) (string, error) {
 	}
 	switch v := raw.(type) {
 	case string:
-		// 禁止 TrimSpace：有空格 / 空串均走统一 InvalidAmount
-		if !moneyAmountPattern.MatchString(v) {
+		trimmed := strings.TrimSpace(v)
+		if !moneyAmountPattern.MatchString(trimmed) {
 			return "", fmt.Errorf("%s", InvalidAmount)
 		}
-		if IsZeroDecimalLiteral(v) {
+		if IsZeroDecimalLiteral(trimmed) {
 			return "", fmt.Errorf("%s", InvalidAmount)
 		}
-		return NormalizeMoneyAmount2(v), nil
+		return NormalizeMoneyAmount2(trimmed), nil
 	case float64, json.Number:
 		return "", fmt.Errorf("%s", AmountMustBeString)
 	default:
@@ -166,9 +166,9 @@ func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, err
 	if err != nil {
 		return NormalizedTransactionEntry{}, fmt.Errorf("%s%s", prefix, err.Error())
 	}
-	memo, ok := entry.Memo.(string)
-	if !ok || memo == "" {
-		return NormalizedTransactionEntry{}, fmt.Errorf("%sMissing required field: memo", prefix)
+	memo, err := draft.RequireTrimmedText(entry.Memo, "memo")
+	if err != nil {
+		return NormalizedTransactionEntry{}, fmt.Errorf("%s%s", prefix, err)
 	}
 	category, err := parseSegment(entry.Category, "category")
 	if err != nil {

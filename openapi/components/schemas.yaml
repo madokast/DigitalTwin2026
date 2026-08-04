@@ -419,7 +419,8 @@ LogNumberRequest:
       type: string
       minLength: 1
       description: |
-        Required non-blank body text; stored verbatim (no trimming).
+        Required non-blank body text; trimmed (leading/trailing whitespace
+        removed) before storage. Empty or whitespace-only → 400.
     tags:
       $ref: '#/TagList'
     objective_context:
@@ -642,10 +643,11 @@ RecordDraftRequest:
   type: object
   description: |
     Editable snapshot for PATCH. Aligns with `parseRecordDraft`:
-    empty strings on nullable fields become null; `objective_context` must
-    be a non-empty string; `numeric_value` is string | null only (JSON number → 400);
-    `tags` optional — omitted / null / `[]` → stored as `[]`.
-    Unknown JSON keys -> 400 (Unknown JSON key: <name>).
+    all text fields are trimmed before storage; empty or whitespace-only
+    values are rejected (clear nullable fields with explicit null);
+    `objective_context` must be non-blank; `numeric_value` is string | null
+    only (JSON number → 400); `tags` optional — omitted / null / `[]` →
+    stored as `[]`. Unknown JSON keys -> 400 (Unknown JSON key: <name>).
   required: [happened_at, objective_context]
   additionalProperties: false
   properties:

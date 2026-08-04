@@ -122,7 +122,11 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 		if !ok {
 			return nil, wrapErr("Invalid raw_content", lineNumber)
 		}
-		rawContent = draft.EmptyStringToNull(&s)
+		t, err := draft.RequireTrimmedText(s, "raw_content")
+		if err != nil {
+			return nil, wrapErr(err.Error(), lineNumber)
+		}
+		rawContent = &t
 	}
 
 	if numericValue == nil && rawContent == nil {
@@ -154,18 +158,14 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	}
 	// 故意不调用 AssertNoReservedTags（见包注释）
 
-	objCtx, ok := m["objective_context"].(string)
-	if !ok || objCtx == "" {
-		return nil, wrapErr("Missing required field: objective_context", lineNumber)
+	objCtx, err := draft.RequireTrimmedText(m["objective_context"], "objective_context")
+	if err != nil {
+		return nil, wrapErr(err.Error(), lineNumber)
 	}
 
-	var subjective *string
-	if m["subjective_interpretation"] != nil {
-		s, ok := m["subjective_interpretation"].(string)
-		if !ok {
-			return nil, wrapErr("Invalid subjective_interpretation", lineNumber)
-		}
-		subjective = draft.EmptyStringToNull(&s)
+	subjective, err := draft.OptionalTrimmedNullable(m["subjective_interpretation"], "subjective_interpretation")
+	if err != nil {
+		return nil, wrapErr(err.Error(), lineNumber)
 	}
 
 	return &Row{

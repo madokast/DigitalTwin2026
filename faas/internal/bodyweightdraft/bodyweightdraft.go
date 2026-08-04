@@ -62,18 +62,18 @@ func WeightCentsInRange(normalized2 string) bool {
 	return cents >= weightMinCents && cents <= weightMaxCents
 }
 
-// ParseWeightAmount 解析体重 numeric_value。
+// ParseWeightAmount 解析体重 numeric_value（trim 后校验；存 trim 后值）。
 func ParseWeightAmount(raw any) (string, error) {
 	if raw == nil {
 		return "", fmt.Errorf("Missing required field: numeric_value")
 	}
 	switch v := raw.(type) {
 	case string:
-		// 禁止 TrimSpace：有空格 / 空串均走统一 InvalidWeight
-		if !weightAmountPattern.MatchString(v) {
+		trimmed := strings.TrimSpace(v)
+		if !weightAmountPattern.MatchString(trimmed) {
 			return "", fmt.Errorf("%s", InvalidWeight)
 		}
-		stored := transactiondraft.NormalizeMoneyAmount2(v)
+		stored := transactiondraft.NormalizeMoneyAmount2(trimmed)
 		if !WeightCentsInRange(stored) {
 			return "", fmt.Errorf("%s", InvalidWeight)
 		}
@@ -83,20 +83,6 @@ func ParseWeightAmount(raw any) (string, error) {
 	default:
 		return "", fmt.Errorf("%s", InvalidWeight)
 	}
-}
-
-func optionalSubjective(raw any) (any, error) {
-	if raw == nil {
-		return nil, nil
-	}
-	s, ok := raw.(string)
-	if !ok {
-		return nil, fmt.Errorf("Invalid subjective_interpretation")
-	}
-	if s == "" {
-		return nil, nil
-	}
-	return s, nil
 }
 
 func parseOptionalClientTags(raw any) ([]string, error) {
@@ -162,11 +148,11 @@ func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, error) {
 	if err != nil {
 		return NormalizedBodyWeight{}, err
 	}
-	objCtx, ok := body.ObjectiveContext.(string)
-	if !ok || objCtx == "" {
-		return NormalizedBodyWeight{}, fmt.Errorf("Missing required field: objective_context")
+	objCtx, err := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
+	if err != nil {
+		return NormalizedBodyWeight{}, err
 	}
-	subj, err := optionalSubjective(body.SubjectiveInterpretation)
+	subj, err := draft.OptionalTrimmedNullable(body.SubjectiveInterpretation, "subjective_interpretation")
 	if err != nil {
 		return NormalizedBodyWeight{}, err
 	}

@@ -176,24 +176,42 @@ describe('parseRecordDraft', () => {
     })
   })
 
-  it('rejects when both values are null/empty', () => {
+  it('rejects when both values are null', () => {
     expect(
       parseRecordDraft({
         ...validBase,
         numeric_value: null,
-        raw_content: '',
+        raw_content: null,
       }),
     ).toEqual({
       error: 'numeric_value and raw_content cannot both be null',
     })
   })
 
-  it('maps empty raw_content and subjective to null', () => {
+  it('rejects empty / whitespace-only raw_content and subjective', () => {
+    for (const raw_content of ['', '   ']) {
+      const parsed = parseRecordDraft({
+        ...validBase,
+        numeric_value: '1',
+        raw_content,
+        subjective_interpretation: '   ',
+      })
+      expect('error' in parsed).toBe(true)
+      if (!('error' in parsed)) return
+      expect(parsed.error).toBe(
+        raw_content === ''
+          ? 'Missing required field: raw_content'
+          : 'raw_content must not be blank',
+      )
+    }
+  })
+
+  it('maps omitted raw_content / subjective to null (clear via explicit null)', () => {
     const parsed = parseRecordDraft({
       ...validBase,
       numeric_value: '1',
-      raw_content: '',
-      subjective_interpretation: '',
+      raw_content: null,
+      subjective_interpretation: null,
     })
     expect('error' in parsed).toBe(false)
     if ('error' in parsed) return

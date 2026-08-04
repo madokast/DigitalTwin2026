@@ -48,13 +48,6 @@ type NormalizedRecordDraft struct {
 	SubjectiveInterpretation *string
 }
 
-func EmptyStringToNull(value *string) *string {
-	if value == nil || *value == "" {
-		return nil
-	}
-	return value
-}
-
 // ParseHappenedAt 校验 ISO 8601 且必须带显式时区（与 Next parseHappenedAt / query from|to 一致）。
 // 同时返回规范 utc_offset（创建路径写隐列；PATCH 见 ParseRecordDraft / Update §7）。
 func ParseHappenedAt(raw string) (time.Time, string, error) {
@@ -136,6 +129,34 @@ func ParseRecordDraft(body RecordDraftBody) (*NormalizedRecordDraft, error) {
 	return parseRecordDraft(body, body.HappenedAt != nil)
 }
 
+// RequireTrimmedText 必填文本：缺失 / 空串 / 非 string → Missing；空白串 → must not be blank；存 trim 后值。
+func RequireTrimmedText(raw any, field string) (string, error) {
+	s, ok := raw.(string)
+	if !ok || s == "" {
+		return "", fmt.Errorf("Missing required field: %s", field)
+	}
+	if strings.TrimSpace(s) == "" {
+		return "", fmt.Errorf("%s must not be blank", field)
+	}
+	return strings.TrimSpace(s), nil
+}
+
+// OptionalTrimmedNullable 可空文本：nil → nil；非 string → Invalid；空串 / 空白串 → must not be blank；存 trim 后值。
+func OptionalTrimmedNullable(raw any, field string) (*string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	s, ok := raw.(string)
+	if !ok {
+		return nil, fmt.Errorf("Invalid %s", field)
+	}
+	if strings.TrimSpace(s) == "" {
+		return nil, fmt.Errorf("%s must not be blank", field)
+	}
+	t := strings.TrimSpace(s)
+	return &t, nil
+}
+
 func parseRecordDraft(body RecordDraftBody, hasHappenedAt bool) (*NormalizedRecordDraft, error) {
 	var happenedAt *time.Time
 	var utcOffset *string
@@ -163,7 +184,11 @@ func parseRecordDraft(body RecordDraftBody, hasHappenedAt bool) (*NormalizedReco
 		if err != nil {
 			return nil, fmt.Errorf("Invalid raw_content")
 		}
-		rawContent = EmptyStringToNull(s)
+		t, err := RequireTrimmedText(*s, "raw_content")
+		if err != nil {
+			return nil, err
+		}
+		rawContent = &t
 	}
 
 	if numericValue == nil && rawContent == nil {
@@ -202,18 +227,14 @@ func parseRecordDraft(body RecordDraftBody, hasHappenedAt bool) (*NormalizedReco
 		return nil, fmt.Errorf("%s", rv.Error)
 	}
 
-	objCtx, ok := body.ObjectiveContext.(string)
-	if !ok || objCtx == "" {
-		return nil, fmt.Errorf("Missing required field: objective_context")
+	objCtx, err := RequireTrimmedText(body.ObjectiveContext, "objective_context")
+	if err != nil {
+		return nil, err
 	}
 
-	var subjective *string
-	if body.SubjectiveInterpretation != nil {
-		s, err := asStringPtr(body.SubjectiveInterpretation)
-		if err != nil {
-			return nil, fmt.Errorf("Invalid subjective_interpretation")
-		}
-		subjective = EmptyStringToNull(s)
+	subjective, err := OptionalTrimmedNullable(body.SubjectiveInterpretation, "subjective_interpretation")
+	if err != nil {
+		return nil, err
 	}
 
 	return &NormalizedRecordDraft{

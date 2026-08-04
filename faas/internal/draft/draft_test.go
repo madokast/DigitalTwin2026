@@ -34,17 +34,24 @@ func loadDecimalStringCases(t *testing.T) decimalStringCases {
 	return cases
 }
 
-func TestEmptyStringToNull(t *testing.T) {
-	empty := ""
-	if EmptyStringToNull(&empty) != nil {
-		t.Fatal("empty -> nil")
+func TestRequireTrimmedTextAndOptionalTrimmedNullable(t *testing.T) {
+	if _, err := RequireTrimmedText("", "raw_content"); err == nil || err.Error() != "Missing required field: raw_content" {
+		t.Fatalf("empty: %v", err)
 	}
-	if EmptyStringToNull(nil) != nil {
-		t.Fatal("nil -> nil")
+	if _, err := RequireTrimmedText("   ", "raw_content"); err == nil || err.Error() != "raw_content must not be blank" {
+		t.Fatalf("blank: %v", err)
 	}
-	s := "hello"
-	if got := EmptyStringToNull(&s); got == nil || *got != "hello" {
-		t.Fatal("keep non-empty")
+	if v, err := RequireTrimmedText("  ok  ", "raw_content"); err != nil || v != "ok" {
+		t.Fatalf("trim: (%q, %v)", v, err)
+	}
+	if v, err := OptionalTrimmedNullable(nil, "subjective_interpretation"); err != nil || v != nil {
+		t.Fatalf("nil: (%v, %v)", v, err)
+	}
+	if _, err := OptionalTrimmedNullable("", "subjective_interpretation"); err == nil || err.Error() != "subjective_interpretation must not be blank" {
+		t.Fatalf("empty: %v", err)
+	}
+	if v, err := OptionalTrimmedNullable("  ok  ", "subjective_interpretation"); err != nil || v == nil || *v != "ok" {
+		t.Fatalf("trim: (%v, %v)", v, err)
 	}
 }
 
@@ -248,12 +255,29 @@ func TestParseRecordDraftBothNull(t *testing.T) {
 	_, err := ParseRecordDraft(RecordDraftBody{
 		HappenedAt:       "2026-07-30T08:00:00+08:00",
 		NumericValue:      nil,
-		RawContent:        "",
+		RawContent:        nil,
 		Tags:             []any{"weight"},
 		ObjectiveContext: "x",
 	})
 	if err == nil || err.Error() != "numeric_value and raw_content cannot both be null" {
 		t.Fatalf("got %v", err)
+	}
+	// 空串 / 空白串 → 拒绝（清空用显式 null）
+	for _, raw := range []string{"", "   "} {
+		want := "Missing required field: raw_content"
+		if raw == "   " {
+			want = "raw_content must not be blank"
+		}
+		_, err := ParseRecordDraft(RecordDraftBody{
+			HappenedAt:       "2026-07-30T08:00:00+08:00",
+			NumericValue:      "1",
+			RawContent:        raw,
+			Tags:             []any{"weight"},
+			ObjectiveContext: "x",
+		})
+		if err == nil || err.Error() != want {
+			t.Fatalf("%q: got %v want %q", raw, err, want)
+		}
 	}
 }
 
@@ -261,17 +285,16 @@ func TestParseRecordDraftJSON(t *testing.T) {
 	raw := []byte(`{
 		"happened_at":"2026-07-30T08:00:00+08:00",
 		"numeric_value":"75.5",
-		"raw_content":"",
+		"raw_content":null,
 		"tags":["weight"],
-		"objective_context":"morning",
-		"subjective_interpretation":""
+		"objective_context":"morning"
 	}`)
 	parsed, err := ParseRecordDraftJSON(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if parsed.RawContent != nil || parsed.SubjectiveInterpretation != nil {
-		t.Fatal("empty strings should become nil")
+		t.Fatal("null raw_content / omitted subjective should stay nil")
 	}
 	if parsed.NumericValue == nil || *parsed.NumericValue != "75.5" {
 		t.Fatalf("number: %#v", parsed.NumericValue)

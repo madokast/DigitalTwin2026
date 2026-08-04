@@ -300,20 +300,6 @@ func parseCreatedAt(raw any) (time.Time, string, error) {
 	return t, offset, nil
 }
 
-func optionalSubjective(raw any) (any, error) {
-	if raw == nil {
-		return nil, nil
-	}
-	s, ok := raw.(string)
-	if !ok {
-		return nil, fmt.Errorf("Invalid subjective_interpretation")
-	}
-	if s == "" {
-		return nil, nil
-	}
-	return s, nil
-}
-
 func parseOptionalClientTags(raw any) ([]string, error) {
 	if raw == nil {
 		return []string{}, nil
@@ -368,15 +354,15 @@ func ParseTodo(raw []byte) (NormalizedTodo, error) {
 	if err != nil {
 		return NormalizedTodo{}, err
 	}
-	content, ok := body.Content.(string)
-	if !ok || content == "" {
-		return NormalizedTodo{}, fmt.Errorf("Missing required field: content")
+	content, err := draft.RequireTrimmedText(body.Content, "content")
+	if err != nil {
+		return NormalizedTodo{}, err
 	}
-	objCtx, ok := body.ObjectiveContext.(string)
-	if !ok || objCtx == "" {
-		return NormalizedTodo{}, fmt.Errorf("Missing required field: objective_context")
+	objCtx, err := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
+	if err != nil {
+		return NormalizedTodo{}, err
 	}
-	subj, err := optionalSubjective(body.SubjectiveInterpretation)
+	subj, err := draft.OptionalTrimmedNullable(body.SubjectiveInterpretation, "subjective_interpretation")
 	if err != nil {
 		return NormalizedTodo{}, err
 	}

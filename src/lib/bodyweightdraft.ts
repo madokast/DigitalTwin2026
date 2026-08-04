@@ -3,8 +3,10 @@
  * 单位约定 kg；落库 tags 始终以保留前缀 `body:weight` 开头。
  */
 import {
+  optionalTrimmedNullable,
   parseHappenedAt,
   NUMERIC_VALUE_MUST_BE_STRING,
+  requireTrimmedText,
   type DraftValidationError,
 } from '@/lib/draft'
 import {
@@ -72,27 +74,16 @@ export function parseWeightAmount(
   if (typeof raw !== 'string') {
     return { error: INVALID_WEIGHT }
   }
-  // 禁止 trim：有空格 / 空串均走统一 Invalid weight
-  if (!WEIGHT_AMOUNT.test(raw)) {
+  // trim 后校验；存 trim 后值（与 numeric_value 一致）
+  const trimmed = raw.trim()
+  if (!WEIGHT_AMOUNT.test(trimmed)) {
     return { error: INVALID_WEIGHT }
   }
-  const stored = normalizeMoneyAmount2(raw)
+  const stored = normalizeMoneyAmount2(trimmed)
   if (!weightCentsInRange(stored)) {
     return { error: INVALID_WEIGHT }
   }
   return { ok: true, value: stored }
-}
-
-function optionalSubjective(
-  raw: unknown,
-): { value: string | null } | DraftValidationError {
-  if (raw === undefined || raw === null || raw === '') {
-    return { value: null }
-  }
-  if (typeof raw !== 'string') {
-    return { error: 'Invalid subjective_interpretation' }
-  }
-  return { value: raw }
 }
 
 /**
@@ -149,11 +140,18 @@ export function parseBodyWeight(
     return { error: amount.error }
   }
 
-  if (!body.objective_context || typeof body.objective_context !== 'string') {
-    return { error: 'Missing required field: objective_context' }
+  const objCtxResult = requireTrimmedText(
+    body.objective_context,
+    'objective_context',
+  )
+  if ('error' in objCtxResult) {
+    return { error: objCtxResult.error }
   }
 
-  const subjective = optionalSubjective(body.subjective_interpretation)
+  const subjective = optionalTrimmedNullable(
+    body.subjective_interpretation,
+    'subjective_interpretation',
+  )
   if ('error' in subjective) {
     return { error: subjective.error }
   }
@@ -168,7 +166,7 @@ export function parseBodyWeight(
     utcOffset: happenedResult.utcOffset,
     numericValue: amount.value,
     tags: [RESERVED_TAG_BODY_WEIGHT, ...clientTags.value],
-    objectiveContext: body.objective_context,
+    objectiveContext: objCtxResult.value,
     subjectiveInterpretation: subjective.value,
   }
 }

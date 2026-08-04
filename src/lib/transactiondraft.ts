@@ -1,5 +1,6 @@
 import {
   parseHappenedAt,
+  requireTrimmedText,
   type DraftValidationError,
 } from '@/lib/draft'
 import {
@@ -104,14 +105,15 @@ function parseAmount(
   if (typeof raw !== 'string') {
     return { error: INVALID_AMOUNT }
   }
-  // 禁止 trim：有空格 / 空串均走统一 Invalid amount
-  if (!MONEY_AMOUNT.test(raw)) {
+  // trim 后校验；存 trim 后值（与 numeric_value 一致）
+  const trimmed = raw.trim()
+  if (!MONEY_AMOUNT.test(trimmed)) {
     return { error: INVALID_AMOUNT }
   }
-  if (isZeroDecimalLiteral(raw)) {
+  if (isZeroDecimalLiteral(trimmed)) {
     return { error: INVALID_AMOUNT }
   }
-  return { ok: true, value: normalizeMoneyAmount2(raw) }
+  return { ok: true, value: normalizeMoneyAmount2(trimmed) }
 }
 
 function parseSegment(
@@ -149,8 +151,9 @@ function parseEntry(
     return { error: `entries[${index}]: ${amountResult.error}` }
   }
 
-  if (typeof entry.memo !== 'string' || entry.memo === '') {
-    return { error: `entries[${index}]: Missing required field: memo` }
+  const memoResult = requireTrimmedText(entry.memo, 'memo')
+  if ('error' in memoResult) {
+    return { error: `entries[${index}]: ${memoResult.error}` }
   }
 
   const categoryResult = parseSegment(entry.category, 'category')
@@ -171,7 +174,7 @@ function parseEntry(
   // 整单共用 type；落库 tags 含 transaction_entry:{type}。
   return {
     amount: amountResult.value,
-    memo: entry.memo,
+    memo: memoResult.value,
     tags: [transactionEntryTypeTag(type), composite],
   }
 }

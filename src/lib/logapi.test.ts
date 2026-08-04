@@ -215,7 +215,7 @@ describe('createBodyWeight', () => {
   })
 
   it('rejects out-of-range and bad shape with INVALID_WEIGHT', async () => {
-    for (const bad of ['0', '500.01', '75.123', ' 75']) {
+    for (const bad of ['0', '500.01', '75.123']) {
       const result = await createBodyWeight({
         happened_at: '2026-08-02T08:00:00+08:00',
         numeric_value: bad,

@@ -10,9 +10,10 @@
  */
 
 import {
-  emptyStringToNull,
+  optionalTrimmedNullable,
   parseHappenedAt,
   parseNumericValue,
+  requireTrimmedText,
 } from '@/lib/draft'
 import {
   isValidRecordId,
@@ -146,10 +147,11 @@ export function parseLine(
 
   let rawContent: string | null = null
   if (body.raw_content !== null) {
-    if (typeof body.raw_content !== 'string') {
-      return fail('Invalid raw_content', lineNumber)
+    const rc = requireTrimmedText(body.raw_content, 'raw_content')
+    if ('error' in rc) {
+      return fail(rc.error, lineNumber)
     }
-    rawContent = emptyStringToNull(body.raw_content)
+    rawContent = rc.value
   }
 
   if (numericValue === null && rawContent === null) {
@@ -181,21 +183,17 @@ export function parseLine(
   }
   // 故意不调用 assertNoReservedTags（见文件头注释）
 
-  if (
-    typeof body.objective_context !== 'string' ||
-    body.objective_context === ''
-  ) {
-    return fail('Missing required field: objective_context', lineNumber)
+  const objCtx = requireTrimmedText(body.objective_context, 'objective_context')
+  if ('error' in objCtx) {
+    return fail(objCtx.error, lineNumber)
   }
 
-  let subjectiveInterpretation: string | null = null
-  if (body.subjective_interpretation !== null) {
-    if (typeof body.subjective_interpretation !== 'string') {
-      return fail('Invalid subjective_interpretation', lineNumber)
-    }
-    subjectiveInterpretation = emptyStringToNull(
-      body.subjective_interpretation,
-    )
+  const subjective = optionalTrimmedNullable(
+    body.subjective_interpretation,
+    'subjective_interpretation',
+  )
+  if ('error' in subjective) {
+    return fail(subjective.error, lineNumber)
   }
 
   return {
@@ -205,8 +203,8 @@ export function parseLine(
     numericValue,
     rawContent,
     tags,
-    objectiveContext: body.objective_context,
-    subjectiveInterpretation,
+    objectiveContext: objCtx.value,
+    subjectiveInterpretation: subjective.value,
   }
 }
 
