@@ -19,7 +19,7 @@
         description: |
           Valid IANA time zone accepted by both backends (Intl ∩ Go tzdata),
           e.g. `UTC`, `Asia/Shanghai`. Omitted → `UTC`. Empty or invalid →
-          400 (`Query parameter tz must be a valid IANA time zone`). Go-only
+          400 (`query parameter tz must be a valid IANA time zone`). Go-only
           names (`Factory` / `localtime` / `posixrules`) and Intl-only names
           Go cannot load (e.g. `America/Coyhaique`) are rejected.
         schema:
@@ -36,15 +36,7 @@
               $ref: '../components/schemas.yaml#/TimeSuccess'
       '400':
         description: Empty or invalid `tz`
-        content:
-          application/problem+json:
-            schema:
-              $ref: '../components/schemas.yaml#/Error'
-            example:
-              success: false
-              title: Bad Request
-              status: 400
-              detail: query parameter tz must be a valid IANA time zone
+        $ref: '../components/responses.yaml#/BadRequest'
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
       '500':

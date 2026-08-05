@@ -10,7 +10,9 @@ info:
     - Go HTTP server (`faas/internal/**`) on Alibaba Cloud Function Compute
 
     Success responses use `{ "success": true, ... }`.
-    Errors use `{ "error": "<English message>" }`.
+    Errors use RFC 9457 problem+json:
+    `{ "success": false, "title": "<HTTP reason phrase>", "status": <code>, "detail": "<English message>" }`
+    with Content-Type `application/problem+json`.
 
     Request JSON fields are **snake_case**. Stored/returned `Record` objects use
     **snake_case** (Drizzle / Go `record.Record` JSON tags).

@@ -35,15 +35,7 @@
               $ref: '../components/schemas.yaml#/SummarySuccess'
       '400':
         description: Missing or invalid `tz`
-        content:
-          application/problem+json:
-            schema:
-              $ref: '../components/schemas.yaml#/Error'
-            example:
-              success: false
-              title: Bad Request
-              status: 400
-              detail: query parameter tz must be a valid IANA time zone
+        $ref: '../components/responses.yaml#/BadRequest'
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
       '500':
@@ -152,37 +144,11 @@
         description: |
           Multipart / limits / duplicate id / line or field validation errors.
           Messages include line numbers and field names when applicable;
-          duplicate id includes the uuid.
-        content:
-          application/problem+json:
-            schema:
-              $ref: '../components/schemas.yaml#/Error'
-            examples:
-              limits:
-                value:
-                  success: false
-                  title: Bad Request
-                  status: 400
-                  detail: import exceeds limits (max 1000 lines or 4 MiB); split the file
-              duplicateId:
-                value:
-                  success: false
-                  title: Bad Request
-                  status: 400
-                  detail: 'line 2: duplicate record id 01900000-0000-7000-8000-000000000001'
-              multipart:
-                value:
-                  success: false
-                  title: Bad Request
-                  status: 400
-                  detail: multipart form field "file" is required
-              nonFilePartTooLarge:
-                summary: Go only — oversized non-file multipart part
-                value:
-                  success: false
-                  title: Bad Request
-                  status: 400
-                  detail: multipart non-file part exceeds size limit (max 4 MiB)
+          duplicate id includes the uuid. Example `detail` values: `import
+          exceeds limits (max 1000 lines or 4 MiB); split the file`, `line 2:
+          duplicate record id <uuid>`, `multipart form field "file" is
+          required`, `multipart non-file part exceeds size limit (max 4 MiB)`.
+        $ref: '../components/responses.yaml#/BadRequest'
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
       '500':

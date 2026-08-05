@@ -26,17 +26,11 @@
               $ref: '../components/schemas.yaml#/SuccessOnly'
       '400':
         description: QQ Bot env not configured, malformed JSON, or unknown JSON key
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas.yaml#/Error'
+        $ref: '../components/responses.yaml#/BadRequest'
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
       '413':
         $ref: '../components/responses.yaml#/PayloadTooLarge'
       '502':
         description: QQ Bot API send failed
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas.yaml#/Error'
+        $ref: '../components/responses.yaml#/BadGateway'

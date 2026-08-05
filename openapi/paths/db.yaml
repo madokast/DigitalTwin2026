@@ -27,12 +27,4 @@
         $ref: '../components/responses.yaml#/Unauthorized'
       '503':
         description: DATABASE_URL missing or database unreachable
-        content:
-          application/problem+json:
-            schema:
-              $ref: '../components/schemas.yaml#/Error'
-            example:
-              success: false
-              title: Service Unavailable
-              status: 503
-              detail: DATABASE_URL is not set
+        $ref: '../components/responses.yaml#/ServiceUnavailable'

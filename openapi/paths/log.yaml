@@ -179,15 +179,7 @@
         $ref: '../components/responses.yaml#/Unauthorized'
       '404':
         description: No to-do row with this id
-        content:
-          application/problem+json:
-            schema:
-              $ref: '../components/schemas.yaml#/Error'
-            example:
-              success: false
-              title: Not Found
-              status: 404
-              detail: to-do not found
+        $ref: '../components/responses.yaml#/NotFound'
       '413':
         $ref: '../components/responses.yaml#/PayloadTooLarge'
       '500':
