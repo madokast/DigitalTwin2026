@@ -201,6 +201,21 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         'entries must be a non-empty array',
       )
     })
+
+    it('rejects more than 100 entries with a top-level error', async () => {
+      const many = Array.from({ length: 101 }, () => ({
+        numeric_value: '1',
+        memo: 'x',
+      }))
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        entries: many,
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        'entries must contain at most 100 items',
+      )
+    })
   })
 
   describe('POST /api/log/text', () => {
