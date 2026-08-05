@@ -88,6 +88,8 @@ export function statusTitle(status: number): string {
 - **Node**：`NextResponse.json({ error })` → 统一 problem 结构；抽公共 helper `src/lib/httperror.ts`（`success:false` + `statusTitle`）。
 - **fixtures**：`error-*.json` 全部重写。
 - **契约测试**：contract.test.ts 的 Error 断言；双端集成测试 `res.error` → `res.detail`。
+
+> 上述影响面改造已全部完成（S1-S4），当前实现见文首「现状（已实现）」。此节保留为当时影响范围记录。
 - **文档**：OpenAPI README、AI 使用文档错误处理节。
 
 ## 实施顺序（定案，分 4 阶段，每阶段独立提交 + 测试绿）

@@ -17,7 +17,7 @@
 
 hint 是系统在「保留 tag 相关边界情况」下返回给 AI 的**纠错提示**，共两类：
 
-1. **写拒绝错误文案**：AI 在通用写路径（如 `POST /api/log/numbers`）提交带保留前缀的 tag（`todo` / `transaction_entry` / `review`）→ 400。此时响应 `error` 携带本节讨论的 hint。
+1. **写拒绝错误文案**：AI 在通用写路径（如 `POST /api/log/numbers`）提交带保留前缀的 tag（`todo` / `transaction_entry` / `review`）→ 400。此时响应 `detail` 携带本节讨论的 hint。
 2. **检索空结果提示**：AI 用裸保留前缀查 `GET /api/query?tag=review`（该裸值永不落库，结果必空）→ 200 + 空 records + 可选 `hint` 字段（`query.ts:163`），指引用 `tag=review:*` 族通配。此 hint 只涉及 tag 名，**与端点路径无关，复数化永不波及**。
 
 本节「复数化无需改 hint」专指**第 1 类**（写拒绝错误文案）。

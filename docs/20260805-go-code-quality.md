@@ -50,7 +50,7 @@ Go 的 `encoding/json` 序列化 `map[string]any` 时 **key 按字母序排序**
 
 ### 现状（已实现，`faas/internal/httpx/responses.go`）
 
-- ✅ **15 处 handler 响应已改 typed struct**：`NumberBatchSuccess` / `TransactionBatchSuccess` / `RecordSuccess` / `TodoRecordSuccess` / `TransitionSuccess` / `QuerySuccess` / `SummarySuccess` / `TimeSuccess` / `TagsSuccess` / `RenameTagsSuccess` / `ImportRecordsSuccess` / `SuccessOnly` / `ErrorResponse`——字段声明序即 JSON key 序，符合「统一模板」。
+- ✅ **15 处 handler 响应已改 typed struct**：`NumberBatchSuccess` / `TransactionBatchSuccess` / `RecordSuccess` / `TodoRecordSuccess` / `TransitionSuccess` / `QuerySuccess` / `SummarySuccess` / `TimeSuccess` / `TagsSuccess` / `RenameTagsSuccess` / `ImportRecordsSuccess` / `SuccessOnly` / `ProblemResponse`（原 `ErrorResponse` 已随 RFC 9457 替换）——字段声明序即 JSON key 序，符合「统一模板」。
 - ✅ `writeError` / 401 / import 均走 typed struct；错误响应已换 `ProblemResponse` problem+json（§8，RFC 9457）。
 
 ### 改法
@@ -177,7 +177,7 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 
 | 代码 | 数量 | 性质 | 处理 |
 |---|---|---|---|
-| `ST1005`（error 字符串大写） | 55（已清零） | API 契约文案 | **已标准化为小写开头**（双端同步 + fixtures/测试/OpenAPI）——不再豁免，作 lint 守卫 |
+| `ST1005`（错误文案大写） | 55（已清零） | API 契约文案（`detail`） | **已标准化为小写开头**（双端同步 + fixtures/测试/OpenAPI）——不再豁免，作 lint 守卫 |
 | `ST1012`（error var 命名 `ErrFoo`） | 13（已清零） | 哨兵命名 | **已重命名**加 `Err`/`err` 前缀（`e53ae9c`）——不再豁免 |
 | `S1017`（`TrimPrefix`/`TrimSuffix` 简化） | 2 | 可重构（importapi.go:160、recordjsonl.go:75） | **修复** |
 | `S1016`（struct literal → 直接转换） | 1 | 测试代码（query/transactions_summary_test.go:96） | **修复** |
