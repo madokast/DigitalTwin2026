@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fromDB } from '@/lib/record'
@@ -260,8 +260,15 @@ describe('OpenAPI contract (Phase 2)', () => {
   })
 
   it('Error fixture key order is success -> title -> status -> detail', () => {
-    const body = readFixture('error-unauthorized.json') as Record<string, unknown>
-    expect(Object.keys(body)).toEqual(['success', 'title', 'status', 'detail'])
+    // 动态覆盖全部 error fixtures（10 个 error-*.json + db-probe-error.json），新增自动纳入
+    const names = readdirSync(fixturesDir).filter(
+      (f) => f.startsWith('error-') || f === 'db-probe-error.json',
+    )
+    expect(names.length).toBeGreaterThan(0)
+    for (const name of names) {
+      const body = readFixture(name) as Record<string, unknown>
+      expect(Object.keys(body), name).toEqual(['success', 'title', 'status', 'detail'])
+    }
   })
 
   it('Next fromDB output matches Record schema + preserved offset', async () => {
