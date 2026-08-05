@@ -194,7 +194,7 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 
 func writeInternalError(w http.ResponseWriter, _ error) {
 	// 与 Next 对齐：500 恒为固定英文；细节只由调用方 log，禁止 EXPOSE_ERRORS 回传客户端
-	writeError(w, 500, "Internal server error")
+	writeError(w, http.StatusInternalServerError, "Internal server error")
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
@@ -219,10 +219,10 @@ func readBodyOrError(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 	raw, err := readBody(r)
 	if err != nil {
 		if errors.Is(err, ErrBodyTooLarge) {
-			writeError(w, 413, BodyTooLargeMessage)
+			writeError(w, http.StatusRequestEntityTooLarge, BodyTooLargeMessage)
 			return nil, false
 		}
-		writeError(w, 400, "Invalid JSON body")
+		writeError(w, http.StatusBadRequest, "Invalid JSON body")
 		return nil, false
 	}
 	return raw, true
@@ -394,19 +394,19 @@ func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTelegramProbe(w http.ResponseWriter, r *http.Request) {
 	cfg := telegram.LoadConfig(s.telegram().Getenv)
 	if !cfg.Configured() {
-		writeError(w, 400, telegram.ConfigError(cfg))
+		writeError(w, http.StatusBadRequest, telegram.ConfigError(cfg))
 		return
 	}
 
 	text := "DigitalTwin2026 probe"
 	raw, err := readBody(r)
 	if errors.Is(err, ErrBodyTooLarge) {
-		writeError(w, 413, BodyTooLargeMessage)
+		writeError(w, http.StatusRequestEntityTooLarge, BodyTooLargeMessage)
 		return
 	}
 	if err == nil && len(raw) > 0 {
 		if err := jsonutil.RejectUnknownObjectKeys(raw, []string{"text"}); err != nil {
-			writeError(w, 400, err.Error())
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		var body struct {
@@ -423,25 +423,25 @@ func (s *Server) handleTelegramProbe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 502, err.Error())
 		return
 	}
-	writeJSON(w, 200, SuccessOnly{Success: true})
+	writeJSON(w, http.StatusOK, SuccessOnly{Success: true})
 }
 
 func (s *Server) handleQqbotProbe(w http.ResponseWriter, r *http.Request) {
 	cfg := qqbot.LoadConfig(s.qqbot().Getenv)
 	if !cfg.Configured() {
-		writeError(w, 400, qqbot.ConfigError(cfg))
+		writeError(w, http.StatusBadRequest, qqbot.ConfigError(cfg))
 		return
 	}
 
 	text := "DigitalTwin2026 probe"
 	raw, err := readBody(r)
 	if errors.Is(err, ErrBodyTooLarge) {
-		writeError(w, 413, BodyTooLargeMessage)
+		writeError(w, http.StatusRequestEntityTooLarge, BodyTooLargeMessage)
 		return
 	}
 	if err == nil && len(raw) > 0 {
 		if err := jsonutil.RejectUnknownObjectKeys(raw, []string{"text"}); err != nil {
-			writeError(w, 400, err.Error())
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		var body struct {
@@ -458,7 +458,7 @@ func (s *Server) handleQqbotProbe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 502, err.Error())
 		return
 	}
-	writeJSON(w, 200, SuccessOnly{Success: true})
+	writeJSON(w, http.StatusOK, SuccessOnly{Success: true})
 }
 
 func (s *Server) handleDbProbe(w http.ResponseWriter, r *http.Request) {
@@ -467,7 +467,7 @@ func (s *Server) handleDbProbe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, errMsg)
 		return
 	}
-	writeJSON(w, 200, result)
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) telegram() *telegram.Sender {
@@ -497,7 +497,7 @@ func (s *Server) notify() *notify.Notifier {
 func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 	parsed, err := query.ParseRecordQueryParams(r.URL.Query())
 	if err != nil {
-		writeError(w, 400, err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	result, err := query.FetchFilteredRecords(r.Context(), s.Pool, parsed)
@@ -506,7 +506,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, err)
 		return
 	}
-	writeJSON(w, 200, QuerySuccess{
+	writeJSON(w, http.StatusOK, QuerySuccess{
 		Success:   true,
 		Count:     result.Total,
 		Page:      result.Page,
@@ -523,14 +523,14 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 	result, err := query.FetchSummary(r.Context(), s.Pool, tz, s.Now())
 	if err != nil {
 		if errors.Is(err, query.ErrInvalidTZ) {
-			writeError(w, 400, err.Error())
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		log.Printf("Error querying summary: %v", err)
 		writeInternalError(w, err)
 		return
 	}
-	writeJSON(w, 200, SummarySuccess{
+	writeJSON(w, http.StatusOK, SummarySuccess{
 		Success: true,
 		Total:   result.Total,
 		Today:   result.Today,
@@ -542,7 +542,7 @@ func (s *Server) handleTime(w http.ResponseWriter, r *http.Request) {
 	tz := r.URL.Query().Get("tz")
 	// 与 Next /api/time 一致：?tz= 空串显式传入 → 400；缺省 → UTC
 	if tz == "" && r.URL.Query().Has("tz") {
-		writeError(w, 400, query.ErrInvalidTZ.Error())
+		writeError(w, http.StatusBadRequest, query.ErrInvalidTZ.Error())
 		return
 	}
 	if tz == "" {
@@ -550,10 +550,10 @@ func (s *Server) handleTime(w http.ResponseWriter, r *http.Request) {
 	}
 	now, err := timeutil.FormatNowInZone(s.Now(), tz)
 	if err != nil {
-		writeError(w, 400, query.ErrInvalidTZ.Error())
+		writeError(w, http.StatusBadRequest, query.ErrInvalidTZ.Error())
 		return
 	}
-	writeJSON(w, 200, TimeSuccess{Success: true, Now: now, TZ: tz})
+	writeJSON(w, http.StatusOK, TimeSuccess{Success: true, Now: now, TZ: tz})
 }
 
 func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
@@ -567,13 +567,13 @@ func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
 	if counts == nil {
 		counts = []tags.TagCount{}
 	}
-	writeJSON(w, 200, TagsSuccess{Success: true, Tags: counts})
+	writeJSON(w, http.StatusOK, TagsSuccess{Success: true, Tags: counts})
 }
 
 func (s *Server) handleTransactionsSummary(w http.ResponseWriter, r *http.Request) {
 	parsed, err := query.ParseTransactionsSummaryParams(r.URL.Query())
 	if err != nil {
-		writeError(w, 400, err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	result, err := query.FetchTransactionsSummary(
@@ -584,7 +584,7 @@ func (s *Server) handleTransactionsSummary(w http.ResponseWriter, r *http.Reques
 		writeInternalError(w, err)
 		return
 	}
-	writeJSON(w, 200, result)
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
@@ -593,7 +593,7 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := jsonutil.RejectUnknownObjectKeys(raw, []string{"from", "to"}); err != nil {
-		writeError(w, 400, err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	// any 字段：与 Next 对齐，非 string from/to 走 validateRename，而非 Invalid JSON body
@@ -602,7 +602,7 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 		To   any `json:"to"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil {
-		writeError(w, 400, "Invalid JSON body")
+		writeError(w, http.StatusBadRequest, "Invalid JSON body")
 		return
 	}
 	from := ""
@@ -614,7 +614,7 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 		to = strings.TrimSpace(s)
 	}
 	if vr := tags.ValidateRename(from, to); !vr.Valid {
-		writeError(w, 400, vr.Error)
+		writeError(w, http.StatusBadRequest, vr.Error)
 		return
 	}
 
@@ -624,13 +624,13 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, err)
 		return
 	}
-	writeJSON(w, 200, RenameTagsSuccess{Success: true, Updated: updated})
+	writeJSON(w, http.StatusOK, RenameTagsSuccess{Success: true, Updated: updated})
 }
 
 func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 	parsed, err := exportapi.ParseExportRecordsParams(r.URL.Query())
 	if err != nil {
-		writeError(w, 400, err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	var recs []record.Record
@@ -677,12 +677,12 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 	ct := r.Header.Get("Content-Type")
 	mediatype, params, err := mime.ParseMediaType(ct)
 	if err != nil || !strings.EqualFold(mediatype, "multipart/form-data") {
-		writeError(w, 400, importapi.ErrMultipartContentType.Error())
+		writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType.Error())
 		return
 	}
 	boundary := params["boundary"]
 	if boundary == "" {
-		writeError(w, 400, importapi.ErrMultipartContentType.Error())
+		writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType.Error())
 		return
 	}
 
@@ -699,7 +699,7 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		if err != nil {
-			writeError(w, 400, importapi.ErrMultipartContentType.Error())
+			writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType.Error())
 			return
 		}
 		if part.FormName() != "file" {
@@ -707,11 +707,11 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 			n, copyErr := io.Copy(io.Discard, io.LimitReader(part, int64(importapi.MaxImportFileBytes)+1))
 			_ = part.Close()
 			if copyErr != nil {
-				writeError(w, 400, importapi.ErrMultipartContentType.Error())
+				writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType.Error())
 				return
 			}
 			if n > int64(importapi.MaxImportFileBytes) {
-				writeError(w, 400, importapi.ErrMultipartPartTooLarge.Error())
+				writeError(w, http.StatusBadRequest, importapi.ErrMultipartPartTooLarge.Error())
 				return
 			}
 			continue
@@ -719,7 +719,7 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		fileCount++
 		if fileCount > 1 {
 			_ = part.Close()
-			writeError(w, 400, importapi.ErrMultipartMultipleFile.Error())
+			writeError(w, http.StatusBadRequest, importapi.ErrMultipartMultipleFile.Error())
 			return
 		}
 		filename = filepath.Base(part.FileName())
@@ -728,20 +728,20 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		fileRaw, err = io.ReadAll(io.LimitReader(part, int64(importapi.MaxImportFileBytes)+1))
 		_ = part.Close()
 		if err != nil {
-			writeError(w, 400, importapi.ErrMultipartContentType.Error())
+			writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType.Error())
 			return
 		}
 	}
 	if fileCount == 0 {
-		writeError(w, 400, importapi.ErrMultipartRequired.Error())
+		writeError(w, http.StatusBadRequest, importapi.ErrMultipartRequired.Error())
 		return
 	}
 	if !importapi.IsAcceptedImportFilePart(partCT, filename) {
-		writeError(w, 400, importapi.ErrUnsupportedFileContentType.Error())
+		writeError(w, http.StatusBadRequest, importapi.ErrUnsupportedFileContentType.Error())
 		return
 	}
 	if len(fileRaw) > importapi.MaxImportFileBytes {
-		writeError(w, 400, importapi.ImportLimitsError.Error())
+		writeError(w, http.StatusBadRequest, importapi.ImportLimitsError.Error())
 		return
 	}
 

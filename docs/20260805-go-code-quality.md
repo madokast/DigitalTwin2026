@@ -1,10 +1,10 @@
-# Go 代码质量规范（错误链 / JSON 组装 / 日志）
+# Go 代码质量规范
 
 > 创建日期：2026-08-05
-> 性质：Go 侧代码质量规范与待办清单。三项互相关联的 Go 惯例问题：错误链 `%w`、禁止 map/any jsonify、结构化日志 slog。
+> 性质：Go 侧代码质量规范与待办清单。收录不符合业界惯例的问题与永久规范：错误链 `%w`、禁止 map/any jsonify、结构化日志 slog、状态码常量、handler 样板收敛、race 检测、golangci-lint。
 > 触发：UoW + Repository 架构审查（`docs/20260805-repository-architecture.md`）时发现 Go 侧多处不符合业界惯例；其中「禁止 map/any jsonify」为**永久规范**（key 顺序问题，AI 读响应字符串会很奇怪）。
 
-## 1. Go 错误链 `%w`（首要，先改）
+## 1. Go 错误链 `%w`（✅ 已实现，`273041f`）
 
 ### 现状
 
@@ -105,11 +105,102 @@ Go typed struct 的 **JSON key 顺序 = 字段声明顺序**（`encoding/json` �
 
 - 低优先，独立小改造；不阻塞错误链与 JSON 组装。
 
+## 4. 魔法数字 HTTP 状态码（37 处）
+
+### 现状
+
+- `faas/internal/httpx/server.go` 大量数字字面量：`writeError(w, 400, ...)`、`writeJSON(w, 200, ...)`、`writeInternalError(w, err)`（500）。统计 37 处。
+- 数字字面量可读性差，且手滑难查（`405` vs `403`、`401` vs `400`）。
+
+### 目标
+
+- 一律用 `net/http` 常量：`http.StatusOK`、`http.StatusCreated`、`http.StatusBadRequest`、`http.StatusUnauthorized`、`http.StatusNotFound`、`http.StatusConflict`、`http.StatusRequestEntityTooLarge`（413）、`http.StatusInternalServerError`。
+- 业务层 `status int` 返回值（`logapi` 的 400/404/409/500）——为跨层简单可保留数字，但 **handler 出口统一用 `http.StatusXxx` 常量**。
+
+### 优先级
+
+- 纯机械重构，测试全绿即完成；与 §5（错误样板收敛）合并。
+
+## 5. handler 错误处理样板重复（8 处）
+
+### 现状
+
+每个写 handler 重复同一段：
+
+```go
+if err != nil {
+    if status >= 500 {
+        log.Printf("Error creating ...: %v", err)
+        writeInternalError(w, err)
+        return
+    }
+    writeError(w, status, err.Error())
+    return
+}
+```
+
+统计 8 处 `if status >= 500`（number/text/todo/bodyweight/review/transaction/import 等）。
+
+### 目标
+
+抽公共 helper（含 §4 状态码常量）：
+
+```go
+// 契约错误（<500）直接 writeError；内部错误（>=500）记日志 + writeInternalError。
+func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string)
+```
+
+- `logMsg` 为英文日志前缀（保持现状 `Error creating ...`）；日志内部走 `%w` 链（`log.Printf("%s: %v", logMsg, err)`）。
+- 各 handler 收敛为一行 `writeLogOrError(w, status, err, "Error creating number records")`。
+
+### 优先级
+
+- 与 §4 一起；纯重构，测试全绿即完成。
+
+## 6. `go test -race` 未启用
+
+### 现状
+
+- CI（`.github/workflows/ci.yml`）与本地 scripts 均未跑 `go test -race`。
+- 风险：`go s.notify()` 协程 + `Server` 字段并发读写（`s.Now()` / `s.NotifyUser`）可能有 data race 未被发现。
+
+### 目标
+
+- `scripts/test-unit.ts` / CI 的 Go 测试命令加 `-race`（`go test -race -short ./...`）。
+- 集成测试（httptest + 真 DB）同样可加 `-race`（成本略高，可只对 unit）。
+
+### 优先级
+
+- 低成本（改命令），立即纳入；发现 race 则修复。
+
+## 7. golangci-lint / staticcheck 缺失
+
+### 现状
+
+- CI 仅 `go vet` + `go build` + `go test`。业界常用 golangci-lint（含 staticcheck / errcheck / gocritic / ineffassign / unused 等）。
+- 本仓库 11 处 `_ = tx.Rollback` / `defer rows.Close()` 忽略错误（defer 清理 best-effort，业界可接受；errcheck 默认会报，需按需豁免）。
+
+### 目标
+
+- 引入 golangci-lint（`.golangci.yml`，启用 staticcheck / govet / ineffassign / unused；errcheck 豁免 defer 清理类）。
+- CI 加 `golangci-lint run` 步骤。
+
+### 优先级
+
+- 较大工程，排最后；可与 slog（§3）一起规划。
+
+## 8. 错误响应 RFC 9457（另行文档）
+
+- 见 `docs/20260805-error-response-shape.md`（已定案选 A 彻底 problem+json，待开工）；改造时同步换 `ErrorResponse` 形状。
+
 ## 优先级与实施顺序
 
 1. ~~**错误链 `%w`**~~：✅ 已实现（`273041f`）。
 2. ~~**禁止 map/any jsonify**~~：✅ 已实现（`responses.go` typed struct，见 §2「现状」；错误响应 RFC 9457 改造随 `docs/20260805-error-response-shape.md` 进行）。
-3. **`log/slog`**：低优先后置。
+3. **状态码常量 + handler 样板收敛**（§4 + §5，一起做）。
+4. **`go test -race`**（§6，改命令即得）。
+5. **`log/slog`**（§3）与 **golangci-lint**（§7）：低优先，可合并规划。
+6. **RFC 9457 错误响应**（§8 / error-response-shape.md）：独立破坏性改造，待决策后开工。
 
 ## 相关记录
 
