@@ -67,7 +67,7 @@ func NewServer(pool *pgxpool.Pool, tokens auth.Tokens) *Server {
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/log/number", s.handleLogNumber)
+	mux.HandleFunc("POST /api/log/numbers", s.handleLogNumbers)
 	mux.HandleFunc("POST /api/log/body/weight", s.handleLogBodyWeight)
 	mux.HandleFunc("POST /api/log/todo", s.handleLogTodo)
 	mux.HandleFunc("POST /api/log/todo/transition", s.handleLogTodoTransition)
@@ -228,26 +228,30 @@ func readBodyOrError(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 	return raw, true
 }
 
-func (s *Server) handleLogNumber(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 	raw, ok := readBodyOrError(w, r)
 	if !ok {
 		return
 	}
-	rec, status, err := logapi.CreateNumber(r.Context(), s.Pool, raw)
+	inserted, recs, status, err := logapi.CreateNumberBatch(r.Context(), s.Pool, raw)
 	if err != nil {
 		if status >= 500 {
-			log.Printf("Error creating number record: %v", err)
+			log.Printf("Error creating number records: %v", err)
 			writeInternalError(w, err)
 			return
 		}
 		writeError(w, status, err.Error())
 		return
 	}
-	// INSERT 成功后异步 best-effort notify，不阻塞写响应（渠道 HTTP 仍有 15s 超时）。
+	// INSERT 成功后异步 best-effort notify（整批一条摘要），不阻塞写响应。
 	// 刻意允许的双端差异（docs/20260801-api-layering.md §1.1 / §7）：
-	// Go 用 go 协程；Next 用 after()（见 scheduleBestEffortNotify）。语义同为成功后不阻塞的扇出。
-	go s.notify().NotifyRecordInserted(rec)
-	writeJSON(w, status, map[string]any{"success": true, "record": rec})
+	// Go 用 go 协程；Next 用 after()。语义同为成功后不阻塞的扇出。
+	go s.notify().NotifyNumberBatchInserted(recs)
+	writeJSON(w, status, map[string]any{
+		"success":  true,
+		"inserted": inserted,
+		"atomic":   true,
+	})
 }
 
 func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {

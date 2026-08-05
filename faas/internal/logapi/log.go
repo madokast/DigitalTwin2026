@@ -14,28 +14,12 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 )
 
-// 字段均为 any：与 Next 一样先 JSON 解成动态值再字段级校验，
-// 避免 Go 强类型 decode 把类型错误一律变成 Invalid JSON body。
-type NumberBody struct {
-	HappenedAt               any `json:"happened_at"`
-	NumericValue              any `json:"numeric_value"`
-	RawContent                any `json:"raw_content"`
-	Tags                     any `json:"tags"`
-	ObjectiveContext         any `json:"objective_context"`
-	AiAnalysis any `json:"ai_analysis"`
-}
-
 type TextBody struct {
 	HappenedAt               any `json:"happened_at"`
 	RawContent                any `json:"raw_content"`
 	Tags                     any `json:"tags"`
 	ObjectiveContext         any `json:"objective_context"`
 	AiAnalysis any `json:"ai_analysis"`
-}
-
-var logNumberKeys = []string{
-	"happened_at", "numeric_value", "raw_content", "tags", "objective_context",
-	"ai_analysis",
 }
 
 var logTextKeys = []string{
@@ -115,71 +99,7 @@ func decodeJSONBody(raw []byte, dest any) error {
 	return jsonutil.DecodeUseNumber(raw, dest)
 }
 
-func CreateNumber(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {
-	if err := jsonutil.RejectUnknownObjectKeys(raw, logNumberKeys); err != nil {
-		return record.Record{}, 400, err
-	}
-	var body NumberBody
-	if err := decodeJSONBody(raw, &body); err != nil {
-		return record.Record{}, 400, err
-	}
-	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
-	if err != nil {
-		return record.Record{}, 400, err
-	}
-	if body.NumericValue == nil {
-		return record.Record{}, 400, fmt.Errorf("Missing required field: numeric_value")
-	}
-	numStr, err := draft.ParseNumericValue(body.NumericValue)
-	if err != nil {
-		return record.Record{}, 400, err
-	}
-	if numStr == nil {
-		return record.Record{}, 400, fmt.Errorf("Missing required field: numeric_value")
-	}
-	rawContent, err := draft.RequireTrimmedText(body.RawContent, "raw_content")
-	if err != nil {
-		return record.Record{}, 400, err
-	}
-	tagList, err := optionalTagList(body.Tags)
-	if err != nil {
-		return record.Record{}, 400, err
-	}
-	tv := tags.ValidateTags(tagList)
-	if !tv.Valid {
-		return record.Record{}, 400, fmt.Errorf("%s", tv.Error)
-	}
-	if rv := tags.AssertNoReservedTags(tagList); !rv.Valid {
-		return record.Record{}, 400, fmt.Errorf("%s", rv.Error)
-	}
-	objCtx, err := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
-	if err != nil {
-		return record.Record{}, 400, err
-	}
-	subj, err := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
-	if err != nil {
-		return record.Record{}, 400, err
-	}
-
-	tagsJSON, err := record.TagsJSON(tagList)
-	if err != nil {
-		return record.Record{}, 500, err
-	}
-	id, err := uuid.NewV7()
-	if err != nil {
-		return record.Record{}, 500, err
-	}
-
-	rec, err := insertReturning(
-		ctx, pool, id.String(), happenedAt, utcOffset, numStr, &rawContent,
-		tagsJSON, objCtx, subj,
-	)
-	if err != nil {
-		return record.Record{}, 500, err
-	}
-	return rec, 201, nil
-}
-
+// CreateText 与 Next createText 对齐：校验 + INSERT。
 func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {
 	if err := jsonutil.RejectUnknownObjectKeys(raw, logTextKeys); err != nil {
 		return record.Record{}, 400, err

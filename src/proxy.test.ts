@@ -23,7 +23,7 @@ describe('proxy API auth', () => {
   })
 
   it('rejects wrong Bearer token on normal API', async () => {
-    const res = proxy(apiRequest('/api/log/number', 'Bearer wrong'))
+    const res = proxy(apiRequest('/api/log/numbers', 'Bearer wrong'))
     expect(res.status).toBe(401)
   })
 

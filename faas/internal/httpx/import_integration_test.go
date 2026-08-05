@@ -149,12 +149,13 @@ SELECT EXISTS (
 	// round-trip: create via log → export → delete → import
 	createBody := fmt.Sprintf(`{
 		"happened_at":"2026-07-30T08:00:00+08:00",
-		"numeric_value": "99",
-		"tags": ["go_rt"],
-		"raw_content": "rt row",
-		"objective_context": %q
+		"entries": [{
+			"numeric_value": "99",
+			"tags": ["go_rt"],
+			"memo": %q
+		}]
 	}`, marker+"-rt")
-	createReq := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(createBody))
+	createReq := httptest.NewRequest(http.MethodPost, "/api/log/numbers", strings.NewReader(createBody))
 	createReq.Header.Set("Authorization", "Bearer ai-tok")
 	createReq.Header.Set("Content-Type", "application/json")
 	createRR := httptest.NewRecorder()
@@ -162,10 +163,18 @@ SELECT EXISTS (
 	if createRR.Code != 201 {
 		t.Fatalf("create status %d body %s", createRR.Code, createRR.Body.String())
 	}
-	var created map[string]any
-	_ = json.Unmarshal(createRR.Body.Bytes(), &created)
-	rec := created["record"].(map[string]any)
-	rid := rec["id"].(string)
+	// 批量不回传 id：按 tag 查回
+	ridQ := httptest.NewRequest(http.MethodGet, "/api/query?tag=go_rt", nil)
+	ridQ.Header.Set("Authorization", "Bearer ai-tok")
+	ridRR := httptest.NewRecorder()
+	h.ServeHTTP(ridRR, ridQ)
+	if ridRR.Code != 200 {
+		t.Fatalf("query status %d", ridRR.Code)
+	}
+	var ridBody map[string]any
+	_ = json.Unmarshal(ridRR.Body.Bytes(), &ridBody)
+	ridRecs := ridBody["records"].([]any)
+	rid := ridRecs[0].(map[string]any)["id"].(string)
 
 	notified = nil
 	expReq := httptest.NewRequest(http.MethodGet, "/api/export/records?from="+rid+"&limit=1", nil)

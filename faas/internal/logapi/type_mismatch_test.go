@@ -8,24 +8,6 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
 
-func TestCreateNumberTypeMismatchMessages(t *testing.T) {
-	t.Parallel()
-	cases := []struct {
-		raw  string
-		want string
-	}{
-		{`{"happened_at":123,"numeric_value":"1","tags":["weight"],"objective_context":"x"}`, "Missing required field: happened_at"},
-		{`{"happened_at":"2026-07-30T08:00:00Z","numeric_value":"1","tags":"x","objective_context":"x","raw_content":"x"}`, "tags must be an array of strings"},
-		{`{"happened_at":"2026-07-30T08:00:00Z","numeric_value":"1","tags":["weight"],"objective_context":123,"raw_content":"x"}`, "Missing required field: objective_context"},
-	}
-	for _, c := range cases {
-		_, status, err := CreateNumber(context.Background(), nil, []byte(c.raw))
-		if status != 400 || err == nil || err.Error() != c.want {
-			t.Fatalf("%s: status=%d err=%v want %q", c.raw, status, err, c.want)
-		}
-	}
-}
-
 func TestCreateTextTypeMismatchMessages(t *testing.T) {
 	t.Parallel()
 	raw := `{"happened_at":"2026-07-30T08:00:00Z","raw_content":123,"tags":["study"],"objective_context":"x"}`
@@ -106,34 +88,3 @@ func TestTransitionTodoRejectsValidation(t *testing.T) {
 	}
 }
 
-func TestCreateNumberRejectsBodyWeightTag(t *testing.T) {
-	t.Parallel()
-	raw := []byte(`{
-		"happened_at": "2026-08-01T12:30:00+08:00",
-		"numeric_value": "1",
-		"tags": ["body:weight"],
-		"objective_context": "x",
-		"raw_content": "x"
-	}`)
-	_, status, err := CreateNumber(context.Background(), nil, raw)
-	if status != 400 {
-		t.Fatalf("status %d", status)
-	}
-	want := `tag "body:weight" is reserved; use the dedicated log API for this record type`
-	if err == nil || err.Error() != want {
-		t.Fatalf("err=%v", err)
-	}
-}
-
-func TestCreateNumberRejectsBlankRawContent(t *testing.T) {
-	t.Parallel()
-	for _, raw := range []string{
-		`{"happened_at":"2026-07-30T08:00:00Z","numeric_value":"1","tags":["weight"],"objective_context":"x","raw_content":"  "}`,
-		`{"happened_at":"2026-07-30T08:00:00Z","numeric_value":"1","tags":["weight"],"objective_context":"x","raw_content":"\t"}`,
-	} {
-		_, status, err := CreateNumber(context.Background(), nil, []byte(raw))
-		if status != 400 || err == nil || err.Error() != "raw_content must not be blank" {
-			t.Fatalf("%s: status=%d err=%v", raw, status, err)
-		}
-	}
-}

@@ -74,12 +74,13 @@ SELECT EXISTS (
 	for _, n := range []string{"1", "2", "3"} {
 		body := `{
 			"happened_at":"2026-07-30T08:00:00+08:00",
-			"numeric_value": "` + n + `",
-			"tags": ["go_export"],
-			"raw_content": "export row",
-			"objective_context": "` + marker + `-` + n + `"
+			"entries": [{
+				"numeric_value": "` + n + `",
+				"tags": ["go_export"],
+				"memo": "` + marker + `-` + n + `"
+			}]
 		}`
-		req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/log/numbers", strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer ai-tok")
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
@@ -87,10 +88,20 @@ SELECT EXISTS (
 		if rr.Code != 201 {
 			t.Fatalf("create status %d body %s", rr.Code, rr.Body.String())
 		}
-		var created map[string]any
-		_ = json.Unmarshal(rr.Body.Bytes(), &created)
-		rec := created["record"].(map[string]any)
-		ids = append(ids, rec["id"].(string))
+	}
+	// 批量不回传 id：按 tag 查回本批记录 id
+	qids := httptest.NewRequest(http.MethodGet, "/api/query?tag=go_export&page_size=10", nil)
+	qids.Header.Set("Authorization", "Bearer ai-tok")
+	qidsRR := httptest.NewRecorder()
+	h.ServeHTTP(qidsRR, qids)
+	if qidsRR.Code != 200 {
+		t.Fatalf("query status %d body %s", qidsRR.Code, qidsRR.Body.String())
+	}
+	var qidsBody map[string]any
+	_ = json.Unmarshal(qidsRR.Body.Bytes(), &qidsBody)
+	recs := qidsBody["records"].([]any)
+	for _, r := range recs {
+		ids = append(ids, r.(map[string]any)["id"].(string))
 	}
 	sort.Strings(ids)
 

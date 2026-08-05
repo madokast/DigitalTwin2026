@@ -79,7 +79,7 @@ func TestJSONNotFoundAndMethodNotAllowed(t *testing.T) {
 		t.Fatalf("404 body %v", body404)
 	}
 
-	req405 := httptest.NewRequest(http.MethodGet, "/api/log/number", nil)
+	req405 := httptest.NewRequest(http.MethodGet, "/api/log/numbers", nil)
 	req405.Header.Set("Authorization", "Bearer ai-tok")
 	rr405 := httptest.NewRecorder()
 	h.ServeHTTP(rr405, req405)
@@ -125,10 +125,8 @@ func TestAdminRejectsAIToken(t *testing.T) {
 
 func TestLogNumberValidationWithoutDB(t *testing.T) {
 	h := testServer().Handler()
-	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
-		"numeric_value": "1",
-		"tags": ["weight"],
-		"objective_context": "x"
+	req := httptest.NewRequest(http.MethodPost, "/api/log/numbers", strings.NewReader(`{
+		"entries": [{"numeric_value": "1", "memo": "x"}]
 	}`))
 	req.Header.Set("Authorization", "Bearer ai-tok")
 	req.Header.Set("Content-Type", "application/json")
@@ -150,8 +148,8 @@ func TestLogRejectsSuppressNotificationAsUnknownKeyWithoutDB(t *testing.T) {
 		path, payload string
 	}{
 		{
-			"/api/log/number",
-			`{"happened_at":"2026-08-01T12:00:00Z","numeric_value":"1","tags":["weight"],"objective_context":"x","suppress_notification":true}`,
+			"/api/log/numbers",
+			`{"happened_at":"2026-08-01T12:00:00Z","entries":[{"numeric_value":"1","memo":"x"}],"suppress_notification":true}`,
 		},
 		{
 			"/api/log/text",
@@ -184,7 +182,7 @@ func TestLogRejectsSuppressNotificationAsUnknownKeyWithoutDB(t *testing.T) {
 func TestWriteEndpointsRejectBodyLargerThan256KiB(t *testing.T) {
 	h := testServer().Handler()
 	oversized := strings.Repeat("a", MaxBodyBytes+1)
-	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(oversized))
+	req := httptest.NewRequest(http.MethodPost, "/api/log/numbers", strings.NewReader(oversized))
 	req.Header.Set("Authorization", "Bearer ai-tok")
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -223,8 +221,8 @@ func TestWriteEndpointsRejectTrailingGarbageAfterJSON(t *testing.T) {
 		method, path, payload string
 	}{
 		{
-			http.MethodPost, "/api/log/number",
-			`{"happened_at":"2026-08-01T12:00:00Z","numeric_value":"1","tags":["weight"],"objective_context":"x"}` + garbage,
+			http.MethodPost, "/api/log/numbers",
+			`{"happened_at":"2026-08-01T12:00:00Z","entries":[{"numeric_value":"1","memo":"x"}]}` + garbage,
 		},
 		{
 			http.MethodPost, "/api/log/text",
@@ -268,7 +266,7 @@ func TestWriteEndpointsRejectNonObjectJSON(t *testing.T) {
 		cases := []struct {
 			method, path string
 		}{
-			{http.MethodPost, "/api/log/number"},
+			{http.MethodPost, "/api/log/numbers"},
 			{http.MethodPost, "/api/log/text"},
 			{http.MethodPost, "/api/log/transaction"},
 			{http.MethodPost, "/api/admin/tags/rename"},
@@ -324,11 +322,9 @@ func TestLogNumberRejectsMissingTimezone(t *testing.T) {
 	for _, happened := range []string{"2026-07-30", "2026-07-30T08:00:00"} {
 		payload := fmt.Sprintf(`{
 			"happened_at": %q,
-			"numeric_value": "1",
-			"tags": ["weight"],
-			"objective_context": "x"
+			"entries": [{"numeric_value": "1", "memo": "x"}]
 		}`, happened)
-		req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(payload))
+		req := httptest.NewRequest(http.MethodPost, "/api/log/numbers", strings.NewReader(payload))
 		req.Header.Set("Authorization", "Bearer ai-tok")
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
@@ -531,12 +527,9 @@ func TestLogReviewRejectsBlankRawContent(t *testing.T) {
 func TestLogNumberRejectsWhitespacePaddedTag(t *testing.T) {
 	h := testServer().Handler()
 	for _, bad := range []string{" weight", "weight ", " weight ", "体重"} {
-		req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
+		req := httptest.NewRequest(http.MethodPost, "/api/log/numbers", strings.NewReader(`{
 			"happened_at": "2026-08-01T12:30:00+08:00",
-			"numeric_value": "1",
-			"tags": ["`+bad+`"],
-			"objective_context": "x",
-			"raw_content": "x"
+			"entries": [{"numeric_value": "1", "memo": "x", "tags": ["`+bad+`"]}]
 		}`))
 		req.Header.Set("Authorization", "Bearer ai-tok")
 		req.Header.Set("Content-Type", "application/json")
@@ -555,12 +548,9 @@ func TestLogNumberRejectsWhitespacePaddedTag(t *testing.T) {
 
 func TestLogNumberRejectsBodyWeightReservedTag(t *testing.T) {
 	h := testServer().Handler()
-	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
+	req := httptest.NewRequest(http.MethodPost, "/api/log/numbers", strings.NewReader(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
-		"numeric_value": "1",
-		"tags": ["body:weight"],
-		"objective_context": "x",
-		"raw_content": "x"
+		"entries": [{"numeric_value": "1", "memo": "x", "tags": ["body:weight"]}]
 	}`))
 	req.Header.Set("Authorization", "Bearer ai-tok")
 	req.Header.Set("Content-Type", "application/json")
@@ -571,7 +561,7 @@ func TestLogNumberRejectsBodyWeightReservedTag(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	want := `tag "body:weight" is reserved; use the dedicated log API for this record type`
+	want := `entries[0]: tag "body:weight" is reserved; use the dedicated log API for this record type`
 	if body["error"] != want {
 		t.Fatalf("error: %v", body)
 	}
@@ -579,12 +569,9 @@ func TestLogNumberRejectsBodyWeightReservedTag(t *testing.T) {
 
 func TestLogNumberRejectsTodoReservedTag(t *testing.T) {
 	h := testServer().Handler()
-	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(`{
+	req := httptest.NewRequest(http.MethodPost, "/api/log/numbers", strings.NewReader(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
-		"numeric_value": "1",
-		"tags": ["todo:in_progress"],
-		"objective_context": "x",
-		"raw_content": "x"
+		"entries": [{"numeric_value": "1", "memo": "x", "tags": ["todo:in_progress"]}]
 	}`))
 	req.Header.Set("Authorization", "Bearer ai-tok")
 	req.Header.Set("Content-Type", "application/json")
@@ -595,7 +582,7 @@ func TestLogNumberRejectsTodoReservedTag(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	want := `tag "todo:in_progress" is reserved; use the dedicated log API for this record type`
+	want := `entries[0]: tag "todo:in_progress" is reserved; use the dedicated log API for this record type`
 	if body["error"] != want {
 		t.Fatalf("error: %v", body)
 	}

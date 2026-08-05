@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { NextRequest } from 'next/server'
-import { POST as postNumber } from '@/app/api/log/number/route'
+import { POST as postNumbers } from '@/app/api/log/numbers/route'
 import { POST as postText } from '@/app/api/log/text/route'
 import { POST as postTransaction } from '@/app/api/log/transaction/route'
 import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
@@ -20,8 +20,8 @@ describe('malformed / empty JSON body → 400', () => {
     run: (body: string) => Promise<Response>
   }> = [
     {
-      name: 'POST /api/log/number',
-      run: (body) => postNumber(rawPost('http://localhost/api/log/number', body)),
+      name: 'POST /api/log/numbers',
+      run: (body) => postNumbers(rawPost('http://localhost/api/log/numbers', body)),
     },
     {
       name: 'POST /api/log/text',

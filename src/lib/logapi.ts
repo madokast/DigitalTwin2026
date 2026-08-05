@@ -47,15 +47,6 @@ import {
 } from '@/lib/reviewdraft'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
 
-export const LOG_NUMBER_KEYS = [
-  'happened_at',
-  'numeric_value',
-  'raw_content',
-  'tags',
-  'objective_context',
-  'ai_analysis',
-] as const
-
 export const LOG_TEXT_KEYS = [
   'happened_at',
   'raw_content',
@@ -63,15 +54,6 @@ export const LOG_TEXT_KEYS = [
   'objective_context',
   'ai_analysis',
 ] as const
-
-export type NumberBody = {
-  happened_at?: unknown
-  numeric_value?: unknown
-  raw_content?: unknown
-  tags?: unknown
-  objective_context?: unknown
-  ai_analysis?: unknown
-}
 
 export type TextBody = {
   happened_at?: unknown
@@ -130,77 +112,6 @@ async function insertReturning(
 ): Promise<Record> {
   const result = await executor.insert(records).values(values).returning()
   return fromDB(result[0])
-}
-
-/** 与 Go `logapi.CreateNumber` 对齐：校验 + INSERT */
-export async function createNumber(
-  body: NumberBody,
-): Promise<CreateRecordResult> {
-  const unknown = rejectUnknownKeys(body, LOG_NUMBER_KEYS)
-  if (unknown) {
-    return { error: unknown.error, status: 400 }
-  }
-
-  const happenedResult = parseHappenedAt(body.happened_at)
-  if ('error' in happenedResult) {
-    return { error: happenedResult.error, status: 400 }
-  }
-
-  if (body.numeric_value === undefined || body.numeric_value === null) {
-    return { error: 'Missing required field: numeric_value', status: 400 }
-  }
-  const numberResult = parseNumericValue(body.numeric_value)
-  if ('error' in numberResult) {
-    return { error: numberResult.error, status: 400 }
-  }
-  if (numberResult.value === null) {
-    return { error: 'Missing required field: numeric_value', status: 400 }
-  }
-
-  const rawContentResult = requireTrimmedText(body.raw_content, 'raw_content')
-  if ('error' in rawContentResult) {
-    return { error: rawContentResult.error, status: 400 }
-  }
-
-  const tagListResult = optionalTagList(body.tags)
-  if ('error' in tagListResult) {
-    return { error: tagListResult.error, status: 400 }
-  }
-  const tagsValidation = validateTags(tagListResult.value)
-  if (!tagsValidation.valid) {
-    return { error: tagsValidation.error!, status: 400 }
-  }
-  const reserved = assertNoReservedTags(tagListResult.value)
-  if (!reserved.valid) {
-    return { error: reserved.error!, status: 400 }
-  }
-
-  const objCtxResult = requireTrimmedText(body.objective_context, 'objective_context')
-  if ('error' in objCtxResult) {
-    return { error: objCtxResult.error, status: 400 }
-  }
-
-  const aiAnalysis = optionalTrimmedNullable(body.ai_analysis, 'ai_analysis')
-  if ('error' in aiAnalysis) {
-    return { error: aiAnalysis.error, status: 400 }
-  }
-
-  try {
-    const record = await insertReturning(db, {
-      id: uuidv7(),
-      happenedAt: happenedResult.value,
-      utcOffset: happenedResult.utcOffset,
-      numericValue: numberResult.value,
-      rawContent: rawContentResult.value,
-      tags: tagsJSON(tagListResult.value),
-      objectiveContext: objCtxResult.value,
-      aiAnalysis: aiAnalysis.value,
-    })
-    return { record, status: 201 }
-  } catch (err) {
-    console.error('Error creating number record:', err)
-    return { error: 'Internal server error', status: 500 }
-  }
 }
 
 export type CreateNumberBatchOk = {

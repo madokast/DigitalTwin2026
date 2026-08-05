@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type postgres from 'postgres'
-import { POST as postNumber } from '@/app/api/log/number/route'
+import { POST as postNumbers } from '@/app/api/log/numbers/route'
 import { POST as postBodyWeight } from '@/app/api/log/body/weight/route'
 import { POST as postTodo } from '@/app/api/log/todo/route'
 import { POST as postTodoTransition } from '@/app/api/log/todo/transition/route'
@@ -61,217 +61,125 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     await closeDb()
   }, 60_000)
 
-  describe('POST /api/log/number', () => {
-    it('returns 400 when required fields are missing', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-        numeric_value: '75.5',
-        tags: ['weight'],
-        objective_context: 'morning weigh-in',
-        raw_content: 'x',
+  describe('POST /api/log/numbers', () => {
+    const validEntry = (over = {}) => ({
+      happened_at: '2026-07-30T08:00:00+08:00',
+      entries: [{ numeric_value: '75.5', memo: 'morning weigh-in', ...over }],
+    })
+
+    it('returns 400 when happened_at is missing', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
+        entries: [{ numeric_value: '75.5', memo: 'morning weigh-in' }],
       }))
       expect(res.status).toBe(400)
       const body = await res.json()
       expect(body.error).toContain('happened_at')
     })
 
-    it('rejects suppress_notification as unknown key', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-        happened_at: '2026-07-30T08:00:00+08:00',
-        numeric_value: '75.5',
-        tags: ['weight'],
-        objective_context: 'morning weigh-in',
-        raw_content: 'x',
+    it('rejects suppress_notification as unknown top-level key', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
+        ...validEntry(),
         suppress_notification: true,
-      }))
+      } as Record<string, unknown>))
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(
         'Unknown JSON key: suppress_notification',
       )
     })
 
-    it('returns 400 for invalid tags (non-ASCII / whitespace-padded)', async () => {
+    it('returns 400 for invalid entry tags (non-ASCII / whitespace-padded)', async () => {
       for (const tags of [['体重'], [' weight'], ['weight '], [' weight ']]) {
-        const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-          happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '75.5',
-          tags,
-          objective_context: 'morning weigh-in',
-          raw_content: 'x',
-        }))
+        const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ tags })))
         expect(res.status, JSON.stringify(tags)).toBe(400)
         const body = await res.json()
         expect(body.error, JSON.stringify(tags)).toContain('Invalid tag')
       }
     })
 
-    it('creates a number record', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+    it('creates a batch and returns {success, inserted, atomic}', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        numeric_value: '75.5',
-        tags: ['weight'],
-        objective_context: 'morning weigh-in',
-        raw_content: 'x',
-        ai_analysis: 'a bit heavy',
+        entries: [
+          { numeric_value: '75.5', memo: 'morning weigh-in', ai_analysis: 'a bit heavy' },
+          { numeric_value: '36.8', memo: 'axillary temperature' },
+        ],
       }))
       expect(res.status).toBe(201)
       const body = await res.json()
-      expect(body.success).toBe(true)
-      expect(body.record.numeric_value).toBe('75.5')
-      expect(body.record.raw_content).toBe('x')
-      expect(body.record.tags).toEqual(['weight'])
-      expect(body.record.objective_context).toBe('morning weigh-in')
-      expect(body.record.ai_analysis).toBe('a bit heavy')
+      expect(body).toEqual({
+        success: true,
+        inserted: 2,
+        atomic: true,
+      })
     })
 
-    it('accepts omitted / [] / null tags and returns tags: []', async () => {
-      for (const body of [
-        {
-          happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '70',
-          objective_context: 'no tags',
-          raw_content: 'x',
-        },
-        {
-          happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '70',
-          tags: [],
-          objective_context: 'empty tags',
-          raw_content: 'x',
-        },
-        {
-          happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '70',
-          tags: null,
-          objective_context: 'null tags',
-          raw_content: 'x',
-        },
-      ]) {
-        const res = await postNumber(
-          jsonPost('http://localhost/api/log/number', body),
-        )
-        expect(res.status).toBe(201)
-        const parsed = await res.json()
-        expect(parsed.record.tags).toEqual([])
-      }
+    it('rejects entry unknown key with index prefix', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ raw_content: 'x' })))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        'entries[0]: Unknown JSON key: raw_content',
+      )
     })
 
     it('returns 400 when happened_at lacks timezone', async () => {
-      const bare = await postNumber(jsonPost('http://localhost/api/log/number', {
-        happened_at: '2026-07-30',
-        numeric_value: '1',
-        tags: ['weight'],
-        objective_context: 'x',
-        raw_content: 'x',
-      }))
-      expect(bare.status).toBe(400)
-      expect((await bare.json()).error).toBe(
-        'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
-      )
-
-      const noOffset = await postNumber(jsonPost('http://localhost/api/log/number', {
-        happened_at: '2026-07-30T08:00:00',
-        numeric_value: '1',
-        tags: ['weight'],
-        objective_context: 'x',
-        raw_content: 'x',
-      }))
-      expect(noOffset.status).toBe(400)
-      expect((await noOffset.json()).error).toBe(
-        'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
-      )
-    })
-
-    it('accepts happened_at with Z and returns string numericValue', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-        happened_at: '2026-07-30T00:00:00.000Z',
-        numeric_value: '1',
-        tags: ['weight'],
-        objective_context: 'x',
-        raw_content: 'x',
-      }))
-      expect(res.status).toBe(201)
-      const body = await res.json()
-      expect(body.record.numeric_value).toBe('1')
-      expect(body.record.happened_at).toBe('2026-07-30T00:00:00.000Z')
-      expect(body.record).not.toHaveProperty('utc_offset')
-    })
-
-    it('preserves +08:00 and compact +0800 on create success', async () => {
-      const plus = await postNumber(jsonPost('http://localhost/api/log/number', {
-        happened_at: '2026-07-30T08:00:00+08:00',
-        numeric_value: '1',
-        tags: ['weight'],
-        objective_context: 'x',
-        raw_content: 'x',
-      }))
-      expect(plus.status).toBe(201)
-      expect((await plus.json()).record.happened_at).toBe(
-        '2026-07-30T08:00:00.000+08:00',
-      )
-
-      const compact = await postNumber(jsonPost('http://localhost/api/log/number', {
-        happened_at: '2026-07-30T08:00:00+0800',
-        numeric_value: '2',
-        tags: ['weight'],
-        objective_context: 'x',
-        raw_content: 'x',
-      }))
-      expect(compact.status).toBe(201)
-      expect((await compact.json()).record.happened_at).toBe(
-        '2026-07-30T08:00:00.000+08:00',
-      )
-    })
-
-    it('rejects utc_offset as unknown key', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-        happened_at: '2026-07-30T08:00:00+08:00',
-        numeric_value: '1',
-        tags: ['weight'],
-        objective_context: 'x',
-        raw_content: 'x',
-        utc_offset: '+08:00',
-      }))
-      expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('Unknown JSON key: utc_offset')
-    })
-
-    it('rejects JSON number type for numeric_value', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-        happened_at: '2026-07-30T08:00:00+08:00',
-        numeric_value: 75.5,
-        tags: ['weight'],
-        objective_context: 'x',
-        raw_content: 'x',
-      }))
-      expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
-        'numeric_value must be a decimal string',
-      )
-    })
-
-    it('rejects invalid decimal strings', async () => {
-      for (const bad of ['1e3', '1.', '+1']) {
-        const res = await postNumber(jsonPost('http://localhost/api/log/number', {
-          happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: bad,
-          tags: ['weight'],
-          objective_context: 'x',
+      for (const happened of ['2026-07-30', '2026-07-30T08:00:00']) {
+        const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
+          happened_at: happened,
+          entries: [{ numeric_value: '1', memo: 'x' }],
         }))
         expect(res.status).toBe(400)
-        expect((await res.json()).error).toBe('Invalid numeric_value')
+        expect((await res.json()).error).toBe(
+          'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
+        )
       }
     })
 
-    it('preserves decimal literal including trailing zeros', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+    it('rejects JSON number type for numeric_value with index prefix', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ numeric_value: 75.5 })))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        'entries[0]: numeric_value must be a decimal string',
+      )
+    })
+
+    it('rejects invalid decimal strings with index prefix', async () => {
+      for (const bad of ['1e3', '1.', '+1']) {
+        const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ numeric_value: bad })))
+        expect(res.status).toBe(400)
+        expect((await res.json()).error).toBe(
+          'entries[0]: Invalid numeric_value',
+        )
+      }
+    })
+
+    it('rejects missing memo with index prefix', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        numeric_value: '1.0',
-        tags: ['weight'],
-        objective_context: 'x',
-        raw_content: 'x',
+        entries: [{ numeric_value: '1' }],
       }))
-      expect(res.status).toBe(201)
-      expect((await res.json()).record.numeric_value).toBe('1.0')
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        'entries[0]: Missing required field: memo',
+      )
+    })
+
+    it('rejects reserved entry tag with index prefix', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ tags: ['body:weight'] })))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        `entries[0]: ${reservedTagError('body:weight')}`,
+      )
+    })
+
+    it('rejects empty entries', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        entries: [],
+      }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe(
+        'entries must be a non-empty array',
+      )
     })
   })
 
@@ -512,64 +420,49 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       )
     })
 
-    it('rejects reserved tag on log/number', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+    it('rejects reserved tag on log/numbers', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-08-01T12:30:00+08:00',
-        numeric_value: '1',
-        tags: ['transaction_entry'],
-        objective_context: 'x',
-        raw_content: 'x',
+        entries: [{ numeric_value: '1', memo: 'x', tags: ['transaction_entry'] }],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(reservedTagError('transaction_entry'))
+      expect((await res.json()).error).toBe(`entries[0]: ${reservedTagError('transaction_entry')}`)
     })
 
-    it('rejects reserved prefixed tag on log/number', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+    it('rejects reserved prefixed tag on log/numbers', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-08-01T12:30:00+08:00',
-        numeric_value: '1',
-        tags: ['transaction_entry:income'],
-        objective_context: 'x',
-        raw_content: 'x',
+        entries: [{ numeric_value: '1', memo: 'x', tags: ['transaction_entry:income'] }],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(reservedTagError('transaction_entry:income'))
+      expect((await res.json()).error).toBe(`entries[0]: ${reservedTagError('transaction_entry:income')}`)
     })
 
-    it('rejects body:weight reserved tag on log/number', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+    it('rejects body:weight reserved tag on log/numbers', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-08-01T12:30:00+08:00',
-        numeric_value: '1',
-        tags: ['body:weight'],
-        objective_context: 'x',
-        raw_content: 'x',
+        entries: [{ numeric_value: '1', memo: 'x', tags: ['body:weight'] }],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(reservedTagError('body:weight'))
+      expect((await res.json()).error).toBe(`entries[0]: ${reservedTagError('body:weight')}`)
     })
 
-    it('rejects todo reserved tag on log/number', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+    it('rejects todo reserved tag on log/numbers', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-08-01T12:30:00+08:00',
-        numeric_value: '1',
-        tags: ['todo'],
-        objective_context: 'x',
-        raw_content: 'x',
+        entries: [{ numeric_value: '1', memo: 'x', tags: ['todo'] }],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(reservedTagError('todo'))
+      expect((await res.json()).error).toBe(`entries[0]: ${reservedTagError('todo')}`)
     })
 
-    it('rejects todo:in_progress reserved tag on log/number', async () => {
-      const res = await postNumber(jsonPost('http://localhost/api/log/number', {
+    it('rejects todo:in_progress reserved tag on log/numbers', async () => {
+      const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-08-01T12:30:00+08:00',
-        numeric_value: '1',
-        tags: ['todo:in_progress'],
-        objective_context: 'x',
-        raw_content: 'x',
+        entries: [{ numeric_value: '1', memo: 'x', tags: ['todo:in_progress'] }],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(reservedTagError('todo:in_progress'))
+      expect((await res.json()).error).toBe(`entries[0]: ${reservedTagError('todo:in_progress')}`)
     })
   })
 
@@ -880,26 +773,17 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
 
     it('counts today differently across time zones at day boundary', async () => {
       // Fixed "now": 2026-07-30 16:30 UTC = 2026-07-31 00:30 Asia/Shanghai
-      await postNumber(jsonPost('http://localhost/api/log/number', {
+      await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-30T10:00:00.000Z',
-        numeric_value: '1',
-        tags: ['a'],
-        objective_context: 'utc-only today',
-        raw_content: 'x',
+        entries: [{ numeric_value: '1', memo: 'utc-only today', tags: ['a'] }],
       }))
-      await postNumber(jsonPost('http://localhost/api/log/number', {
+      await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-30T18:00:00.000Z',
-        numeric_value: '2',
-        tags: ['b'],
-        objective_context: 'both today',
-        raw_content: 'x',
+        entries: [{ numeric_value: '2', memo: 'both today', tags: ['b'] }],
       }))
-      await postNumber(jsonPost('http://localhost/api/log/number', {
+      await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-31T02:00:00.000Z',
-        numeric_value: '3',
-        tags: ['c'],
-        objective_context: 'shanghai-only today',
-        raw_content: 'x',
+        entries: [{ numeric_value: '3', memo: 'shanghai-only today', tags: ['c'] }],
       }))
 
       vi.useFakeTimers({ toFake: ['Date'] })
@@ -986,12 +870,9 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
 
   describe('GET /api/query', () => {
     async function seed() {
-      await postNumber(jsonPost('http://localhost/api/log/number', {
+      await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        numeric_value: '75.5',
-        tags: ['weight', 'morning'],
-        objective_context: 'fasting weight',
-        raw_content: 'x',
+        entries: [{ numeric_value: '75.5', memo: 'fasting weight', tags: ['weight'] }],
       }))
       await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T15:00:00+08:00',
@@ -1306,12 +1187,9 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
 
   describe('GET /api/query/tags', () => {
     it('returns success wrapper with lexicographically sorted tag counts', async () => {
-      await postNumber(jsonPost('http://localhost/api/log/number', {
+      await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        numeric_value: '75.5',
-        tags: ['weight', 'morning'],
-        objective_context: 'fasting weight',
-        raw_content: 'x',
+        entries: [{ numeric_value: '75.5', memo: 'fasting weight', tags: ['weight'] }],
       }))
       await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T15:00:00+08:00',
@@ -1319,12 +1197,9 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         tags: ['study', 'physics'],
         objective_context: 'focused session',
       }))
-      await postNumber(jsonPost('http://localhost/api/log/number', {
+      await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-31T08:00:00+08:00',
-        numeric_value: '75.2',
-        tags: ['weight'],
-        objective_context: 'follow-up weigh-in',
-        raw_content: 'x',
+        entries: [{ numeric_value: '75.2', memo: 'follow-up weigh-in', tags: ['weight'] }],
       }))
 
       const res = await queryTags(jsonGet('http://localhost/api/query/tags'))
@@ -1399,12 +1274,9 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
 
     it('renames tags across records and reports updated count', async () => {
-      await postNumber(jsonPost('http://localhost/api/log/number', {
+      await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        numeric_value: '1',
-        tags: ['exercise', 'morning'],
-        objective_context: 'a',
-        raw_content: 'x',
+        entries: [{ numeric_value: '1', memo: 'a', tags: ['exercise'] }],
       }))
       await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T09:00:00+08:00',
@@ -1522,18 +1394,23 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('exports by id ASC and supports overlapping cursor pages', async () => {
       const ids: string[] = []
       for (const n of ['1', '2', '3']) {
-        const created = await postNumber(
-          jsonPost('http://localhost/api/log/number', {
+        const created = await postNumbers(
+          jsonPost('http://localhost/api/log/numbers', {
             happened_at: '2026-07-30T08:00:00+08:00',
-            numeric_value: n,
-            tags: ['export_test'],
-            objective_context: `export-row-${n}`,
-            raw_content: 'x',
+            entries: [{
+              numeric_value: n,
+              tags: ['export_test'],
+              memo: `export-row-${n}`,
+            }],
           }),
         )
         expect(created.status).toBe(201)
-        ids.push((await created.json()).record.id)
       }
+      const seeded = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=export_test&page_size=10',
+      ))
+      const seededBody = await seeded.json()
+      ids.push(...(seededBody.records as Array<{ id: string }>).map((r) => r.id))
       ids.sort()
 
       const page1 = await exportRecords(
@@ -1567,20 +1444,25 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
 
     it('exports happened_at with utc_offset (no utc_offset key)', async () => {
-      const created = await postNumber(
-        jsonPost('http://localhost/api/log/number', {
+      const created = await postNumbers(
+        jsonPost('http://localhost/api/log/numbers', {
           happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '1',
-          tags: ['export_offset'],
-          objective_context: 'phase4-export',
-          raw_content: 'x',
+          entries: [{
+            numeric_value: '1',
+            tags: ['export_offset'],
+            memo: 'phase4-export',
+          }],
         }),
       )
       expect(created.status).toBe(201)
-      const rec = (await created.json()).record as {
+      const seeded = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=export_offset',
+      ))
+      const seededBody = await seeded.json()
+      const rec = (seededBody.records as Array<{
         id: string
         happened_at: string
-      }
+      }>)[0]
       expect(rec.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
 
       const res = await exportRecords(
@@ -1702,23 +1584,29 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
 
     it('round-trips export → import', async () => {
-      const created = await postNumber(
-        jsonPost('http://localhost/api/log/number', {
+      const created = await postNumbers(
+        jsonPost('http://localhost/api/log/numbers', {
           happened_at: '2026-07-30T08:00:00+08:00',
-          numeric_value: '42',
-          tags: ['roundtrip'],
-          objective_context: 'export-import-rt',
-          raw_content: 'x',
+          entries: [{
+            numeric_value: '42',
+            tags: ['roundtrip'],
+            memo: 'export-import-rt',
+          }],
         }),
       )
       expect(created.status).toBe(201)
-      const rec = (await created.json()).record as {
+      const seeded = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=roundtrip',
+      ))
+      const seededBody = await seeded.json()
+      const rec = (seededBody.records as Array<{
         id: string
         happened_at: string
         numeric_value: string
         tags: string[]
         objective_context: string
-      }
+      }>)[0]
+      expect(rec.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
 
       const exported = await exportRecords(
         jsonGet(

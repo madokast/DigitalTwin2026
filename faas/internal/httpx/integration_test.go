@@ -52,12 +52,13 @@ SELECT EXISTS (
 
 	body := `{
 		"happened_at":"2026-07-30T08:00:00+08:00",
-		"numeric_value": "42.5",
-		"raw_content": "fc smoke",
-		"tags": ["go_fc_test"],
-		"objective_context": "` + marker + `"
+		"entries": [{
+			"numeric_value": "42.5",
+			"tags": ["go_fc_test"],
+			"memo": "` + marker + `"
+		}]
 	}`
-	req := httptest.NewRequest(http.MethodPost, "/api/log/number", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/log/numbers", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer ai-tok")
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -69,9 +70,32 @@ SELECT EXISTS (
 	if err := json.Unmarshal(rr.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
-	rec, _ := created["record"].(map[string]any)
-	if rec == nil || rec["id"] == nil || rec["id"] == "" {
-		t.Fatalf("missing record.id in %s", rr.Body.String())
+	if inserted, _ := created["inserted"].(float64); inserted != 1 {
+		t.Fatalf("inserted: %v body %s", created["inserted"], rr.Body.String())
+	}
+	if atomic, _ := created["atomic"].(bool); !atomic {
+		t.Fatalf("atomic: %v", created["atomic"])
+	}
+
+	// 批量不回传 id：按 q 查回本批记录
+	ids := httptest.NewRequest(http.MethodGet, "/api/query?q="+marker, nil)
+	ids.Header.Set("Authorization", "Bearer ai-tok")
+	idsRR := httptest.NewRecorder()
+	h.ServeHTTP(idsRR, ids)
+	if idsRR.Code != 200 {
+		t.Fatalf("query status %d", idsRR.Code)
+	}
+	var idsBody map[string]any
+	if err := json.Unmarshal(idsRR.Body.Bytes(), &idsBody); err != nil {
+		t.Fatal(err)
+	}
+	recs := idsBody["records"].([]any)
+	if len(recs) < 1 {
+		t.Fatalf("no record found for marker %s", marker)
+	}
+	rec := recs[0].(map[string]any)
+	if rec["id"] == nil || rec["id"] == "" {
+		t.Fatalf("missing record.id in %s", idsRR.Body.String())
 	}
 
 	q := httptest.NewRequest(http.MethodGet, "/api/query?q="+marker, nil)
