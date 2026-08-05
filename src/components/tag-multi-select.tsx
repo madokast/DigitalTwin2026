@@ -30,7 +30,7 @@ export function TagMultiSelect({ selected, lockedTag, onChange }: Props) {
       try {
         const tags = await fetchTags()
         if (cancelled) return
-        setAllTags(Object.keys(tags).sort())
+        setAllTags(tags.map((t) => t.tag))
         setLoadError('')
       } catch (err) {
         if (cancelled) return

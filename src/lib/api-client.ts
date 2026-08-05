@@ -75,12 +75,13 @@ export async function fetchRecordById(id: string): Promise<TwinRecord | null> {
   return data.records[0] ?? null
 }
 
-export async function fetchTags(): Promise<Record<string, number>> {
-  const res = await fetch(apiUrl('/api/query/tags'), {
+export async function fetchTags(prefix?: string): Promise<{ tag: string; count: number }[]> {
+  const url = prefix ? `/api/query/tags?prefix=${encodeURIComponent(prefix)}` : '/api/query/tags'
+  const res = await fetch(apiUrl(url), {
     headers: authHeader(),
   })
-  const data = await parseJson<{ success: boolean; tags: Record<string, number> }>(res)
-  return data.tags ?? {}
+  const data = await parseJson<{ success: boolean; tags: { tag: string; count: number }[] }>(res)
+  return data.tags ?? []
 }
 
 export async function renameTag(from: string, to: string): Promise<number> {

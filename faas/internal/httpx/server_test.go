@@ -678,6 +678,39 @@ func TestSummaryInvalidTZWithoutDB(t *testing.T) {
 	}
 }
 
+func TestTagQueryWildcardAndHintWithoutDB(t *testing.T) {
+	h := testServer().Handler()
+	do := func(url string) (int, map[string]any) {
+		req := httptest.NewRequest(http.MethodGet, url, nil)
+		req.Header.Set("Authorization", "Bearer ai-tok")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		var body map[string]any
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		return rr.Code, body
+	}
+
+	// 非法通配 → 400 统一文案
+	for _, url := range []string{
+		"/api/query?tag=*",
+		"/api/query?tag=re*view",
+		"/api/query?tag=work*",
+		"/api/query?tag=re*vi*",
+		"/api/query?tag=review:*:x",
+	} {
+		code, body := do(url)
+		if code != 400 {
+			t.Fatalf("%s status %d body %v", url, code, body)
+		}
+		errMsg, _ := body["error"].(string)
+		if !strings.Contains(errMsg, "Invalid tag query") {
+			t.Fatalf("%s error=%v", url, body["error"])
+		}
+	}
+	// hint 行为依赖 DB（恒空交集），在 integration_test.go 有库场景断言；
+	// 无 DB 下合法查询会走 FetchFilteredRecords（nil Pool panic），此处不测。
+}
+
 func TestTimeEndpointWithoutDB(t *testing.T) {
 	s := testServer()
 	fixed := time.UnixMilli(1785429045123).UTC()

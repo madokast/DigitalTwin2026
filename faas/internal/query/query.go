@@ -25,6 +25,20 @@ import (
 // ErrInvalidTZ 与 Next fetchSummary 文案一致；httpx 用 errors.Is 映射 400。
 var ErrInvalidTZ = errors.New("Query parameter tz must be a valid IANA time zone")
 
+// invalidTagQueryMsg 与 Next INVALID_TAG_QUERY 同文案；%s 为非法 tag 查询值。
+const invalidTagQueryMsg = "Invalid tag query \"%s\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+
+// tagQueryWildcard 仅接受 `合法tag名:*` 尾缀通配；其余含 `*` 形态 → invalidTagQueryMsg。
+var tagQueryWildcard = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*:\*$`)
+
+// bareReservedTagHints 裸值永不被写入的保留前缀：query?tag=<这些值> 恒空，应提示用族通配。
+// body:weight 例外（裸值即真实落库 tag，可命中）。
+var bareReservedTagHints = map[string]bool{
+	"transaction_entry": true,
+	"todo":              true,
+	"review":            true,
+}
+
 var (
 	isoTZSuffix = regexp.MustCompile(`(?i)(Z|[+-]\d{2}:?\d{2})$`)
 	digitsOnly  = regexp.MustCompile(`^\d+$`)
@@ -40,6 +54,8 @@ type ParsedQuery struct {
 	Q         string
 	SortBy    string
 	SortOrder string
+	// Hint 裸保留前缀 tag（恒空毒化交集）时给 AI 的纠正提示；空串表示无。
+	Hint string
 }
 
 // RecordsOrderBySql 列表查询排序（与 Next recordsOrderBySql、
@@ -133,10 +149,23 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
 	}
 
 	var tagList []string
+	var hint string
 	for _, tag := range q["tag"] {
-		if tag != "" {
-			tagList = append(tagList, tag)
+		if tag == "" {
+			continue
 		}
+		if strings.Contains(tag, "*") {
+			if !tagQueryWildcard.MatchString(tag) {
+				return nil, fmt.Errorf(invalidTagQueryMsg, tag)
+			}
+			tagList = append(tagList, tag)
+			continue
+		}
+		// 裸保留前缀恒空：记录首个命中，供响应加 hint（AI 纠错）
+		if hint == "" && bareReservedTagHints[tag] {
+			hint = fmt.Sprintf("Use \"tag=%s:*\" to match %s records (the bare tag \"%s\" is reserved and never stored)", tag, tag, tag)
+		}
+		tagList = append(tagList, tag)
 	}
 
 	id := q.Get("id")
@@ -154,6 +183,7 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
 		Q:         q.Get("q"),
 		SortBy:    sortBy,
 		SortOrder: sortOrder,
+		Hint:      hint,
 	}, nil
 }
 
@@ -188,7 +218,12 @@ func buildWhere(p *ParsedQuery) (string, []any) {
 	}
 	for _, tag := range p.Tags {
 		parts = append(parts, fmt.Sprintf("tags LIKE $%d", n))
-		args = append(args, `%"`+EscapeLikePattern(tag)+`"%`)
+		pattern := `%"` + EscapeLikePattern(tag) + `"%`
+		if strings.HasSuffix(tag, ":*") {
+			// 族通配 `X:*` → `%"X:%`（去尾闭合引号、保留冒号）；`:*` 已在校验期保证为尾缀
+			pattern = `%"` + EscapeLikePattern(tag[:len(tag)-1]) + `%`
+		}
+		args = append(args, pattern)
 		n++
 	}
 	if p.Q != "" {
@@ -335,7 +370,7 @@ func FetchSummary(ctx context.Context, pool *pgxpool.Pool, tz string, now time.T
 	return &SummaryResult{Total: total, Today: today, TZ: tz}, nil
 }
 
-func FetchTagCounts(ctx context.Context, pool *pgxpool.Pool) (map[string]int, error) {
+func FetchTagCounts(ctx context.Context, pool *pgxpool.Pool, prefix string) ([]tags.TagCount, error) {
 	rows, err := pool.Query(ctx, `SELECT tags FROM records`)
 	if err != nil {
 		return nil, err
@@ -352,7 +387,7 @@ func FetchTagCounts(ctx context.Context, pool *pgxpool.Pool) (map[string]int, er
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return tags.AggregateTagCounts(fields)
+	return tags.AggregateTagCounts(fields, prefix)
 }
 
 // --- GET /api/query/transaction/summary ---

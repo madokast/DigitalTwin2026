@@ -1,0 +1,118 @@
+{
+  "comment": "Shared tag query param cases: wildcard validation, family LIKE pattern, and bare reserved prefix hint. Both Next (src/lib/query.test.ts) and Go (faas/internal/query) load this file. Field `pattern` is the expected LIKE pattern for the tag filter; `hint` is the expected response hint (empty = none).",
+  "cases": [
+    {
+      "name": "exact-tag",
+      "tag": "weight",
+      "valid": true,
+      "pattern": "%\"weight\"%",
+      "hint": ""
+    },
+    {
+      "name": "family-wildcard-review",
+      "tag": "review:*",
+      "valid": true,
+      "pattern": "%\"review:%",
+      "hint": ""
+    },
+    {
+      "name": "family-wildcard-workout",
+      "tag": "workout:*",
+      "valid": true,
+      "pattern": "%\"workout:%",
+      "hint": ""
+    },
+    {
+      "name": "family-leaf-unchanged",
+      "tag": "workout:arm",
+      "valid": true,
+      "pattern": "%\"workout:arm\"%",
+      "hint": ""
+    },
+    {
+      "name": "bare-wildcard-rejected",
+      "tag": "*",
+      "valid": false,
+      "error": "Invalid tag query \"*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+    },
+    {
+      "name": "mid-wildcard-rejected",
+      "tag": "re*view",
+      "valid": false,
+      "error": "Invalid tag query \"re*view\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+    },
+    {
+      "name": "trailing-star-no-colon-rejected",
+      "tag": "work*",
+      "valid": false,
+      "error": "Invalid tag query \"work*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+    },
+    {
+      "name": "double-wildcard-rejected",
+      "tag": "re*vi*",
+      "valid": false,
+      "error": "Invalid tag query \"re*vi*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+    },
+    {
+      "name": "wildcard-with-trailing-content-rejected",
+      "tag": "review:*:x",
+      "valid": false,
+      "error": "Invalid tag query \"review:*:x\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+    },
+    {
+      "name": "bare-reserved-review-hint",
+      "tag": "review",
+      "valid": true,
+      "pattern": "%\"review\"%",
+      "hint": "Use \"tag=review:*\" to match review records (the bare tag \"review\" is reserved and never stored)"
+    },
+    {
+      "name": "bare-reserved-todo-hint",
+      "tag": "todo",
+      "valid": true,
+      "pattern": "%\"todo\"%",
+      "hint": "Use \"tag=todo:*\" to match todo records (the bare tag \"todo\" is reserved and never stored)"
+    },
+    {
+      "name": "bare-reserved-transaction-entry-hint",
+      "tag": "transaction_entry",
+      "valid": true,
+      "pattern": "%\"transaction\\_entry\"%",
+      "hint": "Use \"tag=transaction_entry:*\" to match transaction_entry records (the bare tag \"transaction_entry\" is reserved and never stored)"
+    },
+    {
+      "name": "bare-body-weight-no-hint",
+      "tag": "body:weight",
+      "valid": true,
+      "pattern": "%\"body:weight\"%",
+      "hint": ""
+    },
+    {
+      "name": "family-body-weight-no-hint",
+      "tag": "body:weight:*",
+      "valid": true,
+      "pattern": "%\"body:weight:%",
+      "hint": ""
+    },
+    {
+      "name": "family-body-must-not-match-bodyguard",
+      "tag": "body:*",
+      "valid": true,
+      "pattern": "%\"body:%",
+      "hint": ""
+    },
+    {
+      "name": "family-bodyguard-family",
+      "tag": "bodyguard:*",
+      "valid": true,
+      "pattern": "%\"bodyguard:%",
+      "hint": ""
+    },
+    {
+      "name": "trailing-star-requires-colon-double",
+      "tag": "a:*:*",
+      "valid": false,
+      "error": "Invalid tag query \"a:*:*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+    }
+  ]
+}

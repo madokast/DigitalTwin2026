@@ -93,6 +93,7 @@ describe('parseRecordQueryParams from/to timezone', () => {
       pageSize: 20,
       sortBy: 'happened_at',
       sortOrder: 'asc',
+      hint: undefined,
     })
   })
 
@@ -158,6 +159,75 @@ describe('parseRecordQueryParams q OR grouping', () => {
     expect(sql).toMatch(
       /and \("records"\."raw_content" like .+ or "records"\."objective_context" like .+ or "records"\."ai_analysis" like .+ or "records"\."tags" like .+\)/i,
     )
+  })
+})
+
+describe('parseRecordQueryParams tag query (shared with Go)', () => {
+  const shared = JSON.parse(
+    readFileSync(join(process.cwd(), 'testdata', 'tag-query-cases.json'), 'utf8'),
+  ) as {
+    cases: Array<{
+      name: string
+      tag: string
+      valid: boolean
+      pattern: string
+      hint: string
+      error: string
+    }>
+  }
+
+  it('matches testdata/tag-query-cases.json', () => {
+    for (const c of shared.cases) {
+      const result = parseRecordQueryParams(new URLSearchParams({ tag: c.tag }))
+      if (!c.valid) {
+        expect('error' in result, c.name).toBe(true)
+        if ('error' in result) {
+          expect(result.error, c.name).toBe(c.error)
+        }
+        continue
+      }
+      expect('error' in result, c.name).toBe(false)
+      if ('error' in result) continue
+      expect(result.hint, c.name).toBe(c.hint === '' ? undefined : c.hint)
+      // 单 tag → 恰一个条件；pattern 经 drizzle 参数化后落入 params
+      expect(result.conditions, c.name).toHaveLength(1)
+      const where = and(...result.conditions)
+      expect(where, c.name).toBeTruthy()
+      const { params } = dialect.sqlToQuery(where!)
+      expect(params, c.name).toEqual([c.pattern])
+    }
+  })
+
+  it('first bare reserved prefix wins the hint', () => {
+    const result = parseRecordQueryParams(
+      new URLSearchParams('tag=review&tag=todo&tag=work'),
+    )
+    expect('error' in result).toBe(false)
+    if ('error' in result) return
+    expect(result.hint).toMatch(/^Use "tag=review:\*"/)
+    expect(result.conditions).toHaveLength(3)
+  })
+
+  it('wildcard tag does not produce a hint', () => {
+    const result = parseRecordQueryParams(
+      new URLSearchParams({ tag: 'review:*' }),
+    )
+    expect('error' in result).toBe(false)
+    if ('error' in result) return
+    expect(result.hint).toBeUndefined()
+  })
+
+  it('escapes literal _ in the family prefix', () => {
+    const result = parseRecordQueryParams(
+      new URLSearchParams({ tag: 'foo_bar:*' }),
+    )
+    expect('error' in result).toBe(false)
+    if ('error' in result) return
+    expect(result.conditions).toHaveLength(1)
+    const where = and(...result.conditions)
+    expect(where).toBeTruthy()
+    const { params } = dialect.sqlToQuery(where!)
+    expect(params).toEqual(['%"foo\\_bar:%'])
   })
 })
 

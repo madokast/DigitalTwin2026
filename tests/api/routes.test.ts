@@ -1098,6 +1098,106 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(row!.raw_content).toBe('July monthly review')
     })
 
+    it('matches a tag family with tag=X:* wildcard', async () => {
+      await postReview(
+        jsonPost('http://localhost/api/log/review', {
+          happened_at: '2026-08-09T19:00:00+08:00',
+          cadence: 'weekly',
+          raw_content: 'weekly review',
+          objective_context: 'weekly-ctx',
+        }),
+      )
+      await postReview(
+        jsonPost('http://localhost/api/log/review', {
+          happened_at: '2026-08-10T19:00:00+08:00',
+          cadence: 'monthly',
+          raw_content: 'monthly review',
+          objective_context: 'monthly-ctx',
+        }),
+      )
+
+      const res = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=review:*',
+      ))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      const contents = (body.records as Array<Record<string, unknown>>).map(
+        (r) => r.raw_content,
+      )
+      expect(contents).toEqual(
+        expect.arrayContaining(['weekly review', 'monthly review']),
+      )
+    })
+
+    it('family wildcard does not match non-colon prefix names (bodyguard)', async () => {
+      // 语义边界：`tag=body:*` 只匹配 `body:` 前缀族，不匹配裸 `body`、`bodyguard`
+      await postBodyWeight(jsonPost('http://localhost/api/log/body/weight', {
+        happened_at: '2026-08-02T08:00:00+08:00',
+        numeric_value: '75.5',
+        objective_context: 'weight-ctx',
+      }))
+      await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-08-02T09:00:00+08:00',
+        raw_content: 'guard duty',
+        tags: ['bodyguard'],
+        objective_context: 'guard-ctx',
+      }))
+
+      const res = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=body:*',
+      ))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.count).toBe(1)
+      const ctxs = (body.records as Array<Record<string, unknown>>).map(
+        (r) => r.objective_context,
+      )
+      expect(ctxs).toContain('weight-ctx')
+      expect(ctxs).not.toContain('guard-ctx')
+    })
+
+    it('rejects invalid wildcard forms with a clear message', async () => {
+      for (const url of [
+        'http://localhost/api/query?tag=*',
+        'http://localhost/api/query?tag=re*view',
+        'http://localhost/api/query?tag=work*',
+        'http://localhost/api/query?tag=re*vi*',
+        'http://localhost/api/query?tag=review:*:x',
+      ]) {
+        const res = await queryRecords(jsonGet(url))
+        expect(res.status, url).toBe(400)
+        const body = await res.json()
+        expect(body.error, url).toMatch(/^Invalid tag query/)
+      }
+    })
+
+    it('returns a hint when querying a bare reserved prefix', async () => {
+      const res = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=review',
+      ))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.count).toBe(0)
+      expect(body.hint).toBe(
+        'Use "tag=review:*" to match review records (the bare tag "review" is reserved and never stored)',
+      )
+    })
+
+    it('does not hint body:weight (bare tag is stored)', async () => {
+      await postBodyWeight(jsonPost('http://localhost/api/log/body/weight', {
+        happened_at: '2026-08-02T08:00:00+08:00',
+        numeric_value: '75.5',
+        objective_context: 'x',
+      }))
+      const res = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=body:weight',
+      ))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.count).toBe(1)
+      expect(body.hint).toBeUndefined()
+    })
+
     it('fuzzy-searches with q across text fields and tags', async () => {
       await seed()
       const res = await queryRecords(jsonGet('http://localhost/api/query?q=productive'))
@@ -1227,23 +1327,54 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         raw_content: 'x',
       }))
 
-      const res = await queryTags()
+      const res = await queryTags(jsonGet('http://localhost/api/query/tags'))
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.success).toBe(true)
-      expect(Object.keys(body.tags)).toEqual(['morning', 'physics', 'study', 'weight'])
-      expect(body.tags).toEqual({
-        morning: 1,
-        physics: 1,
-        study: 1,
-        weight: 2,
-      })
+      // 计数降序；同计数按 tag 名升序
+      expect(body.tags).toEqual([
+        { tag: 'weight', count: 2 },
+        { tag: 'morning', count: 1 },
+        { tag: 'physics', count: 1 },
+        { tag: 'study', count: 1 },
+      ])
     })
 
-    it('returns empty tags object when there are no records', async () => {
-      const res = await queryTags()
+    it('filters by true prefix', async () => {
+      await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-07-30T10:00:00+08:00',
+        raw_content: 'arm day',
+        tags: ['workout:arm'],
+        objective_context: 'x',
+      }))
+      await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-07-30T11:00:00+08:00',
+        raw_content: 'leg day',
+        tags: ['workout:leg'],
+        objective_context: 'x',
+      }))
+      await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-07-30T12:00:00+08:00',
+        raw_content: 'plain note',
+        tags: ['study'],
+        objective_context: 'x',
+      }))
+
+      const res = await queryTags(jsonGet(
+        'http://localhost/api/query/tags?prefix=workout',
+      ))
       expect(res.status).toBe(200)
-      await expect(res.json()).resolves.toEqual({ success: true, tags: {} })
+      const body = await res.json()
+      expect(body.tags).toEqual([
+        { tag: 'workout:arm', count: 1 },
+        { tag: 'workout:leg', count: 1 },
+      ])
+    })
+
+    it('returns empty array when there are no records', async () => {
+      const res = await queryTags(jsonGet('http://localhost/api/query/tags'))
+      expect(res.status).toBe(200)
+      await expect(res.json()).resolves.toEqual({ success: true, tags: [] })
     })
   })
 
@@ -1295,13 +1426,13 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(res.status).toBe(200)
       await expect(res.json()).resolves.toEqual({ success: true, updated: 2 })
 
-      const tagsRes = await queryTags()
+      const tagsRes = await queryTags(jsonGet('http://localhost/api/query/tags'))
       const body = await tagsRes.json()
-      expect(body.tags).toEqual({
-        morning: 1,
-        study: 1,
-        workout: 2,
-      })
+      expect(body.tags).toEqual([
+        { tag: 'workout', count: 2 },
+        { tag: 'morning', count: 1 },
+        { tag: 'study', count: 1 },
+      ])
       expect(body.tags.exercise).toBeUndefined()
     })
 

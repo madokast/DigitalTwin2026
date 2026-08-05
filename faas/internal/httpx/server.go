@@ -509,7 +509,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, err)
 		return
 	}
-	writeJSON(w, 200, map[string]any{
+	body := map[string]any{
 		"success":    true,
 		"count":      result.Total,
 		"page":       result.Page,
@@ -517,7 +517,11 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		"sort_by":    parsed.SortBy,
 		"sort_order": parsed.SortOrder,
 		"records":    query.RecordsForResponse(result.Records),
-	})
+	}
+	if parsed.Hint != "" {
+		body["hint"] = parsed.Hint
+	}
+	writeJSON(w, 200, body)
 }
 
 func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
@@ -563,14 +567,15 @@ func (s *Server) handleTime(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
-	counts, err := query.FetchTagCounts(r.Context(), s.Pool)
+	prefix := r.URL.Query().Get("prefix")
+	counts, err := query.FetchTagCounts(r.Context(), s.Pool, prefix)
 	if err != nil {
 		log.Printf("Error aggregating tags: %v", err)
 		writeInternalError(w, err)
 		return
 	}
 	if counts == nil {
-		counts = map[string]int{}
+		counts = []tags.TagCount{}
 	}
 	writeJSON(w, 200, map[string]any{"success": true, "tags": counts})
 }

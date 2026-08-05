@@ -127,12 +127,19 @@ function parseTagsJsonArray(tagsJson: string): unknown[] {
   return parsed
 }
 
+/** 单个 tag 的计数（JSON `tag`/`count` snake_case） */
+export type TagCount = { tag: string; count: number }
+
 /**
- * 从 records.tags（JSON 字符串数组）汇总「记录条数」，按 tag 名排序返回。
- * 排序与 Go `sort.Strings` 一致：字节序（ASCII 下大写在小写前）；勿用 localeCompare。
+ * 从 records.tags（JSON 字符串数组）汇总「记录条数」，按「计数降序、同名 tag 升序」返回数组。
+ * prefix 非空时仅保留以 prefix 开头的 tag（真前缀，自动补全语义）。
+ * 排序与 Go `sort.Slice`（计数降序，同名升序）一致；tag 名比较用字节序（ASCII 下大写在小写前），勿用 localeCompare。
  * 非法 JSON / 非数组抛错（由 HTTP 映射 500）。
  */
-export function aggregateTagCounts(tagFields: string[]): Record<string, number> {
+export function aggregateTagCounts(
+  tagFields: string[],
+  prefix = '',
+): TagCount[] {
   const counts = new Map<string, number>()
 
   for (const field of tagFields) {
@@ -143,9 +150,16 @@ export function aggregateTagCounts(tagFields: string[]): Record<string, number> 
     }
   }
 
-  return Object.fromEntries(
-    [...counts.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
-  )
+  const list: TagCount[] = []
+  for (const [tag, count] of counts) {
+    if (prefix && !tag.startsWith(prefix)) continue
+    list.push({ tag, count })
+  }
+  list.sort((a, b) => {
+    if (a.count !== b.count) return b.count - a.count
+    return a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0
+  })
+  return list
 }
 
 /**

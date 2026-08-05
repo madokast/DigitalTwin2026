@@ -7,7 +7,7 @@ import {
   isValidRecordId,
   type Record as DomainRecord,
 } from '@/lib/record'
-import { aggregateTagCounts } from '@/lib/tags'
+import { aggregateTagCounts, type TagCount } from '@/lib/tags'
 import {
   getZonedDayBounds,
   isValidTimeZone,
@@ -41,9 +41,25 @@ export type ParsedQuery = {
   pageSize: number
   sortBy: SortBy
   sortOrder: SortOrder
+  /** 裸保留前缀 tag（恒空毒化交集）时给 AI 的纠正提示；无则 undefined */
+  hint?: string
 }
 
 export type ParseError = { error: string }
+
+/**
+ * `tag` 查询值仅两种合法形态：合法 tag 名（无 `*`）或族通配 `tag名:*`。
+ * 含 `*` 且非 `合法tag名:*`（裸 `*`、中间 `*`、多个 `*`、末尾无冒号）→ 400。
+ * 与 Go `query.ParseRecordQueryParams` 同文案同判定。
+ */
+export const INVALID_TAG_QUERY =
+  'Invalid tag query "%s": use a valid tag name or a family pattern "tag=review:*" (a single "*" at the end, prefix must be non-empty)'
+
+/** `*` 仅允许作为 `合法tag名:*` 尾缀；`*` 之前必须是合法 tag 名加冒号 */
+const TAG_QUERY_WILDCARD = /^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*:\*$/
+
+/** 裸值永不被写入的保留前缀：query?tag=<这些值> 恒空，应提示用族通配。body:weight 例外（裸值即真实 tag）。 */
+export const BARE_RESERVED_TAG_HINTS = ['transaction_entry', 'todo', 'review'] as const
 
 /**
  * 转义 LIKE 通配符，使字面量匹配（PostgreSQL 默认 ESCAPE '\'）。
@@ -114,6 +130,7 @@ export function parseRecordQueryParams(
 
   const conditions: SQL[] = []
   const id = searchParams.get('id')
+  let hint: string | undefined
 
   if (id) {
     if (!isValidRecordId(id)) {
@@ -130,7 +147,21 @@ export function parseRecordQueryParams(
   }
 
   for (const tag of searchParams.getAll('tag')) {
-    if (tag) {
+    if (!tag) continue
+    if (tag.includes('*')) {
+      // 仅 `合法tag名:*` 合法；其余含 `*` 形态（裸/中间/多个/无冒号尾）→ 400
+      if (!TAG_QUERY_WILDCARD.test(tag)) {
+        return { error: INVALID_TAG_QUERY.replace('%s', tag) }
+      }
+      // 族通配 `X:*` → `%"X:%`（去尾闭合引号、保留冒号）
+      conditions.push(
+        like(records.tags, `%"${escapeLikePattern(tag.slice(0, -1))}%`),
+      )
+    } else {
+      // 裸保留前缀恒空：记录首个命中，供响应加 hint（AI 纠错）
+      if (!hint && (BARE_RESERVED_TAG_HINTS as readonly string[]).includes(tag)) {
+        hint = `Use "tag=${tag}:*" to match ${tag} records (the bare tag "${tag}" is reserved and never stored)`
+      }
       conditions.push(like(records.tags, `%"${escapeLikePattern(tag)}"%`))
     }
   }
@@ -149,7 +180,7 @@ export function parseRecordQueryParams(
     )
   }
 
-  return { conditions, id, page, pageSize, sortBy, sortOrder }
+  return { conditions, id, page, pageSize, sortBy, sortOrder, hint }
 }
 
 /** 与 Go `query.FetchResult` 同构：lib 内完成 FromDB 映射 */
@@ -257,10 +288,13 @@ export async function fetchSummary(
   }
 }
 
-/** 全表 tags 字段聚合计数（与 Go FetchTagCounts 同构） */
-export async function fetchTagCounts(): Promise<Record<string, number>> {
+/** 全表 tags 字段聚合计数（与 Go FetchTagCounts 同构）；prefix 非空时真前缀过滤 */
+export async function fetchTagCounts(prefix = ''): Promise<TagCount[]> {
   const rows = await db.select({ tags: records.tags }).from(records)
-  return aggregateTagCounts(rows.map((row) => row.tags))
+  return aggregateTagCounts(
+    rows.map((row) => row.tags),
+    prefix,
+  )
 }
 
 // --- GET /api/query/transaction/summary ---

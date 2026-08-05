@@ -147,30 +147,59 @@ describe('reserved tags', () => {
 })
 
 describe('aggregateTagCounts', () => {
-  it('returns empty object for no rows', () => {
-    expect(aggregateTagCounts([])).toEqual({})
+  it('returns empty array for no rows', () => {
+    expect(aggregateTagCounts([])).toEqual([])
   })
 
-  it('counts tags across records and sorts keys lexicographically', () => {
+  it('counts tags and sorts by count desc, then tag name asc', () => {
     const result = aggregateTagCounts([
       JSON.stringify(['weight', 'morning']),
       JSON.stringify(['study', 'physics']),
       JSON.stringify(['weight']),
     ])
-    expect(Object.keys(result)).toEqual(['morning', 'physics', 'study', 'weight'])
-    expect(result).toEqual({
-      morning: 1,
-      physics: 1,
-      study: 1,
-      weight: 2,
-    })
+    expect(result).toEqual([
+      { tag: 'weight', count: 2 },
+      { tag: 'morning', count: 1 },
+      { tag: 'physics', count: 1 },
+      { tag: 'study', count: 1 },
+    ])
   })
 
-  it('sorts keys by byte order like Go sort.Strings (uppercase before lowercase)', () => {
+  it('ties break by tag name byte order (uppercase before lowercase)', () => {
     const result = aggregateTagCounts([
       JSON.stringify(['weight', 'Weight', 'apple', 'Apple']),
     ])
-    expect(Object.keys(result)).toEqual(['Apple', 'Weight', 'apple', 'weight'])
+    expect(result).toEqual([
+      { tag: 'Apple', count: 1 },
+      { tag: 'Weight', count: 1 },
+      { tag: 'apple', count: 1 },
+      { tag: 'weight', count: 1 },
+    ])
+  })
+
+  it('filters by true prefix when prefix is given', () => {
+    const result = aggregateTagCounts(
+      [
+        JSON.stringify(['body:weight', 'body:weight']),
+        JSON.stringify(['workout:arm']),
+        JSON.stringify(['morning']),
+      ],
+      'body:',
+    )
+    expect(result).toEqual([{ tag: 'body:weight', count: 2 }])
+  })
+
+  it('treats "*" in prefix literally (no wildcard parsing)', () => {
+    // `*` 不是合法 tag 字符 → 没有任何 tag 以字面 `*` 开头；
+    // 若被当通配则会返回全部 tag。断言返回空即证明未做通配解析。
+    const result = aggregateTagCounts(
+      [
+        JSON.stringify(['workout:arm']),
+        JSON.stringify(['morning']),
+      ],
+      '*',
+    )
+    expect(result).toEqual([])
   })
 
   it('throws on invalid JSON', () => {

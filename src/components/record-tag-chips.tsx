@@ -51,7 +51,7 @@ export function RecordTagChips({
       try {
         const map = await fetchTags()
         if (cancelled) return
-        setAllTags(Object.keys(map).sort())
+        setAllTags(map.map((t) => t.tag))
         setLoadError('')
       } catch (err) {
         if (cancelled) return

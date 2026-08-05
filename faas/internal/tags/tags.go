@@ -133,9 +133,16 @@ func parseTagsJSONArray(tagsJSON string) ([]any, error) {
 	return arr, nil
 }
 
-// AggregateTagCounts counts record occurrences per tag; keys sorted with sort.Strings (byte order).
+// TagCount 单个 tag 的计数（JSON `tag`/`count` snake_case）。
+type TagCount struct {
+	Tag   string `json:"tag"`
+	Count int    `json:"count"`
+}
+
+// AggregateTagCounts 汇总 tag 出现次数，按「计数降序、同名 tag 升序」返回。
+// prefix 非空时仅保留 strings.HasPrefix(tag, prefix) 的 tag（真前缀，自动补全语义）。
 // 非法 JSON / 非数组返回 error（HTTP 映射 500）。
-func AggregateTagCounts(tagFields []string) (map[string]int, error) {
+func AggregateTagCounts(tagFields []string, prefix string) ([]TagCount, error) {
 	counts := map[string]int{}
 	for _, field := range tagFields {
 		parsed, err := parseTagsJSONArray(field)
@@ -150,16 +157,20 @@ func AggregateTagCounts(tagFields []string) (map[string]int, error) {
 			counts[tag]++
 		}
 	}
-	keys := make([]string, 0, len(counts))
-	for k := range counts {
-		keys = append(keys, k)
+	list := make([]TagCount, 0, len(counts))
+	for tag, count := range counts {
+		if prefix != "" && !strings.HasPrefix(tag, prefix) {
+			continue
+		}
+		list = append(list, TagCount{Tag: tag, Count: count})
 	}
-	sort.Strings(keys)
-	ordered := make(map[string]int, len(keys))
-	for _, k := range keys {
-		ordered[k] = counts[k]
-	}
-	return ordered, nil
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].Count != list[j].Count {
+			return list[i].Count > list[j].Count
+		}
+		return list[i].Tag < list[j].Tag
+	})
+	return list, nil
 }
 
 // TagRenameAdvisoryLockKey 与 Next tagsdb.TAG_RENAME_ADVISORY_LOCK_KEY 一致。

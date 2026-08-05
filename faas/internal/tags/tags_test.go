@@ -3,6 +3,7 @@ package tags
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -152,39 +153,105 @@ func TestAggregateTagCounts(t *testing.T) {
 		`["weight","morning"]`,
 		`["study","physics"]`,
 		`["weight"]`,
-	})
+	}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got["weight"] != 2 || got["morning"] != 1 || got["study"] != 1 || got["physics"] != 1 {
-		t.Fatalf("counts: %#v", got)
+	want := []TagCount{
+		{Tag: "weight", Count: 2},
+		{Tag: "morning", Count: 1},
+		{Tag: "physics", Count: 1},
+		{Tag: "study", Count: 1},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("counts:\n got %#v\nwant %#v", got, want)
 	}
 }
 
-func TestAggregateTagCountsKeyOrderBytewise(t *testing.T) {
+func TestAggregateTagCountsEmptyReturnsEmptySlice(t *testing.T) {
+	// 与 TS `returns empty array for no rows` 对齐：空输入返回空非 nil slice（JSON []）
+	got, err := AggregateTagCounts(nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || len(got) != 0 {
+		t.Fatalf("empty input must return empty non-nil slice, got %#v", got)
+	}
+}
+
+func TestAggregateTagCountsOrderCountDescThenName(t *testing.T) {
 	got, err := AggregateTagCounts([]string{
-		`["weight","Weight","apple","Apple"]`,
-	})
+		`["a","b","b","c","c","c"]`,
+	}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	// encoding/json 与 AggregateTagCounts 均按 sort.Strings：大写在小写前
-	raw, err := json.Marshal(got)
+	// 计数降序：c(3) → b(2) → a(1)；同计数按名升序
+	want := []TagCount{
+		{Tag: "c", Count: 3},
+		{Tag: "b", Count: 2},
+		{Tag: "a", Count: 1},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("order:\n got %#v\nwant %#v", got, want)
+	}
+}
+
+func TestAggregateTagCountsTieBreakByNameAsc(t *testing.T) {
+	// 同计数次级按 tag 名升序（字节序：大写在小写前）
+	got, err := AggregateTagCounts([]string{
+		`["weight","Weight","apple","Apple","banana","Banana"]`,
+	}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"Apple":1,"Weight":1,"apple":1,"weight":1}`
-	if string(raw) != want {
-		t.Fatalf("json order:\n got %s\nwant %s", raw, want)
+	want := []TagCount{
+		{Tag: "Apple", Count: 1},
+		{Tag: "Banana", Count: 1},
+		{Tag: "Weight", Count: 1},
+		{Tag: "apple", Count: 1},
+		{Tag: "banana", Count: 1},
+		{Tag: "weight", Count: 1},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("tie-break:\n got %#v\nwant %#v", got, want)
+	}
+}
+
+func TestAggregateTagCountsPrefix(t *testing.T) {
+	got, err := AggregateTagCounts([]string{
+		`["body:weight","body:weight","workout:arm","morning"]`,
+	}, "body:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 真前缀：只留 body: 开头；workout:arm、morning 排除
+	want := []TagCount{{Tag: "body:weight", Count: 2}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("prefix:\n got %#v\nwant %#v", got, want)
+	}
+}
+
+func TestAggregateTagCountsPrefixTreatsStarLiterally(t *testing.T) {
+	// prefix 是纯字面前缀，`*` 不做通配解析：`*` 不是合法 tag 字符，
+	// 故无任何 tag 以字面 `*` 开头 → 返回空；若被当通配则会返回全部。
+	got, err := AggregateTagCounts([]string{
+		`["workout:arm","morning"]`,
+	}, "*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("literal star prefix should match nothing, got %#v", got)
 	}
 }
 
 func TestAggregateTagCountsDirtyJSON(t *testing.T) {
-	if _, err := AggregateTagCounts([]string{`not-json`}); err == nil {
+	if _, err := AggregateTagCounts([]string{`not-json`}, ""); err == nil {
 		t.Fatal("expected invalid JSON error")
 	}
 	for _, field := range []string{`{}`, `null`, `"weight"`} {
-		_, err := AggregateTagCounts([]string{field})
+		_, err := AggregateTagCounts([]string{field}, "")
 		if !errors.Is(err, ErrTagsNotJSONArray) {
 			t.Fatalf("%q: want ErrTagsNotJSONArray, got %v", field, err)
 		}

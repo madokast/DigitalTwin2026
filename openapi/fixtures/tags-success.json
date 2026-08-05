@@ -1,7 +1,7 @@
 {
   "success": true,
-  "tags": {
-    "study": 2,
-    "weight": 1
-  }
+  "tags": [
+    { "tag": "study", "count": 2 },
+    { "tag": "weight", "count": 1 }
+  ]
 }

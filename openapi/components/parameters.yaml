@@ -80,7 +80,20 @@ QueryTag:
   in: query
   required: false
   description: |
-    Repeatable. Each value requires the tag to appear in the tags JSON string.
+    Repeatable, AND-combined. Each value must be a valid tag name or a
+    family wildcard `name:*`.
+    - `tag=weight` → exact tag match (`LIKE %"weight"%`).
+    - `tag=weight:*` → family match, all tags with the `weight:` prefix
+      (`LIKE %"weight:%`; e.g. `workout:arm` matched by `workout:*`). The
+      wildcard is only valid as a trailing `:*`; a bare `*`, mid-string `*`,
+      multiple `*`, or a trailing `*` without a colon → 400
+      (`Invalid tag query "<value>": use a valid tag name or a family pattern
+      "tag=review:*" (a single "*" at the end, prefix must be non-empty)`).
+    - Querying a bare reserved prefix that is never stored (`transaction_entry`,
+      `todo`, `review`) returns 200 with empty records and a `hint` field
+      telling the caller to use `tag=<name>:*`. `body:weight` is the exception
+      (the bare tag is stored, so it matches normally and gets no hint).
+    `_` / `%` / `\` in tag are escaped for literal match (tag names may contain `_`).
     Example: `?tag=weight&tag=source:device`
   schema:
     type: string

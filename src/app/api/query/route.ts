@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     const result = await fetchFilteredRecords(parsed)
 
-    return NextResponse.json({
+    const body: Record<string, unknown> = {
       success: true,
       count: result.total,
       page: result.page,
@@ -22,7 +22,11 @@ export async function GET(request: NextRequest) {
       sort_by: parsed.sortBy,
       sort_order: parsed.sortOrder,
       records: result.records.map(toQueryRecordJson),
-    })
+    }
+    if (parsed.hint) {
+      body.hint = parsed.hint
+    }
+    return NextResponse.json(body)
   } catch (error) {
     console.error('Error querying records:', error)
     return NextResponse.json(

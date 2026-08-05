@@ -4,9 +4,9 @@
     tags: [query]
     summary: Query records with filters and pagination
     description: |
-      Filters combine with AND. Multiple `tag` query params each require that
-      tag substring match in the stored tags JSON string (`LIKE %"<tag>"%`);
-      `_` / `%` / `\` in tag are escaped for literal match (tag names may contain `_`).
+      Filters combine with AND. Each `tag` query param matches an exact tag or
+      a `name:*` family wildcard (see `QueryTag`); `_` / `%` / `\` in tag are
+      escaped for literal match (tag names may contain `_`).
       `q` searches `raw_content`, `objective_context`, `ai_analysis`, and `tags` (LIKE, same escaping).
       When `id` is set, pagination is ignored; returns 0–1 rows with `page: 1`
       and `page_size` equal to the result length (or 1 if empty).
@@ -48,11 +48,26 @@
     tags: [query]
     summary: Aggregate tag occurrence counts
     description: |
-      Returns a map of tag name → number of records containing that tag,
-      sorted lexicographically by tag name. Empty DB → `{ }`.
+      Returns tag counts as an array ordered by count descending, then tag
+      name ascending. Optional `prefix` query param filters to tags starting
+      with that string (true prefix; autocomplete — distinct from the
+      `tag=X:*` record filter on `/api/query`). Empty DB → `[]`.
       Auth: ApiToken.
     security:
       - ApiToken: []
+    parameters:
+      - name: prefix
+        in: query
+        required: false
+        description: |
+          Keep only tags starting with this string (case-sensitive true
+          prefix). `*` is treated literally (no wildcard parsing). E.g.
+          `prefix=review:` returns `review:weekly`, `review:monthly`, …
+        schema:
+          type: string
+          examples:
+            - review
+            - work
     responses:
       '200':
         description: Tag counts

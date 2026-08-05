@@ -212,8 +212,7 @@ QuerySuccess:
       description: |
         Page of matching rows. Default shape is `Record` (`happened_at` /
         `raw_content` snake_case), including audit rows tagged only
-        `todo:transition` and all non-todo rows. When a row's tags contain
-        at least one todo state tag (`todo:in_progress` | `todo:completed` |
+        `todo:transition` and all non-todo rows. When a row's tags contain        at least one todo state tag (`todo:in_progress` | `todo:completed` |
         `todo:cancelled` | `todo:paused`), that item is a `TodoRecord`
         (`created_at` / `content` instead of `happened_at` / `raw_content`).
         Dirty rows with both a state tag and `todo:transition` deform as
@@ -221,6 +220,13 @@ QuerySuccess:
         see `TodoRecord` for the alternate shape.
       items:
         $ref: '#/Record'
+    hint:
+      type: string
+      description: |
+        Present only when a `tag` query param is a bare reserved prefix that is
+        never stored (`transaction_entry`, `todo`, `review`) — the AND-combined
+        filter is then guaranteed empty. Tells the caller to use `tag=<name>:*`.
+        See `QueryTag`.
 
 SummarySuccess:
   type: object
@@ -373,14 +379,27 @@ TagsSuccess:
       type: boolean
       const: true
     tags:
-      type: object
-      additionalProperties:
-        type: integer
-        minimum: 0
-      description: Tag name → record count (keys sorted lexicographically)
+      type: array
+      description: |
+        Tag counts, ordered by count descending, then tag name ascending.
+        Optional `prefix` query param filters to tags starting with that string
+        (true prefix; used for autocomplete — distinct from the `tag=X:*`
+        family wildcard on `/api/query`, which filters records).
+      items:
+        type: object
+        required: [tag, count]
+        additionalProperties: false
+        properties:
+          tag:
+            $ref: '#/TagName'
+          count:
+            type: integer
+            minimum: 0
       examples:
-        - study: 2
-          weight: 1
+        - - tag: study
+            count: 2
+          - tag: weight
+            count: 1
 
 RenameTagsRequest:
   type: object

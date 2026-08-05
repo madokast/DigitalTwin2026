@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { fetchTags } from '@/lib/api-client'
 
 export default function TagsPage() {
-  const [tags, setTags] = useState<Record<string, number>>({})
+  const [tags, setTags] = useState<{ tag: string; count: number }[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -31,7 +31,7 @@ export default function TagsPage() {
     }
   }, [])
 
-  const entries = Object.entries(tags)
+  const entries = tags
 
   return (
     <div className="max-w-md mx-auto p-4">
@@ -45,7 +45,7 @@ export default function TagsPage() {
       )}
 
       <ul className="space-y-1">
-        {entries.map(([tag, count]) => (
+        {entries.map(({ tag, count }) => (
           <li key={tag}>
             <Link
               href={`/tags/${encodeURIComponent(tag)}`}

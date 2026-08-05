@@ -99,6 +99,99 @@ func TestParseRecordQueryParamsCompactOffset(t *testing.T) {
 	}
 }
 
+func TestParseRecordQueryParamsTagCasesSharedFixture(t *testing.T) {
+	t.Parallel()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
+	b, err := os.ReadFile(filepath.Join(root, "testdata", "tag-query-cases.json"))
+	if err != nil {
+		t.Fatalf("read shared tag-query cases: %v", err)
+	}
+	var payload struct {
+		Cases []struct {
+			Name    string `json:"name"`
+			Tag     string `json:"tag"`
+			Valid   bool   `json:"valid"`
+			Pattern string `json:"pattern"`
+			Hint    string `json:"hint"`
+			Error   string `json:"error"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(b, &payload); err != nil {
+		t.Fatalf("parse shared tag-query cases: %v", err)
+	}
+
+	for _, c := range payload.Cases {
+		p, err := ParseRecordQueryParams(url.Values{"tag": {c.Tag}})
+		if c.Valid {
+			if err != nil {
+				t.Fatalf("%s: unexpected error %v", c.Name, err)
+			}
+			if c.Hint != "" && p.Hint != c.Hint {
+				t.Fatalf("%s hint: got %q want %q", c.Name, p.Hint, c.Hint)
+			}
+			if c.Hint == "" && p.Hint != "" {
+				t.Fatalf("%s: unexpected hint %q", c.Name, p.Hint)
+			}
+			// buildWhere 里该 tag 应只产出一个 LIKE（族通配或精确）
+			where, args := buildWhere(p)
+			want := "tags LIKE $1"
+			if where != want {
+				t.Fatalf("%s where: got %q want %q", c.Name, where, want)
+			}
+			if len(args) != 1 || args[0] != c.Pattern {
+				t.Fatalf("%s pattern: got %#v want %q", c.Name, args, c.Pattern)
+			}
+		} else {
+			if err == nil || err.Error() != c.Error {
+				t.Fatalf("%s: got %v want %q", c.Name, err, c.Error)
+			}
+		}
+	}
+}
+
+func TestParseRecordQueryParamsFirstBareReservedHint(t *testing.T) {
+	// 多个 tag 时只提示第一个裸保留前缀；普通 tag 不产生 hint
+	p, err := ParseRecordQueryParams(url.Values{"tag": {"review", "todo", "work"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Hint == "" {
+		t.Fatal("want hint")
+	}
+	if len(p.Tags) != 3 {
+		t.Fatalf("tags: %+v", p.Tags)
+	}
+	// 族通配 tag 不触发 hint
+	p2, err := ParseRecordQueryParams(url.Values{"tag": {"review:*"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p2.Hint != "" {
+		t.Fatalf("wildcard must not hint: %q", p2.Hint)
+	}
+}
+
+func TestParseRecordQueryParamsTagWildcardEscaping(t *testing.T) {
+	// tag 内字面 `_` 先转义，`:*` 尾缀再翻译（pattern 保留冒号、去尾闭合引号）
+	p, err := ParseRecordQueryParams(url.Values{"tag": {"foo_bar:*"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	where, args := buildWhere(p)
+	if where != "tags LIKE $1" {
+		t.Fatalf("where: %q", where)
+	}
+	got := args[0].(string)
+	want := `%"foo\_bar:%`
+	if got != want {
+		t.Fatalf("pattern: got %q want %q", got, want)
+	}
+}
+
 func TestRecordsListOrderBySharedFixture(t *testing.T) {
 	t.Parallel()
 	_, file, _, ok := runtime.Caller(0)
