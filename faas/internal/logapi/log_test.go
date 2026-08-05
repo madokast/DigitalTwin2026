@@ -296,3 +296,51 @@ func TestOptionalAiAnalysis(t *testing.T) {
 		}
 	}
 }
+
+func TestCreateNumberBatchValidation(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			"empty entries",
+			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[]}`,
+			"entries must be a non-empty array",
+		},
+		{
+			"missing happened_at",
+			`{"entries":[{"numeric_value":"1","memo":"x"}]}`,
+			"Missing required field: happened_at",
+		},
+		{
+			"missing numeric_value",
+			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[{"memo":"x"}]}`,
+			"entries[0]: Missing required field: numeric_value",
+		},
+		{
+			"json number numeric_value",
+			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[{"numeric_value":36.8,"memo":"x"}]}`,
+			"entries[0]: numeric_value must be a decimal string",
+		},
+		{
+			"missing memo",
+			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[{"numeric_value":"1"}]}`,
+			"entries[0]: Missing required field: memo",
+		},
+		{
+			"reserved tag",
+			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[{"numeric_value":"1","memo":"x","tags":["body:weight"]}]}`,
+			`entries[0]: tag "body:weight" is reserved; use the dedicated log API for this record type`,
+		},
+	}
+	for _, c := range cases {
+		_, _, status, err := CreateNumberBatch(context.Background(), nil, []byte(c.raw))
+		if status != 400 {
+			t.Fatalf("%s: status %d", c.name, status)
+		}
+		if err == nil || err.Error() != c.want {
+			t.Fatalf("%s: got %v want %q", c.name, err, c.want)
+		}
+	}
+}

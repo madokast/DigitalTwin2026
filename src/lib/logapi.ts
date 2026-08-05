@@ -38,6 +38,7 @@ import {
   type LogTodoTransitionBody,
   type TodoState,
 } from '@/lib/tododraft'
+import { parseNumberBatch } from '@/lib/numberdraft'
 import { parseTransactionBatch, sumMoneyAmounts2, type TransactionType } from '@/lib/transactiondraft'
 import {
   parseReview,
@@ -198,6 +199,60 @@ export async function createNumber(
     return { record, status: 201 }
   } catch (err) {
     console.error('Error creating number record:', err)
+    return { error: 'Internal server error', status: 500 }
+  }
+}
+
+export type CreateNumberBatchOk = {
+  inserted: number
+  records: Record[]
+  status: 201
+}
+export type CreateNumberBatchResult = CreateNumberBatchOk | LogApiError
+
+/**
+ * 与 Go `logapi.CreateNumberBatch` 对齐：
+ * 解析委托 `parseNumberBatch`，整单事务写入。
+ * 落库：numeric_value → numeric_value；memo → objective_context；raw_content = NULL。
+ */
+export async function createNumberBatch(
+  body: unknown,
+): Promise<CreateNumberBatchResult> {
+  const parsed = parseNumberBatch(
+    body as Parameters<typeof parseNumberBatch>[0],
+  )
+  if ('error' in parsed) {
+    return { error: parsed.error, status: 400 }
+  }
+
+  try {
+    const out = await db.transaction(async (tx) => {
+      const rows: Record[] = []
+      for (const entry of parsed.entries) {
+        const result = await tx
+          .insert(records)
+          .values({
+            id: uuidv7(),
+            happenedAt: parsed.happenedAt,
+            utcOffset: parsed.utcOffset,
+            numericValue: entry.numericValue,
+            rawContent: null,
+            tags: tagsJSON(entry.tags),
+            objectiveContext: entry.objectiveContext,
+            aiAnalysis: entry.aiAnalysis,
+          })
+          .returning()
+        rows.push(fromDB(result[0]))
+      }
+      return rows
+    })
+    return {
+      inserted: out.length,
+      records: out,
+      status: 201,
+    }
+  } catch (err) {
+    console.error('Error creating number records:', err)
     return { error: 'Internal server error', status: 500 }
   }
 }

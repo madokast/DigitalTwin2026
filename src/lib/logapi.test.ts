@@ -4,6 +4,7 @@ import { INVALID_WEIGHT } from '@/lib/bodyweightdraft'
 import {
   createBodyWeight,
   createNumber,
+  createNumberBatch,
   createText,
   createTodo,
   transitionTodo,
@@ -448,6 +449,60 @@ describe('createTransactionBatch', () => {
     })
     expect(result).toEqual({
       error: `entries[0]: ${INVALID_AMOUNT}`,
+      status: 400,
+    })
+  })
+})
+
+describe('createNumberBatch', () => {
+  it('rejects empty entries', async () => {
+    const result = await createNumberBatch({
+      happened_at: '2026-08-05T10:00:00+08:00',
+      entries: [],
+    })
+    expect(result).toEqual({
+      error: 'entries must be a non-empty array',
+      status: 400,
+    })
+  })
+
+  it('rejects missing happened_at', async () => {
+    const result = await createNumberBatch({
+      entries: [{ numeric_value: '1', memo: 'x' }],
+    })
+    expect(result).toEqual({
+      error: 'Missing required field: happened_at',
+      status: 400,
+    })
+  })
+
+  it('rejects missing numeric_value with index prefix', async () => {
+    const result = await createNumberBatch({
+      happened_at: '2026-08-05T10:00:00+08:00',
+      entries: [{ memo: 'x' }],
+    })
+    expect(result).toEqual({
+      error: 'entries[0]: Missing required field: numeric_value',
+      status: 400,
+    })
+  })
+
+  it('rejects JSON number numeric_value', async () => {
+    const result = await createNumberBatch({
+      happened_at: '2026-08-05T10:00:00+08:00',
+      entries: [{ numeric_value: 36.8, memo: 'x' }],
+    })
+    expect(result.status).toBe(400)
+    expect('error' in result && result.error).toContain(NUMERIC_VALUE_MUST_BE_STRING)
+  })
+
+  it('rejects reserved tag with index prefix', async () => {
+    const result = await createNumberBatch({
+      happened_at: '2026-08-05T10:00:00+08:00',
+      entries: [{ numeric_value: '1', memo: 'x', tags: ['body:weight'] }],
+    })
+    expect(result).toEqual({
+      error: `entries[0]: ${reservedTagError('body:weight')}`,
       status: 400,
     })
   })
