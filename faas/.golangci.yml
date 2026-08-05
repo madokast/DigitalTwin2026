@@ -1,0 +1,13 @@
+# golangci-lint 配置（v1）。
+# 启用 default 集合：errcheck / gosimple / govet / ineffassign / staticcheck / unused。
+# ST1005（错误文案大写）与 ST1012（哨兵命名）已清零（契约文案小写化 + Err 前缀重命名），
+# 无需豁免——二者作为 lint 守卫拦截新的大写错误文案 / 非 Err* 哨兵命名。
+# `_ = tx.Rollback` / `defer rows.Close()` 是显式忽略，errcheck 默认放行，无需豁免。
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused

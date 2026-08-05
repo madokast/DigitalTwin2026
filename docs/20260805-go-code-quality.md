@@ -173,7 +173,7 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 
 - 低成本（改命令），立即纳入；发现 race 则修复。
 
-## 7. golangci-lint / staticcheck（ST1005 / ST1012 已清零，仅剩 S1017×2 + S1016×1）
+## 7. golangci-lint（✅ 已实现：`.golangci.yml` + CI job；ST1005/ST1012/S1017/S1016 全清零）
 
 ### 现状
 
@@ -217,8 +217,9 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 3. ~~**状态码常量**（§4）~~：✅ 已实现（`5c1c3b1`，37 处字面量 → `net/http` 常量）。
 4. ~~**handler 错误样板收敛**（§5）~~：✅ 已实现（`59b12ae`，`writeLogOrError` helper 收敛 8 处）。
 5. ~~**`go test -race`**~~（§6）：✅ 已实现（scripts + CI + README 命令加 `-race`）。
-6. ~~**`log/slog`**~~（§3）：✅ 已实现（Go `ecbc9c0` + Node pino `7dfb1a3`，规范见 AGENTS.md「日志」）；**golangci-lint**（§7）仍待做。
-7. **RFC 9457 错误响应**（§8 / error-response-shape.md）：独立破坏性改造，待决策后开工。
+6. ~~**`log/slog`**~~（§3）：✅ 已实现（Go `ecbc9c0` + Node pino `7dfb1a3`，规范见 AGENTS.md「日志」）。
+7. ~~**golangci-lint**~~（§7）：✅ 已实现（`.golangci.yml` + CI job；ST1005/ST1012 先清零，S1017×2/S1016×1 修复）。
+8. **RFC 9457 错误响应**（§8 / error-response-shape.md）：独立破坏性改造，待决策后开工。
 
 ## 相关记录
 

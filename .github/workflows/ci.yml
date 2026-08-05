@@ -58,6 +58,20 @@ jobs:
         # httpx integration 在无 DATABASE_URL 时 Skip
         run: go test ./... -count=1 -race
 
+  lint-go:
+    name: Lint (Go, golangci-lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: faas/go.mod
+          cache-dependency-path: faas/go.sum
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64
+          working-directory: faas
+
   api-integration:
     name: API integration (Node, optional)
     runs-on: ubuntu-latest
