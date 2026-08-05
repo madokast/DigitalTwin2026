@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   formatNowInZone,
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
       tz,
     })
   } catch (error) {
-    console.error('Error querying time:', error)
+    logger.error({ err: error }, 'query time')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

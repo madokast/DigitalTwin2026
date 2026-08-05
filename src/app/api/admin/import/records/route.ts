@@ -4,6 +4,7 @@
  * AdminToken（proxy）；multipart `file`；bypass readJsonBody / 256KiB 门闸。
  */
 
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   extractMultipartBoundary,
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
     )
     return response
   } catch (error) {
-    console.error('Error importing records:', error)
+    logger.error({ err: error }, 'Error importing records')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

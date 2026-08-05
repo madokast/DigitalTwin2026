@@ -24,6 +24,10 @@ const transaction = vi.fn(
     }),
 )
 
+vi.mock('@/lib/logger', () => ({
+  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
+}))
+
 vi.mock('@/db', () => ({
   default: {
     select: (...args: unknown[]) => select(...args),

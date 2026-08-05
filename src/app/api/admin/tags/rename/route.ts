@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { readJsonBody } from '@/lib/httpjson'
 import { validateRename } from '@/lib/tags'
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
       updated,
     })
   } catch (error) {
-    console.error('Error renaming tags:', error)
+    logger.error({ err: error }, 'rename tags')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

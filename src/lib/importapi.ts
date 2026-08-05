@@ -6,6 +6,7 @@
  * 成功 commit + Notify；失败 rollback、不 Notify。勿接 `readJsonBody`（须 bypass 256KiB）。
  */
 
+import { logger } from './logger'
 import { eq } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
@@ -264,7 +265,7 @@ export async function importRecordsJsonl(
     if (err instanceof ImportDomainError) {
       return { ok: false, error: err.message, status: err.status }
     }
-    console.error('Error importing records:', err)
+    logger.error({ err }, 'import records')
     return { ok: false, error: 'Internal server error', status: 500 }
   }
 }

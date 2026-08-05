@@ -3,6 +3,7 @@
  * 录入路径只调本模块；probe 仍走各渠道 send*，不经 notify_user。
  */
 
+import { logger } from './logger'
 import { after } from 'next/server'
 import {
   formatNumberBatchMessage,
@@ -130,7 +131,7 @@ export async function notify_user(
           fetch: fetchFn,
         })
         if (!result.ok) {
-          console.error('Telegram notify failed:', result.error)
+          logger.error({ err: result.error }, 'notify failed')
         }
       })(),
     )
@@ -144,14 +145,14 @@ export async function notify_user(
           fetch: fetchFn,
         })
         if (!result.ok) {
-          console.error('QQ Bot notify failed:', result.error)
+          logger.error({ err: result.error }, 'notify failed')
         }
       })(),
     )
   }
 
   if (tasks.length === 0) {
-    console.warn('Notify skipped: no channels configured')
+    logger.warn({ reason: 'no channels configured' }, 'notify skipped')
     return
   }
 

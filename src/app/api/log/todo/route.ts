@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createTodo } from '@/lib/logapi'
 import type { LogTodoBody } from '@/lib/tododraft'
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
       { status: result.status },
     )
   } catch (error) {
-    console.error('Error creating to-do record:', error)
+    logger.error({ err: error }, 'Error creating to-do record')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

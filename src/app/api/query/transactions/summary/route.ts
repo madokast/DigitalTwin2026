@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   fetchTransactionsSummary,
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result)
   } catch (error) {
-    console.error('Error querying transaction summary:', error)
+    logger.error({ err: error }, 'query transaction summary')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

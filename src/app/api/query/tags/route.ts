@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchTagCounts } from '@/lib/query'
 
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
       tags,
     })
   } catch (error) {
-    console.error('Error aggregating tags:', error)
+    logger.error({ err: error }, 'aggregate tags')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

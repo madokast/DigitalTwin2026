@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { readJsonBody } from '@/lib/httpjson'
 import { createNumberBatch } from '@/lib/logapi'
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
       { status: result.status },
     )
   } catch (error) {
-    console.error('Error creating number records:', error)
+    logger.error({ err: error }, 'Error creating number records')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

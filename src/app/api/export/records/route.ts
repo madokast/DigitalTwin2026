@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   buildExportNdjson,
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
     scheduleBestEffortNotify(() => notify_user(notifyText))
     return response
   } catch (error) {
-    console.error('Error exporting records:', error)
+    logger.error({ err: error }, 'export records')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

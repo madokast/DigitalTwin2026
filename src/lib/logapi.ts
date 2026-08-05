@@ -2,6 +2,7 @@
  * log 录入：校验 + Drizzle 写入；与 Go `faas/internal/logapi` 同构。
  * Telegram 不在此包——由 HTTP route 在成功后 best-effort 调用。
  */
+import { logger } from './logger'
 import { eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
@@ -167,7 +168,7 @@ export async function createNumberBatch(
       status: 201,
     }
   } catch (err) {
-    console.error('Error creating number records:', err)
+    logger.error({ err }, 'Error creating number records')
     return { error: 'Internal server error', status: 500 }
   }
 }
@@ -197,7 +198,7 @@ export async function createBodyWeight(
     })
     return { record, status: 201 }
   } catch (err) {
-    console.error('Error creating body weight record:', err)
+    logger.error({ err }, 'Error creating body weight record')
     return { error: 'Internal server error', status: 500 }
   }
 }
@@ -227,7 +228,7 @@ export async function createTodo(
     })
     return { record, status: 201 }
   } catch (err) {
-    console.error('Error creating to-do record:', err)
+    logger.error({ err }, 'Error creating to-do record')
     return { error: 'Internal server error', status: 500 }
   }
 }
@@ -328,7 +329,7 @@ export async function transitionTodo(
       status: 200,
     }
   } catch (err) {
-    console.error('Error transitioning to-do:', err)
+    logger.error({ err }, 'Error transitioning to-do')
     return { error: 'Internal server error', status: 500 }
   }
 }
@@ -386,7 +387,7 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     })
     return { record, status: 201 }
   } catch (err) {
-    console.error('Error creating text record:', err)
+    logger.error({ err }, 'Error creating text record')
     return { error: 'Internal server error', status: 500 }
   }
 }
@@ -416,7 +417,7 @@ export async function createReview(
     })
     return { record, status: 201 }
   } catch (err) {
-    console.error('Error creating review record:', err)
+    logger.error({ err }, 'Error creating review record')
     return { error: 'Internal server error', status: 500 }
   }
 }
@@ -464,7 +465,7 @@ export async function createTransactionBatch(
       status: 201,
     }
   } catch (err) {
-    console.error('Error creating transaction records:', err)
+    logger.error({ err }, 'Error creating transaction records')
     return { error: 'Internal server error', status: 500 }
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   fetchFilteredRecords,
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(body)
   } catch (error) {
-    console.error('Error querying records:', error)
+    logger.error({ err: error }, 'query records')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

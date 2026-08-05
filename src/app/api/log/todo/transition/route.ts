@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { transitionTodo } from '@/lib/logapi'
 import type { LogTodoTransitionBody } from '@/lib/tododraft'
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
       { status: result.status },
     )
   } catch (error) {
-    console.error('Error transitioning to-do:', error)
+    logger.error({ err: error }, 'Error transitioning to-do')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { logger } from '@/lib/logger'
+
+vi.mock('@/lib/logger', () => ({
+  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
+}))
+
 import {
   NOTIFY_MESSAGE_MAX_LEN,
   NOTIFY_TRUNCATION_SUFFIX,
@@ -128,14 +134,17 @@ describe('notify_user', () => {
   })
 
   it('warns when no channels configured', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     const fetchMock = vi.fn()
     await notify_user('hello', {
       env: { SUPPRESS_BOT_NOTIFICATION: '0' },
       fetch: fetchMock,
     })
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(warn).toHaveBeenCalledWith('Notify skipped: no channels configured')
+    expect(warn).toHaveBeenCalledWith(
+      { reason: 'no channels configured' },
+      'notify skipped',
+    )
   })
 
   it('sends Telegram only when only Telegram is configured', async () => {
@@ -281,7 +290,7 @@ describe('notify_user', () => {
   })
 
   it('logs channel failure without throwing', async () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const error = vi.spyOn(logger, 'error').mockImplementation(() => {})
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
@@ -303,7 +312,7 @@ describe('notify_user', () => {
 
 describe('notifyRecordInserted', () => {
   it('skips when unconfigured and does not call fetch', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     const fetchMock = vi.fn()
     await notifyRecordInserted(sampleNumber, {
       env: { SUPPRESS_BOT_NOTIFICATION: '0' },
