@@ -53,10 +53,16 @@ func TestAuthRequired(t *testing.T) {
 	if rr.Code != 401 {
 		t.Fatalf("status %d", rr.Code)
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != auth.UnauthorizedMessage {
+	if body["detail"] != auth.UnauthorizedMessage {
 		t.Fatalf("body: %v", body)
+	}
+	if rr.Header().Get("Content-Type") != "application/problem+json" {
+		t.Fatalf("401 content-type %q", rr.Header().Get("Content-Type"))
+	}
+	if body["title"] != "Unauthorized" || body["status"] != float64(401) || body["success"] != false {
+		t.Fatalf("401 problem+json shape %v", body)
 	}
 }
 
@@ -70,13 +76,16 @@ func TestJSONNotFoundAndMethodNotAllowed(t *testing.T) {
 	if rr404.Code != 404 {
 		t.Fatalf("404 status %d body %s", rr404.Code, rr404.Body.String())
 	}
-	if rr404.Header().Get("Content-Type") != "application/json" {
+	if rr404.Header().Get("Content-Type") != "application/problem+json" {
 		t.Fatalf("404 content-type %q", rr404.Header().Get("Content-Type"))
 	}
-	var body404 map[string]string
+	var body404 map[string]any
 	_ = json.Unmarshal(rr404.Body.Bytes(), &body404)
-	if body404["error"] != "Not found" {
+	if body404["detail"] != "Not found" {
 		t.Fatalf("404 body %v", body404)
+	}
+	if body404["title"] != "Not Found" || body404["status"] != float64(404) || body404["success"] != false {
+		t.Fatalf("404 problem+json shape %v", body404)
 	}
 
 	req405 := httptest.NewRequest(http.MethodGet, "/api/log/numbers", nil)
@@ -86,9 +95,9 @@ func TestJSONNotFoundAndMethodNotAllowed(t *testing.T) {
 	if rr405.Code != 405 {
 		t.Fatalf("405 status %d body %s", rr405.Code, rr405.Body.String())
 	}
-	var body405 map[string]string
+	var body405 map[string]any
 	_ = json.Unmarshal(rr405.Body.Bytes(), &body405)
-	if body405["error"] != "Method not allowed" {
+	if body405["detail"] != "Method not allowed" {
 		t.Fatalf("405 body %v", body405)
 	}
 	if !strings.Contains(rr405.Header().Get("Allow"), "POST") {
@@ -135,9 +144,9 @@ func TestLogNumberValidationWithoutDB(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if !strings.Contains(body["error"], "happened_at") {
+	if !strings.Contains(body["detail"].(string), "happened_at") {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -170,9 +179,9 @@ func TestLogRejectsSuppressNotificationAsUnknownKeyWithoutDB(t *testing.T) {
 			if rr.Code != 400 {
 				t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 			}
-			var body map[string]string
+			var body map[string]any
 			_ = json.Unmarshal(rr.Body.Bytes(), &body)
-			if body["error"] != "Unknown JSON key: suppress_notification" {
+			if body["detail"] != "Unknown JSON key: suppress_notification" {
 				t.Fatalf("error: %v", body)
 			}
 		})
@@ -190,9 +199,9 @@ func TestWriteEndpointsRejectBodyLargerThan256KiB(t *testing.T) {
 	if rr.Code != 413 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != BodyTooLargeMessage {
+	if body["detail"] != BodyTooLargeMessage {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -250,9 +259,9 @@ func TestWriteEndpointsRejectTrailingGarbageAfterJSON(t *testing.T) {
 		if rr.Code != 400 {
 			t.Fatalf("%s %s: status %d body %s", tc.method, tc.path, rr.Code, rr.Body.String())
 		}
-		var body map[string]string
+		var body map[string]any
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if body["error"] != "invalid JSON body" {
+		if body["detail"] != "invalid JSON body" {
 			t.Fatalf("%s %s: error %v", tc.method, tc.path, body)
 		}
 	}
@@ -284,9 +293,9 @@ func TestWriteEndpointsRejectNonObjectJSON(t *testing.T) {
 			if rr.Code != 400 {
 				t.Fatalf("%s %s body=%s: status %d", tc.method, tc.path, payload, rr.Code)
 			}
-			var body map[string]string
+			var body map[string]any
 			_ = json.Unmarshal(rr.Body.Bytes(), &body)
-			if body["error"] != "request body must be a JSON object" {
+			if body["detail"] != "request body must be a JSON object" {
 				t.Fatalf("%s %s body=%s: error %v", tc.method, tc.path, payload, body)
 			}
 		}
@@ -309,9 +318,9 @@ func TestImportRecordsRejectsMissingOrMalformedBoundary(t *testing.T) {
 		if rr.Code != 400 {
 			t.Fatalf("Content-Type %q: status %d body %s", ct, rr.Code, rr.Body.String())
 		}
-		var body map[string]string
+		var body map[string]any
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if body["error"] != importapi.ErrMultipartContentType.Error() {
+		if body["detail"] != importapi.ErrMultipartContentType.Error() {
 			t.Fatalf("Content-Type %q: error %v", ct, body)
 		}
 	}
@@ -332,10 +341,10 @@ func TestLogNumberRejectsMissingTimezone(t *testing.T) {
 		if rr.Code != 400 {
 			t.Fatalf("%q status %d body %s", happened, rr.Code, rr.Body.String())
 		}
-		var body map[string]string
+		var body map[string]any
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
 		want := "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)"
-		if body["error"] != want {
+		if body["detail"] != want {
 			t.Fatalf("%q error: %v", happened, body)
 		}
 	}
@@ -356,10 +365,10 @@ func TestLogTextRejectsMissingTimezone(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
 	want := "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)"
-	if body["error"] != want {
+	if body["detail"] != want {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -379,10 +388,10 @@ func TestLogTextRejectsReservedTag(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
 	want := `tag "transaction_entry" is reserved; use the dedicated log API for this record type`
-	if body["error"] != want {
+	if body["detail"] != want {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -402,10 +411,10 @@ func TestLogTextRejectsReviewReservedTag(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
 	want := `tag "review:weekly" is reserved; use the dedicated log API for this record type`
-	if body["error"] != want {
+	if body["detail"] != want {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -424,9 +433,9 @@ func TestLogReviewRejectsMissingCadence(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "missing required field: cadence" {
+	if body["detail"] != "missing required field: cadence" {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -447,9 +456,9 @@ func TestLogReviewRejectsInvalidCadence(t *testing.T) {
 		if rr.Code != 400 {
 			t.Fatalf("%q: status %d body %s", cadence, rr.Code, rr.Body.String())
 		}
-		var body map[string]string
+		var body map[string]any
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if body["error"] != "invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly" {
+		if body["detail"] != "invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly" {
 			t.Fatalf("%q: error %v", cadence, body)
 		}
 	}
@@ -471,10 +480,10 @@ func TestLogReviewRejectsReservedTag(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
 	want := `tag "review:weekly" is reserved; use the dedicated log API for this record type`
-	if body["error"] != want {
+	if body["detail"] != want {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -495,9 +504,9 @@ func TestLogReviewRejectsUnknownKey(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "Unknown JSON key: numeric_value" {
+	if body["detail"] != "Unknown JSON key: numeric_value" {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -517,9 +526,9 @@ func TestLogReviewRejectsBlankRawContent(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "raw_content must not be blank" {
+	if body["detail"] != "raw_content must not be blank" {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -538,10 +547,10 @@ func TestLogNumberRejectsWhitespacePaddedTag(t *testing.T) {
 		if rr.Code != 400 {
 			t.Fatalf("%q: status %d body %s", bad, rr.Code, rr.Body.String())
 		}
-		var body map[string]string
+		var body map[string]any
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if !strings.Contains(body["error"], "invalid tag") {
-			t.Fatalf("%q: error %v", bad, body["error"])
+		if !strings.Contains(body["detail"].(string), "invalid tag") {
+			t.Fatalf("%q: error %v", bad, body["detail"])
 		}
 	}
 }
@@ -559,10 +568,10 @@ func TestLogNumberRejectsBodyWeightReservedTag(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
 	want := `entries[0]: tag "body:weight" is reserved; use the dedicated log API for this record type`
-	if body["error"] != want {
+	if body["detail"] != want {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -580,10 +589,10 @@ func TestLogNumberRejectsTodoReservedTag(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
 	want := `entries[0]: tag "todo:in_progress" is reserved; use the dedicated log API for this record type`
-	if body["error"] != want {
+	if body["detail"] != want {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -602,9 +611,9 @@ func TestLogBodyWeightRejectsJSONNumber(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "numeric_value must be a decimal string" {
+	if body["detail"] != "numeric_value must be a decimal string" {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -631,9 +640,9 @@ func TestRenameTagsRejectsReservedTag(t *testing.T) {
 		if rr.Code != 400 {
 			t.Fatalf("%s status %d body %s", tc.payload, rr.Code, rr.Body.String())
 		}
-		var body map[string]string
+		var body map[string]any
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if body["error"] != tc.want {
+		if body["detail"] != tc.want {
 			t.Fatalf("%s error: %v", tc.payload, body)
 		}
 	}
@@ -657,9 +666,9 @@ func TestSummaryInvalidTZWithoutDB(t *testing.T) {
 		if rr.Code != 400 {
 			t.Fatalf("tz=%s status %d body %s", tz, rr.Code, rr.Body.String())
 		}
-		var body map[string]string
+		var body map[string]any
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if body["error"] != "query parameter tz must be a valid IANA time zone" {
+		if body["detail"] != "query parameter tz must be a valid IANA time zone" {
 			t.Fatalf("tz=%s error=%v", tz, body)
 		}
 	}
@@ -689,9 +698,9 @@ func TestTagQueryWildcardAndHintWithoutDB(t *testing.T) {
 		if code != 400 {
 			t.Fatalf("%s status %d body %v", url, code, body)
 		}
-		errMsg, _ := body["error"].(string)
+		errMsg, _ := body["detail"].(string)
 		if !strings.Contains(errMsg, "invalid tag query") {
-			t.Fatalf("%s error=%v", url, body["error"])
+			t.Fatalf("%s error=%v", url, body["detail"])
 		}
 	}
 	// hint 行为依赖 DB（恒空交集），在 integration_test.go 有库场景断言；
@@ -734,7 +743,7 @@ func TestTimeEndpointWithoutDB(t *testing.T) {
 		if code != 400 {
 			t.Fatalf("%s status %d body %v", url, code, body)
 		}
-		if body["error"] != "query parameter tz must be a valid IANA time zone" {
+		if body["detail"] != "query parameter tz must be a valid IANA time zone" {
 			t.Fatalf("%s error=%v", url, body)
 		}
 	}
@@ -762,9 +771,9 @@ func TestTransactionsSummaryMissingParamsWithoutDB(t *testing.T) {
 		if rr.Code != 400 {
 			t.Fatalf("%s status %d body %s", tc.url, rr.Code, rr.Body.String())
 		}
-		var body map[string]string
+		var body map[string]any
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if body["error"] != tc.want {
+		if body["detail"] != tc.want {
 			t.Fatalf("%s error=%v want %q", tc.url, body, tc.want)
 		}
 	}
@@ -802,9 +811,9 @@ func TestTelegramProbeNotConfigured(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if !strings.Contains(body["error"], "TELEGRAM_BOT_TOKEN") {
+	if !strings.Contains(body["detail"].(string), "TELEGRAM_BOT_TOKEN") {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -841,9 +850,9 @@ func TestTelegramProbeMalformedJSON(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "invalid JSON body" {
+	if body["detail"] != "invalid JSON body" {
 		t.Fatalf("error: %v", body)
 	}
 	if botCalls.Load() != 0 {
@@ -935,9 +944,9 @@ func TestQqbotProbeNotConfigured(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if !strings.Contains(body["error"], "QQBOT_APP_ID") {
+	if !strings.Contains(body["detail"].(string), "QQBOT_APP_ID") {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -983,9 +992,9 @@ func TestQqbotProbeMalformedJSON(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "invalid JSON body" {
+	if body["detail"] != "invalid JSON body" {
 		t.Fatalf("error: %v", body)
 	}
 	if tokenCalls.Load() != 0 || sendCalls.Load() != 0 {
@@ -1089,9 +1098,9 @@ func TestDbProbeMissingDatabaseURL(t *testing.T) {
 	if rr.Code != 503 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "DATABASE_URL is not set" {
+	if body["detail"] != "DATABASE_URL is not set" {
 		t.Fatalf("body: %v", body)
 	}
 }
@@ -1115,11 +1124,11 @@ func TestWriteInternalErrorNeverExposesDetails(t *testing.T) {
 	if rr.Code != 500 {
 		t.Fatalf("status %d", rr.Code)
 	}
-	var body map[string]string
+	var body map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body["error"] != "Internal server error" {
-		t.Fatalf("leaked internal detail: %q", body["error"])
+	if body["detail"] != "Internal server error" {
+		t.Fatalf("leaked internal detail: %q", body["detail"])
 	}
 }

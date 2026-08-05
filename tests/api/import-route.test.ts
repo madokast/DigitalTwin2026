@@ -36,7 +36,10 @@ describe('POST /api/admin/import/records boundary gate', () => {
     const res = await importRecords(rawPost('application/json', '{}'))
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'expected Content-Type multipart/form-data',
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'expected Content-Type multipart/form-data',
     })
   })
 
@@ -44,7 +47,10 @@ describe('POST /api/admin/import/records boundary gate', () => {
     const res = await importRecords(rawPost('multipart/form-data', 'x'))
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'expected Content-Type multipart/form-data',
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'expected Content-Type multipart/form-data',
     })
   })
 
@@ -52,7 +58,10 @@ describe('POST /api/admin/import/records boundary gate', () => {
     const res = await importRecords(rawPost('multipart/form-data; boundary=', 'x'))
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'expected Content-Type multipart/form-data',
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'expected Content-Type multipart/form-data',
     })
   })
 
@@ -62,7 +71,10 @@ describe('POST /api/admin/import/records boundary gate', () => {
     )
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'expected Content-Type multipart/form-data',
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'expected Content-Type multipart/form-data',
     })
   })
 })
@@ -79,7 +91,10 @@ describe('POST /api/admin/import/records non-file part size gate', () => {
     )
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'multipart non-file part exceeds size limit (max 4 MiB)',
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'multipart non-file part exceeds size limit (max 4 MiB)',
     })
   })
 
@@ -102,7 +117,10 @@ describe('POST /api/admin/import/records non-file part size gate', () => {
     )
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'multipart non-file part exceeds size limit (max 4 MiB)',
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'multipart non-file part exceeds size limit (max 4 MiB)',
     })
   })
 
@@ -115,7 +133,10 @@ describe('POST /api/admin/import/records non-file part size gate', () => {
     )
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'multipart form field "file" is required',
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'multipart form field "file" is required',
     })
   })
 
@@ -128,8 +149,10 @@ describe('POST /api/admin/import/records non-file part size gate', () => {
     )
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error:
-        'unsupported file Content-Type; use application/x-ndjson, application/jsonl, or application/octet-stream with a .jsonl filename',
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'unsupported file Content-Type; use application/x-ndjson, application/jsonl, or application/octet-stream with a .jsonl filename',
     })
   })
 })

@@ -73,7 +73,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(res.status).toBe(400)
       const body = await res.json()
-      expect(body.error).toContain('happened_at')
+      expect(body.detail).toContain('happened_at')
     })
 
     it('rejects suppress_notification as unknown top-level key', async () => {
@@ -82,7 +82,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         suppress_notification: true,
       } as Record<string, unknown>))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
+      expect((await res.json()).detail).toBe(
         'Unknown JSON key: suppress_notification',
       )
     })
@@ -92,7 +92,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ tags })))
         expect(res.status, JSON.stringify(tags)).toBe(400)
         const body = await res.json()
-        expect(body.error, JSON.stringify(tags)).toContain('invalid tag')
+        expect(body.detail, JSON.stringify(tags)).toContain('invalid tag')
       }
     })
 
@@ -159,7 +159,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('rejects entry unknown key with index prefix', async () => {
       const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ raw_content: 'x' })))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
+      expect((await res.json()).detail).toBe(
         'entries[0]: Unknown JSON key: raw_content',
       )
     })
@@ -171,7 +171,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
           entries: [{ numeric_value: '1', memo: 'x' }],
         }))
         expect(res.status).toBe(400)
-        expect((await res.json()).error).toBe(
+        expect((await res.json()).detail).toBe(
           'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
         )
       }
@@ -180,7 +180,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('rejects JSON number type for numeric_value with index prefix', async () => {
       const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ numeric_value: 75.5 })))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
+      expect((await res.json()).detail).toBe(
         'entries[0]: numeric_value must be a decimal string',
       )
     })
@@ -189,7 +189,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       for (const bad of ['1e3', '1.', '+1']) {
         const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ numeric_value: bad })))
         expect(res.status).toBe(400)
-        expect((await res.json()).error).toBe(
+        expect((await res.json()).detail).toBe(
           'entries[0]: invalid numeric_value',
         )
       }
@@ -201,7 +201,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         entries: [{ numeric_value: '1' }],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
+      expect((await res.json()).detail).toBe(
         'entries[0]: missing required field: memo',
       )
     })
@@ -209,7 +209,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('rejects reserved entry tag with index prefix', async () => {
       const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ tags: ['body:weight'] })))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
+      expect((await res.json()).detail).toBe(
         `entries[0]: ${reservedTagError('body:weight')}`,
       )
     })
@@ -220,7 +220,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         entries: [],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
+      expect((await res.json()).detail).toBe(
         'entries must be a non-empty array',
       )
     })
@@ -235,7 +235,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         entries: many,
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
+      expect((await res.json()).detail).toBe(
         'entries must contain at most 100 items',
       )
     })
@@ -250,7 +250,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(res.status).toBe(400)
       const body = await res.json()
-      expect(body.error).toContain('raw_content')
+      expect(body.detail).toContain('raw_content')
     })
 
     it('returns 400 when happened_at lacks timezone', async () => {
@@ -261,7 +261,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'x',
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
+      expect((await res.json()).detail).toBe(
         'happened_at must be ISO 8601 with timezone (Z or ±HH:MM)',
       )
     })
@@ -289,7 +289,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'x',
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(reservedTagError('transaction_entry'))
+      expect((await res.json()).detail).toBe(reservedTagError('transaction_entry'))
     })
 
     it('rejects review reserved tag (only /api/log/review can write it)', async () => {
@@ -300,7 +300,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'x',
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(reservedTagError('review:weekly'))
+      expect((await res.json()).detail).toBe(reservedTagError('review:weekly'))
     })
   })
 
@@ -355,7 +355,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         jsonPost('http://localhost/api/log/review', withoutCadence),
       )
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('missing required field: cadence')
+      expect((await res.json()).detail).toBe('missing required field: cadence')
     })
 
     it('rejects invalid cadence with all allowed values', async () => {
@@ -367,7 +367,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
           }),
         )
         expect(res.status, cadence).toBe(400)
-        expect((await res.json()).error).toBe(
+        expect((await res.json()).detail).toBe(
           'invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly',
         )
       }
@@ -381,7 +381,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         }),
       )
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(reservedTagError('review:weekly'))
+      expect((await res.json()).detail).toBe(reservedTagError('review:weekly'))
     })
 
     it('rejects numeric_value as unknown key', async () => {
@@ -392,7 +392,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         }),
       )
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('Unknown JSON key: numeric_value')
+      expect((await res.json()).detail).toBe('Unknown JSON key: numeric_value')
     })
 
     it('rejects blank raw_content', async () => {
@@ -403,7 +403,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         }),
       )
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('raw_content must not be blank')
+      expect((await res.json()).detail).toBe('raw_content must not be blank')
     })
   })
 
@@ -415,7 +415,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         entries: [],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('entries must be a non-empty array')
+      expect((await res.json()).detail).toBe('entries must be a non-empty array')
     })
 
     it('inserts multiple rows and returns inserted count only', async () => {
@@ -473,7 +473,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         ],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
+      expect((await res.json()).detail).toBe(
         'entries[0]: invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5',
       )
     })
@@ -484,7 +484,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         entries: [{ numeric_value: '1', memo: 'x', tags: ['transaction_entry'] }],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(`entries[0]: ${reservedTagError('transaction_entry')}`)
+      expect((await res.json()).detail).toBe(`entries[0]: ${reservedTagError('transaction_entry')}`)
     })
 
     it('rejects reserved prefixed tag on log/numbers', async () => {
@@ -493,7 +493,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         entries: [{ numeric_value: '1', memo: 'x', tags: ['transaction_entry:income'] }],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(`entries[0]: ${reservedTagError('transaction_entry:income')}`)
+      expect((await res.json()).detail).toBe(`entries[0]: ${reservedTagError('transaction_entry:income')}`)
     })
 
     it('rejects body:weight reserved tag on log/numbers', async () => {
@@ -502,7 +502,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         entries: [{ numeric_value: '1', memo: 'x', tags: ['body:weight'] }],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(`entries[0]: ${reservedTagError('body:weight')}`)
+      expect((await res.json()).detail).toBe(`entries[0]: ${reservedTagError('body:weight')}`)
     })
 
     it('rejects todo reserved tag on log/numbers', async () => {
@@ -511,7 +511,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         entries: [{ numeric_value: '1', memo: 'x', tags: ['todo'] }],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(`entries[0]: ${reservedTagError('todo')}`)
+      expect((await res.json()).detail).toBe(`entries[0]: ${reservedTagError('todo')}`)
     })
 
     it('rejects todo:in_progress reserved tag on log/numbers', async () => {
@@ -520,7 +520,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         entries: [{ numeric_value: '1', memo: 'x', tags: ['todo:in_progress'] }],
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(`entries[0]: ${reservedTagError('todo:in_progress')}`)
+      expect((await res.json()).detail).toBe(`entries[0]: ${reservedTagError('todo:in_progress')}`)
     })
   })
 
@@ -549,7 +549,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'x',
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('numeric_value must be a decimal string')
+      expect((await res.json()).detail).toBe('numeric_value must be a decimal string')
     })
 
     it('rejects out-of-range weight', async () => {
@@ -559,7 +559,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'x',
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
+      expect((await res.json()).detail).toBe(
         'invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50',
       )
     })
@@ -592,7 +592,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'x',
       }))
       expect(missing.status).toBe(400)
-      expect((await missing.json()).error).toBe('missing required field: content')
+      expect((await missing.json()).detail).toBe('missing required field: content')
 
       const reserved = await postTodo(jsonPost('http://localhost/api/log/todo', {
         created_at: '2026-08-02T10:00:00+08:00',
@@ -601,7 +601,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         tags: ['todo'],
       }))
       expect(reserved.status).toBe(400)
-      expect((await reserved.json()).error).toBe(reservedTagError('todo'))
+      expect((await reserved.json()).detail).toBe(reservedTagError('todo'))
     })
 
     it('rejects happened_at as unknown key', async () => {
@@ -612,7 +612,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'x',
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('Unknown JSON key: happened_at')
+      expect((await res.json()).detail).toBe('Unknown JSON key: happened_at')
     })
 
     it('rejects utc_offset as unknown key', async () => {
@@ -623,7 +623,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         utc_offset: '+08:00',
       }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('Unknown JSON key: utc_offset')
+      expect((await res.json()).detail).toBe('Unknown JSON key: utc_offset')
     })
   })
 
@@ -719,7 +719,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         },
       ))
       expect(missing.status).toBe(404)
-      expect((await missing.json()).error).toBe('to-do not found')
+      expect((await missing.json()).detail).toBe('to-do not found')
 
       const text = await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-08-02T10:00:00+08:00',
@@ -738,7 +738,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         },
       ))
       expect(notTodo.status).toBe(400)
-      expect((await notTodo.json()).error).toBe('record is not a to-do')
+      expect((await notTodo.json()).detail).toBe('record is not a to-do')
 
       const done = await postTodoTransition(jsonPost(
         'http://localhost/api/log/todo/transition',
@@ -770,7 +770,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         },
       ))
       expect(onAudit.status).toBe(400)
-      expect((await onAudit.json()).error).toBe(
+      expect((await onAudit.json()).detail).toBe(
         'cannot transition a to-do audit record',
       )
 
@@ -783,7 +783,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         },
       ))
       expect(already.status).toBe(400)
-      expect((await already.json()).error).toBe(
+      expect((await already.json()).detail).toBe(
         'to-do is already in target state',
       )
     })
@@ -799,7 +799,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         },
       ))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('Unknown JSON key: created_at')
+      expect((await res.json()).detail).toBe('Unknown JSON key: created_at')
     })
   })
 
@@ -826,7 +826,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const invalid = await adminRecordsStats(jsonGet('http://localhost/api/admin/records/stats?tz=Not%2FAZone'))
       expect(invalid.status).toBe(400)
       const body = await invalid.json()
-      expect(body.error).toBeTruthy()
+      expect(body.detail).toBeTruthy()
     })
 
     it('counts today differently across time zones at day boundary', async () => {
@@ -919,7 +919,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         const res = await getTime(jsonGet(url))
         expect(res.status, url).toBe(400)
         const body = await res.json()
-        expect(body.error, url).toBe(
+        expect(body.detail, url).toBe(
           'query parameter tz must be a valid IANA time zone',
         )
       }
@@ -1106,7 +1106,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         const res = await queryRecords(jsonGet(url))
         expect(res.status, url).toBe(400)
         const body = await res.json()
-        expect(body.error, url).toMatch(/^invalid tag query/)
+        expect(body.detail, url).toMatch(/^invalid tag query/)
       }
     })
 
@@ -1213,14 +1213,14 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       )
       expect(dateOnly.status).toBe(400)
       const dateOnlyBody = await dateOnly.json()
-      expect(dateOnlyBody.error).toMatch(/timezone/i)
+      expect(dateOnlyBody.detail).toMatch(/timezone/i)
 
       const noOffset = await queryRecords(
         jsonGet('http://localhost/api/query?from=2026-07-30T00:00:00'),
       )
       expect(noOffset.status).toBe(400)
       const noOffsetBody = await noOffset.json()
-      expect(noOffsetBody.error).toMatch(/timezone/i)
+      expect(noOffsetBody.detail).toMatch(/timezone/i)
     })
 
     it('accepts from/to with Z or +08:00', async () => {
@@ -1372,21 +1372,21 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         to: 'legacy_tx',
       }))
       expect(fromRes.status).toBe(400)
-      expect((await fromRes.json()).error).toBe(reservedTagError('transaction_entry'))
+      expect((await fromRes.json()).detail).toBe(reservedTagError('transaction_entry'))
 
       const toRes = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
         from: 'food',
         to: 'transaction_entry',
       }))
       expect(toRes.status).toBe(400)
-      expect((await toRes.json()).error).toBe(reservedTagError('transaction_entry'))
+      expect((await toRes.json()).detail).toBe(reservedTagError('transaction_entry'))
 
       const prefixed = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
         from: 'transaction_entry:income',
         to: 'legacy_tx',
       }))
       expect(prefixed.status).toBe(400)
-      expect((await prefixed.json()).error).toBe(
+      expect((await prefixed.json()).detail).toBe(
         reservedTagError('transaction_entry:income'),
       )
 
@@ -1395,14 +1395,14 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         to: 'errand',
       }))
       expect(todoFrom.status).toBe(400)
-      expect((await todoFrom.json()).error).toBe(reservedTagError('todo'))
+      expect((await todoFrom.json()).detail).toBe(reservedTagError('todo'))
 
       const todoTo = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
         from: 'errand',
         to: 'todo:in_progress',
       }))
       expect(todoTo.status).toBe(400)
-      expect((await todoTo.json()).error).toBe(reservedTagError('todo:in_progress'))
+      expect((await todoTo.json()).detail).toBe(reservedTagError('todo:in_progress'))
     })
   })
 
@@ -1426,7 +1426,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         jsonGet('http://localhost/api/export/records'),
       )
       expect(missing.status).toBe(400)
-      expect((await missing.json()).error).toBe(
+      expect((await missing.json()).detail).toBe(
         'limit must be an integer between 1 and 1000',
       )
 
@@ -1436,7 +1436,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         ),
       )
       expect(badFrom.status).toBe(400)
-      expect((await badFrom.json()).error).toBe('invalid record id')
+      expect((await badFrom.json()).detail).toBe('invalid record id')
     })
 
     it('returns 404 when from uuid does not exist', async () => {
@@ -1446,7 +1446,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         ),
       )
       expect(res.status).toBe(404)
-      expect((await res.json()).error).toBe('export from id not found')
+      expect((await res.json()).detail).toBe('export from id not found')
     })
 
     it('exports by id ASC and supports overlapping cursor pages', async () => {
@@ -1572,7 +1572,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         ),
       )
       expect(dup.status).toBe(400)
-      expect((await dup.json()).error).toBe(
+      expect((await dup.json()).detail).toBe(
         `line 2: duplicate record id ${id}`,
       )
       const listed = await queryRecords(
@@ -1587,7 +1587,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         ),
       )
       expect(bad.status).toBe(400)
-      expect((await bad.json()).error).toBe('line 2: invalid JSON line')
+      expect((await bad.json()).detail).toBe('line 2: invalid JSON line')
       const listed2 = await queryRecords(
         jsonGet('http://localhost/api/query?page_size=10'),
       )
@@ -1719,7 +1719,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         multipartPost('http://localhost/api/admin/import/records', line),
       )
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(
+      expect((await res.json()).detail).toBe(
         'line 1: Unknown JSON key: utc_offset',
       )
     })

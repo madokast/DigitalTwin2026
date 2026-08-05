@@ -83,7 +83,10 @@ describe('POST /api/log/todo/transition', () => {
     )
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'Unknown JSON key: suppress_notification',
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'Unknown JSON key: suppress_notification',
     })
     expect(scheduleBestEffortNotify).not.toHaveBeenCalled()
   })
@@ -99,7 +102,12 @@ describe('POST /api/log/todo/transition', () => {
       transitionTodo.mockResolvedValueOnce({ error: c.error, status: c.status })
       const res = await POST(post(validBody))
       expect(res.status).toBe(c.status)
-      await expect(res.json()).resolves.toEqual({ error: c.error })
+      await expect(res.json()).resolves.toEqual({
+        success: false,
+        title: c.status === 404 ? 'Not Found' : 'Bad Request',
+        status: c.status,
+        detail: c.error,
+      })
       expect(scheduleBestEffortNotify).not.toHaveBeenCalled()
     }
   })

@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/httperror'
 import { readJsonBody } from '@/lib/httpjson'
 import { createText, type TextBody } from '@/lib/logapi'
 import {
@@ -11,12 +12,12 @@ export async function POST(request: NextRequest) {
   try {
     const parsed = await readJsonBody(request)
     if (!parsed.ok) {
-      return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+      return errorResponse(parsed.error, parsed.status)
     }
 
     const result = await createText(parsed.value as TextBody)
     if ('error' in result) {
-      return NextResponse.json({ error: result.error }, { status: result.status })
+      return errorResponse(result.error, result.status)
     }
 
     // 响应写出后再通知，避免渠道阻塞 201；失败不影响已成功写入
@@ -28,9 +29,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     logger.error({ err: error }, 'Error creating text record')
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    )
+    return errorResponse('Internal server error', 500)
   }
 }

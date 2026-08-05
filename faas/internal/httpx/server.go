@@ -122,10 +122,10 @@ func withJSONErrorPages(next http.Handler) http.Handler {
 		if code == 0 {
 			code = http.StatusOK
 		}
-		// 仅改写框架 404（无路由，通常 text/plain）；业务 404（application/json，如 to-do not found）原样透传。
+		// 仅改写框架 404（无路由，通常 text/plain）；业务 404（application/json / problem+json）原样透传。
 		if code == http.StatusNotFound {
 			ct := buf.Header().Get("Content-Type")
-			if !strings.Contains(ct, "application/json") {
+			if !strings.Contains(ct, "application/json") && !strings.Contains(ct, "application/problem+json") {
 				writeError(w, http.StatusNotFound, "Not found")
 				return
 			}
@@ -177,7 +177,7 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 			ok = s.Tokens.VerifyAPIAccess(r)
 		}
 		if !ok {
-			writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: auth.UnauthorizedMessage})
+			writeError(w, http.StatusUnauthorized, auth.UnauthorizedMessage)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -198,7 +198,18 @@ func writeInternalError(w http.ResponseWriter, _ error) {
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, ErrorResponse{Error: msg})
+	// RFC 9457 problem+json（docs/20260805-error-response-shape.md）：
+	// 形状与 key 顺序双端逐字一致（success→title→status→detail），Content-Type 用 problem+json。
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(status)
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false) // 与 Next 对齐，不把 <> & 编成 \u003c 等
+	_ = enc.Encode(ProblemResponse{
+		Success: false,
+		Title:   statusTitle(status),
+		Status:  status,
+		Detail:  msg,
+	})
 }
 
 // writeLogOrError 契约错误（<500）直接 writeError；内部错误（>=500）记日志 + writeInternalError。

@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/httperror'
 import {
   fetchFilteredRecords,
   parseRecordQueryParams,
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     const parsed = parseRecordQueryParams(request.nextUrl.searchParams)
     if ('error' in parsed) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 })
+      return errorResponse(parsed.error, 400)
     }
 
     const result = await fetchFilteredRecords(parsed)
@@ -30,9 +31,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(body)
   } catch (error) {
     logger.error({ err: error }, 'query records')
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    )
+    return errorResponse('Internal server error', 500)
   }
 }

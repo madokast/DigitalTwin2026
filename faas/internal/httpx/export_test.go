@@ -23,9 +23,9 @@ func TestExportRecordsValidation(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("missing limit status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "limit must be an integer between 1 and 1000" {
+	if body["detail"] != "limit must be an integer between 1 and 1000" {
 		t.Fatalf("body %v", body)
 	}
 
@@ -36,9 +36,9 @@ func TestExportRecordsValidation(t *testing.T) {
 	if rr2.Code != 400 {
 		t.Fatalf("bad from status %d", rr2.Code)
 	}
-	var body2 map[string]string
+	var body2 map[string]any
 	_ = json.Unmarshal(rr2.Body.Bytes(), &body2)
-	if body2["error"] != "invalid record id" {
+	if body2["detail"] != "invalid record id" {
 		t.Fatalf("body %v", body2)
 	}
 }

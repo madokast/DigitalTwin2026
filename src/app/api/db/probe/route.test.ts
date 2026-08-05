@@ -17,7 +17,10 @@ describe('POST /api/db/probe', () => {
     const res = await POST()
     expect(res.status).toBe(503)
     await expect(res.json()).resolves.toEqual({
-      error: 'DATABASE_URL is not set',
+      success: false,
+      title: 'Service Unavailable',
+      status: 503,
+      detail: 'DATABASE_URL is not set',
     })
   })
 

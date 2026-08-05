@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/httperror'
 import { readJsonBody } from '@/lib/httpjson'
 import { createTransactionBatch } from '@/lib/logapi'
 import {
@@ -12,14 +13,14 @@ export async function POST(request: NextRequest) {
   try {
     const parsed = await readJsonBody(request)
     if (!parsed.ok) {
-      return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+      return errorResponse(parsed.error, parsed.status)
     }
 
     const result = await createTransactionBatch(
       parsed.value as LogTransactionsBody,
     )
     if ('error' in result) {
-      return NextResponse.json({ error: result.error }, { status: result.status })
+      return errorResponse(result.error, result.status)
     }
 
     scheduleBestEffortNotify(() =>
@@ -38,9 +39,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     logger.error({ err: error }, 'Error creating transaction records')
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    )
+    return errorResponse('Internal server error', 500)
   }
 }

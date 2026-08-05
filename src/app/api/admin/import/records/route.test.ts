@@ -118,14 +118,14 @@ describe('POST /api/admin/import/records notify schedule', () => {
       }),
     )
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toBe(MULTIPART_CONTENT_TYPE)
+    expect((await res.json()).detail).toBe(MULTIPART_CONTENT_TYPE)
     expect(scheduleBestEffortNotify).not.toHaveBeenCalled()
   })
 
   it('rejects missing file part', async () => {
     const res = await POST(multipartRequest('', { omitFile: true }))
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toBe(MULTIPART_FILE_REQUIRED)
+    expect((await res.json()).detail).toBe(MULTIPART_FILE_REQUIRED)
   })
 
   it('rejects oversized file by size before importRecordsJsonl', async () => {
@@ -133,7 +133,7 @@ describe('POST /api/admin/import/records notify schedule', () => {
     const big = 'a'.repeat(MAX_IMPORT_FILE_BYTES + 1)
     const res = await POST(multipartRequest(big))
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toBe(IMPORT_LIMITS_ERROR)
+    expect((await res.json()).detail).toBe(IMPORT_LIMITS_ERROR)
     expect(importRecordsJsonl).not.toHaveBeenCalled()
     expect(scheduleBestEffortNotify).not.toHaveBeenCalled()
   })

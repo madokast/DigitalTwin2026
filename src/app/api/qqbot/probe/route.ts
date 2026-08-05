@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/httperror'
 import {
   INVALID_JSON_BODY,
   MAX_HTTP_BODY_BYTES,
@@ -12,17 +13,14 @@ const PROBE_KEYS = ['text'] as const
 export async function POST(request: NextRequest) {
   const err = configError()
   if (err) {
-    return NextResponse.json({ error: err }, { status: 400 })
+    return errorResponse(err, 400)
   }
 
   let text = 'DigitalTwin2026 probe'
   try {
     const buf = await request.arrayBuffer()
     if (buf.byteLength > MAX_HTTP_BODY_BYTES) {
-      return NextResponse.json(
-        { error: REQUEST_BODY_TOO_LARGE },
-        { status: 413 },
-      )
+      return errorResponse(REQUEST_BODY_TOO_LARGE, 413)
     }
     if (buf.byteLength > 0) {
       const body: unknown = JSON.parse(
@@ -30,7 +28,7 @@ export async function POST(request: NextRequest) {
       )
       const unknown = rejectUnknownKeys(body, PROBE_KEYS)
       if (unknown) {
-        return NextResponse.json({ error: unknown.error }, { status: 400 })
+        return errorResponse(unknown.error, 400)
       }
       const textRaw = (body as { text?: unknown }).text
       if (typeof textRaw === 'string' && textRaw.trim() !== '') {
@@ -39,12 +37,12 @@ export async function POST(request: NextRequest) {
     }
   } catch {
     // 空 body 在 byteLength 检查后直接跳过解析；至此失败 = 畸形 JSON / 读取错误 → 400
-    return NextResponse.json({ error: INVALID_JSON_BODY }, { status: 400 })
+    return errorResponse(INVALID_JSON_BODY, 400)
   }
 
   const result = await sendQqMessage(text)
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 502 })
+    return errorResponse(result.error, 502)
   }
   return NextResponse.json({ success: true })
 }

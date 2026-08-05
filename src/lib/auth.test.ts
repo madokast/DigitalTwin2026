@@ -66,7 +66,10 @@ describe('unauthorizedResponse', () => {
     const res = unauthorizedResponse()
     expect(res.status).toBe(401)
     await expect(res.json()).resolves.toEqual({
-      error: 'Unauthorized: Invalid or missing token',
+      success: false,
+      title: 'Unauthorized',
+      status: 401,
+      detail: 'Unauthorized: Invalid or missing token',
     })
   })
 })

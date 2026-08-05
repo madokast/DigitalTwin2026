@@ -10,11 +10,6 @@ import (
 // 字段声明顺序 = JSON key 顺序（success 恒第一；有 id 则第二；tags 恒最后），
 // 与 Node 对象属性序对齐；参考 go-code-quality.md「统一模板」。
 
-// ErrorResponse 错误响应 `{error}`（RFC 9457 problem+json 改造前的形状）。
-type ErrorResponse struct {
-	Error string `json:"error"`
-}
-
 // SuccessOnly `{success}`（probe）。
 type SuccessOnly struct {
 	Success bool `json:"success"`

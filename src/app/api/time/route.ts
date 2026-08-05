@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger'
+import { errorResponse } from '@/lib/httperror'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   formatNowInZone,
@@ -10,14 +11,11 @@ export async function GET(request: NextRequest) {
   try {
     const rawTz = request.nextUrl.searchParams.get('tz')
     if (rawTz !== null && rawTz === '') {
-      return NextResponse.json(
-        { error: INVALID_IANA_TZ_ERROR },
-        { status: 400 },
-      )
+      return errorResponse(INVALID_IANA_TZ_ERROR, 400)
     }
     const tz = rawTz === null ? 'UTC' : rawTz
     if (!isValidTimeZone(tz)) {
-      return NextResponse.json({ error: INVALID_IANA_TZ_ERROR }, { status: 400 })
+      return errorResponse(INVALID_IANA_TZ_ERROR, 400)
     }
 
     return NextResponse.json({
@@ -27,9 +25,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     logger.error({ err: error }, 'query time')
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    )
+    return errorResponse('Internal server error', 500)
   }
 }

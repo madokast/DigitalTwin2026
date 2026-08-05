@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/httperror'
 import { fetchSummary } from '@/lib/query'
 
 export async function GET(request: NextRequest) {
@@ -7,7 +8,7 @@ export async function GET(request: NextRequest) {
     const tz = request.nextUrl.searchParams.get('tz') ?? ''
     const result = await fetchSummary(tz)
     if ('error' in result) {
-      return NextResponse.json({ error: result.error }, { status: 400 })
+      return errorResponse(result.error, 400)
     }
 
     return NextResponse.json({
@@ -18,9 +19,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     logger.error({ err: error }, 'query summary')
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    )
+    return errorResponse('Internal server error', 500)
   }
 }

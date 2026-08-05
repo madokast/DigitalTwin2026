@@ -61,9 +61,9 @@ SELECT EXISTS (
 	if rr404.Code != 404 {
 		t.Fatalf("404 status %d body %s", rr404.Code, rr404.Body.String())
 	}
-	var errBody map[string]string
+	var errBody map[string]any
 	_ = json.Unmarshal(rr404.Body.Bytes(), &errBody)
-	if errBody["error"] != "export from id not found" {
+	if errBody["detail"] != "export from id not found" {
 		t.Fatalf("404 body %v", errBody)
 	}
 	if len(notified) != 0 {

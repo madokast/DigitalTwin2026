@@ -27,9 +27,13 @@ describe('POST /api/telegram/probe', () => {
     const { POST } = await import('./route')
     const res = await POST(probeRequest())
     expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({
-      error: 'telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)',
-    })
+    await expect(res.json()).resolves.toEqual(
+            { success: false,
+        title: 'Bad Request',
+        status: 400,
+        detail: 'telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)',
+      },
+    )
   })
 
   it('returns 400 naming the single missing env', async () => {
@@ -38,9 +42,13 @@ describe('POST /api/telegram/probe', () => {
     const { POST } = await import('./route')
     const res = await POST(probeRequest())
     expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({
-      error: 'telegram is not configured (missing TELEGRAM_USER_ID)',
-    })
+    await expect(res.json()).resolves.toEqual(
+            { success: false,
+        title: 'Bad Request',
+        status: 400,
+        detail: 'telegram is not configured (missing TELEGRAM_USER_ID)',
+      },
+    )
   })
 
   it('returns 502 with Telegram reason on send failure', async () => {
@@ -57,9 +65,13 @@ describe('POST /api/telegram/probe', () => {
     const { POST } = await import('./route')
     const res = await POST(probeRequest())
     expect(res.status).toBe(502)
-    await expect(res.json()).resolves.toEqual({
-      error: 'telegram sendMessage failed: chat not found',
-    })
+    await expect(res.json()).resolves.toEqual(
+            { success: false,
+        title: 'Bad Gateway',
+        status: 502,
+        detail: 'telegram sendMessage failed: chat not found',
+      },
+    )
   })
 
   it('returns 200 on success and accepts optional text', async () => {
@@ -89,8 +101,12 @@ describe('POST /api/telegram/probe', () => {
     const { POST } = await import('./route')
     const res = await POST(probeRequest({ text: 'x', extra: 1 }))
     expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({
-      error: 'Unknown JSON key: extra',
-    })
+    await expect(res.json()).resolves.toEqual(
+            { success: false,
+        title: 'Bad Request',
+        status: 400,
+        detail: 'Unknown JSON key: extra',
+      },
+    )
   })
 })

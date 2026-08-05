@@ -2,6 +2,7 @@ import { loadTestEnv } from '../../scripts/lib/test-env'
 
 loadTestEnv()
 import { NextRequest, NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/httperror'
 
 function getBearerToken(request: NextRequest): string | null {
   const authHeader = request.headers.get('Authorization')
@@ -35,8 +36,5 @@ export function verifyAdminAccess(request: NextRequest): boolean {
 }
 
 export function unauthorizedResponse(): NextResponse {
-  return NextResponse.json(
-    { error: 'Unauthorized: Invalid or missing token' },
-    { status: 401 },
-  )
+  return errorResponse('Unauthorized: Invalid or missing token', 401)
 }

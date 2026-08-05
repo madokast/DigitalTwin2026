@@ -19,11 +19,11 @@ func TestHandleRenameTagsTypeMismatch(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	var got map[string]string
+	var got map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got["error"] != "missing required fields: from, to" {
-		t.Fatalf("error=%q", got["error"])
+	if got["detail"] != "missing required fields: from, to" {
+		t.Fatalf("error=%q", got["detail"])
 	}
 }

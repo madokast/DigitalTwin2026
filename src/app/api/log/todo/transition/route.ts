@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/httperror'
 import { transitionTodo } from '@/lib/logapi'
 import type { LogTodoTransitionBody } from '@/lib/tododraft'
 import { readJsonBody } from '@/lib/httpjson'
@@ -9,12 +10,12 @@ export async function POST(request: NextRequest) {
   try {
     const parsed = await readJsonBody(request)
     if (!parsed.ok) {
-      return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+      return errorResponse(parsed.error, parsed.status)
     }
 
     const result = await transitionTodo(parsed.value as LogTodoTransitionBody)
     if ('error' in result) {
-      return NextResponse.json({ error: result.error }, { status: result.status })
+      return errorResponse(result.error, result.status)
     }
 
     // §4.2：恰好一次 notify，正文 = 审计 raw_content（非待办行格式化）
@@ -30,9 +31,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     logger.error({ err: error }, 'Error transitioning to-do')
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    )
+    return errorResponse('Internal server error', 500)
   }
 }

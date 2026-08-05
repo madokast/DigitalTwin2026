@@ -102,14 +102,14 @@ for (const ep of endpoints) {
     it('malformed JSON → 400 Invalid JSON body, nothing sent', async () => {
       const res = await ep.run(rawPost('http://localhost', '{broken'))
       expect(res.status).toBe(400)
-      await expect(res.json()).resolves.toEqual({ error: 'invalid JSON body' })
+      await expect(res.json()).resolves.toEqual({ success: false, title: 'Bad Request', status: 400, detail: 'invalid JSON body' })
       expect(fetchCalls).toHaveLength(0)
     })
 
     it('trailing garbage after valid JSON → 400, nothing sent', async () => {
       const res = await ep.run(rawPost('http://localhost', '{"text":"hi"} xyz'))
       expect(res.status).toBe(400)
-      await expect(res.json()).resolves.toEqual({ error: 'invalid JSON body' })
+      await expect(res.json()).resolves.toEqual({ success: false, title: 'Bad Request', status: 400, detail: 'invalid JSON body' })
       expect(fetchCalls).toHaveLength(0)
     })
 
@@ -117,7 +117,10 @@ for (const ep of endpoints) {
       const res = await ep.run(rawPost('http://localhost', '[]'))
       expect(res.status).toBe(400)
       await expect(res.json()).resolves.toEqual({
-        error: 'request body must be a JSON object',
+        success: false,
+        title: 'Bad Request',
+        status: 400,
+        detail: 'request body must be a JSON object',
       })
       expect(fetchCalls).toHaveLength(0)
     })
@@ -126,7 +129,10 @@ for (const ep of endpoints) {
       const res = await ep.run(rawPost('http://localhost', '{"foo":"bar"}'))
       expect(res.status).toBe(400)
       await expect(res.json()).resolves.toEqual({
-        error: 'Unknown JSON key: foo',
+        success: false,
+        title: 'Bad Request',
+        status: 400,
+        detail: 'Unknown JSON key: foo',
       })
       expect(fetchCalls).toHaveLength(0)
     })

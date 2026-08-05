@@ -115,9 +115,9 @@ SELECT EXISTS (
 	if dupRR.Code != 400 {
 		t.Fatalf("dup status %d", dupRR.Code)
 	}
-	var dupErr map[string]string
+	var dupErr map[string]any
 	_ = json.Unmarshal(dupRR.Body.Bytes(), &dupErr)
-	if dupErr["error"] != "line 2: duplicate record id "+id1 {
+	if dupErr["detail"] != "line 2: duplicate record id "+id1 {
 		t.Fatalf("dup error %v", dupErr)
 	}
 	if len(notified) != 0 {

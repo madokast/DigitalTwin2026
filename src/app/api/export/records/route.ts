@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/httperror'
 import {
   buildExportNdjson,
   exportContentDisposition,
@@ -13,15 +14,12 @@ export async function GET(request: NextRequest) {
   try {
     const parsed = parseExportRecordsParams(request.nextUrl.searchParams)
     if ('error' in parsed) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 })
+      return errorResponse(parsed.error, 400)
     }
 
     const result = await fetchExportRecords(parsed)
     if ('error' in result) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: result.status },
-      )
+      return errorResponse(result.error, result.status)
     }
 
     // 校验/查库已完成；有界组 NDJSON（≤1000 行）后构造响应。
@@ -46,9 +44,6 @@ export async function GET(request: NextRequest) {
     return response
   } catch (error) {
     logger.error({ err: error }, 'export records')
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    )
+    return errorResponse('Internal server error', 500)
   }
 }

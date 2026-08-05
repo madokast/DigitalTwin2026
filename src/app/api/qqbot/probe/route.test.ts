@@ -29,8 +29,10 @@ describe('POST /api/qqbot/probe', () => {
     const res = await POST(probeRequest())
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error:
-        'QQ Bot is not configured (QQBOT_APP_ID / QQBOT_APP_SECRET / QQBOT_USER_OPENID)',
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'QQ Bot is not configured (QQBOT_APP_ID / QQBOT_APP_SECRET / QQBOT_USER_OPENID)',
     })
   })
 
@@ -42,7 +44,10 @@ describe('POST /api/qqbot/probe', () => {
     const res = await POST(probeRequest())
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'QQ Bot is not configured (missing QQBOT_USER_OPENID)',
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'QQ Bot is not configured (missing QQBOT_USER_OPENID)',
     })
   })
 
@@ -72,7 +77,10 @@ describe('POST /api/qqbot/probe', () => {
     const res = await POST(probeRequest())
     expect(res.status).toBe(502)
     await expect(res.json()).resolves.toEqual({
-      error: 'QQ Bot sendMessage failed: invalid openid',
+      success: false,
+      title: 'Bad Gateway',
+      status: 502,
+      detail: 'QQ Bot sendMessage failed: invalid openid',
     })
   })
 
