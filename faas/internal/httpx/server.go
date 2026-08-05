@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
+	"log/slog"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -205,7 +205,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 // 日志前缀 logMsg 为英文（AGENTS.md），逐字保持现状（如 "Error creating number records"）。
 func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string) {
 	if status >= http.StatusInternalServerError {
-		log.Printf("%s: %v", logMsg, err)
+		slog.Error(logMsg, "err", err)
 		writeInternalError(w, err)
 		return
 	}
@@ -478,7 +478,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := query.FetchFilteredRecords(r.Context(), s.Pool, parsed)
 	if err != nil {
-		log.Printf("Error querying records: %v", err)
+		slog.Error("query records", "err", err)
 		writeInternalError(w, err)
 		return
 	}
@@ -502,7 +502,7 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		log.Printf("Error querying summary: %v", err)
+		slog.Error("query summary", "err", err)
 		writeInternalError(w, err)
 		return
 	}
@@ -536,7 +536,7 @@ func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
 	prefix := r.URL.Query().Get("prefix")
 	counts, err := query.FetchTagCounts(r.Context(), s.Pool, prefix)
 	if err != nil {
-		log.Printf("Error aggregating tags: %v", err)
+		slog.Error("aggregate tags", "err", err)
 		writeInternalError(w, err)
 		return
 	}
@@ -556,7 +556,7 @@ func (s *Server) handleTransactionsSummary(w http.ResponseWriter, r *http.Reques
 		r.Context(), s.Pool, parsed.From, parsed.To, parsed.FromRaw, parsed.ToRaw,
 	)
 	if err != nil {
-		log.Printf("Error querying transaction summary: %v", err)
+		slog.Error("query transaction summary", "err", err)
 		writeInternalError(w, err)
 		return
 	}
@@ -596,7 +596,7 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := tags.RenameAcrossRecords(r.Context(), s.Pool, from, to)
 	if err != nil {
-		log.Printf("Error renaming tags: %v", err)
+		slog.Error("rename tags", "err", err)
 		writeInternalError(w, err)
 		return
 	}
@@ -622,7 +622,7 @@ func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 	}
 	body, err := exportapi.BuildExportNdjson(recs)
 	if err != nil {
-		log.Printf("Error serializing export NDJSON: %v", err)
+		slog.Error("serialize export ndjson", "err", err)
 		writeInternalError(w, err)
 		return
 	}
@@ -632,7 +632,7 @@ func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	// §4.5：响应体写出成功后再 Notify；Write 失败不视为成功备份。
 	if _, err := w.Write([]byte(body)); err != nil {
-		log.Printf("Error writing export body: %v", err)
+		slog.Error("write export body", "err", err)
 		return
 	}
 	msg := exportapi.FormatExportNotifyMessage(len(recs), parsed.From, parsed.Limit)
@@ -722,7 +722,7 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 			writeError(w, st, err.Error())
 			return
 		}
-		log.Printf("Error importing records: %v", err)
+		slog.Error("import records", "err", err)
 		writeInternalError(w, err)
 		return
 	}
@@ -739,7 +739,7 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		Total:    counts.Total,
 		Atomic:   true,
 	}); err != nil {
-		log.Printf("Error writing import success body: %v", err)
+		slog.Error("write import success body", "err", err)
 		return
 	}
 	msg := importapi.FormatImportNotifyMessage(counts)

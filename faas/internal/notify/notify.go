@@ -2,7 +2,7 @@
 package notify
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -165,7 +165,7 @@ func (n *Notifier) NotifyUser(text string) {
 		})
 	}
 	if len(tasks) == 0 {
-		log.Printf("Notify skipped: no channels configured")
+		slog.Info("notify skipped", "reason", "no channels configured")
 		return
 	}
 
@@ -176,7 +176,7 @@ func (n *Notifier) NotifyUser(text string) {
 		go func() {
 			defer wg.Done()
 			if err := t.run(); err != nil {
-				log.Printf("%s notify failed: %v", t.name, err)
+				slog.Error("notify failed", "channel", t.name, "err", err)
 			}
 		}()
 	}

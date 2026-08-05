@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,10 +15,15 @@ import (
 )
 
 func main() {
+	// 结构化日志（双端对齐：Go slog / Node pino，见 AGENTS.md「日志」）。
+	// TextHandler：国内 FaaS 纯文本日志采集友好；键值对便于 grep 与未来接采集。
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
+
 	ctx := context.Background()
 	pool, err := db.Open(ctx)
 	if err != nil {
-		log.Fatalf("db: %v", err)
+		slog.Error("open db", "err", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
 
@@ -35,9 +40,10 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("listening on %s", addr)
+		slog.Info("listening", "addr", addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %v", err)
+			slog.Error("listen", "err", err)
+			os.Exit(1)
 		}
 	}()
 
