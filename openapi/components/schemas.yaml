@@ -152,7 +152,7 @@ Record:
         Decimal string when the row has a numeric value; **key omitted**
         when null (text-only / to-do rows). On read the key never appears
         with null. Import lines may omit the key or send explicit null.
-        On write (log/number), JSON **number is rejected** (400:
+        On write (log/numbers), JSON **number is rejected** (400:
         `numeric_value must be a decimal string`). Validated literal stored
         as TEXT (no Number round-trip; trailing zeros preserved).
       $ref: '#/DecimalString'
@@ -455,33 +455,67 @@ ImportRecordsSuccess:
 
 LogNumberRequest:
   type: object
-  required: [happened_at, numeric_value, raw_content, objective_context]
+  required: [happened_at, entries]
   additionalProperties: false
   description: |
-    Unknown JSON keys -> 400 (Unknown JSON key: <name>). `tags` optional;
-    omitted / null / `[]` → stored as `[]`. `raw_content` required and must
-    not be blank (`raw_content must not be blank` when whitespace-only).
+    One already-occurred numeric event with one or more value entries sharing
+    the same `happened_at`. Each entry: `numeric_value` and `memo` required
+    (`memo` maps to `objective_context`; `raw_content` stays NULL), `tags` /
+    `ai_analysis` optional. Unknown JSON keys on the request or entries -> 400
+    (`Unknown JSON key: <name>`); per-entry errors are prefixed
+    `entries[i]: …`.
   properties:
     happened_at:
       $ref: '#/HappenedAtInput'
+      description: Shared event time for all entries
+    entries:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: '#/NumberEntry'
+
+NumberEntry:
+  type: object
+  required: [numeric_value, memo]
+  additionalProperties: false
+  properties:
     numeric_value:
       $ref: '#/DecimalString'
-    raw_content:
+    memo:
       type: string
       minLength: 1
       description: |
-        Required non-blank body text; trimmed (leading/trailing whitespace
-        removed) before storage. Empty or whitespace-only → 400.
+        Required non-blank description; trimmed before storage, maps to
+        `objective_context` (DB NOT NULL). `raw_content` is never written for
+        numeric entries.
     tags:
       $ref: '#/TagList'
-    objective_context:
-      type: string
-      minLength: 1
     ai_analysis:
       type: string
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
-        (`Invalid ai_analysis`).
+        (`Invalid ai_analysis`); whitespace-only → 400
+        (`ai_analysis must not be blank`).
+
+NumberBatchSuccess:
+  type: object
+  required: [success, inserted, atomic]
+  additionalProperties: false
+  properties:
+    success:
+      type: boolean
+      const: true
+    atomic:
+      type: boolean
+      const: true
+      description: |
+        Always true: the whole batch is committed in a single transaction —
+        either every entry is written or none is.
+    inserted:
+      type: integer
+      minimum: 1
+      description: Number of rows written (equals entries.length on success)
 
 LogBodyWeightRequest:
   type: object
@@ -838,7 +872,7 @@ LogTransactionRequest:
     Reserved tag **prefixes** (colon boundary): `transaction_entry`,
     `body:weight`, and `todo` — a tag is reserved iff `tag === P` OR
     `tag.startsWith(P + ":")` (e.g. `transaction_entrypoint` is not
-    reserved). Clients must not send reserved tags on /api/log/number,
+    reserved). Clients must not send reserved tags on /api/log/numbers,
     /api/log/text, optional body-weight `tags`, Admin draft, or Admin
     tag rename from/to. Use the dedicated log endpoints to write those
     prefixes.

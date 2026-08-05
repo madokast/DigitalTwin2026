@@ -1,15 +1,18 @@
-/api/log/number:
+/api/log/numbers:
   post:
-    operationId: logNumber
+    operationId: logNumbers
     tags: [log]
-    summary: Create a numeric record
+    summary: Create a batch of numeric records sharing one timestamp
     description: |
-      Inserts a record with `numeric_value` set and `raw_content` null.
-      On success, notification via notify_user is always scheduled (best-effort) and does not change the 201 response.
+      Inserts one or more records (1..100) with `numeric_value` set and
+      `raw_content` null, all sharing `happened_at`. Each entry `memo` maps
+      to `objective_context` (DB NOT NULL). Committed atomically in a single
+      transaction. On success, one batch notification via notify_user is
+      always scheduled (best-effort) and does not change the 201 response.
       Auth: ApiToken (AI token or Admin token).
       Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`,
-      `body:weight` / `body:weight:*`, `todo` / `todo:*`) are rejected (use the dedicated
-      log endpoints).
+      `body:weight` / `body:weight:*`, `todo` / `todo:*`, `review` /
+      `review:*`) are rejected (use the dedicated log endpoints).
     security:
       - ApiToken: []
     requestBody:
@@ -20,17 +23,20 @@
             $ref: '../components/schemas.yaml#/LogNumberRequest'
           example:
             happened_at: '2026-07-30T08:00:00+08:00'
-            numeric_value: '8000'
-            tags: [steps]
-            objective_context: daily step count
-            ai_analysis: good pace
+            entries:
+              - numeric_value: '8000'
+                memo: daily step count
+                tags: [steps]
+              - numeric_value: '36.8'
+                memo: axillary temperature
+                ai_analysis: good pace
     responses:
       '201':
-        description: Record created
+        description: Batch committed
         content:
           application/json:
             schema:
-              $ref: '../components/schemas.yaml#/RecordSuccess'
+              $ref: '../components/schemas.yaml#/NumberBatchSuccess'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':

@@ -19,7 +19,7 @@
 openapi/
   openapi.yaml                 # 入口（短）
   paths/
-    log.yaml                   # /api/log/number, /body/weight, /todo, /text, /transaction
+    log.yaml                   # /api/log/numbers, /body/weight, /todo, /text, /transaction
     query.yaml                 # /api/query, /summary, /tags, /transaction/summary
     telegram.yaml              # /api/telegram/probe
     qqbot.yaml                 # /api/qqbot/probe

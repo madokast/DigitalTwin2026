@@ -51,8 +51,8 @@ tags:
     description: Cursor-paginated Record JSONL file download (ApiToken)
 
 paths:
-  /api/log/number:
-    $ref: './paths/log.yaml#/~1api~1log~1number'
+  /api/log/numbers:
+    $ref: './paths/log.yaml#/~1api~1log~1numbers'
   /api/log/body/weight:
     $ref: './paths/log.yaml#/~1api~1log~1body~1weight'
   /api/log/todo:
@@ -172,6 +172,10 @@ components:
       $ref: './components/schemas.yaml#/ImportRecordsSuccess'
     LogNumberRequest:
       $ref: './components/schemas.yaml#/LogNumberRequest'
+    NumberEntry:
+      $ref: './components/schemas.yaml#/NumberEntry'
+    NumberBatchSuccess:
+      $ref: './components/schemas.yaml#/NumberBatchSuccess'
     LogBodyWeightRequest:
       $ref: './components/schemas.yaml#/LogBodyWeightRequest'
     TodoState:

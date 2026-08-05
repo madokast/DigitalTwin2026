@@ -91,6 +91,7 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"summary-success.json", "SummarySuccess"},
 		{"transaction-summary-success.json", "TransactionSummarySuccess"},
 		{"log-number-request-valid.json", "LogNumberRequest"},
+		{"number-batch-success.json", "NumberBatchSuccess"},
 		{"log-body-weight-request-valid.json", "LogBodyWeightRequest"},
 		{"log-todo-request-valid.json", "LogTodoRequest"},
 		{"record-todo-success.json", "TodoRecordSuccess"},

@@ -1,9 +1,12 @@
 {
   "happened_at": "2026-07-30T08:00:00",
-  "numeric_value": "75.5",
-  "tags": [
-    "weight"
-  ],
-  "objective_context": "missing timezone",
-  "raw_content": "Morning weigh-in on the scale"
+  "entries": [
+    {
+      "numeric_value": "75.5",
+      "memo": "missing timezone",
+      "tags": [
+        "weight"
+      ]
+    }
+  ]
 }

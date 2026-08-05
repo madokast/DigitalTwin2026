@@ -1,10 +1,13 @@
 {
   "happened_at": "2026-07-30T08:00:00+08:00",
-  "numeric_value": "8000",
-  "tags": [
-    "steps"
-  ],
-  "objective_context": "daily step count",
-  "ai_analysis": "good pace",
-  "raw_content": "Morning weigh-in on the scale"
+  "entries": [
+    {
+      "numeric_value": "8000",
+      "memo": "daily step count",
+      "tags": [
+        "steps"
+      ],
+      "ai_analysis": "good pace"
+    }
+  ]
 }
