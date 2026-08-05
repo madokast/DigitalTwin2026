@@ -139,6 +139,23 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(row.ai_analysis).toBe('a bit heavy')
     })
 
+    it('stores and reads back a small decimal like 0.0001', async () => {
+      await postNumbers(jsonPost('http://localhost/api/log/numbers', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        entries: [
+          { numeric_value: '0.0001', memo: 'tiny measurement', tags: ['persist_small'] },
+        ],
+      }))
+      const q = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=persist_small',
+      ))
+      expect(q.status).toBe(200)
+      const body = await q.json()
+      expect(body.records).toHaveLength(1)
+      expect(body.records[0].numeric_value).toBe('0.0001')
+      expect(body.records[0].objective_context).toBe('tiny measurement')
+    })
+
     it('rejects entry unknown key with index prefix', async () => {
       const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ raw_content: 'x' })))
       expect(res.status).toBe(400)

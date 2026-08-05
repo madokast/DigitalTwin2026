@@ -98,6 +98,43 @@ SELECT EXISTS (
 		t.Fatalf("missing record.id in %s", idsRR.Body.String())
 	}
 
+	// 小数值（0.0001）可存可读：与记账金额不同，number 用更宽的 DecimalString
+	smallBody := `{
+		"happened_at":"2026-07-30T08:00:00+08:00",
+		"entries": [{
+			"numeric_value": "0.0001",
+			"tags": ["go_small"],
+			"memo": "tiny measurement"
+		}]
+	}`
+	smallReq := httptest.NewRequest(http.MethodPost, "/api/log/numbers", strings.NewReader(smallBody))
+	smallReq.Header.Set("Authorization", "Bearer ai-tok")
+	smallReq.Header.Set("Content-Type", "application/json")
+	smallRR := httptest.NewRecorder()
+	h.ServeHTTP(smallRR, smallReq)
+	if smallRR.Code != 201 {
+		t.Fatalf("small create status %d body %s", smallRR.Code, smallRR.Body.String())
+	}
+	smallQ := httptest.NewRequest(http.MethodGet, "/api/query?tag=go_small", nil)
+	smallQ.Header.Set("Authorization", "Bearer ai-tok")
+	smallQR := httptest.NewRecorder()
+	h.ServeHTTP(smallQR, smallQ)
+	if smallQR.Code != 200 {
+		t.Fatalf("small query status %d", smallQR.Code)
+	}
+	var smallBodyOut map[string]any
+	if err := json.Unmarshal(smallQR.Body.Bytes(), &smallBodyOut); err != nil {
+		t.Fatal(err)
+	}
+	smallRecs := smallBodyOut["records"].([]any)
+	if len(smallRecs) != 1 {
+		t.Fatalf("small records: %v", smallBodyOut["count"])
+	}
+	smallRec := smallRecs[0].(map[string]any)
+	if smallRec["numeric_value"] != "0.0001" {
+		t.Fatalf("small numeric_value: %v", smallRec["numeric_value"])
+	}
+
 	q := httptest.NewRequest(http.MethodGet, "/api/query?q="+marker, nil)
 	q.Header.Set("Authorization", "Bearer ai-tok")
 	qr := httptest.NewRecorder()
