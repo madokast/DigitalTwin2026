@@ -201,6 +201,17 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, ErrorResponse{Error: msg})
 }
 
+// writeLogOrError 契约错误（<500）直接 writeError；内部错误（>=500）记日志 + writeInternalError。
+// 日志前缀 logMsg 为英文（AGENTS.md），逐字保持现状（如 "Error creating number records"）。
+func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string) {
+	if status >= http.StatusInternalServerError {
+		log.Printf("%s: %v", logMsg, err)
+		writeInternalError(w, err)
+		return
+	}
+	writeError(w, status, err.Error())
+}
+
 func readBody(r *http.Request) ([]byte, error) {
 	defer r.Body.Close()
 	// 多读 1 字节以区分「恰好上限」与「超限」；禁止静默截断后当残缺 JSON。
@@ -235,12 +246,7 @@ func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 	}
 	inserted, recs, status, err := logapi.CreateNumberBatch(r.Context(), s.Pool, raw)
 	if err != nil {
-		if status >= 500 {
-			log.Printf("Error creating number records: %v", err)
-			writeInternalError(w, err)
-			return
-		}
-		writeError(w, status, err.Error())
+		writeLogOrError(w, status, err, "Error creating number records")
 		return
 	}
 	// INSERT 成功后异步 best-effort notify（整批一条摘要），不阻塞写响应。
@@ -257,12 +263,7 @@ func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
 	}
 	rec, status, err := logapi.CreateBodyWeight(r.Context(), s.Pool, raw)
 	if err != nil {
-		if status >= 500 {
-			log.Printf("Error creating body weight record: %v", err)
-			writeInternalError(w, err)
-			return
-		}
-		writeError(w, status, err.Error())
+		writeLogOrError(w, status, err, "Error creating body weight record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
@@ -276,12 +277,7 @@ func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
 	}
 	rec, status, err := logapi.CreateTodo(r.Context(), s.Pool, raw)
 	if err != nil {
-		if status >= 500 {
-			log.Printf("Error creating to-do record: %v", err)
-			writeInternalError(w, err)
-			return
-		}
-		writeError(w, status, err.Error())
+		writeLogOrError(w, status, err, "Error creating to-do record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
@@ -304,12 +300,7 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 		result, status, err = logapi.TransitionTodo(r.Context(), s.Pool, raw)
 	}
 	if err != nil {
-		if status >= 500 {
-			log.Printf("Error transitioning to-do: %v", err)
-			writeInternalError(w, err)
-			return
-		}
-		writeError(w, status, err.Error())
+		writeLogOrError(w, status, err, "Error transitioning to-do")
 		return
 	}
 	// D6：恰好一次 notify，正文 = objective_context 句 + ": " + 原文
@@ -335,12 +326,7 @@ func (s *Server) handleLogReview(w http.ResponseWriter, r *http.Request) {
 	}
 	rec, status, err := logapi.CreateReview(r.Context(), s.Pool, raw)
 	if err != nil {
-		if status >= 500 {
-			log.Printf("Error creating review record: %v", err)
-			writeInternalError(w, err)
-			return
-		}
-		writeError(w, status, err.Error())
+		writeLogOrError(w, status, err, "Error creating review record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
@@ -354,12 +340,7 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 	}
 	rec, status, err := logapi.CreateText(r.Context(), s.Pool, raw)
 	if err != nil {
-		if status >= 500 {
-			log.Printf("Error creating text record: %v", err)
-			writeInternalError(w, err)
-			return
-		}
-		writeError(w, status, err.Error())
+		writeLogOrError(w, status, err, "Error creating text record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
@@ -373,12 +354,7 @@ func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 	inserted, batchType, sum, recs, status, err := logapi.CreateTransactionBatch(r.Context(), s.Pool, raw)
 	if err != nil {
-		if status >= 500 {
-			log.Printf("Error creating transaction records: %v", err)
-			writeInternalError(w, err)
-			return
-		}
-		writeError(w, status, err.Error())
+		writeLogOrError(w, status, err, "Error creating transaction records")
 		return
 	}
 	go s.notify().NotifyTransactionBatchInserted(recs)
@@ -641,12 +617,7 @@ func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 		recs, status, err = exportapi.FetchExportRecords(r.Context(), s.Pool, parsed)
 	}
 	if err != nil {
-		if status >= 500 {
-			log.Printf("Error exporting records: %v", err)
-			writeInternalError(w, err)
-			return
-		}
-		writeError(w, status, err.Error())
+		writeLogOrError(w, status, err, "Error exporting records")
 		return
 	}
 	body, err := exportapi.BuildExportNdjson(recs)
