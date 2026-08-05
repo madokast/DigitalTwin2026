@@ -56,12 +56,12 @@ type NormalizedTodo struct {
 
 // TodoRecordJSON 待办行 HTTP JSON（别名键；其余与 Record snake_case 一致）。
 type TodoRecordJSON struct {
-	ID                       string  `json:"id"`
-	CreatedAt                string  `json:"created_at"`
-	Content                  string  `json:"content"`
-	Tags                     []string `json:"tags"`
-	ObjectiveContext         string  `json:"objective_context"`
-	AiAnalysis *string `json:"ai_analysis"`
+	ID               string   `json:"id"`
+	CreatedAt        string   `json:"created_at"`
+	Content          string   `json:"content"`
+	ObjectiveContext string   `json:"objective_context"`
+	AiAnalysis       *string  `json:"ai_analysis"`
+	Tags             []string `json:"tags"`
 }
 
 // ToTodoRecordJSON 将内部 Record 变形为待办对外形状（去掉 happened_at / raw_content）。
@@ -71,12 +71,12 @@ func ToTodoRecordJSON(rec record.Record) TodoRecordJSON {
 		content = *rec.RawContent
 	}
 	return TodoRecordJSON{
-		ID:                       rec.ID,
-		CreatedAt:                rec.HappenedAt,
-		Content:                  content,
-		Tags:                     rec.Tags,
-		ObjectiveContext:         rec.ObjectiveContext,
-		AiAnalysis: rec.AiAnalysis,
+		ID:               rec.ID,
+		CreatedAt:        rec.HappenedAt,
+		Content:          content,
+		ObjectiveContext: rec.ObjectiveContext,
+		AiAnalysis:       rec.AiAnalysis,
+		Tags:             rec.Tags,
 	}
 }
 

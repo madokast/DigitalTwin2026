@@ -58,7 +58,7 @@ npm run deploy -- test
 # 冒烟（Token 来自 .env.test，勿贴进聊天）
 set -a && source .env.test && set +a
 curl -s -H "Authorization: Bearer $DIGITAL_TWIN_TOKEN" \
-  "https://<your-fcapp.run>/api/query/summary?tz=Asia/Shanghai"
+  "https://<your-fcapp.run>/api/admin/records/stats?tz=Asia/Shanghai"
 ```
 
 改规格只改 [`s.yaml`](s.yaml)，再部署。当前默认**省钱档**。`pre-deploy` 在 `faas/` 编译 `bootstrap`。

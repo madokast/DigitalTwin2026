@@ -84,9 +84,9 @@ export function toTodoRecordJson(rec: Record): TodoRecordJson {
     id: rec.id,
     created_at: rec.happened_at,
     content: rec.raw_content ?? '',
-    tags: rec.tags,
     objective_context: rec.objective_context,
     ai_analysis: rec.ai_analysis,
+    tags: rec.tags,
   }
 }
 

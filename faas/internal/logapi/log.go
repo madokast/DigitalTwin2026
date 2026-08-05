@@ -15,16 +15,16 @@ import (
 )
 
 type TextBody struct {
-	HappenedAt               any `json:"happened_at"`
-	RawContent                any `json:"raw_content"`
-	Tags                     any `json:"tags"`
-	ObjectiveContext         any `json:"objective_context"`
-	AiAnalysis any `json:"ai_analysis"`
+	HappenedAt       any `json:"happened_at"`
+	RawContent       any `json:"raw_content"`
+	ObjectiveContext any `json:"objective_context"`
+	AiAnalysis       any `json:"ai_analysis"`
+	Tags             any `json:"tags"`
 }
 
 var logTextKeys = []string{
-	"happened_at", "raw_content", "tags", "objective_context",
-	"ai_analysis",
+	"happened_at", "raw_content", "objective_context",
+	"ai_analysis", "tags",
 }
 
 func happenedAtString(raw any) string {
@@ -86,11 +86,11 @@ func insertReturning(
 		outNum, outText, outSubj          *string
 	)
 	err := q.QueryRow(ctx, `
-INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis)
+INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
-RETURNING id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis
-`, id, happenedAt, utcOffset, numericValue, rawContent, tagsJSON, objectiveContext, subj).Scan(
-		&outID, &outHappened, &outOffset, &outNum, &outText, &outTags, &outObj, &outSubj,
+RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags
+`, id, happenedAt, utcOffset, numericValue, rawContent, objectiveContext, subj, tagsJSON).Scan(
+		&outID, &outHappened, &outOffset, &outNum, &outText, &outObj, &outSubj, &outTags,
 	)
 	if err != nil {
 		return record.Record{}, err

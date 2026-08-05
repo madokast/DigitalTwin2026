@@ -62,7 +62,7 @@ probe（`POST /api/telegram/probe`、`POST /api/qqbot/probe`）走各渠道 `sen
 |------|-------------|
 | OpenAPI | `openapi/paths/log.yaml`；`openapi/components/schemas.yaml`（多请求 schema）；fixtures 含该键 |
 | Next drafts | `logapi` / `transactiondraft` / `bodyweightdraft` / `tododraft` |
-| Next handlers | `log/number|text|transaction|body/weight|todo|todo/transition` |
+| Next handlers | `log/numbers|text|transactions|body/weight|todo|todo/transition` |
 | Go drafts | `logapi` / `transactiondraft` / `bodyweightdraft` / `tododraft` |
 | Go HTTP | `faas/internal/httpx/server.go` 各 log handler |
 | 共享 helper | `src/lib/suppress-notification.ts`；`faas/internal/notify/suppress.go` |

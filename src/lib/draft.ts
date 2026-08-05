@@ -27,7 +27,7 @@ export function emptyStringToNull(
 /**
  * 校验 happened_at：必须带显式时区（Z 或 ±HH:MM / ±HHMM），与 query 一致。
  * 同时抽出规范 utc_offset（创建路径写隐列）。
- * log/number、log/text、body/weight、todo 共用。
+ * log/numbers、log/text、body/weight、todo 共用。
  */
 export function parseHappenedAt(
   raw: unknown,

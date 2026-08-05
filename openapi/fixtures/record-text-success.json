@@ -4,11 +4,11 @@
     "id": "01900000-0000-7000-8000-000000000002",
     "happened_at": "2026-07-30T10:00:00.000+08:00",
     "raw_content": "studied 50 words",
+    "objective_context": "afternoon study",
+    "ai_analysis": null,
     "tags": [
       "study",
       "vocabulary"
-    ],
-    "objective_context": "afternoon study",
-    "ai_analysis": null
+    ]
   }
 }

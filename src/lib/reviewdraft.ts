@@ -23,9 +23,9 @@ export const LOG_REVIEW_KEYS = [
   'happened_at',
   'cadence',
   'raw_content',
-  'tags',
   'objective_context',
   'ai_analysis',
+  'tags',
 ] as const
 
 export const INVALID_CADENCE_MESSAGE =
@@ -37,9 +37,9 @@ export type LogReviewBody = {
   happened_at?: unknown
   cadence?: unknown
   raw_content?: unknown
-  tags?: unknown
   objective_context?: unknown
   ai_analysis?: unknown
+  tags?: unknown
 }
 
 export type NormalizedReview = {

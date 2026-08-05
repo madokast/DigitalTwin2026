@@ -23,8 +23,8 @@ export const LOG_NUMBERS_KEYS = ['happened_at', 'entries'] as const
 export const NUMBER_ENTRY_KEYS = [
   'numeric_value',
   'memo',
-  'tags',
   'ai_analysis',
+  'tags',
 ] as const
 
 export const MAX_NUMBER_ENTRIES = 100
@@ -32,8 +32,8 @@ export const MAX_NUMBER_ENTRIES = 100
 export type NumberEntryInput = {
   numeric_value?: unknown
   memo?: unknown
-  tags?: unknown
   ai_analysis?: unknown
+  tags?: unknown
 }
 
 export type LogNumbersBody = {

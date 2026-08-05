@@ -8,9 +8,9 @@ export const records = pgTable('records', {
   utcOffset: text('utc_offset').notNull(),
   numericValue: text('numeric_value'),
   rawContent: text('raw_content'),
-  tags: text('tags').notNull(),
   objectiveContext: text('objective_context').notNull(),
   aiAnalysis: text('ai_analysis'),
+  tags: text('tags').notNull(),
 }, (table) => [
   // 确保 numeric_value 和 raw_content 至少填一个
   check('chk_raw_content', sql`${table.numericValue} IS NOT NULL OR ${table.rawContent} IS NOT NULL`),

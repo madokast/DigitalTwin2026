@@ -213,8 +213,8 @@
           example:
             happened_at: '2026-07-30T10:00:00+08:00'
             raw_content: studied 50 words
-            tags: [study, vocabulary]
             objective_context: afternoon study
+            tags: [study, vocabulary]
     responses:
       '201':
         description: Record created

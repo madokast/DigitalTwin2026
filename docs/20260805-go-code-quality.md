@@ -55,7 +55,36 @@ Go 的 `encoding/json` 序列化 `map[string]any` 时 **key 按字母序排序**
 
 ### 改法
 
-为每个响应形状定义 typed struct（如 `CreateBatchResponse{Success bool `json:"success"`; Inserted int `json:"inserted"`; ...}`），或复用已有 struct；`writeJSON` 仍收 `any`，但调用处只传 typed 值。
+为每个响应形状定义 typed struct（如 `CreateBatchResponse{Success bool `json:"success"`; ...}`），或复用已有 struct；`writeJSON` 仍收 `any`，但调用处只传 typed 值。
+
+### key 顺序（双端对齐，可读性规范）
+
+Go typed struct 的 **JSON key 顺序 = 字段声明顺序**（`encoding/json` 按声明序输出，json tag 不影响顺序）；Node `JSON.stringify` 按对象**属性插入顺序**。双端响应须按同一模板排列，使 AI 读响应字符串顺序稳定。
+
+**统一模板**（自上而下）：
+
+| 类别 | key 顺序 |
+|---|---|
+| 通用 | **`success` 恒第一位** |
+| 有 `id` 的 | `success` → **`id`（第二位）** → 其余 |
+| 批量 create | `success` → `inserted` → 业务字段 → `atomic`（numbers：`success, inserted, atomic`；transactions：`success, inserted, type, sum, atomic`） |
+| 单条 create | `success` → `record`（record 内部序见下） |
+| record 实体 | `id` → `happened_at` → `numeric_value`（null 省略）→ `raw_content` → `objective_context` → `ai_analysis` → **`tags`（最后）** |
+| todo 变形（record） | `id` → `created_at` → `content` → `objective_context` → `ai_analysis` → **`tags`（最后）**（query `records[]` 元素同形） |
+| query records | `success` → `count` → `page` → `page_size` → `sort_by` → `sort_order` → `records` → `hint`（可选，末尾追加） |
+| query tags | `success` → `tags` |
+| transactions summary | `success` → `from` → `to` → `income` → `expense` → `net` → `income_categories` → `expense_categories` |
+| stats | `success` → `total` → `today` → `tz` |
+| time | `success` → `now` → `tz` |
+| todo transition | `success` → `id` → `transition{from, to}` |
+| rename | `success` → `updated` |
+| probe | `success` |
+
+**纪律**：
+- Go 用 typed struct，**字段声明序 = 上表顺序**（Node 对象属性序同表）——新增/修改响应时双端按表对齐。
+- 禁止 map（字母序乱序）、避免**嵌入字段**（embedded 序列化顺序特殊）。
+- key 顺序**非契约强制**（JSON 语义无序，契约测试无序比较）——纯可读性规范，但长期维护下统一。
+- 错误响应（RFC 9457 改造后）单独模板：`title` → `status` → `detail`（见 `docs/20260805-error-response-shape.md`）。
 
 ### 优先级
 

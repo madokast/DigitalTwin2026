@@ -19,8 +19,8 @@ const MaxNumberEntries = 100
 type NumberEntryInput struct {
 	NumericValue any `json:"numeric_value"`
 	Memo         any `json:"memo"`
-	Tags         any `json:"tags"`
 	AiAnalysis   any `json:"ai_analysis"`
+	Tags         any `json:"tags"`
 }
 
 // LogNumbersBody POST /api/log/numbers 请求体。
@@ -34,15 +34,15 @@ var logNumbersKeys = []string{
 }
 
 var numberEntryKeys = []string{
-	"numeric_value", "memo", "tags", "ai_analysis",
+	"numeric_value", "memo", "ai_analysis", "tags",
 }
 
 // NormalizedNumberEntry 校验后的单条 entry。
 type NormalizedNumberEntry struct {
 	NumericValue     string
 	ObjectiveContext string
-	Tags             []string
 	AiAnalysis       *string
+	Tags             []string
 }
 
 // NormalizedNumberBatch 校验后的整单。

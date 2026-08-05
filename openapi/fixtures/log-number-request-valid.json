@@ -4,10 +4,10 @@
     {
       "numeric_value": "8000",
       "memo": "daily step count",
+      "ai_analysis": "good pace",
       "tags": [
         "steps"
-      ],
-      "ai_analysis": "good pace"
+      ]
     }
   ]
 }

@@ -1,7 +1,10 @@
 {
   "happened_at": "2026-07-30T08:00:00+08:00",
   "raw_content": "reviewed vocabulary",
-  "tags": ["study", "vocabulary"],
   "objective_context": "evening review",
-  "ai_analysis": "felt productive"
+  "ai_analysis": "felt productive",
+  "tags": [
+    "study",
+    "vocabulary"
+  ]
 }

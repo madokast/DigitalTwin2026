@@ -54,9 +54,9 @@ export function fromDB(row: RecordRow): Record {
     happened_at: formatWithUtcOffset(instantOf(row.happenedAt), row.utcOffset),
     ...(row.numericValue !== null ? { numeric_value: row.numericValue } : {}),
     raw_content: row.rawContent,
-    tags: parseTagsField(row.tags),
     objective_context: row.objectiveContext,
     ai_analysis: row.aiAnalysis,
+    tags: parseTagsField(row.tags),
   }
 }
 

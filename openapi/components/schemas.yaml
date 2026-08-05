@@ -162,6 +162,10 @@ Record:
       $ref: '#/DecimalString'
     raw_content:
       type: [string, 'null']
+    objective_context:
+      type: string
+    ai_analysis:
+      type: [string, 'null']
     tags:
       $ref: '#/TagList'
       description: |
@@ -169,10 +173,6 @@ Record:
         shape is always an array. Server-stored reserved tags
         (`transaction_entry:*`, `body:weight`, `todo:*`, …) may appear on
         read.
-    objective_context:
-      type: string
-    ai_analysis:
-      type: [string, 'null']
 
 RecordSuccess:
   type: object
@@ -493,14 +493,14 @@ NumberEntry:
         Required non-blank description; trimmed before storage, maps to
         `objective_context` (DB NOT NULL). `raw_content` is never written for
         numeric entries.
-    tags:
-      $ref: '#/TagList'
     ai_analysis:
       type: string
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
         (`Invalid ai_analysis`); whitespace-only → 400
         (`ai_analysis must not be blank`).
+    tags:
+      $ref: '#/TagList'
 
 NumberBatchSuccess:
   type: object
@@ -598,6 +598,10 @@ TodoRecord:
       type: string
       minLength: 1
       description: To-do body text (stored as `raw_content`)
+    objective_context:
+      type: string
+    ai_analysis:
+      type: [string, 'null']
     tags:
       $ref: '#/TagList'
       description: |
@@ -606,10 +610,6 @@ TodoRecord:
       examples:
         - '["todo:in_progress"]'
         - '["todo:in_progress","errand"]'
-    objective_context:
-      type: string
-    ai_analysis:
-      type: [string, 'null']
 
 TodoRecordSuccess:
   type: object
@@ -759,8 +759,6 @@ LogTextRequest:
     raw_content:
       type: string
       minLength: 1
-    tags:
-      $ref: '#/TagList'
     objective_context:
       type: string
       minLength: 1
@@ -769,6 +767,8 @@ LogTextRequest:
       description: |
         Optional; empty / omitted / null → null. Non-string JSON → 400
         (`Invalid ai_analysis`).
+    tags:
+      $ref: '#/TagList'
 
 TelegramProbeRequest:
   type: object

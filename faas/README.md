@@ -25,7 +25,7 @@
 - `POST /api/telegram/probe`（普通 API Token；校验 Telegram 配置并试发消息）
 - `POST /api/qqbot/probe`（普通 API Token；校验 QQ Bot 配置并试发消息）
 - `POST /api/db/probe`（普通 API Token；短命连接测 Postgres + `public.records`）
-- `GET /api/query`、`/api/query/summary`、`/api/query/tags`、`/api/query/transactions/summary`
+- `GET /api/query`、`/api/admin/records/stats`、`/api/query/tags`、`/api/query/transactions/summary`
 - `GET /api/export/records`（ApiToken；`from?` + 必填 `limit`；NDJSON 有界缓冲下载，非 DB cursor 无限流）
 - `POST /api/admin/tags/rename`（AdminToken）；`PATCH /api/admin/records/{id}` **已删除**（2026-08-04 彻底移除，效果 = 从未存在，见 [`docs/20260804-log-review.md`](../docs/20260804-log-review.md) §5）
 - `POST /api/admin/import/records`（AdminToken；multipart `file`≤4MiB 读入后逐行 upsert）

@@ -22,17 +22,17 @@ var MissingCadenceMessage = errors.New("Missing required field: cadence")
 
 // logReviewKeys 允许的请求键（strict unknown-key）。
 var logReviewKeys = []string{
-	"happened_at", "cadence", "raw_content", "tags",
-	"objective_context", "ai_analysis",
+	"happened_at", "cadence", "raw_content",
+	"objective_context", "ai_analysis", "tags",
 }
 
 type ReviewBody struct {
-	HappenedAt        any `json:"happened_at"`
-	Cadence           any `json:"cadence"`
-	RawContent        any `json:"raw_content"`
-	Tags              any `json:"tags"`
-	ObjectiveContext  any `json:"objective_context"`
-	AiAnalysis        any `json:"ai_analysis"`
+	HappenedAt       any `json:"happened_at"`
+	Cadence          any `json:"cadence"`
+	RawContent       any `json:"raw_content"`
+	ObjectiveContext any `json:"objective_context"`
+	AiAnalysis       any `json:"ai_analysis"`
+	Tags             any `json:"tags"`
 }
 
 // NormalizedReview 归一化复盘草稿（不含自动附加的 review:* tag；由组装函数负责）。

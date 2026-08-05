@@ -11,13 +11,13 @@ import (
 
 // Record matches Next JSON shape（snake_case HTTP JSON）。
 type Record struct {
-	ID                       string   `json:"id"`
-	HappenedAt               string   `json:"happened_at"`
-	NumericValue              *string  `json:"numeric_value,omitempty"`
-	RawContent                *string  `json:"raw_content"`
-	Tags                     []string `json:"tags"`
-	ObjectiveContext         string   `json:"objective_context"`
-	AiAnalysis *string  `json:"ai_analysis"`
+	ID               string   `json:"id"`
+	HappenedAt       string   `json:"happened_at"`
+	NumericValue     *string  `json:"numeric_value,omitempty"`
+	RawContent       *string  `json:"raw_content"`
+	ObjectiveContext string   `json:"objective_context"`
+	AiAnalysis       *string  `json:"ai_analysis"`
+	Tags             []string `json:"tags"`
 }
 
 // ParseTagsField DB text 列 → tags 数组；chk_tags 保证非空 JSON 数组形，

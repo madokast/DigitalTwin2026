@@ -36,8 +36,8 @@ openapi/
   README.md
 ```
 
-- **Path**：tag 文件顶层键为完整 path（如 `/api/log/number`）；根引用形如  
-  `$ref: './paths/log.yaml#/~1api~1log~1number'`（`/` → `~1`）。
+- **Path**：tag 文件顶层键为完整 path（如 `/api/log/numbers`）；根引用形如  
+  `$ref: './paths/log.yaml#/~1api~1log~1numbers'`（`/` → `~1`）。
 - **Components**：定义写在 `components/*.yaml`；根用**按名** `$ref`（如  
   `Error: $ref: './components/schemas.yaml#/Error'`）。kin-openapi 不支持  
   `components.schemas: $ref: './schemas.yaml'` 这种整段 map 替换。

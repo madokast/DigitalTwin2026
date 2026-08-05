@@ -50,17 +50,17 @@ import { rejectUnknownKeys } from '@/lib/unknown-keys'
 export const LOG_TEXT_KEYS = [
   'happened_at',
   'raw_content',
-  'tags',
   'objective_context',
   'ai_analysis',
+  'tags',
 ] as const
 
 export type TextBody = {
   happened_at?: unknown
   raw_content?: unknown
-  tags?: unknown
   objective_context?: unknown
   ai_analysis?: unknown
+  tags?: unknown
 }
 
 export type LogApiError = { error: string; status: number }

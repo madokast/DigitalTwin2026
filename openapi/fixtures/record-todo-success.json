@@ -4,11 +4,11 @@
     "id": "01900000-0000-7000-8000-000000000003",
     "created_at": "2026-08-02T10:00:00.000+08:00",
     "content": "Buy milk",
+    "objective_context": "weekend grocery list",
+    "ai_analysis": "need it for breakfast",
     "tags": [
       "todo:in_progress",
       "errand"
-    ],
-    "objective_context": "weekend grocery list",
-    "ai_analysis": "need it for breakfast"
+    ]
   }
 }
