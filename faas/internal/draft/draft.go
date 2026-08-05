@@ -2,6 +2,7 @@ package draft
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -24,7 +25,7 @@ const (
 )
 
 // NumericValueMustBeString 在 JSON 以 number 传入 numeric_value 时返回（硬切断，不静默转 string）。
-const NumericValueMustBeString = "numeric_value must be a decimal string"
+var NumericValueMustBeString = errors.New("numeric_value must be a decimal string")
 
 // ParseHappenedAt 校验 ISO 8601 且必须带显式时区（与 Next parseHappenedAt / query from|to 一致）。
 // 同时返回规范 utc_offset（创建路径写隐列）。
@@ -84,7 +85,7 @@ func ParseNumericValue(raw any) (*string, error) {
 		}
 		return &trimmed, nil
 	case float64, json.Number:
-		return nil, fmt.Errorf("%s", NumericValueMustBeString)
+		return nil, fmt.Errorf("%w", NumericValueMustBeString)
 	default:
 		return nil, fmt.Errorf("Invalid numeric_value")
 	}

@@ -146,7 +146,7 @@ func TestTransitionTodo_fourDomainErrors(t *testing.T) {
 		{
 			name:   "not found",
 			db:     &fakeTransitionDB{selectRow: &fakeRow{err: pgx.ErrNoRows}},
-			want:   tododraft.ErrTodoNotFound,
+			want:   tododraft.ErrTodoNotFound.Error(),
 			status: 404,
 		},
 		{
@@ -154,7 +154,7 @@ func TestTransitionTodo_fourDomainErrors(t *testing.T) {
 			db: &fakeTransitionDB{
 				selectRow: sampleTodoSelect(`["note"]`, "plain note"),
 			},
-			want:   tododraft.ErrNotATodo,
+			want:   tododraft.ErrNotATodo.Error(),
 			status: 400,
 		},
 		{
@@ -162,7 +162,7 @@ func TestTransitionTodo_fourDomainErrors(t *testing.T) {
 			db: &fakeTransitionDB{
 				selectRow: sampleTodoSelect(`["todo:transition"]`, "Buy milk"),
 			},
-			want:   tododraft.ErrAuditTransition,
+			want:   tododraft.ErrAuditTransition.Error(),
 			status: 400,
 		},
 		{
@@ -170,7 +170,7 @@ func TestTransitionTodo_fourDomainErrors(t *testing.T) {
 			db: &fakeTransitionDB{
 				selectRow: sampleTodoSelect(`["todo:completed","errand"]`, "Buy milk"),
 			},
-			want:   tododraft.ErrAlreadyTarget,
+			want:   tododraft.ErrAlreadyTarget.Error(),
 			status: 400,
 		},
 	}

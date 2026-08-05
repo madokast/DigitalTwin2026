@@ -2,6 +2,7 @@
 package tododraft
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -91,12 +92,12 @@ func ShouldDeformTodoRecordTags(tagList []string) bool {
 }
 
 // Transition 四类可区分英文错误（与 TS tododraft 字节一致）。
-const (
-	ErrTodoNotFound    = "to-do not found"
-	ErrNotATodo        = "record is not a to-do"
-	ErrAuditTransition = "cannot transition a to-do audit record"
-	ErrAlreadyTarget   = "to-do is already in target state"
-	ErrInvalidTarget   = "target must be one of: in_progress, completed, cancelled, paused"
+var (
+	ErrTodoNotFound    = errors.New("to-do not found")
+	ErrNotATodo        = errors.New("record is not a to-do")
+	ErrAuditTransition = errors.New("cannot transition a to-do audit record")
+	ErrAlreadyTarget   = errors.New("to-do is already in target state")
+	ErrInvalidTarget   = errors.New("target must be one of: in_progress, completed, cancelled, paused")
 )
 
 // LogTodoTransitionBody POST /api/log/todo/transition 请求体。
@@ -259,12 +260,12 @@ func ParseTodoTransition(raw []byte) (NormalizedTodoTransition, error) {
 	target, ok := body.Target.(string)
 	if !ok || target == "" {
 		if !ok {
-			return NormalizedTodoTransition{}, fmt.Errorf("%s", ErrInvalidTarget)
+			return NormalizedTodoTransition{}, fmt.Errorf("%w", ErrInvalidTarget)
 		}
 		return NormalizedTodoTransition{}, fmt.Errorf("Missing required field: target")
 	}
 	if !isValidTodoState(target) {
-		return NormalizedTodoTransition{}, fmt.Errorf("%s", ErrInvalidTarget)
+		return NormalizedTodoTransition{}, fmt.Errorf("%w", ErrInvalidTarget)
 	}
 
 	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))

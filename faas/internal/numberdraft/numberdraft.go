@@ -78,7 +78,7 @@ func parseEntry(raw any, index int) (NormalizedNumberEntry, error) {
 	}
 	numStr, err := draft.ParseNumericValue(entry.NumericValue)
 	if err != nil {
-		return NormalizedNumberEntry{}, fmt.Errorf("%s%s", prefix, err.Error())
+		return NormalizedNumberEntry{}, fmt.Errorf("%s%w", prefix, err)
 	}
 	if numStr == nil {
 		return NormalizedNumberEntry{}, fmt.Errorf("%sMissing required field: numeric_value", prefix)
@@ -87,13 +87,13 @@ func parseEntry(raw any, index int) (NormalizedNumberEntry, error) {
 	// memo 必填 → objective_context（DB NOT NULL）
 	memo, err := draft.RequireTrimmedText(entry.Memo, "memo")
 	if err != nil {
-		return NormalizedNumberEntry{}, fmt.Errorf("%s%s", prefix, err.Error())
+		return NormalizedNumberEntry{}, fmt.Errorf("%s%w", prefix, err)
 	}
 
 	// tags 可选（省略 → []），传了则校验格式 + 拒保留前缀
 	tagList, err := parseOptionalTags(entry.Tags)
 	if err != nil {
-		return NormalizedNumberEntry{}, fmt.Errorf("%s%s", prefix, err.Error())
+		return NormalizedNumberEntry{}, fmt.Errorf("%s%w", prefix, err)
 	}
 	if tv := tags.ValidateTags(tagList); !tv.Valid {
 		return NormalizedNumberEntry{}, fmt.Errorf("%s%s", prefix, tv.Error)
@@ -108,7 +108,7 @@ func parseEntry(raw any, index int) (NormalizedNumberEntry, error) {
 	// ai_analysis 可选：省略/null → nil；空白 → 400
 	ai, err := draft.OptionalTrimmedNullable(entry.AiAnalysis, "ai_analysis")
 	if err != nil {
-		return NormalizedNumberEntry{}, fmt.Errorf("%s%s", prefix, err.Error())
+		return NormalizedNumberEntry{}, fmt.Errorf("%s%w", prefix, err)
 	}
 
 	return NormalizedNumberEntry{

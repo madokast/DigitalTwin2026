@@ -4,6 +4,7 @@ package qqbot
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,7 +20,7 @@ import (
 const HTTPTimeout = 15 * time.Second
 
 // TransportFailedMessage 与 Next QQBOT_TRANSPORT_FAILED 同文案（超时/网络等）。
-const TransportFailedMessage = "QQ Bot sendMessage failed: request failed"
+var TransportFailedMessage = errors.New("QQ Bot sendMessage failed: request failed")
 
 const defaultTokenURL = "https://bots.qq.com/app/getAppAccessToken"
 
@@ -197,17 +198,17 @@ func (s *Sender) fetchAccessToken(cfg Config) (string, error) {
 		"clientSecret": cfg.AppSecret,
 	})
 	if err != nil {
-		return "", fmt.Errorf("%s", TransportFailedMessage)
+		return "", fmt.Errorf("%w", TransportFailedMessage)
 	}
 	req, err := http.NewRequest(http.MethodPost, s.tokenURL(), bytes.NewReader(payload))
 	if err != nil {
-		return "", fmt.Errorf("%s", TransportFailedMessage)
+		return "", fmt.Errorf("%w", TransportFailedMessage)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := s.client().Do(req)
 	if err != nil {
-		return "", fmt.Errorf("%s", TransportFailedMessage)
+		return "", fmt.Errorf("%w", TransportFailedMessage)
 	}
 	defer res.Body.Close()
 
@@ -270,7 +271,7 @@ func (s *Sender) SendMessage(text string) error {
 		return err
 	}
 	if token == "" {
-		return fmt.Errorf("%s", TransportFailedMessage)
+		return fmt.Errorf("%w", TransportFailedMessage)
 	}
 
 	path := "/v2/users/" + url.PathEscape(cfg.UserOpenID) + "/messages"
@@ -279,7 +280,7 @@ func (s *Sender) SendMessage(text string) error {
 		"msg_type": 0,
 	})
 	if err != nil {
-		return fmt.Errorf("%s", TransportFailedMessage)
+		return fmt.Errorf("%w", TransportFailedMessage)
 	}
 
 	lastErr := "send failed"

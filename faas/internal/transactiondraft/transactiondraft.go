@@ -3,6 +3,7 @@ package transactiondraft
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -20,8 +21,10 @@ var segmentPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 // 金额形态：可选负号、整数至多 12 位或至多两位小数；禁 +、空格、残缺点、前导零；绝对值 ≤ 999999999999.99
 var moneyAmountPattern = regexp.MustCompile(`^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$`)
 
-const AmountMustBeString = "amount must be a decimal string"
-const InvalidAmount = "Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5"
+var (
+	AmountMustBeString = errors.New("amount must be a decimal string")
+	InvalidAmount      = errors.New("Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5")
+)
 
 // TransactionEntryInput 单条 entry 原始输入（any：字段级校验文案与 Next 对齐）。
 type TransactionEntryInput struct {
@@ -153,16 +156,16 @@ func parseAmount(raw any) (string, error) {
 	case string:
 		trimmed := strings.TrimSpace(v)
 		if !moneyAmountPattern.MatchString(trimmed) {
-			return "", fmt.Errorf("%s", InvalidAmount)
+			return "", fmt.Errorf("%w", InvalidAmount)
 		}
 		if IsZeroDecimalLiteral(trimmed) {
-			return "", fmt.Errorf("%s", InvalidAmount)
+			return "", fmt.Errorf("%w", InvalidAmount)
 		}
 		return NormalizeMoneyAmount2(trimmed), nil
 	case float64, json.Number:
-		return "", fmt.Errorf("%s", AmountMustBeString)
+		return "", fmt.Errorf("%w", AmountMustBeString)
 	default:
-		return "", fmt.Errorf("%s", InvalidAmount)
+		return "", fmt.Errorf("%w", InvalidAmount)
 	}
 }
 
@@ -198,19 +201,19 @@ func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, err
 	}
 	amount, err := parseAmount(entry.Amount)
 	if err != nil {
-		return NormalizedTransactionEntry{}, fmt.Errorf("%s%s", prefix, err.Error())
+		return NormalizedTransactionEntry{}, fmt.Errorf("%s%w", prefix, err)
 	}
 	memo, err := draft.RequireTrimmedText(entry.Memo, "memo")
 	if err != nil {
-		return NormalizedTransactionEntry{}, fmt.Errorf("%s%s", prefix, err)
+		return NormalizedTransactionEntry{}, fmt.Errorf("%s%w", prefix, err)
 	}
 	category, err := parseSegment(entry.Category, "category")
 	if err != nil {
-		return NormalizedTransactionEntry{}, fmt.Errorf("%s%s", prefix, err.Error())
+		return NormalizedTransactionEntry{}, fmt.Errorf("%s%w", prefix, err)
 	}
 	subcategory, err := parseSegment(entry.Subcategory, "subcategory")
 	if err != nil {
-		return NormalizedTransactionEntry{}, fmt.Errorf("%s%s", prefix, err.Error())
+		return NormalizedTransactionEntry{}, fmt.Errorf("%s%w", prefix, err)
 	}
 	composite := category + ":" + subcategory
 	if !tags.IsValidTag(composite) {

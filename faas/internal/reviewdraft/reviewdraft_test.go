@@ -62,7 +62,7 @@ func TestCadenceFixtures(t *testing.T) {
 			t.Fatalf("cadence %q not in fixture", c)
 		}
 	}
-	if MissingCadenceMessage != cases.MissingMessage || InvalidCadenceMessage != cases.InvalidMessage {
+	if MissingCadenceMessage.Error() != cases.MissingMessage || InvalidCadenceMessage.Error() != cases.InvalidMessage {
 		t.Fatalf("message mismatch: missing=%q invalid=%q", MissingCadenceMessage, InvalidCadenceMessage)
 	}
 
@@ -75,7 +75,7 @@ func TestCadenceFixtures(t *testing.T) {
 		}
 		b, _ := json.Marshal(body)
 		_, err := ParseReview(b)
-		if err == nil || err.Error() != MissingCadenceMessage {
+		if err == nil || err.Error() != MissingCadenceMessage.Error() {
 			t.Fatalf("missing %#v: got %v", raw, err)
 		}
 	}
@@ -88,7 +88,7 @@ func TestCadenceFixtures(t *testing.T) {
 		}
 		b, _ := json.Marshal(body)
 		_, err := ParseReview(b)
-		if err == nil || err.Error() != InvalidCadenceMessage {
+		if err == nil || err.Error() != InvalidCadenceMessage.Error() {
 			t.Fatalf("invalid %q: got %v", raw, err)
 		}
 	}

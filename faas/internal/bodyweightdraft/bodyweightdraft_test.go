@@ -48,10 +48,10 @@ func loadWeightAmountCases(t *testing.T) weightAmountCases {
 
 func TestParseWeightAmountSharedFixtures(t *testing.T) {
 	cases := loadWeightAmountCases(t)
-	if InvalidWeight != cases.InvalidWeightError {
+	if InvalidWeight.Error() != cases.InvalidWeightError {
 		t.Fatalf("InvalidWeight constant drift: %q vs %q", InvalidWeight, cases.InvalidWeightError)
 	}
-	if draft.NumericValueMustBeString != cases.NumericValueMustBeString {
+	if draft.NumericValueMustBeString.Error() != cases.NumericValueMustBeString {
 		t.Fatalf("NumericValueMustBeString drift")
 	}
 	for _, tc := range cases.Accept {
@@ -67,7 +67,7 @@ func TestParseWeightAmountSharedFixtures(t *testing.T) {
 		}
 	}
 	_, err := ParseWeightAmount(float64(75.5))
-	if err == nil || err.Error() != draft.NumericValueMustBeString {
+	if err == nil || err.Error() != draft.NumericValueMustBeString.Error() {
 		t.Fatalf("JSON number: err=%v", err)
 	}
 }

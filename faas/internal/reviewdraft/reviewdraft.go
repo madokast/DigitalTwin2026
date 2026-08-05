@@ -2,6 +2,7 @@
 package reviewdraft
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,10 +15,10 @@ import (
 var cadences = []string{"daily", "weekly", "monthly", "quarterly", "semiannually", "yearly"}
 
 // InvalidCadenceMessage 与 Next INVALID_CADENCE_MESSAGE 同文案：回显全部可用值。
-const InvalidCadenceMessage = "Invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly"
+var InvalidCadenceMessage = errors.New("Invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly")
 
 // MissingCadenceMessage 与 Next MISSING_CADENCE_MESSAGE 同文案。
-const MissingCadenceMessage = "Missing required field: cadence"
+var MissingCadenceMessage = errors.New("Missing required field: cadence")
 
 // logReviewKeys 允许的请求键（strict unknown-key）。
 var logReviewKeys = []string{
@@ -89,10 +90,10 @@ func ParseReview(raw []byte) (NormalizedReview, error) {
 
 	cadenceStr, ok := body.Cadence.(string)
 	if !ok || cadenceStr == "" {
-		return NormalizedReview{}, fmt.Errorf("%s", MissingCadenceMessage)
+		return NormalizedReview{}, fmt.Errorf("%w", MissingCadenceMessage)
 	}
 	if !isCadence(cadenceStr) {
-		return NormalizedReview{}, fmt.Errorf("%s", InvalidCadenceMessage)
+		return NormalizedReview{}, fmt.Errorf("%w", InvalidCadenceMessage)
 	}
 
 	rawContent, err := draft.RequireTrimmedText(body.RawContent, "raw_content")

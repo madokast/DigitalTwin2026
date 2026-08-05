@@ -121,7 +121,7 @@ FROM records WHERE id = $1
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return TransitionResult{}, 404, fmt.Errorf("%s", tododraft.ErrTodoNotFound)
+			return TransitionResult{}, 404, fmt.Errorf("%w", tododraft.ErrTodoNotFound)
 		}
 		return TransitionResult{}, 500, err
 	}
@@ -132,14 +132,14 @@ FROM records WHERE id = $1
 	}
 
 	if tododraft.IsTodoAuditRecordTags(tagList) {
-		return TransitionResult{}, 400, fmt.Errorf("%s", tododraft.ErrAuditTransition)
+		return TransitionResult{}, 400, fmt.Errorf("%w", tododraft.ErrAuditTransition)
 	}
 	from := tododraft.TodoStateFromTags(tagList)
 	if from == "" {
-		return TransitionResult{}, 400, fmt.Errorf("%s", tododraft.ErrNotATodo)
+		return TransitionResult{}, 400, fmt.Errorf("%w", tododraft.ErrNotATodo)
 	}
 	if from == parsed.Target {
-		return TransitionResult{}, 400, fmt.Errorf("%s", tododraft.ErrAlreadyTarget)
+		return TransitionResult{}, 400, fmt.Errorf("%w", tododraft.ErrAlreadyTarget)
 	}
 
 	todoRec := record.FromDB(todoID, todoHappened, todoOffset, todoNum, todoText, todoTags, todoObj, todoSubj)

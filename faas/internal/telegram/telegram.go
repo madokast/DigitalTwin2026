@@ -4,6 +4,7 @@ package telegram
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,7 +20,7 @@ import (
 const HTTPTimeout = 15 * time.Second
 
 // TransportFailedMessage 与 Next TELEGRAM_TRANSPORT_FAILED 同文案（超时/网络等）。
-const TransportFailedMessage = "Telegram sendMessage failed: request failed"
+var TransportFailedMessage = errors.New("Telegram sendMessage failed: request failed")
 
 // Config 为非空 token + user id 才算 configured。
 type Config struct {
@@ -142,19 +143,19 @@ func (s *Sender) SendMessage(text string) error {
 		DisableWebPagePreview: true,
 	})
 	if err != nil {
-		return fmt.Errorf("%s", TransportFailedMessage)
+		return fmt.Errorf("%w", TransportFailedMessage)
 	}
 
 	url := fmt.Sprintf("%s/bot%s/sendMessage", s.apiBase(), cfg.Token)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
-		return fmt.Errorf("%s", TransportFailedMessage)
+		return fmt.Errorf("%w", TransportFailedMessage)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := s.client().Do(req)
 	if err != nil {
-		return fmt.Errorf("%s", TransportFailedMessage)
+		return fmt.Errorf("%w", TransportFailedMessage)
 	}
 	defer res.Body.Close()
 
