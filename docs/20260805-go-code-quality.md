@@ -90,7 +90,7 @@ Go typed struct 的 **JSON key 顺序 = 字段声明顺序**（`encoding/json` �
 
 - 低优先（可后置），但与 `docs/20260805-error-response-shape.md`（错误响应结构化）合并实施——错误响应本身就是 `map[string]string{"error"}`，一起改 typed。
 
-## 3. 结构化日志 `log/slog`（低优先，可后置）
+## 3. 结构化日志 `log/slog`（✅ 已实现，`ecbc9c0`；Node 对应 pino `7dfb1a3`，规范见 AGENTS.md「日志」）
 
 ### 现状
 
@@ -200,7 +200,7 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 3. ~~**状态码常量**（§4）~~：✅ 已实现（`5c1c3b1`，37 处字面量 → `net/http` 常量）。
 4. ~~**handler 错误样板收敛**（§5）~~：✅ 已实现（`59b12ae`，`writeLogOrError` helper 收敛 8 处）。
 5. ~~**`go test -race`**~~（§6）：✅ 已实现（scripts + CI + README 命令加 `-race`）。
-6. **`log/slog`**（§3）与 **golangci-lint**（§7）：低优先，可合并规划。
+6. ~~**`log/slog`**~~（§3）：✅ 已实现（Go `ecbc9c0` + Node pino `7dfb1a3`，规范见 AGENTS.md「日志」）；**golangci-lint**（§7）仍待做。
 7. **RFC 9457 错误响应**（§8 / error-response-shape.md）：独立破坏性改造，待决策后开工。
 
 ## 相关记录

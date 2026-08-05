@@ -33,8 +33,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Next（Vercel）与国内 FaaS **共用同一套库**：test 对测试库，prod 对生产库（与 Vercel 生产 `DATABASE_URL` 相同）。
 - **`happened_at` 读出区**：隐列 `utc_offset`（对外 JSON 不可见）— 见 [`docs/20260803-utc-offset.md`](docs/20260803-utc-offset.md)。Schema 加列：**改基准 `0000` / Drizzle schema 后 drop 重建**；**禁止**增量 `ADD COLUMN` migration。
 
-# 双后端（必须同时维护）
+# 日志（结构化，双端对齐）
 
+- **Go**：`log/slog`（`cmd/api/main.go` `SetDefault` → TextHandler 到 stdout）；错误 `slog.Error(msg, "err", err)`。
+- **Node**：`pino`（`src/lib/logger.ts` 单例，JSON 行；`LOG_LEVEL` 环境变量控制级别，默认 info）；错误 `logger.error({ err }, msg)`。
+- **新日志一律走 slog / pino**，运行时 API 路径禁止新增 `log.Printf` / `console.error`。
+- **msg 双端对齐**：同义日志用同一 msg 短语（如 `query records`、`import records`、`Error creating number records`），键值对承载上下文。
+- **CLI / 部署脚本**（`scripts/*.ts`）是交互输出，保持 `console.*`，不算服务日志。
+- 日志文案英文（见「语言原则」）。
+
+# 双后端（必须同时维护）
 本仓库有两套 HTTP API 实现，**路径 / 鉴权 / 语义必须一致**：
 
 | | Next（默认 / 海外） | Go FaaS（国内加速） |
