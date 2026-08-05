@@ -15,17 +15,17 @@ var isoTZSuffix = regexp.MustCompile(`(?i)(Z|[+-]\d{2}:?\d{2})$`)
 
 var canonicalOffset = regexp.MustCompile(`^[+-]\d{2}:\d{2}$`)
 
-var missingTZ = errors.New("happened_at must be ISO 8601 with timezone (Z or ±HH:MM)")
+var errMissingTZ = errors.New("happened_at must be ISO 8601 with timezone (Z or ±HH:MM)")
 
 // ExtractUtcOffsetLiteral 从带区 ISO 末尾拆出时区后缀并规范成入库形：Z 或 ±HH:MM。
 // Z/z → Z；+0800 → +08:00；不把 Z 与 +00:00 互相折叠。
 func ExtractUtcOffsetLiteral(raw string) (string, error) {
 	if raw == "" {
-		return "", fmt.Errorf("%w", missingTZ)
+		return "", fmt.Errorf("%w", errMissingTZ)
 	}
 	loc := isoTZSuffix.FindStringIndex(raw)
 	if loc == nil {
-		return "", fmt.Errorf("%w", missingTZ)
+		return "", fmt.Errorf("%w", errMissingTZ)
 	}
 	suffix := raw[loc[0]:loc[1]]
 	return NormalizeUtcOffsetSuffix(suffix), nil

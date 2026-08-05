@@ -62,8 +62,8 @@ func TestCadenceFixtures(t *testing.T) {
 			t.Fatalf("cadence %q not in fixture", c)
 		}
 	}
-	if MissingCadenceMessage.Error() != cases.MissingMessage || InvalidCadenceMessage.Error() != cases.InvalidMessage {
-		t.Fatalf("message mismatch: missing=%q invalid=%q", MissingCadenceMessage, InvalidCadenceMessage)
+	if ErrMissingCadenceMessage.Error() != cases.MissingMessage || ErrInvalidCadenceMessage.Error() != cases.InvalidMessage {
+		t.Fatalf("message mismatch: missing=%q invalid=%q", ErrMissingCadenceMessage, ErrInvalidCadenceMessage)
 	}
 
 	for _, raw := range cases.Missing {
@@ -75,7 +75,7 @@ func TestCadenceFixtures(t *testing.T) {
 		}
 		b, _ := json.Marshal(body)
 		_, err := ParseReview(b)
-		if err == nil || err.Error() != MissingCadenceMessage.Error() {
+		if err == nil || err.Error() != ErrMissingCadenceMessage.Error() {
 			t.Fatalf("missing %#v: got %v", raw, err)
 		}
 	}
@@ -88,7 +88,7 @@ func TestCadenceFixtures(t *testing.T) {
 		}
 		b, _ := json.Marshal(body)
 		_, err := ParseReview(b)
-		if err == nil || err.Error() != InvalidCadenceMessage.Error() {
+		if err == nil || err.Error() != ErrInvalidCadenceMessage.Error() {
 			t.Fatalf("invalid %q: got %v", raw, err)
 		}
 	}

@@ -22,8 +22,8 @@ var segmentPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 var moneyAmountPattern = regexp.MustCompile(`^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$`)
 
 var (
-	AmountMustBeString = errors.New("amount must be a decimal string")
-	InvalidAmount      = errors.New("Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5")
+	ErrAmountMustBeString = errors.New("amount must be a decimal string")
+	ErrInvalidAmount      = errors.New("Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5")
 )
 
 // TransactionEntryInput 单条 entry 原始输入（any：字段级校验文案与 Next 对齐）。
@@ -156,16 +156,16 @@ func parseAmount(raw any) (string, error) {
 	case string:
 		trimmed := strings.TrimSpace(v)
 		if !moneyAmountPattern.MatchString(trimmed) {
-			return "", fmt.Errorf("%w", InvalidAmount)
+			return "", fmt.Errorf("%w", ErrInvalidAmount)
 		}
 		if IsZeroDecimalLiteral(trimmed) {
-			return "", fmt.Errorf("%w", InvalidAmount)
+			return "", fmt.Errorf("%w", ErrInvalidAmount)
 		}
 		return NormalizeMoneyAmount2(trimmed), nil
 	case float64, json.Number:
-		return "", fmt.Errorf("%w", AmountMustBeString)
+		return "", fmt.Errorf("%w", ErrAmountMustBeString)
 	default:
-		return "", fmt.Errorf("%w", InvalidAmount)
+		return "", fmt.Errorf("%w", ErrInvalidAmount)
 	}
 }
 

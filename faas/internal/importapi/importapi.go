@@ -24,8 +24,8 @@ const MaxImportLines = 1000
 // MaxImportFileBytes file part 原始字节上限 4 MiB。
 const MaxImportFileBytes = 4 * 1024 * 1024
 
-// ImportLimitsError 与 Next IMPORT_LIMITS_ERROR 同文案。
-var ImportLimitsError = errors.New("import exceeds limits (max 1000 lines or 4 MiB); split the file")
+// ErrImportLimitsError 与 Next IMPORT_LIMITS_ERROR 同文案。
+var ErrImportLimitsError = errors.New("import exceeds limits (max 1000 lines or 4 MiB); split the file")
 
 // ErrMultipartRequired 与 Next MULTIPART_FILE_REQUIRED 同文案。
 var ErrMultipartRequired = errors.New(`multipart form field "file" is required`)
@@ -95,7 +95,7 @@ func StatusOf(err error) int {
 	if errors.As(err, &de) {
 		return de.status
 	}
-	if errors.Is(err, ImportLimitsError) ||
+	if errors.Is(err, ErrImportLimitsError) ||
 		errors.Is(err, ErrMultipartRequired) ||
 		errors.Is(err, ErrMultipartMultipleFile) ||
 		errors.Is(err, ErrMultipartContentType) ||
@@ -114,7 +114,7 @@ func ImportRecordsJSONL(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (C
 		return Counts{}, err
 	}
 	if len(raw) > MaxImportFileBytes {
-		return Counts{}, fail(400, ImportLimitsError.Error())
+		return Counts{}, fail(400, ErrImportLimitsError.Error())
 	}
 
 	tx, err := pool.Begin(ctx)
@@ -136,7 +136,7 @@ func ImportRecordsJSONL(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (C
 // ImportRecordsJSONLTx 同语义，使用已有 tx（单测注入假 tx / 真实 tx）。
 func ImportRecordsJSONLTx(ctx context.Context, tx pgx.Tx, text string, fileBytes int) (Counts, error) {
 	if fileBytes > MaxImportFileBytes {
-		return Counts{}, fail(400, ImportLimitsError.Error())
+		return Counts{}, fail(400, ErrImportLimitsError.Error())
 	}
 	return importTextInTx(ctx, tx, text)
 }
@@ -168,7 +168,7 @@ func importTextInTx(ctx context.Context, tx pgx.Tx, text string) (Counts, error)
 		}
 		nonEmpty++
 		if nonEmpty > MaxImportLines {
-			return Counts{}, fail(400, ImportLimitsError.Error())
+			return Counts{}, fail(400, ErrImportLimitsError.Error())
 		}
 
 		row, err := recordjsonl.ParseLine(line, physicalLine)

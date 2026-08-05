@@ -63,7 +63,7 @@ func TestCreateTransactionBatchRejectsJSONNumberAmount(t *testing.T) {
 	if status != 400 {
 		t.Fatalf("status %d", status)
 	}
-	if err == nil || !strings.Contains(err.Error(), transactiondraft.AmountMustBeString.Error()) {
+	if err == nil || !strings.Contains(err.Error(), transactiondraft.ErrAmountMustBeString.Error()) {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -89,7 +89,7 @@ func TestCreateTransactionBatchRejectsZeroAmount(t *testing.T) {
 	if status != 400 {
 		t.Fatalf("status %d", status)
 	}
-	want := "entries[0]: " + transactiondraft.InvalidAmount.Error()
+	want := "entries[0]: " + transactiondraft.ErrInvalidAmount.Error()
 	if err == nil || err.Error() != want {
 		t.Fatalf("err=%v", err)
 	}

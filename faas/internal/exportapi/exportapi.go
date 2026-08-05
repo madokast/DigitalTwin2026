@@ -21,11 +21,11 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/recordjsonl"
 )
 
-// ExportLimitError 与 Next EXPORT_LIMIT_ERROR 同文案。
-var ExportLimitError = errors.New("limit must be an integer between 1 and 1000")
+// ErrExportLimitError 与 Next EXPORT_LIMIT_ERROR 同文案。
+var ErrExportLimitError = errors.New("limit must be an integer between 1 and 1000")
 
-// ExportFromNotFound 与 Next EXPORT_FROM_NOT_FOUND 同文案。
-var ExportFromNotFound = errors.New("export from id not found")
+// ErrExportFromNotFound 与 Next EXPORT_FROM_NOT_FOUND 同文案。
+var ErrExportFromNotFound = errors.New("export from id not found")
 
 var digitsOnly = regexp.MustCompile(`^\d+$`)
 
@@ -37,16 +37,16 @@ type ParsedExport struct {
 
 func parseRequiredLimit(raw string) (int, error) {
 	if raw == "" || !digitsOnly.MatchString(raw) {
-		return 0, ExportLimitError
+		return 0, ErrExportLimitError
 	}
 	n, err := strconv.Atoi(raw)
 	if err != nil || n < 1 || n > 1000 {
-		return 0, ExportLimitError
+		return 0, ErrExportLimitError
 	}
 	// 与 Next Number.MAX_SAFE_INTEGER 对齐
 	const maxSafeInt = 9007199254740991
 	if n > maxSafeInt {
-		return 0, ExportLimitError
+		return 0, ErrExportLimitError
 	}
 	return n, nil
 }
@@ -63,7 +63,7 @@ func ParseExportRecordsParams(q url.Values) (*ParsedExport, error) {
 		return &ParsedExport{From: "", Limit: limit}, nil
 	}
 	if !record.IsValidID(from) {
-		return nil, record.InvalidID
+		return nil, record.ErrInvalidID
 	}
 	return &ParsedExport{From: from, Limit: limit}, nil
 }
@@ -71,7 +71,7 @@ func ParseExportRecordsParams(q url.Values) (*ParsedExport, error) {
 const selectCols = `id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis`
 
 // FetchExportRecords 有 from 时先确认存在，再 id >= from ORDER BY id ASC LIMIT。
-// 成功 (recs, 200, nil)；from 不存在 (nil, 404, ExportFromNotFound)。
+// 成功 (recs, 200, nil)；from 不存在 (nil, 404, ErrExportFromNotFound)。
 func FetchExportRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedExport) ([]record.Record, int, error) {
 	if p.From != "" {
 		var exists bool
@@ -80,7 +80,7 @@ func FetchExportRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedExport
 			return nil, 500, err
 		}
 		if !exists {
-			return nil, 404, ExportFromNotFound
+			return nil, 404, ErrExportFromNotFound
 		}
 	}
 

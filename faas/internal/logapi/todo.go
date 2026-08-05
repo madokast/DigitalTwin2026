@@ -105,7 +105,7 @@ func transitionTodo(ctx context.Context, db transitionDB, raw []byte) (Transitio
 		return TransitionResult{}, 400, err
 	}
 	if !record.IsValidID(parsed.ID) {
-		return TransitionResult{}, 400, record.InvalidID
+		return TransitionResult{}, 400, record.ErrInvalidID
 	}
 
 	var (

@@ -19,8 +19,8 @@ import (
 // HTTPTimeout 与 Next TELEGRAM_HTTP_TIMEOUT_MS（15s）对齐。
 const HTTPTimeout = 15 * time.Second
 
-// TransportFailedMessage 与 Next TELEGRAM_TRANSPORT_FAILED 同文案（超时/网络等）。
-var TransportFailedMessage = errors.New("Telegram sendMessage failed: request failed")
+// ErrTransportFailedMessage 与 Next TELEGRAM_TRANSPORT_FAILED 同文案（超时/网络等）。
+var ErrTransportFailedMessage = errors.New("Telegram sendMessage failed: request failed")
 
 // Config 为非空 token + user id 才算 configured。
 type Config struct {
@@ -143,19 +143,19 @@ func (s *Sender) SendMessage(text string) error {
 		DisableWebPagePreview: true,
 	})
 	if err != nil {
-		return fmt.Errorf("%w", TransportFailedMessage)
+		return fmt.Errorf("%w", ErrTransportFailedMessage)
 	}
 
 	url := fmt.Sprintf("%s/bot%s/sendMessage", s.apiBase(), cfg.Token)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
-		return fmt.Errorf("%w", TransportFailedMessage)
+		return fmt.Errorf("%w", ErrTransportFailedMessage)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := s.client().Do(req)
 	if err != nil {
-		return fmt.Errorf("%w", TransportFailedMessage)
+		return fmt.Errorf("%w", ErrTransportFailedMessage)
 	}
 	defer res.Body.Close()
 

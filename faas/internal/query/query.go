@@ -170,7 +170,7 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
 
 	id := q.Get("id")
 	if id != "" && !record.IsValidID(id) {
-		return nil, record.InvalidID
+		return nil, record.ErrInvalidID
 	}
 
 	return &ParsedQuery{

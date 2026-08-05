@@ -155,7 +155,7 @@ func TestImportRecordsDoesNotUseMaxBodyGate(t *testing.T) {
 	}
 	var errBody map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &errBody)
-	if errBody["error"] != importapi.ImportLimitsError.Error() {
+	if errBody["error"] != importapi.ErrImportLimitsError.Error() {
 		t.Fatalf("error %v", errBody)
 	}
 	if errBody["error"] == httpx.BodyTooLargeMessage {

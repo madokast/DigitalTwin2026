@@ -77,7 +77,7 @@ func TestTransitionTodoRejectsValidation(t *testing.T) {
 		},
 		{
 			`{"id":"not-a-uuid","target":"completed","happened_at":"2026-08-02T12:00:00+08:00"}`,
-			record.InvalidID.Error(),
+			record.ErrInvalidID.Error(),
 		},
 	}
 	for _, c := range cases {

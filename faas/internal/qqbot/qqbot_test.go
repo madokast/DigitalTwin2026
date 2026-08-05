@@ -179,7 +179,7 @@ func TestSendMessageTransportError(t *testing.T) {
 		Getenv:   configuredGetenv,
 	}
 	err := s.SendMessage("x")
-	if err == nil || err.Error() != TransportFailedMessage.Error() {
+	if err == nil || err.Error() != ErrTransportFailedMessage.Error() {
 		t.Fatalf("err: %v", err)
 	}
 	if strings.Contains(err.Error(), "sec-1") {

@@ -712,7 +712,7 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(fileRaw) > importapi.MaxImportFileBytes {
-		writeError(w, http.StatusBadRequest, importapi.ImportLimitsError.Error())
+		writeError(w, http.StatusBadRequest, importapi.ErrImportLimitsError.Error())
 		return
 	}
 

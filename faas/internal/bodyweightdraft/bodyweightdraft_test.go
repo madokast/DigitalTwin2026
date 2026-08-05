@@ -23,7 +23,7 @@ type weightAmountReject struct {
 
 type weightAmountCases struct {
 	InvalidWeightError       string               `json:"invalidWeightError"`
-	NumericValueMustBeString  string               `json:"numericValueMustBeString"`
+	ErrNumericValueMustBeString  string               `json:"numericValueMustBeString"`
 	Accept                   []weightAmountAccept `json:"accept"`
 	Reject                   []weightAmountReject `json:"reject"`
 }
@@ -48,11 +48,11 @@ func loadWeightAmountCases(t *testing.T) weightAmountCases {
 
 func TestParseWeightAmountSharedFixtures(t *testing.T) {
 	cases := loadWeightAmountCases(t)
-	if InvalidWeight.Error() != cases.InvalidWeightError {
-		t.Fatalf("InvalidWeight constant drift: %q vs %q", InvalidWeight, cases.InvalidWeightError)
+	if ErrInvalidWeight.Error() != cases.InvalidWeightError {
+		t.Fatalf("ErrInvalidWeight constant drift: %q vs %q", ErrInvalidWeight, cases.InvalidWeightError)
 	}
-	if draft.NumericValueMustBeString.Error() != cases.NumericValueMustBeString {
-		t.Fatalf("NumericValueMustBeString drift")
+	if draft.ErrNumericValueMustBeString.Error() != cases.ErrNumericValueMustBeString {
+		t.Fatalf("ErrNumericValueMustBeString drift")
 	}
 	for _, tc := range cases.Accept {
 		got, err := ParseWeightAmount(tc.Input)
@@ -67,7 +67,7 @@ func TestParseWeightAmountSharedFixtures(t *testing.T) {
 		}
 	}
 	_, err := ParseWeightAmount(float64(75.5))
-	if err == nil || err.Error() != draft.NumericValueMustBeString.Error() {
+	if err == nil || err.Error() != draft.ErrNumericValueMustBeString.Error() {
 		t.Fatalf("JSON number: err=%v", err)
 	}
 }

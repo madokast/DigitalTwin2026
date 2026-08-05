@@ -49,7 +49,7 @@ func TestImportLimitsConstant(t *testing.T) {
 	if importapi.MaxImportFileBytes != 4*1024*1024 {
 		t.Fatalf("bytes %d", importapi.MaxImportFileBytes)
 	}
-	if !strings.Contains(importapi.ImportLimitsError.Error(), "split the file") {
-		t.Fatalf("limits msg %v", importapi.ImportLimitsError)
+	if !strings.Contains(importapi.ErrImportLimitsError.Error(), "split the file") {
+		t.Fatalf("limits msg %v", importapi.ErrImportLimitsError)
 	}
 }

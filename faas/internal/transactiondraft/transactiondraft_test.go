@@ -60,7 +60,7 @@ func TestParseTransactionBatchRejectsJSONNumberAmount(t *testing.T) {
 		"entries": [{"amount": 25, "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
 	_, err := ParseTransactionBatch(raw)
-	want := "entries[0]: " + AmountMustBeString.Error()
+	want := "entries[0]: " + ErrAmountMustBeString.Error()
 	if err == nil || err.Error() != want {
 		t.Fatalf("err=%v", err)
 	}
@@ -79,8 +79,8 @@ func TestParseTransactionBatchRejectsMissingType(t *testing.T) {
 
 func TestParseTransactionBatchSharedMoneyAmountFixtures(t *testing.T) {
 	cases := loadMoneyAmountCases(t)
-	if cases.InvalidAmountError != InvalidAmount.Error() {
-		t.Fatalf("fixture invalidAmountError %q != const %q", cases.InvalidAmountError, InvalidAmount)
+	if cases.InvalidAmountError != ErrInvalidAmount.Error() {
+		t.Fatalf("fixture invalidAmountError %q != const %q", cases.InvalidAmountError, ErrInvalidAmount)
 	}
 	for _, c := range cases.Accept {
 		raw := []byte(`{

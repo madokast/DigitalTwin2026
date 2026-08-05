@@ -126,7 +126,7 @@ func TestParseNumericValueBlankAndJSONNumber(t *testing.T) {
 	if err != nil || got != nil {
 		t.Fatalf("blank: %#v %v", got, err)
 	}
-	if _, err := ParseNumericValue(float64(75.5)); err == nil || err.Error() != NumericValueMustBeString.Error() {
+	if _, err := ParseNumericValue(float64(75.5)); err == nil || err.Error() != ErrNumericValueMustBeString.Error() {
 		t.Fatalf("float64: %v", err)
 	}
 }
