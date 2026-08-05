@@ -184,12 +184,18 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 	})
 }
 
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
+// writeEncoded 写 JSON 响应（Content-Type 由调用方指定）；不转义 HTML，与 Next JSON.stringify 对齐。
+// 仅被 writeJSON / writeError 使用（内部 helper，不导出）。
+func writeEncoded(w http.ResponseWriter, status int, contentType string, body any) {
+	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(status)
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false) // 与 Next JSON.stringify 对齐，不把 <> & 编成 \u003c 等
 	_ = enc.Encode(body)
+}
+
+func writeJSON(w http.ResponseWriter, status int, body any) {
+	writeEncoded(w, status, "application/json", body)
 }
 
 func writeInternalError(w http.ResponseWriter, _ error) {
@@ -200,11 +206,7 @@ func writeInternalError(w http.ResponseWriter, _ error) {
 func writeError(w http.ResponseWriter, status int, msg string) {
 	// RFC 9457 problem+json（docs/20260805-error-response-shape.md）：
 	// 形状与 key 顺序双端逐字一致（success→title→status→detail），Content-Type 用 problem+json。
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(status)
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false) // 与 Next 对齐，不把 <> & 编成 \u003c 等
-	_ = enc.Encode(ProblemResponse{
+	writeEncoded(w, status, "application/problem+json", ProblemResponse{
 		Success: false,
 		Title:   statusTitle(status),
 		Status:  status,
