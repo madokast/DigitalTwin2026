@@ -123,10 +123,12 @@ func withJSONErrorPages(next http.Handler) http.Handler {
 			code = http.StatusOK
 		}
 		// 仅改写框架 404（无路由，通常 text/plain）；业务 404（application/json / problem+json）原样透传。
+		// 用 mime.ParseMediaType 精确匹配，避免子串枚举（problem+json 不含 application/json 子串）。
 		if code == http.StatusNotFound {
-			ct := buf.Header().Get("Content-Type")
-			if !strings.Contains(ct, "application/json") && !strings.Contains(ct, "application/problem+json") {
-				writeError(w, http.StatusNotFound, "Not found")
+			mediatype, _, _ := mime.ParseMediaType(buf.Header().Get("Content-Type"))
+			if mediatype != "application/json" && mediatype != "application/problem+json" {
+				// 框架兜底：唯一已知信息是请求路径，写入 detail 便于 AI 客户端诊断
+				writeError(w, http.StatusNotFound, "unknown path: "+r.URL.Path)
 				return
 			}
 		}
@@ -134,7 +136,7 @@ func withJSONErrorPages(next http.Handler) http.Handler {
 			if allow := buf.Header().Get("Allow"); allow != "" {
 				w.Header().Set("Allow", allow)
 			}
-			writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed: "+r.Method+" "+r.URL.Path)
 			return
 		}
 		for k, vs := range buf.Header() {

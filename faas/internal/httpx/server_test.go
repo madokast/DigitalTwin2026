@@ -81,7 +81,7 @@ func TestJSONNotFoundAndMethodNotAllowed(t *testing.T) {
 	}
 	var body404 map[string]any
 	_ = json.Unmarshal(rr404.Body.Bytes(), &body404)
-	if body404["detail"] != "Not found" {
+	if body404["detail"] != "unknown path: /api/no-such-route" {
 		t.Fatalf("404 body %v", body404)
 	}
 	if body404["title"] != "Not Found" || body404["status"] != float64(404) || body404["success"] != false {
@@ -97,7 +97,7 @@ func TestJSONNotFoundAndMethodNotAllowed(t *testing.T) {
 	}
 	var body405 map[string]any
 	_ = json.Unmarshal(rr405.Body.Bytes(), &body405)
-	if body405["detail"] != "Method not allowed" {
+	if body405["detail"] != "method not allowed: GET /api/log/numbers" {
 		t.Fatalf("405 body %v", body405)
 	}
 	if !strings.Contains(rr405.Header().Get("Allow"), "POST") {
