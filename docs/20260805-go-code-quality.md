@@ -48,10 +48,10 @@ Go 的 `encoding/json` 序列化 `map[string]any` 时 **key 按字母序排序**
 
 > **禁止对 `map` 或 `any` 直接 jsonify**。HTTP 响应一律用 **typed struct**（字段 `json:"snake_case"`，保插入序）或已有的 typed 值（`result`/`body` struct）。
 
-### 现状（待改）
+### 现状（已实现，`faas/internal/httpx/responses.go`）
 
-- `faas/internal/httpx/server.go` 等：**15+ 处** `writeJSON(w, status, map[string]any{...})` 内联组装（如 `{"success": true, "record": rec}`、`{"success": true, "inserted": n, "type": t, "sum": s, "atomic": true}`）。
-- `writeError`：`map[string]string{"error": msg}`（见 `docs/20260805-error-response-shape.md` 一并处理）。
+- ✅ **15 处 handler 响应已改 typed struct**：`NumberBatchSuccess` / `TransactionBatchSuccess` / `RecordSuccess` / `TodoRecordSuccess` / `TransitionSuccess` / `QuerySuccess` / `SummarySuccess` / `TimeSuccess` / `TagsSuccess` / `RenameTagsSuccess` / `ImportRecordsSuccess` / `SuccessOnly` / `ErrorResponse`——字段声明序即 JSON key 序，符合「统一模板」。
+- ✅ `writeError` / 401 / import 均走 typed struct（错误响应形状仍为 `{error}`，RFC 9457 改造时一并换 `ErrorResponse`）。
 
 ### 改法
 
@@ -107,8 +107,8 @@ Go typed struct 的 **JSON key 顺序 = 字段声明顺序**（`encoding/json` �
 
 ## 优先级与实施顺序
 
-1. **错误链 `%w`**（首要，先改）：48 处 `%s` → 哨兵 + `%w`；纯内部，测试全绿即完成。
-2. **禁止 map/any jsonify**：15+ 处 handler 响应改 typed struct（与错误响应结构化合并）。
+1. ~~**错误链 `%w`**~~：✅ 已实现（`273041f`）。
+2. ~~**禁止 map/any jsonify**~~：✅ 已实现（`responses.go` typed struct，见 §2「现状」；错误响应 RFC 9457 改造随 `docs/20260805-error-response-shape.md` 进行）。
 3. **`log/slog`**：低优先后置。
 
 ## 相关记录

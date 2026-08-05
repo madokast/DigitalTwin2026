@@ -177,7 +177,7 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 			ok = s.Tokens.VerifyAPIAccess(r)
 		}
 		if !ok {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": auth.UnauthorizedMessage})
+			writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: auth.UnauthorizedMessage})
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -198,7 +198,7 @@ func writeInternalError(w http.ResponseWriter, _ error) {
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
+	writeJSON(w, status, ErrorResponse{Error: msg})
 }
 
 func readBody(r *http.Request) ([]byte, error) {
@@ -247,11 +247,7 @@ func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 	// 刻意允许的双端差异（docs/20260801-api-layering.md §1.1 / §7）：
 	// Go 用 go 协程；Next 用 after()。语义同为成功后不阻塞的扇出。
 	go s.notify().NotifyNumberBatchInserted(recs)
-	writeJSON(w, status, map[string]any{
-		"success":  true,
-		"inserted": inserted,
-		"atomic":   true,
-	})
+	writeJSON(w, status, NumberBatchSuccess{Success: true, Inserted: inserted, Atomic: true})
 }
 
 func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
@@ -270,7 +266,7 @@ func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
-	writeJSON(w, status, map[string]any{"success": true, "record": rec})
+	writeJSON(w, status, RecordSuccess{Success: true, Record: rec})
 }
 
 func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
@@ -289,10 +285,7 @@ func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
-	writeJSON(w, status, map[string]any{
-		"success": true,
-		"record":  tododraft.ToTodoRecordJSON(rec),
-	})
+	writeJSON(w, status, TodoRecordSuccess{Success: true, Record: tododraft.ToTodoRecordJSON(rec)})
 }
 
 func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request) {
@@ -325,12 +318,12 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 	} else {
 		go s.notify().NotifyUser(result.TodoAuditNotifyText)
 	}
-	writeJSON(w, status, map[string]any{
-		"success": true,
-		"id":      result.ID,
-		"transition": map[string]string{
-			"from": result.From,
-			"to":   result.To,
+	writeJSON(w, status, TransitionSuccess{
+		Success: true,
+		ID:      result.ID,
+		Transition: TransitionInfo{
+			From: result.From,
+			To:   result.To,
 		},
 	})
 }
@@ -351,7 +344,7 @@ func (s *Server) handleLogReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
-	writeJSON(w, status, map[string]any{"success": true, "record": rec})
+	writeJSON(w, status, RecordSuccess{Success: true, Record: rec})
 }
 
 func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
@@ -370,7 +363,7 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
-	writeJSON(w, status, map[string]any{"success": true, "record": rec})
+	writeJSON(w, status, RecordSuccess{Success: true, Record: rec})
 }
 
 func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
@@ -389,12 +382,12 @@ func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go s.notify().NotifyTransactionBatchInserted(recs)
-	writeJSON(w, status, map[string]any{
-		"success":  true,
-		"inserted": inserted,
-		"type":     batchType,
-		"sum":      sum,
-		"atomic":   true,
+	writeJSON(w, status, TransactionBatchSuccess{
+		Success:  true,
+		Inserted: inserted,
+		Type:     batchType,
+		Sum:      sum,
+		Atomic:   true,
 	})
 }
 
@@ -430,7 +423,7 @@ func (s *Server) handleTelegramProbe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 502, err.Error())
 		return
 	}
-	writeJSON(w, 200, map[string]any{"success": true})
+	writeJSON(w, 200, SuccessOnly{Success: true})
 }
 
 func (s *Server) handleQqbotProbe(w http.ResponseWriter, r *http.Request) {
@@ -465,7 +458,7 @@ func (s *Server) handleQqbotProbe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 502, err.Error())
 		return
 	}
-	writeJSON(w, 200, map[string]any{"success": true})
+	writeJSON(w, 200, SuccessOnly{Success: true})
 }
 
 func (s *Server) handleDbProbe(w http.ResponseWriter, r *http.Request) {
@@ -513,19 +506,16 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, err)
 		return
 	}
-	body := map[string]any{
-		"success":    true,
-		"count":      result.Total,
-		"page":       result.Page,
-		"page_size":  result.PageSize,
-		"sort_by":    parsed.SortBy,
-		"sort_order": parsed.SortOrder,
-		"records":    query.RecordsForResponse(result.Records),
-	}
-	if parsed.Hint != "" {
-		body["hint"] = parsed.Hint
-	}
-	writeJSON(w, 200, body)
+	writeJSON(w, 200, QuerySuccess{
+		Success:   true,
+		Count:     result.Total,
+		Page:      result.Page,
+		PageSize:  result.PageSize,
+		SortBy:    parsed.SortBy,
+		SortOrder: parsed.SortOrder,
+		Records:   query.RecordsForResponse(result.Records),
+		Hint:      parsed.Hint,
+	})
 }
 
 func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
@@ -540,11 +530,11 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, err)
 		return
 	}
-	writeJSON(w, 200, map[string]any{
-		"success": true,
-		"total":   result.Total,
-		"today":   result.Today,
-		"tz":      result.TZ,
+	writeJSON(w, 200, SummarySuccess{
+		Success: true,
+		Total:   result.Total,
+		Today:   result.Today,
+		TZ:      result.TZ,
 	})
 }
 
@@ -563,11 +553,7 @@ func (s *Server) handleTime(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, query.ErrInvalidTZ.Error())
 		return
 	}
-	writeJSON(w, 200, map[string]any{
-		"success": true,
-		"now":     now,
-		"tz":      tz,
-	})
+	writeJSON(w, 200, TimeSuccess{Success: true, Now: now, TZ: tz})
 }
 
 func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
@@ -581,7 +567,7 @@ func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
 	if counts == nil {
 		counts = []tags.TagCount{}
 	}
-	writeJSON(w, 200, map[string]any{"success": true, "tags": counts})
+	writeJSON(w, 200, TagsSuccess{Success: true, Tags: counts})
 }
 
 func (s *Server) handleTransactionsSummary(w http.ResponseWriter, r *http.Request) {
@@ -638,7 +624,7 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, err)
 		return
 	}
-	writeJSON(w, 200, map[string]any{"success": true, "updated": updated})
+	writeJSON(w, 200, RenameTagsSuccess{Success: true, Updated: updated})
 }
 
 func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
@@ -775,12 +761,12 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
-	if err := enc.Encode(map[string]any{
-		"success":  true,
-		"inserted": counts.Inserted,
-		"updated":  counts.Updated,
-		"total":    counts.Total,
-		"atomic":   true,
+	if err := enc.Encode(ImportRecordsSuccess{
+		Success:  true,
+		Inserted: counts.Inserted,
+		Updated:  counts.Updated,
+		Total:    counts.Total,
+		Atomic:   true,
 	}); err != nil {
 		log.Printf("Error writing import success body: %v", err)
 		return
