@@ -150,6 +150,16 @@ describe('parseNumberBatch', () => {
     ).toEqual({ error: 'entries[0]: memo must not be blank' })
   })
 
+  it('trims memo before storage', () => {
+    const parsed = parseNumberBatch({
+      happened_at: base.happened_at,
+      entries: [{ numeric_value: '1', memo: '  axillary temperature  ' }],
+    })
+    expect('error' in parsed).toBe(false)
+    if ('error' in parsed) return
+    expect(parsed.entries[0].objectiveContext).toBe('axillary temperature')
+  })
+
   it('rejects invalid tags with index prefix', () => {
     expect(
       parseNumberBatch({

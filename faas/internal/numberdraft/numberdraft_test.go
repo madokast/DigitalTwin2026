@@ -171,3 +171,16 @@ func TestParseNumberBatchOversized(t *testing.T) {
 		t.Fatalf("oversized: got %v", err)
 	}
 }
+
+func TestParseNumberBatchTrimsMemo(t *testing.T) {
+	got, err := ParseNumberBatch([]byte(`{
+		"happened_at":"2026-08-05T10:00:00+08:00",
+		"entries":[{"numeric_value":"1","memo":"  axillary temperature  "}]
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Entries[0].ObjectiveContext != "axillary temperature" {
+		t.Fatalf("objectiveContext: %q", got.Entries[0].ObjectiveContext)
+	}
+}
