@@ -16,6 +16,8 @@
 - 问题：`WithTx` 要 fake（注入假事务测回滚），必须对「开事务」抽象化——pool 要作为 `TxBeginner` 接口注入。但 `Executor` 无 `Begin`，`WithTx` 又收具体 `*pgxpool.Pool`，单测无法替代事务起点。**核心动机（log/numbers 回滚测试）无法达成**。
 - 参考：现有 `transitionDB{QueryRow; Begin}` + `poolAdapter` 正是把 `Begin` 抽象化（`todo_db_test.go` 假实现）——统一时须保留此能力。
 - 待决：`Executor` 是否并入 `Begin`（成为 `TxBeginner`），或 `WithTx` 独立收 `TxBeginner` 接口。
+- 状态：✅ **已定案**——Go 拆三层接口：`Executor`（QueryRow/Exec/Query）+ `Tx`（+Commit/Rollback）+ `TxBeginner`（+Begin）；`WithTx(ctx, q TxBeginner, fn func(q Executor) error)` 闭包式 UoW（业务方零事务 API）；`Server.Pool` 字段由 `*pgxpool.Pool` 放宽为 `db.TxBeginner`（`NewServer` 仍收 `*pgxpool.Pool`，自动满足）；Node 侧 `Executor` type（与 Go 同名）+ `withTx(fn)` 薄包装 `db.transaction`（Node 无 Tx/TxBeginner——drizzle 已封装事务边界）。注入机制差异（Go 接口 / Node `vi.mock` 模块）为框架差异，非不一致。**分层强约束**：业务层禁止调用 `Executor` 的 SQL 方法，`Executor` 仅 Repository 内部使用，业务层只用领域方法（`repo.SaveAll(q, ...)`）。
+- 完整代码参考：[`docs/20260805-uow-repository-reference.md`](20260805-uow-repository-reference.md)（接口定义 / 实际实现封装 / 业务层 / handler / 装配 / 双端 fake 与回滚测试）
 
 ### A2【阻塞】`WithTx` 的错误映射（回调返回 `error`，业务层需要 HTTP status）
 - 现状：业务函数返回 `(T, status, error)`（如 `(Record, int, error)`）；`WithTx` 回调 `fn func(q Executor) error` 只有 error。
