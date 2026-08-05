@@ -72,6 +72,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         entries: [{ numeric_value: '75.5', memo: 'morning weigh-in' }],
       }))
       expect(res.status).toBe(400)
+      expect(res.headers.get('content-type')).toContain('application/problem+json')
       const body = await res.json()
       expect(body.detail).toContain('happened_at')
     })
@@ -719,6 +720,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         },
       ))
       expect(missing.status).toBe(404)
+      expect(missing.headers.get('content-type')).toContain('application/problem+json')
       expect((await missing.json()).detail).toBe('to-do not found')
 
       const text = await postText(jsonPost('http://localhost/api/log/text', {

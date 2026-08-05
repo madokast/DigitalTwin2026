@@ -17,6 +17,7 @@ describe('proxy API auth', () => {
   it('rejects missing Authorization with 401 JSON', async () => {
     const res = proxy(apiRequest('/api/query'))
     expect(res.status).toBe(401)
+    expect(res.headers.get('content-type')).toContain('application/problem+json')
     await expect(res.json()).resolves.toEqual({
       success: false,
       title: 'Unauthorized',
