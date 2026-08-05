@@ -47,6 +47,21 @@ describe('parseNumberBatch', () => {
     expect(parsed.entries[1].aiAnalysis).toBe('a bit heavy')
   })
 
+  it('accepts omitted / null / [] tags as []', () => {
+    for (const tags of [undefined, null, []]) {
+      const entry = tags === undefined
+        ? { numeric_value: '1', memo: 'x' }
+        : { numeric_value: '1', memo: 'x', tags }
+      const parsed = parseNumberBatch({
+        happened_at: base.happened_at,
+        entries: [entry],
+      })
+      expect('error' in parsed, String(tags)).toBe(false)
+      if ('error' in parsed) continue
+      expect(parsed.entries[0].tags, String(tags)).toEqual([])
+    }
+  })
+
   it('rejects missing happened_at', () => {
     const { happened_at: _omit, ...rest } = base
     void _omit

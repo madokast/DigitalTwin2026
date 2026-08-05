@@ -184,3 +184,16 @@ func TestParseNumberBatchTrimsMemo(t *testing.T) {
 		t.Fatalf("objectiveContext: %q", got.Entries[0].ObjectiveContext)
 	}
 }
+
+func TestParseNumberBatchNullTags(t *testing.T) {
+	got, err := ParseNumberBatch([]byte(`{
+		"happened_at":"2026-08-05T10:00:00+08:00",
+		"entries":[{"numeric_value":"1","memo":"x","tags":null}]
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Entries[0].Tags) != 0 {
+		t.Fatalf("null tags should normalize to empty, got %v", got.Entries[0].Tags)
+	}
+}
