@@ -105,7 +105,7 @@ Go typed struct 的 **JSON key 顺序 = 字段声明顺序**（`encoding/json` �
 
 - 低优先，独立小改造；不阻塞错误链与 JSON 组装。
 
-## 4. 魔法数字 HTTP 状态码（37 处）
+## 4. 魔法数字 HTTP 状态码（✅ 已实现，`5c1c3b1`）
 
 ### 现状
 
@@ -121,7 +121,7 @@ Go typed struct 的 **JSON key 顺序 = 字段声明顺序**（`encoding/json` �
 
 - 纯机械重构，测试全绿即完成；与 §5（错误样板收敛）合并。
 
-## 5. handler 错误处理样板重复（8 处）
+## 5. handler 错误处理样板重复（✅ 已实现，`59b12ae`）
 
 ### 现状
 
@@ -197,10 +197,11 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 
 1. ~~**错误链 `%w`**~~：✅ 已实现（`273041f`）。
 2. ~~**禁止 map/any jsonify**~~：✅ 已实现（`responses.go` typed struct，见 §2「现状」；错误响应 RFC 9457 改造随 `docs/20260805-error-response-shape.md` 进行）。
-3. **状态码常量 + handler 样板收敛**（§4 + §5，一起做）。
-4. **`go test -race`**（§6，改命令即得）。
-5. **`log/slog`**（§3）与 **golangci-lint**（§7）：低优先，可合并规划。
-6. **RFC 9457 错误响应**（§8 / error-response-shape.md）：独立破坏性改造，待决策后开工。
+3. ~~**状态码常量**（§4）~~：✅ 已实现（`5c1c3b1`，37 处字面量 → `net/http` 常量）。
+4. ~~**handler 错误样板收敛**（§5）~~：✅ 已实现（`59b12ae`，`writeLogOrError` helper 收敛 8 处）。
+5. **`go test -race`**（§6，改命令即得）。
+6. **`log/slog`**（§3）与 **golangci-lint**（§7）：低优先，可合并规划。
+7. **RFC 9457 错误响应**（§8 / error-response-shape.md）：独立破坏性改造，待决策后开工。
 
 ## 相关记录
 
