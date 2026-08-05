@@ -63,8 +63,8 @@ paths:
     $ref: './paths/log.yaml#/~1api~1log~1text'
   /api/log/review:
     $ref: './paths/log.yaml#/~1api~1log~1review'
-  /api/log/transaction:
-    $ref: './paths/log.yaml#/~1api~1log~1transaction'
+  /api/log/transactions:
+    $ref: './paths/log.yaml#/~1api~1log~1transactions'
   /api/telegram/probe:
     $ref: './paths/telegram.yaml#/~1api~1telegram~1probe'
   /api/qqbot/probe:
@@ -75,8 +75,8 @@ paths:
     $ref: './paths/query.yaml#/~1api~1query'
   /api/query/tags:
     $ref: './paths/query.yaml#/~1api~1query~1tags'
-  /api/query/transaction/summary:
-    $ref: './paths/query.yaml#/~1api~1query~1transaction~1summary'
+  /api/query/transactions/summary:
+    $ref: './paths/query.yaml#/~1api~1query~1transactions~1summary'
   /api/time:
     $ref: './paths/time.yaml#/~1api~1time'
   /api/admin/records/stats:
@@ -160,8 +160,8 @@ components:
       $ref: './components/schemas.yaml#/SubcategoryBucket'
     CategoryBucket:
       $ref: './components/schemas.yaml#/CategoryBucket'
-    TransactionSummarySuccess:
-      $ref: './components/schemas.yaml#/TransactionSummarySuccess'
+    TransactionsSummarySuccess:
+      $ref: './components/schemas.yaml#/TransactionsSummarySuccess'
     TagsSuccess:
       $ref: './components/schemas.yaml#/TagsSuccess'
     RenameTagsRequest:
@@ -208,7 +208,7 @@ components:
       $ref: './components/schemas.yaml#/TransactionType'
     TransactionEntry:
       $ref: './components/schemas.yaml#/TransactionEntry'
-    LogTransactionRequest:
-      $ref: './components/schemas.yaml#/LogTransactionRequest'
+    LogTransactionsRequest:
+      $ref: './components/schemas.yaml#/LogTransactionsRequest'
     TransactionBatchSuccess:
       $ref: './components/schemas.yaml#/TransactionBatchSuccess'

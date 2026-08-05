@@ -390,7 +390,7 @@ func FetchTagCounts(ctx context.Context, pool *pgxpool.Pool, prefix string) ([]t
 	return tags.AggregateTagCounts(fields, prefix)
 }
 
-// --- GET /api/query/transaction/summary ---
+// --- GET /api/query/transactions/summary ---
 
 const (
 	txEntryIncome  = "transaction_entry:income"
@@ -417,7 +417,7 @@ type CategoryBucket struct {
 	Subcategories []SubcategoryBucket `json:"subcategories"`
 }
 
-type TransactionSummaryResult struct {
+type TransactionsSummaryResult struct {
 	Success           bool             `json:"success"`
 	From              string           `json:"from"`
 	To                string           `json:"to"`
@@ -428,20 +428,20 @@ type TransactionSummaryResult struct {
 	ExpenseCategories []CategoryBucket `json:"expense_categories"`
 }
 
-type TransactionSummaryRow struct {
+type TransactionsSummaryRow struct {
 	Tags        string
 	NumericValue *string
 }
 
-type ParsedTransactionSummaryRange struct {
+type ParsedTransactionsSummaryRange struct {
 	FromRaw string
 	ToRaw   string
 	From    time.Time
 	To      time.Time
 }
 
-// ParseTransactionSummaryParams 强制 from/to；要求 from < to（与 Next 同文案）。
-func ParseTransactionSummaryParams(q url.Values) (*ParsedTransactionSummaryRange, error) {
+// ParseTransactionsSummaryParams 强制 from/to；要求 from < to（与 Next 同文案）。
+func ParseTransactionsSummaryParams(q url.Values) (*ParsedTransactionsSummaryRange, error) {
 	fromRaw := q.Get("from")
 	if fromRaw == "" {
 		return nil, fmt.Errorf("Missing required query parameter: from")
@@ -467,7 +467,7 @@ func ParseTransactionSummaryParams(q url.Values) (*ParsedTransactionSummaryRange
 	if !from.Before(*to) {
 		return nil, fmt.Errorf("from must be earlier than to")
 	}
-	return &ParsedTransactionSummaryRange{
+	return &ParsedTransactionsSummaryRange{
 		FromRaw: fromRaw,
 		ToRaw:   toRaw,
 		From:    *from,
@@ -586,9 +586,9 @@ func categoriesFromMap(cats map[string]*catAcc) []CategoryBucket {
 	return out
 }
 
-// AggregateTransactionSummary 内存聚合（与 Next aggregateTransactionSummary 同构）。
+// AggregateTransactionsSummary 内存聚合（与 Next aggregateTransactionsSummary 同构）。
 // 脏行跳过；非法 tags JSON / 非数组返回 error。
-func AggregateTransactionSummary(rows []TransactionSummaryRow, fromRaw, toRaw string) (*TransactionSummaryResult, error) {
+func AggregateTransactionsSummary(rows []TransactionsSummaryRow, fromRaw, toRaw string) (*TransactionsSummaryResult, error) {
 	income := newAcc()
 	expense := newAcc()
 	incomeCats := map[string]*catAcc{}
@@ -667,7 +667,7 @@ func AggregateTransactionSummary(rows []TransactionSummaryRow, fromRaw, toRaw st
 	}
 
 	net := new(big.Rat).Sub(income.sum, expense.sum)
-	return &TransactionSummaryResult{
+	return &TransactionsSummaryResult{
 		Success:           true,
 		From:              fromRaw,
 		To:                toRaw,
@@ -679,8 +679,8 @@ func AggregateTransactionSummary(rows []TransactionSummaryRow, fromRaw, toRaw st
 	}, nil
 }
 
-// FetchTransactionSummary 拉取区间候选行并聚合。
-func FetchTransactionSummary(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, fromRaw, toRaw string) (*TransactionSummaryResult, error) {
+// FetchTransactionsSummary 拉取区间候选行并聚合。
+func FetchTransactionsSummary(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, fromRaw, toRaw string) (*TransactionsSummaryResult, error) {
 	incomeLike := `%"` + EscapeLikePattern(txEntryIncome) + `"%`
 	expenseLike := `%"` + EscapeLikePattern(txEntryExpense) + `"%`
 	rows, err := pool.Query(ctx, `
@@ -694,17 +694,17 @@ WHERE happened_at >= $1 AND happened_at < $2
 	}
 	defer rows.Close()
 
-	var list []TransactionSummaryRow
+	var list []TransactionsSummaryRow
 	for rows.Next() {
 		var tagsField string
 		var vn *string
 		if err := rows.Scan(&tagsField, &vn); err != nil {
 			return nil, err
 		}
-		list = append(list, TransactionSummaryRow{Tags: tagsField, NumericValue: vn})
+		list = append(list, TransactionsSummaryRow{Tags: tagsField, NumericValue: vn})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return AggregateTransactionSummary(list, fromRaw, toRaw)
+	return AggregateTransactionsSummary(list, fromRaw, toRaw)
 }

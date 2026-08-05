@@ -195,7 +195,7 @@ func FormatTransactionBatchMessage(rows []record.Record) string {
 		}
 	}
 	return strings.Join([]string{
-		"New transaction batch",
+		"New transactions batch",
 		"type: " + typeLabel,
 		fmt.Sprintf("inserted: %d", n),
 		"happened_at: " + happened,

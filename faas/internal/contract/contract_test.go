@@ -89,7 +89,7 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"error-import-non-file-part-too-large.json", "Error"},
 		{"query-success.json", "QuerySuccess"},
 		{"summary-success.json", "SummarySuccess"},
-		{"transaction-summary-success.json", "TransactionSummarySuccess"},
+		{"transaction-summary-success.json", "TransactionsSummarySuccess"},
 		{"log-number-request-valid.json", "LogNumberRequest"},
 		{"number-batch-success.json", "NumberBatchSuccess"},
 		{"log-body-weight-request-valid.json", "LogBodyWeightRequest"},
@@ -110,7 +110,7 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"db-probe-success.json", "DbProbeSuccess"},
 		{"db-probe-missing-table.json", "DbProbeSuccess"},
 		{"db-probe-error.json", "Error"},
-		{"log-transaction-request-valid.json", "LogTransactionRequest"},
+		{"log-transaction-request-valid.json", "LogTransactionsRequest"},
 		{"transaction-batch-success.json", "TransactionBatchSuccess"},
 	}
 	for _, tc := range cases {
@@ -124,7 +124,7 @@ func TestFixturesMatchSchemas(t *testing.T) {
 	}
 }
 
-func TestLogTransactionRequestRejectsEmptyAndNumberAmount(t *testing.T) {
+func TestLogTransactionsRequestRejectsEmptyAndNumberAmount(t *testing.T) {
 	doc := loadDoc(t)
 	for _, name := range []string{
 		"log-transaction-request-empty-entries.json",
@@ -136,7 +136,7 @@ func TestLogTransactionRequestRejectsEmptyAndNumberAmount(t *testing.T) {
 			if err := json.Unmarshal(readFixture(t, name), &data); err != nil {
 				t.Fatal(err)
 			}
-			visitJSONExpectFail(t, schema(t, doc, "LogTransactionRequest"), data)
+			visitJSONExpectFail(t, schema(t, doc, "LogTransactionsRequest"), data)
 		})
 	}
 }

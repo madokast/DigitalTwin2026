@@ -45,7 +45,7 @@ describe('OpenAPI contract (Phase 2)', () => {
     await assertValidSchema('SummarySuccess', readFixture('summary-success.json'))
     await assertValidSchema('TimeSuccess', readFixture('time-success.json'))
     await assertValidSchema(
-      'TransactionSummarySuccess',
+      'TransactionsSummarySuccess',
       readFixture('transaction-summary-success.json'),
     )
   })
@@ -105,7 +105,7 @@ describe('OpenAPI contract (Phase 2)', () => {
     )
     await assertValidSchema('Error', readFixture('db-probe-error.json'))
     await assertValidSchema(
-      'LogTransactionRequest',
+      'LogTransactionsRequest',
       readFixture('log-transaction-request-valid.json'),
     )
     await assertValidSchema(
@@ -184,17 +184,17 @@ describe('OpenAPI contract (Phase 2)', () => {
     )
   })
 
-  it('rejects LogTransactionRequest empty entries / JSON number amount / missing type', async () => {
+  it('rejects LogTransactionsRequest empty entries / JSON number amount / missing type', async () => {
     await assertInvalidSchema(
-      'LogTransactionRequest',
+      'LogTransactionsRequest',
       readFixture('log-transaction-request-empty-entries.json'),
     )
     await assertInvalidSchema(
-      'LogTransactionRequest',
+      'LogTransactionsRequest',
       readFixture('log-transaction-request-amount-number.json'),
     )
     await assertInvalidSchema(
-      'LogTransactionRequest',
+      'LogTransactionsRequest',
       readFixture('log-transaction-request-missing-type.json'),
     )
   })

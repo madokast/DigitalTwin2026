@@ -17,7 +17,7 @@
 
 - **模糊时间 happened_at**：系统接受任意合法带时区时间；下午→15:00、两天前→当天 12:00 等塌缩纯属 AI 判断，系统无需字段支持。
 - **想法 / 计划 / 评价 → 现在时间；客观回忆 → 事件时间**：AI 行为规则，系统无约束。
-- **双写流程**（记账/待办/体重）：`log/text` 与 `log/transaction` / `log/todo` / `log/body/weight` 都是独立端点，天然支持「先 log text 记原文 → 再调专用 API」。
+- **双写流程**（记账/待办/体重）：`log/text` 与 `log/transactions` / `log/todo` / `log/body/weight` 都是独立端点，天然支持「先 log text 记原文 → 再调专用 API」。
 - **日回顾流程**：`review` 记录原话 + `query` 查当天 + 按时间序组织输出（不落库）+ 点评 + 用户回应进 review——现有 API 组合可完全实现。
 - **objective_context 用法**：字段已存在，语义无需改动。
 
@@ -38,7 +38,7 @@
 1. ~~**开发真实时间 API**~~：✅ 已完成（`cfc55a7`，`GET /api/time`）。
 2. ~~**决策 query 的 review 检索语义**~~：✅ 已定案并实现（`tag=X:*` 族通配 + 裸保留前缀 hint，见 §2C）。
 3. ~~**log/numbers 批量**~~：✅ 已完成（`log/number` → `log/numbers` 批量，entries + memo→objective_context；numberdraft/CreateNumberBatch/batch notify/OpenAPI）。
-4. **复数化剩余**：`POST /api/log/transactions`（含 tags hint 文案已解耦，无需改）与 `GET /api/query/transactions/summary` 改名——独立阶段。
+4. ~~**复数化剩余**~~：✅ 已完成（`POST /api/log/transactions` 与 `GET /api/query/transactions/summary` 改名；hint 已解耦无需改；逐类清单见 [`docs/20260805-pluralization.md`](20260805-pluralization.md)）。
 5. **tags 增删接口**（`log/tags/add` + `remove`，见 `docs/20260805-tags-add.md`）——新接口。
 6. **tag 归一化 normalize**（见 `docs/20260805-tag-design.md`，替换 rename）——新接口。
 7. **把 AI 使用规则提炼成正式 AI 使用规范**（独立于讨论文档，供真实 LLM 客户端消费；含「双写时 log text 不带保留 tag」等系统约束）。

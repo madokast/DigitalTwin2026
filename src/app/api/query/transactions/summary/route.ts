@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  fetchTransactionSummary,
-  parseTransactionSummaryParams,
+  fetchTransactionsSummary,
+  parseTransactionsSummaryParams,
 } from '@/lib/query'
 
 export async function GET(request: NextRequest) {
   try {
-    const parsed = parseTransactionSummaryParams(request.nextUrl.searchParams)
+    const parsed = parseTransactionsSummaryParams(request.nextUrl.searchParams)
     if ('error' in parsed) {
       return NextResponse.json({ error: parsed.error }, { status: 400 })
     }
 
-    const result = await fetchTransactionSummary(
+    const result = await fetchTransactionsSummary(
       parsed.from,
       parsed.to,
       parsed.fromRaw,

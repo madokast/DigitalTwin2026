@@ -123,7 +123,7 @@ export function formatTransactionBatchMessage(rows: NotifyRecord[]): string {
   const happened = rows[0]?.happened_at ?? ''
   const typeLabel = transactionTypeFromTags(rows[0]?.tags) ?? '(unknown)'
   return [
-    'New transaction batch',
+    'New transactions batch',
     `type: ${typeLabel}`,
     `inserted: ${n}`,
     `happened_at: ${happened}`,

@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  aggregateTransactionSummary,
-  parseTransactionSummaryParams,
-  type TransactionSummaryRow,
+  aggregateTransactionsSummary,
+  parseTransactionsSummaryParams,
+  type TransactionsSummaryRow,
 } from './query'
 
 type SharedCases = {
@@ -12,7 +12,7 @@ type SharedCases = {
     name: string
     from: string
     to: string
-    rows: TransactionSummaryRow[]
+    rows: TransactionsSummaryRow[]
     expected: unknown
   }>
   parse_errors: Array<{
@@ -32,7 +32,7 @@ function loadCases(): SharedCases {
   ) as SharedCases
 }
 
-describe('parseTransactionSummaryParams (shared fixtures)', () => {
+describe('parseTransactionsSummaryParams (shared fixtures)', () => {
   const { parse_errors } = loadCases()
 
   for (const tc of parse_errors) {
@@ -41,14 +41,14 @@ describe('parseTransactionSummaryParams (shared fixtures)', () => {
       for (const [k, v] of Object.entries(tc.query)) {
         params.set(k, v)
       }
-      expect(parseTransactionSummaryParams(params)).toEqual({
+      expect(parseTransactionsSummaryParams(params)).toEqual({
         error: tc.error,
       })
     })
   }
 
   it('accepts valid from/to', () => {
-    const result = parseTransactionSummaryParams(
+    const result = parseTransactionsSummaryParams(
       new URLSearchParams({
         from: '2026-07-01T00:00:00+08:00',
         to: '2026-08-01T00:00:00+08:00',
@@ -62,12 +62,12 @@ describe('parseTransactionSummaryParams (shared fixtures)', () => {
   })
 })
 
-describe('aggregateTransactionSummary (shared fixtures)', () => {
+describe('aggregateTransactionsSummary (shared fixtures)', () => {
   const { cases } = loadCases()
 
   for (const tc of cases) {
     it(tc.name, () => {
-      const got = aggregateTransactionSummary(tc.rows, tc.from, tc.to)
+      const got = aggregateTransactionsSummary(tc.rows, tc.from, tc.to)
       expect(got).toEqual(tc.expected)
     })
   }
@@ -75,7 +75,7 @@ describe('aggregateTransactionSummary (shared fixtures)', () => {
   it('all money fields are exactly two decimal strings', () => {
     const money2 = /^-?(?:0|[1-9]\d*)\.\d{2}$/
     for (const tc of cases) {
-      const got = aggregateTransactionSummary(tc.rows, tc.from, tc.to)
+      const got = aggregateTransactionsSummary(tc.rows, tc.from, tc.to)
       expect(got.income.sum).toMatch(money2)
       expect(got.expense.sum).toMatch(money2)
       expect(got.net).toMatch(money2)

@@ -80,9 +80,9 @@
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
-/api/query/transaction/summary:
+/api/query/transactions/summary:
   get:
-    operationId: queryTransactionSummary
+    operationId: queryTransactionsSummary
     tags: [query]
     summary: Income/expense totals and category breakdown for a time range
     description: |
@@ -124,7 +124,7 @@
         content:
           application/json:
             schema:
-              $ref: '../components/schemas.yaml#/TransactionSummarySuccess'
+              $ref: '../components/schemas.yaml#/TransactionsSummarySuccess'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':

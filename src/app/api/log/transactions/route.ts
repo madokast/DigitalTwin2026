@@ -5,7 +5,7 @@ import {
   notifyTransactionBatchInserted,
   scheduleBestEffortNotify,
 } from '@/lib/notify'
-import type { LogTransactionBody } from '@/lib/transactiondraft'
+import type { LogTransactionsBody } from '@/lib/transactiondraft'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await createTransactionBatch(
-      parsed.value as LogTransactionBody,
+      parsed.value as LogTransactionsBody,
     )
     if ('error' in result) {
       return NextResponse.json({ error: result.error }, { status: result.status })

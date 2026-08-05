@@ -329,7 +329,7 @@ CategoryBucket:
       items:
         $ref: '#/SubcategoryBucket'
 
-TransactionSummarySuccess:
+TransactionsSummarySuccess:
   type: object
   required:
     - success
@@ -864,7 +864,7 @@ TransactionEntry:
     subcategory:
       $ref: '#/TransactionCategorySegment'
 
-LogTransactionRequest:
+LogTransactionsRequest:
   type: object
   description: |
     One already-occurred money event with one or more line entries sharing

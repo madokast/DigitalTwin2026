@@ -13,14 +13,37 @@
 
 ## 保留前缀 hint 文案（定案）
 
-**新文案**（替换现有硬编码端点路径的 hint）：
+### hint 是什么
 
-> `tag "{tag}" is reserved; use the dedicated log API for this record type`
+hint 是系统在「保留 tag 相关边界情况」下返回给 AI 的**纠错提示**，共两类：
 
-- 现有 `RESERVED_TAG_HINTS`（`src/lib/tags.ts:41` / `faas/internal/tags/tags.go:31`）硬编码各专用端点路径（如 `use POST /api/log/transaction for ...`）——**每新增/改名端点都要改**。
-- 新文案**不指向具体路径**，永久有效；AI 收到后自行查 OpenAPI 找正确端点。
-- 连带收益：复数化（`log/transaction`→`log/transactions`）**无需改 hint 文案**，阶段 1 少一处工作。
-- 实现时：双端同步改为单一通用文案（去掉按前缀区分的内容）。
+1. **写拒绝错误文案**：AI 在通用写路径（如 `POST /api/log/numbers`）提交带保留前缀的 tag（`todo` / `transaction_entry` / `review`）→ 400。此时响应 `error` 携带本节讨论的 hint。
+2. **检索空结果提示**：AI 用裸保留前缀查 `GET /api/query?tag=review`（该裸值永不落库，结果必空）→ 200 + 空 records + 可选 `hint` 字段（`query.ts:163`），指引用 `tag=review:*` 族通配。此 hint 只涉及 tag 名，**与端点路径无关，复数化永不波及**。
+
+本节「复数化无需改 hint」专指**第 1 类**（写拒绝错误文案）。
+
+### 新旧文案对照
+
+| | 文案 | 代码位置 |
+|--|--|--|
+| **旧版**（`27d20f4`，已废弃） | `tag "X" is reserved; use POST /api/log/transaction for transaction line entries` | 硬编码**端点路径** |
+| **新版**（定案，`ac54bc4` 已实现） | `tag "X" is reserved; use the dedicated log API for this record type` | `src/lib/tags.ts:61` / `faas/internal/tags/tags.go:56`（`reservedTagError`/`reservedTagError`，单一通用常量） |
+
+### 旧版为何过时（hint 是行动指引，不是展示文案）
+
+hint 给 AI 的语义是「**照此去做**」：AI 收到 `use POST /api/log/transaction` 后真的会去请求这个端点。因此 hint 一旦指向的端点被**改名/删除**（如复数化 `log/transaction` → `log/transactions`），hint 就指向 404 路径——**错误提示本身变成错误**，必须连带改文案。这就是「硬编码端点路径的 hint 与端点存在维护耦合」。
+
+### 解耦后为何无需改
+
+新版 hint **不指向任何具体端点**，AI 收到后自行查 OpenAPI（OpenAPI 恒为最新契约）找正确的专用端点。端点改名/新增都不影响这句文案的正确性 → 复数化 `log/transactions`、`query/transactions/summary` **不需要连带改 hint**。
+
+### 澄清：不是省事，是已完成的独立改造
+
+- hint 解耦本身就是一次**独立的架构改动**（去掉按前缀区分的硬编码路径、改为单一通用文案），已在 log/numbers 阶段实现并提交（`ac54bc4`）。
+- 「复数化无需改 hint」= 复数化任务清单里**本就没有**「改 hint」这一项，因为该项在更早的提交已完成。
+- 若现在仍是旧版硬编码文案，复数化时**必须**改（否则指引 404）；解耦只是让复数化少一处连带改动，不是跳过该做的工作。
+- 验证：复数化验收时 `rg "use POST /api" src/ faas/` 全仓零残留，证明没有任何错误文案硬编码端点路径。
+
 - 现状影响：`tag=body` 搜不到 `body:weight`；`tag=review` 搜不到 `review:weekly`（周/月回顾首查受阻）。
 
 ## 业界 tag 交互（用户提问）

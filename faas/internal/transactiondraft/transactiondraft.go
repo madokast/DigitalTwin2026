@@ -31,14 +31,14 @@ type TransactionEntryInput struct {
 	Subcategory any `json:"subcategory"`
 }
 
-// LogTransactionBody POST /api/log/transaction 请求体。
-type LogTransactionBody struct {
+// LogTransactionsBody POST /api/log/transactions 请求体。
+type LogTransactionsBody struct {
 	HappenedAt any `json:"happened_at"`
 	Type       any `json:"type"`
 	Entries    any `json:"entries"`
 }
 
-var logTransactionKeys = []string{
+var logTransactionsKeys = []string{
 	"happened_at", "type", "entries",
 }
 
@@ -225,13 +225,13 @@ func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, err
 	}, nil
 }
 
-// ParseTransactionBatch 解析 POST /api/log/transaction body（含 UseNumber JSON 解码）。
+// ParseTransactionBatch 解析 POST /api/log/transactions body（含 UseNumber JSON 解码）。
 // 必填顶层 type（income|expense）；entries 长度 1..Max；amount 经 MoneyAmount（含绝对值上限）校验后规范为两位小数。
 func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, error) {
-	if err := jsonutil.RejectUnknownObjectKeys(raw, logTransactionKeys); err != nil {
+	if err := jsonutil.RejectUnknownObjectKeys(raw, logTransactionsKeys); err != nil {
 		return NormalizedTransactionBatch{}, err
 	}
-	var body LogTransactionBody
+	var body LogTransactionsBody
 	if err := jsonutil.DecodeUseNumber(raw, &body); err != nil {
 		return NormalizedTransactionBatch{}, err
 	}

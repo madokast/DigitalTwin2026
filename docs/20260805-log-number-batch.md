@@ -92,7 +92,7 @@ POST /api/log/number
 
 **要点**：
 - 三者都涉及**双端代码 + OpenAPI + 测试**，但 `log/number` 引用最多（85），因含 route.test、proxy.test、多个集成测、以及**历史文档**里的端点名（历史 dev-log 通常不回改，属「记录当时事实」）。
-- `log/transaction` 的复数化会被 `tags.ts`/`tags.go` 的**保留前缀 hint 文案**引用（`use POST /api/log/transaction for transaction line entries`）——改复数需同步改 hint 文案。
+- ~~`log/transaction` 的复数化会被 `tags.ts`/`tags.go` 的保留前缀 hint 文案引用（`use POST /api/log/transaction for transaction line entries`）——改复数需同步改 hint 文案。~~ **已过时**：hint 已解耦为通用文案（`use the dedicated log API for this record type`，见 `docs/20260805-tag-design.md`「保留前缀 hint 文案（定案）」），复数化**无需**改 hint。
 - 三者**独立执行**（不合并）：各含自己的 OpenAPI path、路由、fixtures、测试迁移；顺序上 `log/number` 与批量改造一起动，另两个可各自单独 PR。
 - 历史文档只更新「当前契约」类（如 status-analysis、本设计文档、AI 使用文档）；纯历史 dev-log 保留原状。
 
@@ -108,7 +108,7 @@ POST /api/log/number
 ## 相关记录
 
 - 记账批量实现：`src/lib/transactiondraft.ts` / `faas/internal/transactiondraft` / `logapi.CreateTransactionBatch`。
-- 记账 OpenAPI：`LogTransactionRequest` / `TransactionBatchSuccess`（schemas.yaml §808+）。
+- 记账 OpenAPI：`LogTransactionsRequest` / `TransactionBatchSuccess`（schemas.yaml）。
 
 ## 命名约定（分层，draft 模块不加 s）
 
@@ -123,7 +123,7 @@ POST /api/log/number
 
 - **draft 模块不加 s**：是「领域标识」非「请求形状」；与现有 `tododraft` / `bodyweightdraft` / `reviewdraft` 保持一致（均单数），不改动现有 `transactiondraft`。
 - **批量语义由路径（复数）+ 函数名（Batch）表达**，模块名不承载「数量」。
-- 复数化不扩散到模块/函数名层。
+- **复数化作用域（精确表述）**：只作用于**端点资源空间**——路径、handler（`handleLogNumbers`）、请求体类型（`LogNumbersBody`）、通知标题（`New numbers batch`）；**不扩散**到 draft 模块、Batch 层函数/类型（`ParseNumberBatch` / `CreateNumberBatch` / `NormalizedNumberBatch`）、单条 Entry 类型（`NumberEntryInput` / `NormalizedNumberEntry`）、fixture 文件名。transaction 剩余两端的逐类清单见 [`docs/20260805-pluralization.md`](20260805-pluralization.md)。
 
 ## 实现注意点（log/numbers 批量）
 

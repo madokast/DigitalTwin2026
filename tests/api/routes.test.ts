@@ -6,7 +6,7 @@ import { POST as postTodo } from '@/app/api/log/todo/route'
 import { POST as postTodoTransition } from '@/app/api/log/todo/transition/route'
 import { POST as postText } from '@/app/api/log/text/route'
 import { POST as postReview } from '@/app/api/log/review/route'
-import { POST as postTransaction } from '@/app/api/log/transaction/route'
+import { POST as postTransactions } from '@/app/api/log/transactions/route'
 import { GET as queryRecords } from '@/app/api/query/route'
 import { GET as adminRecordsStats } from '@/app/api/admin/records/stats/route'
 import { GET as getTime } from '@/app/api/time/route'
@@ -407,9 +407,9 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
   })
 
-  describe('POST /api/log/transaction', () => {
+  describe('POST /api/log/transactions', () => {
     it('rejects empty entries', async () => {
-      const res = await postTransaction(jsonPost('http://localhost/api/log/transaction', {
+      const res = await postTransactions(jsonPost('http://localhost/api/log/transactions', {
         happened_at: '2026-08-01T12:30:00+08:00',
         type: 'expense',
         entries: [],
@@ -419,7 +419,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
 
     it('inserts multiple rows and returns inserted count only', async () => {
-      const res = await postTransaction(jsonPost('http://localhost/api/log/transaction', {
+      const res = await postTransactions(jsonPost('http://localhost/api/log/transactions', {
         happened_at: '2026-08-01T12:30:00+08:00',
         type: 'expense',
         entries: [
@@ -460,7 +460,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
 
     it('rejects zero amount', async () => {
-      const res = await postTransaction(jsonPost('http://localhost/api/log/transaction', {
+      const res = await postTransactions(jsonPost('http://localhost/api/log/transactions', {
         happened_at: '2026-08-01T12:30:00+08:00',
         type: 'income',
         entries: [

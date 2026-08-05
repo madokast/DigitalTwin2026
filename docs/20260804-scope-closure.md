@@ -59,7 +59,7 @@
 ### 2.5 records 数值聚合 API —— 不做
 
 - records 不做服务端聚合，维持 fuzzy-time §5.7 定案"聚合让 AI 自己算"（个人数据量级下，AI 拉明细自行汇总成本可接受）。
-- **保留已实现特例**：`GET /api/query/transaction/summary`（账单聚合）为 fuzzy-time §9.3 定案的机械统计例外，已落地、不收回。
+- **保留已实现特例**：`GET /api/query/transactions/summary`（账单聚合）为 fuzzy-time §9.3 定案的机械统计例外，已落地、不收回。
 - S3 体重趋势等依赖数值聚合的需求随之**不再提供机械统计**，由 AI 在对话中自行计算。
 
 ### 2.6 图表 / 可视化与 gzip —— 不做

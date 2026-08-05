@@ -40,7 +40,7 @@ type sharedSummaryRow struct {
 	NumericValue *string `json:"numeric_value"`
 }
 
-func loadTransactionSummaryCases(t *testing.T) sharedSummaryCases {
+func loadTransactionsSummaryCases(t *testing.T) sharedSummaryCases {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join(repoRoot(t), "testdata", "transaction-summary-cases.json"))
 	if err != nil {
@@ -53,15 +53,15 @@ func loadTransactionSummaryCases(t *testing.T) sharedSummaryCases {
 	return cases
 }
 
-func TestParseTransactionSummaryParamsSharedFixtures(t *testing.T) {
-	cases := loadTransactionSummaryCases(t)
+func TestParseTransactionsSummaryParamsSharedFixtures(t *testing.T) {
+	cases := loadTransactionsSummaryCases(t)
 	for _, tc := range cases.ParseErrors {
 		t.Run(tc.Name, func(t *testing.T) {
 			q := url.Values{}
 			for k, v := range tc.Query {
 				q.Set(k, v)
 			}
-			_, err := ParseTransactionSummaryParams(q)
+			_, err := ParseTransactionsSummaryParams(q)
 			if err == nil || err.Error() != tc.Error {
 				t.Fatalf("got %v want %q", err, tc.Error)
 			}
@@ -72,7 +72,7 @@ func TestParseTransactionSummaryParamsSharedFixtures(t *testing.T) {
 		q := url.Values{}
 		q.Set("from", "2026-07-01T00:00:00+08:00")
 		q.Set("to", "2026-08-01T00:00:00+08:00")
-		p, err := ParseTransactionSummaryParams(q)
+		p, err := ParseTransactionsSummaryParams(q)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,17 +85,17 @@ func TestParseTransactionSummaryParamsSharedFixtures(t *testing.T) {
 	})
 }
 
-func TestAggregateTransactionSummarySharedFixtures(t *testing.T) {
-	cases := loadTransactionSummaryCases(t)
+func TestAggregateTransactionsSummarySharedFixtures(t *testing.T) {
+	cases := loadTransactionsSummaryCases(t)
 	money2 := regexp.MustCompile(`^-?(?:0|[1-9]\d*)\.\d{2}$`)
 
 	for _, tc := range cases.Cases {
 		t.Run(tc.Name, func(t *testing.T) {
-			rows := make([]TransactionSummaryRow, len(tc.Rows))
+			rows := make([]TransactionsSummaryRow, len(tc.Rows))
 			for i, r := range tc.Rows {
-				rows[i] = TransactionSummaryRow{Tags: r.Tags, NumericValue: r.NumericValue}
+				rows[i] = TransactionsSummaryRow{Tags: r.Tags, NumericValue: r.NumericValue}
 			}
-			got, err := AggregateTransactionSummary(rows, tc.From, tc.To)
+			got, err := AggregateTransactionsSummary(rows, tc.From, tc.To)
 			if err != nil {
 				t.Fatal(err)
 			}

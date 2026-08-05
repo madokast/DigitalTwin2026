@@ -9,7 +9,7 @@ import {
 } from '@/lib/tags'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
 
-export const LOG_TRANSACTION_KEYS = [
+export const LOG_TRANSACTIONS_KEYS = [
   'happened_at',
   'type',
   'entries',
@@ -43,7 +43,7 @@ export type TransactionEntryInput = {
   subcategory?: unknown
 }
 
-export type LogTransactionBody = {
+export type LogTransactionsBody = {
   happened_at?: unknown
   type?: unknown
   entries?: unknown
@@ -194,15 +194,15 @@ function parseEntry(
 }
 
 /**
- * 解析 POST /api/log/transaction body。
+ * 解析 POST /api/log/transactions body。
  * 必填顶层 `type`（income|expense）整单共享；entries 长度 1..MAX；
  * 服务端组装保留前缀 tag `transaction_entry:{type}`。
  * amount：MoneyAmount 正则（含绝对值上限）→ 拒零 → 规范为两位小数入库。
  */
 export function parseTransactionBatch(
-  body: LogTransactionBody,
+  body: LogTransactionsBody,
 ): NormalizedTransactionBatch | DraftValidationError {
-  const unknown = rejectUnknownKeys(body, LOG_TRANSACTION_KEYS)
+  const unknown = rejectUnknownKeys(body, LOG_TRANSACTIONS_KEYS)
   if (unknown) return unknown
 
   const happenedResult = parseHappenedAt(body.happened_at)

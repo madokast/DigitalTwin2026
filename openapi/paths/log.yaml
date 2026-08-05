@@ -278,9 +278,9 @@
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
-/api/log/transaction:
+/api/log/transactions:
   post:
-    operationId: logTransaction
+    operationId: logTransactions
     tags: [log]
     summary: Log one spend/income event with one or more line entries
     description: |
@@ -303,7 +303,7 @@
       content:
         application/json:
           schema:
-            $ref: '../components/schemas.yaml#/LogTransactionRequest'
+            $ref: '../components/schemas.yaml#/LogTransactionsRequest'
           example:
             happened_at: '2026-08-01T12:30:00+08:00'
             type: expense

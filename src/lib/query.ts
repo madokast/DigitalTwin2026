@@ -297,7 +297,7 @@ export async function fetchTagCounts(prefix = ''): Promise<TagCount[]> {
   )
 }
 
-// --- GET /api/query/transaction/summary ---
+// --- GET /api/query/transactions/summary ---
 
 const TX_ENTRY_INCOME = 'transaction_entry:income'
 const TX_ENTRY_EXPENSE = 'transaction_entry:expense'
@@ -322,7 +322,7 @@ export type CategoryBucket = {
   subcategories: SubcategoryBucket[]
 }
 
-export type TransactionSummaryResult = {
+export type TransactionsSummaryResult = {
   success: true
   from: string
   to: string
@@ -333,22 +333,22 @@ export type TransactionSummaryResult = {
   expense_categories: CategoryBucket[]
 }
 
-export type TransactionSummaryRow = {
+export type TransactionsSummaryRow = {
   tags: string
   numeric_value: string | null
 }
 
-export type ParsedTransactionSummaryRange = {
+export type ParsedTransactionsSummaryRange = {
   fromRaw: string
   toRaw: string
   from: Date
   to: Date
 }
 
-/** 解析强制 from/to；半开区间要求 from < to（与 Go ParseTransactionSummaryParams 同文案） */
-export function parseTransactionSummaryParams(
+/** 解析强制 from/to；半开区间要求 from < to（与 Go ParseTransactionsSummaryParams 同文案） */
+export function parseTransactionsSummaryParams(
   searchParams: URLSearchParams,
-): ParsedTransactionSummaryRange | ParseError {
+): ParsedTransactionsSummaryRange | ParseError {
   const fromRaw = searchParams.get('from')
   if (fromRaw === null || fromRaw === '') {
     return { error: 'Missing required query parameter: from' }
@@ -457,15 +457,15 @@ function sortBucketsBySumThenName<T extends { sum: bigint; name: string }>(
 }
 
 /**
- * 内存聚合 transaction_entry 行（与 Go AggregateTransactionSummary 同构）。
+ * 内存聚合 transaction_entry 行（与 Go AggregateTransactionsSummary 同构）。
  * 脏行（无合法 category:subcategory / 无 numeric_value / 非法字面量）跳过。
  * 非法 tags JSON / 非数组抛错（HTTP 500）。
  */
-export function aggregateTransactionSummary(
-  rows: TransactionSummaryRow[],
+export function aggregateTransactionsSummary(
+  rows: TransactionsSummaryRow[],
   fromRaw: string,
   toRaw: string,
-): TransactionSummaryResult {
+): TransactionsSummaryResult {
   const income = emptyAcc()
   const expense = emptyAcc()
   const incomeCats = new Map<
@@ -560,13 +560,13 @@ export function aggregateTransactionSummary(
   }
 }
 
-/** 拉取区间内候选行并聚合（与 Go FetchTransactionSummary 同构） */
-export async function fetchTransactionSummary(
+/** 拉取区间内候选行并聚合（与 Go FetchTransactionsSummary 同构） */
+export async function fetchTransactionsSummary(
   from: Date,
   to: Date,
   fromRaw: string,
   toRaw: string,
-): Promise<TransactionSummaryResult> {
+): Promise<TransactionsSummaryResult> {
   const incomeLike = `%"${escapeLikePattern(TX_ENTRY_INCOME)}"%`
   const expenseLike = `%"${escapeLikePattern(TX_ENTRY_EXPENSE)}"%`
   const rows = await db
@@ -583,7 +583,7 @@ export async function fetchTransactionSummary(
       ),
     )
 
-  return aggregateTransactionSummary(
+  return aggregateTransactionsSummary(
     rows.map((r) => ({
       tags: r.tags,
       numeric_value: r.numericValue,

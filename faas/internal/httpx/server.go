@@ -73,14 +73,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/log/todo/transition", s.handleLogTodoTransition)
 	mux.HandleFunc("POST /api/log/text", s.handleLogText)
 	mux.HandleFunc("POST /api/log/review", s.handleLogReview)
-	mux.HandleFunc("POST /api/log/transaction", s.handleLogTransaction)
+	mux.HandleFunc("POST /api/log/transactions", s.handleLogTransactions)
 	mux.HandleFunc("POST /api/telegram/probe", s.handleTelegramProbe)
 	mux.HandleFunc("POST /api/qqbot/probe", s.handleQqbotProbe)
 	mux.HandleFunc("POST /api/db/probe", s.handleDbProbe)
 	mux.HandleFunc("GET /api/query", s.handleQuery)
 	mux.HandleFunc("GET /api/time", s.handleTime)
 	mux.HandleFunc("GET /api/query/tags", s.handleTags)
-	mux.HandleFunc("GET /api/query/transaction/summary", s.handleTransactionSummary)
+	mux.HandleFunc("GET /api/query/transactions/summary", s.handleTransactionsSummary)
 	mux.HandleFunc("GET /api/admin/records/stats", s.handleSummary)
 	mux.HandleFunc("POST /api/admin/tags/rename", s.handleRenameTags)
 	mux.HandleFunc("POST /api/admin/import/records", s.handleImportRecords)
@@ -373,7 +373,7 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, status, map[string]any{"success": true, "record": rec})
 }
 
-func (s *Server) handleLogTransaction(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
 	raw, ok := readBodyOrError(w, r)
 	if !ok {
 		return
@@ -584,13 +584,13 @@ func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"success": true, "tags": counts})
 }
 
-func (s *Server) handleTransactionSummary(w http.ResponseWriter, r *http.Request) {
-	parsed, err := query.ParseTransactionSummaryParams(r.URL.Query())
+func (s *Server) handleTransactionsSummary(w http.ResponseWriter, r *http.Request) {
+	parsed, err := query.ParseTransactionsSummaryParams(r.URL.Query())
 	if err != nil {
 		writeError(w, 400, err.Error())
 		return
 	}
-	result, err := query.FetchTransactionSummary(
+	result, err := query.FetchTransactionsSummary(
 		r.Context(), s.Pool, parsed.From, parsed.To, parsed.FromRaw, parsed.ToRaw,
 	)
 	if err != nil {

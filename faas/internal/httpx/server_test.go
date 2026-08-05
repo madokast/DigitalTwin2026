@@ -156,7 +156,7 @@ func TestLogRejectsSuppressNotificationAsUnknownKeyWithoutDB(t *testing.T) {
 			`{"happened_at":"2026-08-01T12:00:00Z","raw_content":"hi","tags":["study"],"objective_context":"x","suppress_notification":true}`,
 		},
 		{
-			"/api/log/transaction",
+			"/api/log/transactions",
 			`{"happened_at":"2026-08-01T12:00:00Z","type":"expense","entries":[{"amount":"1.00","memo":"m","category":"food","subcategory":"lunch"}],"suppress_notification":true}`,
 		},
 	}
@@ -229,7 +229,7 @@ func TestWriteEndpointsRejectTrailingGarbageAfterJSON(t *testing.T) {
 			`{"happened_at":"2026-08-01T12:00:00Z","raw_content":"hi","tags":["study"],"objective_context":"x"}` + garbage,
 		},
 		{
-			http.MethodPost, "/api/log/transaction",
+			http.MethodPost, "/api/log/transactions",
 			`{"happened_at":"2026-08-01T12:00:00Z","type":"expense","entries":[{"amount":"1.00","memo":"m","tags":["food"]}]}` + garbage,
 		},
 		{
@@ -268,7 +268,7 @@ func TestWriteEndpointsRejectNonObjectJSON(t *testing.T) {
 		}{
 			{http.MethodPost, "/api/log/numbers"},
 			{http.MethodPost, "/api/log/text"},
-			{http.MethodPost, "/api/log/transaction"},
+			{http.MethodPost, "/api/log/transactions"},
 			{http.MethodPost, "/api/admin/tags/rename"},
 		}
 		for _, tc := range cases {
@@ -740,17 +740,17 @@ func TestTimeEndpointWithoutDB(t *testing.T) {
 	}
 }
 
-func TestTransactionSummaryMissingParamsWithoutDB(t *testing.T) {
+func TestTransactionsSummaryMissingParamsWithoutDB(t *testing.T) {
 	h := testServer().Handler()
 	cases := []struct {
 		url  string
 		want string
 	}{
-		{"/api/query/transaction/summary", "Missing required query parameter: from"},
-		{"/api/query/transaction/summary?to=2026-08-01T00:00:00Z", "Missing required query parameter: from"},
-		{"/api/query/transaction/summary?from=2026-07-01T00:00:00Z", "Missing required query parameter: to"},
+		{"/api/query/transactions/summary", "Missing required query parameter: from"},
+		{"/api/query/transactions/summary?to=2026-08-01T00:00:00Z", "Missing required query parameter: from"},
+		{"/api/query/transactions/summary?from=2026-07-01T00:00:00Z", "Missing required query parameter: to"},
 		{
-			"/api/query/transaction/summary?from=2026-07-01T00:00:00Z&to=2026-07-01T00:00:00Z",
+			"/api/query/transactions/summary?from=2026-07-01T00:00:00Z&to=2026-07-01T00:00:00Z",
 			"from must be earlier than to",
 		},
 	}
