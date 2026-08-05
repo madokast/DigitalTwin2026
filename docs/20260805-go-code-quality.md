@@ -86,24 +86,17 @@ Go typed struct 的 **JSON key 顺序 = 字段声明顺序**（`encoding/json` �
 - key 顺序**非契约强制**（JSON 语义无序，契约测试无序比较）——纯可读性规范，但长期维护下统一。
 - 错误响应（RFC 9457 改造后）单独模板：`title` → `status` → `detail`（见 `docs/20260805-error-response-shape.md`）。
 
-### 优先级
+### 完成（`f0d47e7`）
 
-- 低优先（可后置），但与 `docs/20260805-error-response-shape.md`（错误响应结构化）合并实施——错误响应本身就是 `map[string]string{"error"}`，一起改 typed。
+- `responses.go` 13 个 typed struct 替代全部 map/any jsonify；错误响应 `ErrorResponse{error}` 形状保留（RFC 9457 改造时换）。
 
 ## 3. 结构化日志 `log/slog`（✅ 已实现，`ecbc9c0`；Node 对应 pino `7dfb1a3`，规范见 AGENTS.md「日志」）
 
-### 现状
+### 完成（`ecbc9c0` Go + `7dfb1a3` Node）
 
-- 全仓 `log.Printf`（标准库 log）。Go 1.21+ 业界推荐 `log/slog`（结构化键值对、可接采集）。
-
-### 目标
-
-- 服务启动 / handler 错误日志改 `slog`：`slog.Error("create transaction failed", "err", err, "path", r.URL.Path)`。
-- 保持**用户可见文案英文**（AGENTS.md 语言原则）；日志属 stdout/stderr，用英文。
-
-### 优先级
-
-- 低优先，独立小改造；不阻塞错误链与 JSON 组装。
+- Go `main.go` `slog.SetDefault(TextHandler→stdout)`；server.go 10 处 + notify.go 2 处 + 启动/致命日志改 `slog.Error/Info`（键值对）。
+- Node `src/lib/logger.ts`（pino 单例）+ 27 处运行时 API 日志改 `logger.error({ err }, msg)`；scripts CLI 保持 console。
+- 双端 msg 对齐；规范固化于 AGENTS.md「日志」。
 
 ## 4. 魔法数字 HTTP 状态码（✅ 已实现，`5c1c3b1`）
 
@@ -117,9 +110,9 @@ Go typed struct 的 **JSON key 顺序 = 字段声明顺序**（`encoding/json` �
 - 一律用 `net/http` 常量：`http.StatusOK`、`http.StatusCreated`、`http.StatusBadRequest`、`http.StatusUnauthorized`、`http.StatusNotFound`、`http.StatusConflict`、`http.StatusRequestEntityTooLarge`（413）、`http.StatusInternalServerError`。
 - 业务层 `status int` 返回值（`logapi` 的 400/404/409/500）——为跨层简单可保留数字，但 **handler 出口统一用 `http.StatusXxx` 常量**。
 
-### 优先级
+### 完成（`5c1c3b1`）
 
-- 纯机械重构，测试全绿即完成；与 §5（错误样板收敛）合并。
+- 37 处 handler 出口字面量 → `http.StatusOK/StatusBadRequest/StatusRequestEntityTooLarge/StatusInternalServerError`；业务层 `status int` 透传不变。
 
 ## 5. handler 错误处理样板重复（✅ 已实现，`59b12ae`）
 
@@ -153,9 +146,9 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 - `logMsg` 为英文日志前缀（保持现状 `Error creating ...`）；日志内部走 `%w` 链（`log.Printf("%s: %v", logMsg, err)`）。
 - 各 handler 收敛为一行 `writeLogOrError(w, status, err, "Error creating number records")`。
 
-### 优先级
+### 完成（`59b12ae`）
 
-- 与 §4 一起；纯重构，测试全绿即完成。
+- `writeLogOrError(w, status, err, logMsg)` helper；8 处 `if status >= 500` 样板收敛为一行，日志前缀逐字保留。
 
 ## 6. `go test -race`（✅ 已实现）
 
@@ -169,9 +162,9 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 - `scripts/test-unit.ts` / CI 的 Go 测试命令加 `-race`（`go test -race -short ./...`）。
 - 集成测试（httptest + 真 DB）同样可加 `-race`（成本略高，可只对 unit）。
 
-### 优先级
+### 完成（`fd82d84`）
 
-- 低成本（改命令），立即纳入；发现 race 则修复。
+- `scripts/test-unit.ts` + `test-integration.ts` + CI 两 job 均加 `-race`；README 命令同步。
 
 ## 7. golangci-lint（✅ 已实现：`.golangci.yml` + CI job；ST1005/ST1012/S1017/S1016 全清零）
 
@@ -191,20 +184,20 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 
 **关键设计**：ST1005 / ST1012 已通过**真正解决**（文案小写化 + 哨兵重命名）清零，`.golangci.yml` **无需豁免**——二者作为 lint 守卫拦截新的大写文案 / 非 `Err*` 命名。
 
-### 方案（定案）
+### 实施（已完成，`9f71f44`）
 
-1. **安装**：golangci-lint（CI 用官方 action `golangci/golangci-lint-action`；本地 `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`）。
-2. **`.golangci.yml`**：
-   - linters：default（govet / errcheck / ineffassign / unused / staticcheck / gocritic 等）
+1. ✅ **安装**：CI 用官方 action `golangci/golangci-lint-action@v6`（v1.64，`working-directory: faas`）；本地 `go install ...@v1.64`。
+2. ✅ **`.golangci.yml`**（`faas/.golangci.yml`）：
+   - linters：errcheck / gosimple / govet / ineffassign / staticcheck / unused（default 集）
    - **无需豁免 ST1005 / ST1012**（已清零，作守卫）
-   - **errcheck**：豁免 defer 清理类（`_ = tx.Rollback` / `defer rows.Close()`）——用 `exclude-functions` 或文本排除
-3. **修复**：S1017×2 + S1016×1（小重构）。
-4. **CI**：加 `golangci-lint run` job（与 unit-go 并行）。
-5. **回归**：全量 unit + integration + lint。
+   - **errcheck 无需豁免 defer 清理**：`_ = tx.Rollback` / `defer rows.Close()` 是显式忽略，errcheck 默认放行
+3. ✅ **修复**：S1017×2 + S1016×1（`d174362`）。
+4. ✅ **CI**：`lint-go` job（与 unit-go 并行）。
+5. ✅ **回归**：`golangci-lint run` exit 0 + 全量 unit/integration 绿。
 
-### 优先级
+### 状态
 
-- 剩余 Go 质量问题最后一项；实施后 Go 侧全部问题清单（§1-§7）收尾，仅剩 RFC 9457（§8，独立破坏性）。
+- ✅ 全部完成：`golangci-lint run` exit 0（零发现）。Go 侧问题清单（§1-§7）收尾，仅剩 RFC 9457（§8，独立破坏性）。
 
 ## 8. 错误响应 RFC 9457（另行文档）
 
