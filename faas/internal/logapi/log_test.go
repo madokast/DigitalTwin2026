@@ -161,3 +161,16 @@ func TestCreateNumberBatchValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestCreateTextRejectsDuplicateTags(t *testing.T) {
+	raw := []byte(`{
+		"happened_at": "2026-08-01T12:30:00+08:00",
+		"raw_content": "dup",
+		"tags": ["study", "study"],
+		"objective_context": "x"
+	}`)
+	_, status, err := CreateText(context.Background(), nil, raw)
+	if status != 400 || err == nil || err.Error() != `Duplicate tag "study"` {
+		t.Fatalf("status=%d err=%v", status, err)
+	}
+}

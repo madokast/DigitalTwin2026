@@ -123,3 +123,16 @@ func TestParseBodyWeightRejectsReservedClientTag(t *testing.T) {
 		t.Fatalf("err=%v want=%q", err, want)
 	}
 }
+
+func TestParseBodyWeightRejectsDuplicateClientTag(t *testing.T) {
+	raw := []byte(`{
+		"happened_at": "2026-08-02T08:00:00+08:00",
+		"numeric_value": "75.5",
+		"objective_context": "x",
+		"tags": ["morning", "morning"]
+	}`)
+	_, err := ParseBodyWeight(raw)
+	if err == nil || err.Error() != `Duplicate tag "morning"` {
+		t.Fatalf("err: %v", err)
+	}
+}

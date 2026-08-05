@@ -57,6 +57,19 @@ describe('createText', () => {
     })
   })
 
+  it('rejects duplicate tags', async () => {
+    const result = await createText({
+      happened_at: '2026-08-01T12:30:00+08:00',
+      raw_content: 'dup',
+      tags: ['study', 'study'],
+      objective_context: 'x',
+    })
+    expect(result).toEqual({
+      error: 'Duplicate tag "study"',
+      status: 400,
+    })
+  })
+
   it('rejects todo reserved tag', async () => {
     const result = await createText({
       happened_at: '2026-08-01T12:30:00+08:00',

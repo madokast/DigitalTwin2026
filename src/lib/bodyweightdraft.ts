@@ -10,6 +10,7 @@ import {
   type DraftValidationError,
 } from '@/lib/draft'
 import {
+  firstDuplicateTag,
   isValidTag,
   RESERVED_TAG_BODY_WEIGHT,
   assertNoReservedTags,
@@ -115,6 +116,10 @@ function parseOptionalClientTags(
   const reserved = assertNoReservedTags(list)
   if (!reserved.valid) {
     return { error: reserved.error! }
+  }
+  const dup = firstDuplicateTag(list)
+  if (dup !== null) {
+    return { error: `Duplicate tag "${dup}"` }
   }
   return { ok: true, value: list }
 }

@@ -32,7 +32,11 @@ TagList:
   type: array
   items:
     $ref: '#/TagName'
-  description: Array of valid tag names; may be empty (`[]`) on read and on write
+  description: |
+    Array of valid tag names; may be empty (`[]`) on read and on write.
+    Duplicate tag names are rejected on write paths (numbers/text/todo/
+    body/weight/review) with `Duplicate tag "<tag>"` (the first duplicate
+    reported; batch endpoints prefix `entries[i]: `).
 
 DecimalString:
   type: string

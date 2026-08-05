@@ -172,6 +172,12 @@ describe('parseTodo', () => {
     })
   })
 
+  it('rejects duplicate client tags', () => {
+    expect(parseTodo({ ...base, tags: ['errand', 'errand'] })).toEqual({
+      error: 'Duplicate tag "errand"',
+    })
+  })
+
   it('rejects happened_at / raw_content as unknown keys', () => {
     expect(
       parseTodo({ ...base, happened_at: base.created_at } as typeof base & {

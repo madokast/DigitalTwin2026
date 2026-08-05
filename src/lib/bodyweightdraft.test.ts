@@ -91,6 +91,12 @@ describe('parseBodyWeight', () => {
     ).toEqual({ error: reservedTagError('transaction_entry') })
   })
 
+  it('rejects duplicate client tags', () => {
+    expect(
+      parseBodyWeight({ ...base, tags: ['morning', 'morning'] }),
+    ).toEqual({ error: 'Duplicate tag "morning"' })
+  })
+
   it('rejects unknown keys', () => {
     expect(
       parseBodyWeight({ ...base, unit: 'kg' } as typeof base & { unit: string }),

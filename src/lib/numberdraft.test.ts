@@ -206,4 +206,19 @@ describe('parseNumberBatch', () => {
       }),
     ).toEqual({ error: 'entries[0]: ai_analysis must not be blank' })
   })
+
+  it('rejects duplicate tags with index prefix, reporting the first duplicate', () => {
+    expect(
+      parseNumberBatch({
+        happened_at: base.happened_at,
+        entries: [{ numeric_value: '1', memo: 'x', tags: ['a', 'b', 'a'] }],
+      }),
+    ).toEqual({ error: 'entries[0]: Duplicate tag "a"' })
+    expect(
+      parseNumberBatch({
+        happened_at: base.happened_at,
+        entries: [{ numeric_value: '1', memo: 'x', tags: ['a', 'b', 'b', 'c', 'b'] }],
+      }),
+    ).toEqual({ error: 'entries[0]: Duplicate tag "b"' })
+  })
 })

@@ -101,6 +101,9 @@ func parseEntry(raw any, index int) (NormalizedNumberEntry, error) {
 	if rv := tags.AssertNoReservedTags(tagList); !rv.Valid {
 		return NormalizedNumberEntry{}, fmt.Errorf("%s%s", prefix, rv.Error)
 	}
+	if dup := tags.FirstDuplicateTag(tagList); dup != "" {
+		return NormalizedNumberEntry{}, fmt.Errorf("%sDuplicate tag \"%s\"", prefix, dup)
+	}
 
 	// ai_analysis 可选：省略/null → nil；空白 → 400
 	ai, err := draft.OptionalTrimmedNullable(entry.AiAnalysis, "ai_analysis")

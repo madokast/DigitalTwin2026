@@ -86,6 +86,20 @@ func ValidateTags(tags []string) ValidationResult {
 	return ValidationResult{Valid: true}
 }
 
+// FirstDuplicateTag 返回 tags 中第一个重复的 tag 名；无重复返回 ""。
+// 各写入端点（numbers/text/todo/body/weight/review）在落库前调用，重复 → 400。
+// 文案由调用方拼：Duplicate tag "<tag>"（batch 端点加 entries[i]: 前缀）。
+func FirstDuplicateTag(tagList []string) string {
+	seen := make(map[string]struct{}, len(tagList))
+	for _, tag := range tagList {
+		if _, ok := seen[tag]; ok {
+			return tag
+		}
+		seen[tag] = struct{}{}
+	}
+	return ""
+}
+
 // ValidateRename rename 业务校验：非空、合法 tag、非保留、from≠to。调用方应先 trim。
 func ValidateRename(from, to string) ValidationResult {
 	if from == "" || to == "" {

@@ -205,3 +205,17 @@ func TestReviewTagsForCadence(t *testing.T) {
 		t.Fatalf("nil tags: %#v", got)
 	}
 }
+
+func TestParseReviewRejectsDuplicateTags(t *testing.T) {
+	raw := []byte(`{
+		"happened_at": "2026-08-09T19:00:00+08:00",
+		"cadence": "weekly",
+		"raw_content": "weekly review",
+		"objective_context": "ctx",
+		"tags": ["work", "work"]
+	}`)
+	_, err := ParseReview(raw)
+	if err == nil || err.Error() != `Duplicate tag "work"` {
+		t.Fatalf("err: %v", err)
+	}
+}

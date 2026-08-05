@@ -164,5 +164,8 @@ func parseOptionalClientTags(raw any) ([]string, error) {
 	if rv := tags.AssertNoReservedTags(out); !rv.Valid {
 		return nil, fmt.Errorf("%s", rv.Error)
 	}
+	if dup := tags.FirstDuplicateTag(out); dup != "" {
+		return nil, fmt.Errorf("Duplicate tag \"%s\"", dup)
+	}
 	return out, nil
 }

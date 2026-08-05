@@ -20,7 +20,7 @@ import {
   tagsJSON,
   type Record,
 } from '@/lib/record'
-import { assertNoReservedTags, validateTags } from '@/lib/tags'
+import { assertNoReservedTags, firstDuplicateTag, validateTags } from '@/lib/tags'
 import {
   auditObjectiveContext,
   todoAuditNotifyText,
@@ -102,6 +102,10 @@ function optionalTagList(raw: unknown): { value: string[] } | { error: string } 
   }
   if (!raw.every((t) => typeof t === 'string')) {
     return { error: 'tags must be an array of strings' }
+  }
+  const dup = firstDuplicateTag(raw)
+  if (dup !== null) {
+    return { error: `Duplicate tag "${dup}"` }
   }
   return { value: raw }
 }

@@ -57,6 +57,9 @@ func optionalTagList(raw any) ([]string, error) {
 		}
 		out = append(out, s)
 	}
+	if dup := tags.FirstDuplicateTag(out); dup != "" {
+		return nil, fmt.Errorf("Duplicate tag \"%s\"", dup)
+	}
 	return out, nil
 }
 

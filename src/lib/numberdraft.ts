@@ -13,6 +13,7 @@ import {
 } from '@/lib/draft'
 import {
   assertNoReservedTags,
+  firstDuplicateTag,
   validateTags,
 } from '@/lib/tags'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
@@ -101,6 +102,10 @@ function parseEntry(
     const reserved = assertNoReservedTags(tagList)
     if (!reserved.valid) {
       return { error: `entries[${index}]: ${reserved.error}` }
+    }
+    const dup = firstDuplicateTag(tagList)
+    if (dup !== null) {
+      return { error: `entries[${index}]: Duplicate tag "${dup}"` }
     }
     tags = tagList
   }

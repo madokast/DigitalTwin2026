@@ -277,3 +277,16 @@ func TestParseTodoTransitionRejects(t *testing.T) {
 		}
 	}
 }
+
+func TestParseTodoRejectsDuplicateTags(t *testing.T) {
+	raw := []byte(`{
+		"created_at": "2026-08-02T10:00:00+08:00",
+		"content": "Buy milk",
+		"objective_context": "x",
+		"tags": ["errand", "errand"]
+	}`)
+	_, err := ParseTodo(raw)
+	if err == nil || err.Error() != `Duplicate tag "errand"` {
+		t.Fatalf("err: %v", err)
+	}
+}

@@ -340,3 +340,18 @@ func TestRenameAcrossRecordsPureLogicContract(t *testing.T) {
 		t.Fatalf("dirty row must abort rename: %v", err)
 	}
 }
+
+func TestFirstDuplicateTag(t *testing.T) {
+	if got := FirstDuplicateTag([]string{"a", "b", "a"}); got != "a" {
+		t.Fatalf("first dup: got %q want a", got)
+	}
+	if got := FirstDuplicateTag([]string{"a", "b", "b", "c", "b"}); got != "b" {
+		t.Fatalf("first dup: got %q want b", got)
+	}
+	if got := FirstDuplicateTag(nil); got != "" {
+		t.Fatalf("nil: got %q", got)
+	}
+	if got := FirstDuplicateTag([]string{"a", "b", "c"}); got != "" {
+		t.Fatalf("no dup: got %q", got)
+	}
+}

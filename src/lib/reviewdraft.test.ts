@@ -155,6 +155,12 @@ describe('parseReview', () => {
     })
   })
 
+  it('rejects duplicate client tags', () => {
+    expect(parseReview({ ...validBase, tags: ['work', 'work'] })).toEqual({
+      error: 'Duplicate tag "work"',
+    })
+  })
+
   it('rejects invalid tags', () => {
     const parsed = parseReview({ ...validBase, tags: ['体重'] })
     expect('error' in parsed).toBe(true)

@@ -1,5 +1,5 @@
 import { parseHappenedAt, requireTrimmedText, optionalTrimmedNullable } from '@/lib/draft'
-import { validateTags, assertNoReservedTags } from '@/lib/tags'
+import { validateTags, assertNoReservedTags, firstDuplicateTag } from '@/lib/tags'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
 import type { DraftValidationError } from '@/lib/draft'
 
@@ -107,6 +107,10 @@ export function parseReview(
   const reserved = assertNoReservedTags(tagList)
   if (!reserved.valid) {
     return { error: reserved.error! }
+  }
+  const dup = firstDuplicateTag(tagList)
+  if (dup !== null) {
+    return { error: `Duplicate tag "${dup}"` }
   }
 
   return {

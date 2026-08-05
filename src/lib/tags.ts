@@ -100,6 +100,22 @@ export function validateTags(tags: string[]): ValidationResult {
   return { valid: true }
 }
 
+/**
+ * 返回 tags 中第一个重复的 tag 名；无重复返回 null。
+ * 各写入端点（numbers/text/todo/body/weight/review）在落库前调用，重复 → 400。
+ * 文案由调用方拼：`Duplicate tag "${tag}"`（batch 端点加 `entries[i]:` 前缀）。
+ */
+export function firstDuplicateTag(tagList: string[]): string | null {
+  const seen = new Set<string>()
+  for (const tag of tagList) {
+    if (seen.has(tag)) {
+      return tag
+    }
+    seen.add(tag)
+  }
+  return null
+}
+
 /** 与 Go `tags.ErrTagsNotJSONArray` 同文案：解析成功但根不是数组 */
 export const TAGS_NOT_JSON_ARRAY = 'tags field is not a JSON array'
 

@@ -197,3 +197,13 @@ func TestParseNumberBatchNullTags(t *testing.T) {
 		t.Fatalf("null tags should normalize to empty, got %v", got.Entries[0].Tags)
 	}
 }
+
+func TestParseNumberBatchDuplicateTags(t *testing.T) {
+	_, err := ParseNumberBatch([]byte(`{
+		"happened_at":"2026-08-05T10:00:00+08:00",
+		"entries":[{"numeric_value":"1","memo":"x","tags":["a","b","a"]}]
+	}`))
+	if err == nil || err.Error() != `entries[0]: Duplicate tag "a"` {
+		t.Fatalf("err: %v", err)
+	}
+}

@@ -3,6 +3,7 @@ import {
   TAGS_NOT_JSON_ARRAY,
   aggregateTagCounts,
   assertNoReservedTags,
+  firstDuplicateTag,
   isReservedTag,
   isValidTag,
   renameTagInTagsJson,
@@ -56,6 +57,18 @@ describe('validateTags', () => {
 
   it('accepts a non-empty array of valid tags', () => {
     expect(validateTags(['weight', 'source:device'])).toEqual({ valid: true })
+  })
+})
+
+describe('firstDuplicateTag', () => {
+  it('returns the first duplicate tag name', () => {
+    expect(firstDuplicateTag(['a', 'b', 'a'])).toBe('a')
+    expect(firstDuplicateTag(['a', 'b', 'b', 'c', 'b'])).toBe('b')
+  })
+
+  it('returns null when there are no duplicates', () => {
+    expect(firstDuplicateTag([])).toBeNull()
+    expect(firstDuplicateTag(['a', 'b', 'c'])).toBeNull()
   })
 })
 
