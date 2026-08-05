@@ -2,10 +2,11 @@ package httpx
 
 import "net/http"
 
-// ProblemResponse RFC 9457 problem+json 错误响应（见 docs/20260805-error-response-shape.md）。
+// ErrorResponse RFC 9457 problem+json 错误响应（见 docs/20260805-error-response-shape.md）。
+// 与 Node 侧 `ErrorResponse` type 同名（双端 stem 对齐，AGENTS.md「双端同构」），
+// 与 OpenAPI `Error` schema 呼应。
 // 字段声明顺序 = JSON key 顺序（success 恒第一，符合 go-code-quality.md §2 模板）。
-// S2 切换 writeError 时替换 responses.go 的旧 ErrorResponse。
-type ProblemResponse struct {
+type ErrorResponse struct {
 	Success bool   `json:"success"`
 	Title   string `json:"title"`
 	Status  int    `json:"status"`

@@ -50,8 +50,8 @@ Go 的 `encoding/json` 序列化 `map[string]any` 时 **key 按字母序排序**
 
 ### 现状（已实现，`faas/internal/httpx/responses.go`）
 
-- ✅ **15 处 handler 响应已改 typed struct**：`NumberBatchSuccess` / `TransactionBatchSuccess` / `RecordSuccess` / `TodoRecordSuccess` / `TransitionSuccess` / `QuerySuccess` / `SummarySuccess` / `TimeSuccess` / `TagsSuccess` / `RenameTagsSuccess` / `ImportRecordsSuccess` / `SuccessOnly` / `ProblemResponse`（原 `ErrorResponse` 已随 RFC 9457 替换）——字段声明序即 JSON key 序，符合「统一模板」。
-- ✅ `writeError` / 401 / import 均走 typed struct；错误响应已换 `ProblemResponse` problem+json（§8，RFC 9457）。
+- ✅ **15 处 handler 响应已改 typed struct**：`NumberBatchSuccess` / `TransactionBatchSuccess` / `RecordSuccess` / `TodoRecordSuccess` / `TransitionSuccess` / `QuerySuccess` / `SummarySuccess` / `TimeSuccess` / `TagsSuccess` / `RenameTagsSuccess` / `ImportRecordsSuccess` / `SuccessOnly` / `ErrorResponse`（旧 `{error}` 时代同名 struct 已删，随 RFC 9457 重建为 problem+json 形状；与 Node `ErrorResponse` type 同名对齐）——字段声明序即 JSON key 序，符合「统一模板」。
+- ✅ `writeError` / 401 / import 均走 typed struct；错误响应已换 `ErrorResponse` problem+json（§8，RFC 9457）。
 
 ### 改法
 
@@ -88,7 +88,7 @@ Go typed struct 的 **JSON key 顺序 = 字段声明顺序**（`encoding/json` �
 
 ### 完成（`f0d47e7`）
 
-- `responses.go` 13 个 typed struct 替代全部 map/any jsonify；错误响应已换 `ProblemResponse` problem+json（§8，RFC 9457）。
+- `responses.go` 13 个 typed struct 替代全部 map/any jsonify；错误响应已换 `ErrorResponse` problem+json（§8，RFC 9457）。
 
 ## 3. 结构化日志 `log/slog`（✅ 已实现，`ecbc9c0`；Node 对应 pino `7dfb1a3`，规范见 AGENTS.md「日志」）
 
@@ -201,7 +201,7 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 
 ## 8. 错误响应 RFC 9457（✅ 已实现，S1-S4：`208c5d8` + `c5521dd` + `94cafa9` + 文档）
 
-- 见 `docs/20260805-error-response-shape.md`（定案选 A 彻底 problem+json）。错误响应从 `{error: string}` 切换为 RFC 9457 problem+json（`{success: false, title, status, detail}`，Content-Type `application/problem+json`）：Go `writeError` → `ProblemResponse` + `statusTitle`（413 特例）；Node 各 route → `errorResponse()` helper；OpenAPI `Error` schema + 11 个 error fixtures + `responses.yaml` / paths example 全部同步；契约测试锁形状与 key 顺序。
+- 见 `docs/20260805-error-response-shape.md`（定案选 A 彻底 problem+json）。错误响应从 `{error: string}` 切换为 RFC 9457 problem+json（`{success: false, title, status, detail}`，Content-Type `application/problem+json`）：Go `writeError` → `ErrorResponse` + `statusTitle`（413 特例）；Node 各 route → `errorResponse()` helper；OpenAPI `Error` schema + 11 个 error fixtures + `responses.yaml` / paths example 全部同步；契约测试锁形状与 key 顺序。
 
 ## 优先级与实施顺序
 

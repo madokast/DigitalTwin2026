@@ -208,7 +208,7 @@ func writeInternalError(w http.ResponseWriter, _ error) {
 func writeError(w http.ResponseWriter, status int, msg string) {
 	// RFC 9457 problem+json（docs/20260805-error-response-shape.md）：
 	// 形状与 key 顺序双端逐字一致（success→title→status→detail），Content-Type 用 problem+json。
-	writeEncoded(w, status, "application/problem+json", ProblemResponse{
+	writeEncoded(w, status, "application/problem+json", ErrorResponse{
 		Success: false,
 		Title:   statusTitle(status),
 		Status:  status,

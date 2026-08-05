@@ -9,7 +9,7 @@
 | 层 | 现状 |
 |---|---|
 | 契约 | `Error` schema：problem+json（`required: [success, title, status, detail]`，`success.const: false`） |
-| Go | `writeError` → `ProblemResponse` struct + `statusTitle`（`httpx/httperror.go`）；Content-Type `application/problem+json` |
+| Go | `writeError` → `ErrorResponse` struct + `statusTitle`（`httpx/httperror.go`）；Content-Type `application/problem+json` |
 | Node | 各 route → `errorResponse()` helper（`src/lib/httperror.ts`） |
 | OpenAPI | 所有 `$ref '#/Error'` 指向 problem+json schema；response media type `application/problem+json` |
 | fixtures | `error-*.json`（11 个）全部 problem+json 形状 |
@@ -94,8 +94,8 @@ export function statusTitle(status: number): string {
 
 ## 实施顺序（定案，分 4 阶段，每阶段独立提交 + 测试绿）
 
-- **S1 双端基建（纯新增，无行为变化）** ✅ `208c5d8`：Go `httpx/httperror.go`（`statusTitle` 含 413 特例 + `ProblemResponse` struct）；Node `src/lib/httperror.ts`（`statusTitle` + `errorResponse` helper）；双端 `statusTitle` 映射单测（含 413 特例）。现有错误响应不变。
-- **S2 双端错误响应切换（破坏性主变更）** ✅ `c5521dd`：Go `writeError`/`writeInternalError`/401 → `ProblemResponse` + `statusTitle` + `application/problem+json`；Node 各 route / `unauthorizedResponse` → `errorResponse`；**连带**更新双端集成测试断言（`res.error` → `res.detail`）与 route 单测；`withJSONErrorPages` 404 判断兼容 problem+json；测试断言 `map[string]string` → `map[string]any`（success 为 bool）。
+- **S1 双端基建（纯新增，无行为变化）** ✅ `208c5d8`：Go `httpx/httperror.go`（`statusTitle` 含 413 特例 + `ErrorResponse` struct）；Node `src/lib/httperror.ts`（`statusTitle` + `errorResponse` helper）；双端 `statusTitle` 映射单测（含 413 特例）。现有错误响应不变。
+- **S2 双端错误响应切换（破坏性主变更）** ✅ `c5521dd`：Go `writeError`/`writeInternalError`/401 → `ErrorResponse` + `statusTitle` + `application/problem+json`；Node 各 route / `unauthorizedResponse` → `errorResponse`；**连带**更新双端集成测试断言（`res.error` → `res.detail`）与 route 单测；`withJSONErrorPages` 404 判断兼容 problem+json；测试断言 `map[string]string` → `map[string]any`（success 为 bool）。
 - **S3 OpenAPI + fixtures（契约同步）** ✅ `94cafa9`：`Error` schema 重写（`required: [success, title, status, detail]` + `const: false`）；11 个 `error-*.json` fixtures 重写；`responses.yaml` + 5 个 paths 内联 example 重写（media type `application/problem+json`，3 处旧大写文案顺带小写化）；契约测试增「缺字段 / success:true 拒绝 / key 顺序」断言。
 - **S4 收尾回归 + 文档**：本文档标记已实现 + `go-code-quality.md` §8 完成 + `api-layering.md` 同步 + 全量回归。
 
