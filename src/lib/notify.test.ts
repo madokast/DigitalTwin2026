@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import {
   NOTIFY_MESSAGE_MAX_LEN,
   NOTIFY_TRUNCATION_SUFFIX,
+  notifyNumberBatchInserted,
   notify_user,
   notifyRecordInserted,
   scheduleBestEffortNotify,
@@ -331,5 +332,42 @@ describe('notifyRecordInserted', () => {
         body: expect.stringContaining('New record'),
       }),
     )
+  })
+})
+
+describe('notifyNumberBatchInserted', () => {
+  const sampleBatch = [
+    sampleNumber,
+    { ...sampleNumber, id: '01900000-0000-7000-8000-000000000002', numeric_value: '36.8', objective_context: 'axillary' },
+  ]
+
+  it('skips when rows are empty', async () => {
+    const fetchMock = vi.fn()
+    await notifyNumberBatchInserted([], {
+      env: { SUPPRESS_BOT_NOTIFICATION: '0' },
+      fetch: fetchMock,
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('formats a single batch summary via notify_user', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    })
+    await notifyNumberBatchInserted(sampleBatch, {
+      env: {
+        TELEGRAM_BOT_TOKEN: 't',
+        TELEGRAM_USER_ID: '1',
+        SUPPRESS_BOT_NOTIFICATION: '0',
+      },
+      fetch: fetchMock,
+    })
+    const body = fetchMock.mock.calls[0][1].body as string
+    expect(body).toContain('New numbers batch')
+    expect(body).toContain('inserted: 2')
+    expect(body).toContain('values: 72.5, 36.8')
+    expect(body).toContain('first_memo: Scale reading')
   })
 })

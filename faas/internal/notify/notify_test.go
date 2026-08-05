@@ -445,3 +445,52 @@ func TestNotifySkipsWhenUnconfigured(t *testing.T) {
 		t.Fatal("should not call when unconfigured")
 	}
 }
+
+func TestNotifyNumberBatchInsertedFormats(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	n := &Notifier{
+		Telegram: &telegram.Sender{
+			HTTPClient: srv.Client(),
+			APIBase:    srv.URL,
+			Getenv: func(k string) string {
+				switch k {
+				case "SUPPRESS_BOT_NOTIFICATION":
+					return "0"
+				case "TELEGRAM_BOT_TOKEN":
+					return "t"
+				case "TELEGRAM_USER_ID":
+					return "1"
+				}
+				return ""
+			},
+		},
+		Qqbot: &qqbot.Sender{Getenv: func(string) string { return "" }},
+	}
+	v1, v2 := "72.5", "36.8"
+	n.NotifyNumberBatchInserted([]record.Record{
+		{ID: "id-1", HappenedAt: "2026-08-05T10:00:00+08:00", NumericValue: &v1, ObjectiveContext: "Scale"},
+		{ID: "id-2", HappenedAt: "2026-08-05T10:00:00+08:00", NumericValue: &v2, ObjectiveContext: "axillary"},
+	})
+	if !strings.Contains(body, "New numbers batch") {
+		t.Fatalf("body: %s", body)
+	}
+	if !strings.Contains(body, "inserted: 2") {
+		t.Fatalf("body: %s", body)
+	}
+	if !strings.Contains(body, "values: 72.5, 36.8") {
+		t.Fatalf("body: %s", body)
+	}
+}
+
+func TestNotifyNumberBatchInsertedSkipsEmpty(t *testing.T) {
+	// len==0 早返回，nil Notifier / 无渠道也不会 panic 或发送
+	var n *Notifier
+	n.NotifyNumberBatchInserted(nil)
+}

@@ -208,3 +208,11 @@ func (n *Notifier) NotifyTransactionBatchInserted(rows []record.Record) {
 	}
 	n.NotifyUser(telegram.FormatTransactionBatchMessage(rows))
 }
+
+// NotifyNumberBatchInserted best-effort 一条摘要。
+func (n *Notifier) NotifyNumberBatchInserted(rows []record.Record) {
+	if len(rows) == 0 {
+		return
+	}
+	n.NotifyUser(telegram.FormatNumberBatchMessage(rows))
+}

@@ -5,6 +5,7 @@
 
 import { after } from 'next/server'
 import {
+  formatNumberBatchMessage,
   formatRecordMessage,
   formatTransactionBatchMessage,
   isTelegramConfigured,
@@ -177,6 +178,15 @@ export async function notifyTransactionBatchInserted(
 ): Promise<void> {
   if (rows.length === 0) return
   await notify_user(formatTransactionBatchMessage(rows), options)
+}
+
+/** number batch 成功后 best-effort 一条摘要 */
+export async function notifyNumberBatchInserted(
+  rows: NotifyRecord[],
+  options?: { env?: EnvLike; fetch?: FetchLike; timeoutMs?: number },
+): Promise<void> {
+  if (rows.length === 0) return
+  await notify_user(formatNumberBatchMessage(rows), options)
 }
 
 export type { NotifyRecord }
