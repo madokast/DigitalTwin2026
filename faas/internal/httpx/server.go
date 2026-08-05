@@ -1,7 +1,6 @@
 package httpx
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -66,91 +65,30 @@ func NewServer(pool *pgxpool.Pool, tokens auth.Tokens) *Server {
 }
 
 func (s *Server) Handler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/log/numbers", s.handleLogNumbers)
-	mux.HandleFunc("POST /api/log/body/weight", s.handleLogBodyWeight)
-	mux.HandleFunc("POST /api/log/todo", s.handleLogTodo)
-	mux.HandleFunc("POST /api/log/todo/transition", s.handleLogTodoTransition)
-	mux.HandleFunc("POST /api/log/text", s.handleLogText)
-	mux.HandleFunc("POST /api/log/review", s.handleLogReview)
-	mux.HandleFunc("POST /api/log/transactions", s.handleLogTransactions)
-	mux.HandleFunc("POST /api/telegram/probe", s.handleTelegramProbe)
-	mux.HandleFunc("POST /api/qqbot/probe", s.handleQqbotProbe)
-	mux.HandleFunc("POST /api/db/probe", s.handleDbProbe)
-	mux.HandleFunc("GET /api/query", s.handleQuery)
-	mux.HandleFunc("GET /api/time", s.handleTime)
-	mux.HandleFunc("GET /api/query/tags", s.handleTags)
-	mux.HandleFunc("GET /api/query/transactions/summary", s.handleTransactionsSummary)
-	mux.HandleFunc("GET /api/admin/records/stats", s.handleSummary)
-	mux.HandleFunc("POST /api/admin/tags/rename", s.handleRenameTags)
-	mux.HandleFunc("POST /api/admin/import/records", s.handleImportRecords)
-	mux.HandleFunc("GET /api/export/records", s.handleExportRecords)
-	// 404/405 → {error} JSON。Next 仍用框架默认（见 api-layering §1.1）；业务 4xx 两端已对齐。
-	return withCORS(s.withAuth(withJSONErrorPages(mux)))
+	rt := &router{}
+	rt.HandleFunc(http.MethodPost, "/api/log/numbers", s.handleLogNumbers)
+	rt.HandleFunc(http.MethodPost, "/api/log/body/weight", s.handleLogBodyWeight)
+	rt.HandleFunc(http.MethodPost, "/api/log/todo", s.handleLogTodo)
+	rt.HandleFunc(http.MethodPost, "/api/log/todo/transition", s.handleLogTodoTransition)
+	rt.HandleFunc(http.MethodPost, "/api/log/text", s.handleLogText)
+	rt.HandleFunc(http.MethodPost, "/api/log/review", s.handleLogReview)
+	rt.HandleFunc(http.MethodPost, "/api/log/transactions", s.handleLogTransactions)
+	rt.HandleFunc(http.MethodPost, "/api/telegram/probe", s.handleTelegramProbe)
+	rt.HandleFunc(http.MethodPost, "/api/qqbot/probe", s.handleQqbotProbe)
+	rt.HandleFunc(http.MethodPost, "/api/db/probe", s.handleDbProbe)
+	rt.HandleFunc(http.MethodGet, "/api/query", s.handleQuery)
+	rt.HandleFunc(http.MethodGet, "/api/time", s.handleTime)
+	rt.HandleFunc(http.MethodGet, "/api/query/tags", s.handleTags)
+	rt.HandleFunc(http.MethodGet, "/api/query/transactions/summary", s.handleTransactionsSummary)
+	rt.HandleFunc(http.MethodGet, "/api/admin/records/stats", s.handleSummary)
+	rt.HandleFunc(http.MethodPost, "/api/admin/tags/rename", s.handleRenameTags)
+	rt.HandleFunc(http.MethodPost, "/api/admin/import/records", s.handleImportRecords)
+	rt.HandleFunc(http.MethodGet, "/api/export/records", s.handleExportRecords)
+	// 404/405 由自写路由直接输出 problem+json（router.go，消除 ServeMux 改写的双缓冲）。
+	// Next 仍用框架默认（见 api-layering §1.1）；业务 4xx 两端已对齐。
+	return withCORS(s.withAuth(rt))
 }
 
-// bufferResponse 暂存下游写入，便于将 404/405 改写成 JSON。
-type bufferResponse struct {
-	header http.Header
-	code   int
-	body   bytes.Buffer
-}
-
-func (b *bufferResponse) Header() http.Header {
-	if b.header == nil {
-		b.header = make(http.Header)
-	}
-	return b.header
-}
-
-func (b *bufferResponse) Write(p []byte) (int, error) {
-	if b.code == 0 {
-		b.code = http.StatusOK
-	}
-	return b.body.Write(p)
-}
-
-func (b *bufferResponse) WriteHeader(statusCode int) {
-	b.code = statusCode
-}
-
-func withJSONErrorPages(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		buf := &bufferResponse{}
-		next.ServeHTTP(buf, r)
-		code := buf.code
-		if code == 0 {
-			code = http.StatusOK
-		}
-		// 仅改写框架 404（无路由，通常 text/plain）；业务 404（application/json / problem+json）原样透传。
-		// 用 mime.ParseMediaType 精确匹配，避免子串枚举（problem+json 不含 application/json 子串）。
-		if code == http.StatusNotFound {
-			mediatype, _, _ := mime.ParseMediaType(buf.Header().Get("Content-Type"))
-			if mediatype != "application/json" && mediatype != "application/problem+json" {
-				// 框架兜底：唯一已知信息是请求路径，写入 detail 便于 AI 客户端诊断
-				writeError(w, http.StatusNotFound, "unknown path: "+r.URL.Path)
-				return
-			}
-		}
-		if code == http.StatusMethodNotAllowed {
-			if allow := buf.Header().Get("Allow"); allow != "" {
-				w.Header().Set("Allow", allow)
-			}
-			writeError(w, http.StatusMethodNotAllowed, "method not allowed: "+r.Method+" "+r.URL.Path)
-			return
-		}
-		for k, vs := range buf.Header() {
-			for _, v := range vs {
-				w.Header().Add(k, v)
-			}
-		}
-		w.WriteHeader(code)
-		_, _ = w.Write(buf.body.Bytes())
-	})
-}
-
-// withCORS：国内 Accelerate 跨域预检。OPTIONS → 204 且不鉴权。
-// Next 同源无此中间件（见 api-layering §1.1）；勿要求两端 OPTIONS 行为字节级一致。
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
