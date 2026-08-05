@@ -71,10 +71,7 @@ func wrapErr(message string, lineNumber int) error {
 // ParseLine 解析一行 JSONL（可含前导 BOM；首尾空白 trim）。
 // lineNumber：传 >=1 时错误带 `line N: ` 前缀；传 0 表示不带行号。
 func ParseLine(rawLine string, lineNumber int) (*Row, error) {
-	line := rawLine
-	if strings.HasPrefix(line, utf8BOM) {
-		line = strings.TrimPrefix(line, utf8BOM)
-	}
+	line := strings.TrimPrefix(rawLine, utf8BOM)
 	line = strings.TrimSpace(line)
 	if line == "" {
 		return nil, wrapErr(InvalidJSONLine, lineNumber)

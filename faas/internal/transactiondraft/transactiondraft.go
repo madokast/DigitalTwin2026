@@ -101,7 +101,10 @@ func centsFromAmount2(amount string) int64 {
 	}
 	body = strings.Replace(body, ".", "", 1)
 	var v int64
-	fmt.Sscanf(body, "%d", &v)
+	// moneyAmountPattern 保证 body 是纯十进制整数，Sscanf 必然成功（防御性忽略失败）。
+	if _, err := fmt.Sscanf(body, "%d", &v); err != nil {
+		return 0
+	}
 	if neg {
 		v = -v
 	}

@@ -156,10 +156,7 @@ func importTextInTx(ctx context.Context, tx pgx.Tx, text string) (Counts, error)
 
 	for _, raw := range lines {
 		physicalLine++
-		line := raw
-		if strings.HasSuffix(line, "\r") {
-			line = strings.TrimSuffix(line, "\r")
-		}
+		line := strings.TrimSuffix(raw, "\r")
 		if physicalLine == 1 {
 			line = strings.TrimPrefix(line, "\ufeff")
 		}

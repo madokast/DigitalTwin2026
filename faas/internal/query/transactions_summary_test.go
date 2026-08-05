@@ -93,7 +93,7 @@ func TestAggregateTransactionsSummarySharedFixtures(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			rows := make([]TransactionsSummaryRow, len(tc.Rows))
 			for i, r := range tc.Rows {
-				rows[i] = TransactionsSummaryRow{Tags: r.Tags, NumericValue: r.NumericValue}
+				rows[i] = TransactionsSummaryRow(r)
 			}
 			got, err := AggregateTransactionsSummary(rows, tc.From, tc.To)
 			if err != nil {
