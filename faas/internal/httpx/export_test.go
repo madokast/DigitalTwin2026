@@ -23,11 +23,7 @@ func TestExportRecordsValidation(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("missing limit status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["detail"] != "limit must be an integer between 1 and 1000" {
-		t.Fatalf("body %v", body)
-	}
+	assertProblemDetail(t, rr, "limit must be an integer between 1 and 1000")
 
 	badFrom := httptest.NewRequest(http.MethodGet, "/api/export/records?from=not-a-uuid&limit=10", nil)
 	badFrom.Header.Set("Authorization", "Bearer ai-tok")

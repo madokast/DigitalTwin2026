@@ -92,11 +92,7 @@ func TestLogTodoTransitionRejectsSuppressAsUnknownKey(t *testing.T) {
 	if rr.Code != 400 {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
-	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["detail"] != "Unknown JSON key: suppress_notification" {
-		t.Fatalf("error: %v", body)
-	}
+	assertProblemDetail(t, rr, "Unknown JSON key: suppress_notification")
 }
 
 func TestLogTodoTransitionDomainErrorsWithoutDB(t *testing.T) {
@@ -133,11 +129,7 @@ func TestLogTodoTransitionDomainErrorsWithoutDB(t *testing.T) {
 			if rr.Code != wantStatus {
 				t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 			}
-			var body map[string]any
-			_ = json.Unmarshal(rr.Body.Bytes(), &body)
-			if body["detail"] != wantErr {
-				t.Fatalf("error=%q want %q", body["detail"], wantErr)
-			}
+			assertProblemDetail(t, rr, wantErr)
 		})
 	}
 }
