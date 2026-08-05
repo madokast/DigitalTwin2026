@@ -1,0 +1,374 @@
+# UoW + Repository 端到端代码参考
+
+> 创建日期：2026-08-05
+> 性质：**目标形态参考**（迁移后代码）。以 `POST /api/log/numbers`（批量 create，事务）为主线，展示从请求到落库的完整代码风格，及涉及的每个接口与实际实现封装。供实施时对照（`docs/20260805-repository-architecture.md` + `review.md` 为定案依据）。
+
+## 总览：一次事务的完整链路
+
+```
+HTTP 请求
+  → router.ServeHTTP（自写路由，匹配分发）
+  → httpx.Server.handleLogNumbers（handler：读 body → 调业务函数 → 组响应）
+  → logapi.CreateNumberBatch（业务层：校验零 DB → WithTx 闭包 → Repository 领域方法）
+  → recordrepo.RecordRepository.SaveAll（领域持久化，内部 SQL）
+  → db.Executor / pgx 驱动 → 事务 Commit / Rollback
+```
+
+---
+
+# Go 端
+
+## 1. 接口定义（`faas/internal/db/interfaces.go`）
+
+```go
+package db
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+)
+
+// Executor：可执行 SQL 的句柄（读路径 / 事务内操作）。仅 Repository 内部使用。
+// *pgxpool.Pool 与 pgx.Tx 均满足；单测可假实现。
+type Executor interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+// Tx：事务句柄 = Executor + 提交/回滚。pgx.Tx 满足。
+type Tx interface {
+	Executor
+	Commit(ctx context.Context) error
+	Rollback(ctx context.Context) error
+}
+
+// TxBeginner：能开事务的入口（写路径）。*pgxpool.Pool 满足。
+type TxBeginner interface {
+	Executor
+	Begin(ctx context.Context) (Tx, error)
+}
+
+// WithTx：闭包式 UoW——Begin → fn(tx) → 成功 Commit / 失败 Rollback。
+// 业务方零事务 API：不手动 Begin/Commit/Rollback，闭包返回 nil 即提交。
+func WithTx(ctx context.Context, q TxBeginner, fn func(q Executor) error) error {
+	tx, err := q.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+```
+
+## 2. 实际实现封装（无需适配器，天然满足）
+
+```go
+// faas/internal/db/db.go（现状，仅示意签名）
+// db.Open 读 DATABASE_URL 创建连接池，返回 *pgxpool.Pool。
+func Open(ctx context.Context) (*pgxpool.Pool, error) { ... }
+```
+
+**满足关系**（全部天然，零适配器）：
+
+| 接口 | 满足者 | 说明 |
+|---|---|---|
+| `Executor` | `*pgxpool.Pool`、`pgx.Tx` | 均有 `QueryRow/Exec/Query` |
+| `Tx` | `pgx.Tx` | 有 `Commit/Rollback` |
+| `TxBeginner` | `*pgxpool.Pool` | 有 `Begin(ctx) (pgx.Tx, error)` |
+
+> 现有 `poolAdapter`（todo.go）、`transitionDB`/`transitionTx` 在迁移后删除——统一被三层接口取代。
+
+## 3. Repository（`faas/internal/recordrepo/repository.go`）
+
+```go
+package recordrepo
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/mdk/digitaltwin2026/faas/internal/db"
+	"github.com/mdk/digitaltwin2026/faas/internal/record"
+)
+
+// RecordRepository 唯一聚合根的持久化：领域语义方法，内部写 SQL。
+// 无状态；方法第一参数一律收 Executor（事务内外同一签名，事务边界在业务层 WithTx）。
+type RecordRepository struct{}
+
+// SaveAll 批量插入（UoW 内）。返回插入后的完整行（含 id）。
+func (r *RecordRepository) SaveAll(ctx context.Context, q db.Executor, records []record.Record) ([]record.Record, error) {
+	out := make([]record.Record, 0, len(records))
+	for _, rec := range records {
+		// SQL 只出现在 Repository 内部
+		var (
+			outID, outTags, outObj, outOffset string
+			outHappened                       time.Time
+			outNum, outText, outSubj          *string
+		)
+		err := q.QueryRow(ctx, `
+INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags)
+VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
+RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags
+`, rec.ID, rec.HappenedAt, rec.UtcOffset, rec.NumericValue, rec.RawContent,
+			rec.ObjectiveContext, rec.AiAnalysis, rec.TagsJSON).Scan(
+			&outID, &outHappened, &outOffset, &outNum, &outText, &outObj, &outSubj, &outTags,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("insert record: %w", err)
+		}
+		out = append(out, record.FromDB(outID, outHappened, outOffset, outNum, outText, outTags, outObj, outSubj))
+	}
+	return out, nil
+}
+```
+
+## 4. 业务层（`faas/internal/logapi/number.go` 迁移后）
+
+```go
+package logapi
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/mdk/digitaltwin2026/faas/internal/db"
+	"github.com/mdk/digitaltwin2026/faas/internal/numberdraft"
+	"github.com/mdk/digitaltwin2026/faas/internal/record"
+	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
+)
+
+var recordRepo = &recordrepo.RecordRepository{}
+
+// numberRecords 业务层组装领域对象（id 生成 + tagsJSON 编码 + 字段映射），零 DB。
+func numberRecords(batch *numberdraft.NumberBatch) ([]record.Record, error) {
+	out := make([]record.Record, 0, len(batch.Entries))
+	for _, e := range batch.Entries {
+		id, err := uuid.NewV7()
+		if err != nil {
+			return nil, err
+		}
+		tagsJSON, err := record.TagsJSON(e.Tags)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, record.NewNumber(
+			id.String(), batch.HappenedAt, batch.UtcOffset,
+			&e.NumericValue, tagsJSON, e.ObjectiveContext, e.AiAnalysis,
+		))
+	}
+	return out, nil
+}
+
+// CreateNumberBatch 校验（零 DB）→ WithTx 闭包 → Repository 领域方法。
+// q 收 TxBeginner（业务层传 pool，天然满足；单测传 fake）。
+func CreateNumberBatch(ctx context.Context, q db.TxBeginner, raw []byte) (int, []record.Record, int, error) {
+	batch, err := numberdraft.ParseNumberBatch(raw)
+	if err != nil {
+		return 0, nil, 400, err
+	}
+	records, err := numberRecords(batch)
+	if err != nil {
+		return 0, nil, 500, err
+	}
+
+	var (
+		inserted int
+		out      []record.Record
+	)
+	err = db.WithTx(ctx, q, func(q db.Executor) error {
+		recs, err := recordRepo.SaveAll(ctx, q, records) // 领域语言，无 SQL
+		if err != nil {
+			return err
+		}
+		inserted, out = len(recs), recs
+		return nil
+	})
+	if err != nil {
+		return 0, nil, 500, err
+	}
+	return inserted, out, 201, nil
+}
+```
+
+## 5. handler（`faas/internal/httpx/server.go`）
+
+```go
+type Server struct {
+	Pool db.TxBeginner // ← 由 *pgxpool.Pool 放宽为接口；NewServer 仍收 *pgxpool.Pool（自动满足）
+	...
+}
+
+func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
+	raw, ok := readBodyOrError(w, r)
+	if !ok {
+		return
+	}
+	inserted, recs, status, err := logapi.CreateNumberBatch(r.Context(), s.Pool, raw)
+	if err != nil {
+		writeLogOrError(w, status, err, "Error creating number records")
+		return
+	}
+	go s.notify().NotifyNumberBatchInserted(recs)
+	writeJSON(w, status, NumberBatchSuccess{Success: true, Inserted: inserted, Atomic: true})
+}
+```
+
+## 6. 装配（`faas/cmd/api/main.go`，基本不变）
+
+```go
+pool, err := db.Open(ctx)              // *pgxpool.Pool
+srv := httpx.NewServer(pool, auth.TokensFromEnv())  // 赋给 db.TxBeginner 字段（自动满足）
+```
+
+## 7. 单测 fake + 回滚测试（`faas/internal/logapi/number_rollback_test.go`）
+
+```go
+package logapi
+
+// fakeTx：可控事务。Exec 在第 failOn 次调用返回注入错误 → 触发回滚。
+type fakeTx struct {
+	execCount int
+	failOn    int
+	committed bool
+}
+
+func (f *fakeTx) Exec(_ context.Context, _ string, _ ...any) (pgconn.CommandTag, error) {
+	f.execCount++
+	if f.execCount == f.failOn {
+		return pgconn.CommandTag{}, errors.New("injected failure")
+	}
+	return pgconn.CommandTag{}, nil
+}
+func (f *fakeTx) QueryRow(...) pgx.Row { panic("not used") }
+func (f *fakeTx) Query(...) (pgx.Rows, error) { return nil, nil }
+func (f *fakeTx) Commit(_ context.Context) error { f.committed = true; return nil }
+func (f *fakeTx) Rollback(_ context.Context) error { return nil }
+
+// fakeBeginner：能开事务的入口。
+type fakeBeginner struct{ tx *fakeTx }
+
+func (b *fakeBeginner) Begin(_ context.Context) (db.Tx, error) { return b.tx, nil }
+func (b *fakeBeginner) QueryRow(...) pgx.Row { panic("not used") }
+func (b *fakeBeginner) Exec(...) (pgconn.CommandTag, error) { panic("not used") }
+func (b *fakeBeginner) Query(...) (pgx.Rows, error) { panic("not used") }
+
+// TestCreateNumberBatchRollback：第 2 条 INSERT 失败 → 全部回滚 → 不 Commit → 500。
+func TestCreateNumberBatchRollback(t *testing.T) {
+	tx := &fakeTx{failOn: 2}
+	q := &fakeBeginner{tx: tx}
+	_, _, status, err := CreateNumberBatch(context.Background(), q, []byte(`{
+		"happened_at":"2026-07-30T08:00:00+08:00",
+		"entries":[{...},{...}]
+	}`))
+	if err == nil || status != 500 {
+		t.Fatalf("want 500 got status=%d err=%v", status, err)
+	}
+	if tx.committed {
+		t.Fatal("must not commit after injected failure")
+	}
+}
+```
+
+---
+
+# Node 端
+
+## 1. 执行器类型 + withTx（`src/lib/recordrepo.ts`）
+
+```ts
+import db from '@/db'
+import { PgDatabase, PgTransaction } from 'drizzle-orm/pg-core'
+
+/** 可执行器形状：drizzle db 与事务 tx 的公共方法集 */
+export type DbQueryable = Pick<
+  PgDatabase<Record<string, never>>,
+  'insert' | 'select' | 'update' | 'delete' | 'execute'
+>
+
+/** withTx：闭包式 UoW，包装 drizzle db.transaction；与 Go WithTx 同构（业务方零事务 API） */
+export function withTx<T>(fn: (q: DbQueryable) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => fn(tx as DbQueryable))
+}
+
+/** RecordRepository：唯一聚合根持久化（领域语义，内部 SQL） */
+export const recordRepo = {
+  async saveAll(q: DbQueryable, records: RecordInput[]): Promise<Record[]> {
+    const rows = await q.insert(schema.records).values(records).returning()
+    return rows.map(fromDB)
+  },
+}
+```
+
+## 2. 业务层（`src/lib/logapi.ts` 迁移后）
+
+```ts
+export async function createNumberBatch(
+  body: unknown,
+): Promise<NumberBatchResult | LogApiError> {
+  const batch = parseNumberBatch(body)
+  if ('error' in batch) return batch
+  const records = batch.entries.map((e) => newNumberRecord(batch, e)) // 组装领域对象，零 DB
+
+  try {
+    const inserted = await withTx(async (tx) => {
+      const recs = await recordRepo.saveAll(tx, records) // 领域语言，无 SQL
+      return recs
+    })
+    return { inserted: inserted.length, records: inserted, status: 201 }
+  } catch (err) {
+    logger.error({ err }, 'Error creating number records')
+    return { error: 'Internal server error', status: 500 }
+  }
+}
+```
+
+## 3. route（`src/app/api/log/numbers/route.ts`，调用链不变）
+
+```ts
+const result = await createNumberBatch(parsed.value)
+if ('error' in result) {
+  return errorResponse(result.error, result.status)
+}
+scheduleBestEffortNotify(() => notifyNumberBatchInserted(result.records))
+return NextResponse.json({ success: true, inserted: result.inserted, atomic: true }, { status: result.status })
+```
+
+## 4. 单测（`vi.mock('@/db')` mock 模块）
+
+```ts
+vi.mock('@/db', () => ({
+  __esModule: true,
+  default: {
+    transaction: vi.fn(async (fn: unknown) => {
+      // 可注入：让 tx 的第 N 次 insert 抛错，验证回滚（断言 insert 调用 + 不落库）
+      const fakeTx = { insert: vi.fn().mockRejectedValue(new Error('injected')) }
+      return (fn as (q: unknown) => Promise<unknown>)(fakeTx)
+    }),
+  },
+}))
+
+it('rolls back when the Nth insert fails', async () => {
+  const res = await createNumberBatch({ happened_at: '...', entries: [...] })
+  expect(res.status).toBe(500)
+})
+```
+
+---
+
+## 双端形态对照
+
+| 环节 | Go | Node |
+|---|---|---|
+| 事务闭包 | `db.WithTx(ctx, q TxBeginner, fn(q Executor))` | `withTx(fn(q))`（包装 `db.transaction`） |
+| 业务层 | 校验零 DB → `WithTx` 闭包 → `recordRepo.SaveAll(q, ...)` | 同左 |
+| Repository | `SaveAll(ctx, q, records)`（内部 SQL） | `recordRepo.saveAll(q, records)` |
+| 执行器来源 | 业务函数收参数（`pool`，接口注入） | 全局 `db` 单例（`vi.mock` 模块） |
+| 测试机制 | fake `TxBeginner`/`Tx` | `vi.mock('@/db')` |
+
+**形态同构（业务代码一样长闭包）、注入机制不同（Go 接口 / Node 模块 mock）**——后者是框架差异，非不一致。
