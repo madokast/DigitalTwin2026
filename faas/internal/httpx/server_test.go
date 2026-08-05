@@ -654,9 +654,17 @@ func TestRenameTagsRejectsReservedTag(t *testing.T) {
 
 func TestSummaryInvalidTZWithoutDB(t *testing.T) {
 	h := testServer().Handler()
+	// 该路由属 /api/admin/*：AI token 必须 401，仅 AdminToken 可达
+	aiReq := httptest.NewRequest(http.MethodGet, "/api/admin/records/stats?tz=UTC", nil)
+	aiReq.Header.Set("Authorization", "Bearer ai-tok")
+	aiRR := httptest.NewRecorder()
+	h.ServeHTTP(aiRR, aiReq)
+	if aiRR.Code != 401 {
+		t.Fatalf("ai-tok status %d body %s", aiRR.Code, aiRR.Body.String())
+	}
 	for _, tz := range []string{"Not%2FAZone", "Factory", "localtime"} {
-		req := httptest.NewRequest(http.MethodGet, "/api/query/summary?tz="+tz, nil)
-		req.Header.Set("Authorization", "Bearer ai-tok")
+		req := httptest.NewRequest(http.MethodGet, "/api/admin/records/stats?tz="+tz, nil)
+		req.Header.Set("Authorization", "Bearer admin-tok")
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)
 		if rr.Code != 400 {

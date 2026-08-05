@@ -1,3 +1,51 @@
+/api/admin/records/stats:
+  get:
+    operationId: adminRecordsStats
+    tags: [admin]
+    summary: Total and today record counts for an IANA time zone
+    description: |
+      Frontend dashboard counts (`total` all-time records, `today` records
+      whose `happened_at` falls in the calendar day of "now" in the given
+      IANA zone `[start, end)`). Not for AI use, so it lives under
+      `/api/admin/*` (AdminToken only) rather than the ApiToken `/api/query/*`
+      namespace.
+      Auth: **AdminToken only**.
+    security:
+      - AdminToken: []
+    parameters:
+      - name: tz
+        in: query
+        required: true
+        description: |
+          Valid IANA time zone accepted by both backends (Intl ∩ Go tzdata),
+          e.g. `UTC`, `Asia/Shanghai`. Rejected: Go-only names (`Factory` /
+          `localtime` / `posixrules`) and Intl-only names Go cannot load
+          (e.g. `America/Coyhaique`) → 400.
+        schema:
+          type: string
+          examples:
+            - UTC
+            - Asia/Shanghai
+    responses:
+      '200':
+        description: Counts
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/SummarySuccess'
+      '400':
+        description: Missing or invalid `tz`
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Error'
+            example:
+              error: Query parameter tz must be a valid IANA time zone
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
 /api/admin/tags/rename:
   post:
     operationId: adminRenameTag

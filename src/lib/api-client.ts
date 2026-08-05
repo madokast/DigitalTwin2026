@@ -49,7 +49,7 @@ export async function fetchSummary(tz: string): Promise<{
   tz: string
 }> {
   const params = new URLSearchParams({ tz })
-  const res = await fetch(apiUrl(`/api/query/summary?${params}`), {
+  const res = await fetch(apiUrl(`/api/admin/records/stats?${params}`), {
     headers: authHeader(),
   })
   return parseJson(res)

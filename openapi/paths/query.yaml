@@ -42,51 +42,6 @@
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
-/api/query/summary:
-  get:
-    operationId: querySummary
-    tags: [query]
-    summary: Total and today counts for an IANA time zone
-    description: |
-      `today` counts records whose `happened_at` falls in the calendar day of
-      "now" in the given IANA zone (`[start, end)`).
-      Auth: ApiToken.
-    security:
-      - ApiToken: []
-    parameters:
-      - name: tz
-        in: query
-        required: true
-        description: |
-          Valid IANA time zone accepted by both backends (Intl ∩ Go tzdata),
-          e.g. `UTC`, `Asia/Shanghai`. Rejected: Go-only names (`Factory` /
-          `localtime` / `posixrules`) and Intl-only names Go cannot load
-          (e.g. `America/Coyhaique`) → 400.
-        schema:
-          type: string
-          examples:
-            - UTC
-            - Asia/Shanghai
-    responses:
-      '200':
-        description: Counts
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas.yaml#/SummarySuccess'
-      '400':
-        description: Missing or invalid `tz`
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas.yaml#/Error'
-            example:
-              error: Query parameter tz must be a valid IANA time zone
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '500':
-        $ref: '../components/responses.yaml#/InternalError'
-
 /api/query/tags:
   get:
     operationId: queryTags

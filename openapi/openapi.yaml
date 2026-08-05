@@ -73,14 +73,14 @@ paths:
     $ref: './paths/db.yaml#/~1api~1db~1probe'
   /api/query:
     $ref: './paths/query.yaml#/~1api~1query'
-  /api/query/summary:
-    $ref: './paths/query.yaml#/~1api~1query~1summary'
   /api/query/tags:
     $ref: './paths/query.yaml#/~1api~1query~1tags'
   /api/query/transaction/summary:
     $ref: './paths/query.yaml#/~1api~1query~1transaction~1summary'
   /api/time:
     $ref: './paths/time.yaml#/~1api~1time'
+  /api/admin/records/stats:
+    $ref: './paths/admin.yaml#/~1api~1admin~1records~1stats'
   /api/admin/tags/rename:
     $ref: './paths/admin.yaml#/~1api~1admin~1tags~1rename'
   /api/admin/import/records:

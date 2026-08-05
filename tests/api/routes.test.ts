@@ -8,7 +8,7 @@ import { POST as postText } from '@/app/api/log/text/route'
 import { POST as postReview } from '@/app/api/log/review/route'
 import { POST as postTransaction } from '@/app/api/log/transaction/route'
 import { GET as queryRecords } from '@/app/api/query/route'
-import { GET as querySummary } from '@/app/api/query/summary/route'
+import { GET as adminRecordsStats } from '@/app/api/admin/records/stats/route'
 import { GET as getTime } from '@/app/api/time/route'
 import { GET as queryTags } from '@/app/api/query/tags/route'
 import { GET as exportRecords } from '@/app/api/export/records/route'
@@ -852,13 +852,13 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
   })
 
-  describe('GET /api/query/summary', () => {
+  describe('GET /api/admin/records/stats', () => {
     afterEach(() => {
       vi.useRealTimers()
     })
 
     it('returns 0+0 on empty database', async () => {
-      const res = await querySummary(jsonGet('http://localhost/api/query/summary?tz=UTC'))
+      const res = await adminRecordsStats(jsonGet('http://localhost/api/admin/records/stats?tz=UTC'))
       expect(res.status).toBe(200)
       await expect(res.json()).resolves.toEqual({
         success: true,
@@ -869,10 +869,10 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
 
     it('returns 400 when tz is missing or invalid', async () => {
-      const missing = await querySummary(jsonGet('http://localhost/api/query/summary'))
+      const missing = await adminRecordsStats(jsonGet('http://localhost/api/admin/records/stats'))
       expect(missing.status).toBe(400)
 
-      const invalid = await querySummary(jsonGet('http://localhost/api/query/summary?tz=Not%2FAZone'))
+      const invalid = await adminRecordsStats(jsonGet('http://localhost/api/admin/records/stats?tz=Not%2FAZone'))
       expect(invalid.status).toBe(400)
       const body = await invalid.json()
       expect(body.error).toBeTruthy()
@@ -906,7 +906,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       vi.setSystemTime(new Date('2026-07-30T16:30:00.000Z'))
 
       // UTC 今日 = a+b；Asia/Shanghai 今日 = b+c（条数同为 2，集合不同）
-      const utcRes = await querySummary(jsonGet('http://localhost/api/query/summary?tz=UTC'))
+      const utcRes = await adminRecordsStats(jsonGet('http://localhost/api/admin/records/stats?tz=UTC'))
       expect(utcRes.status).toBe(200)
       await expect(utcRes.json()).resolves.toEqual({
         success: true,
@@ -915,8 +915,8 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         tz: 'UTC',
       })
 
-      const shRes = await querySummary(jsonGet(
-        'http://localhost/api/query/summary?tz=Asia%2FShanghai',
+      const shRes = await adminRecordsStats(jsonGet(
+        'http://localhost/api/admin/records/stats?tz=Asia%2FShanghai',
       ))
       expect(shRes.status).toBe(200)
       await expect(shRes.json()).resolves.toEqual({
