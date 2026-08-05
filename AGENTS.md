@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # 语言原则
 
-- **用户可见文案一律英文**：前端展示、错误信息、日志、脚本 stdout/stderr、API `error` 字段、aria-label、placeholder 等。
+- **用户可见文案一律英文**：前端展示、错误信息、日志、脚本 stdout/stderr、API `detail` 字段、aria-label、placeholder 等。
 - **仅代码注释与文档用中文**（含 `*.md`、代码 `//` / `/* */` / `#` 注释）。
 - 测试数据里故意使用的非 ASCII（如非法 tag 样例）除外；断言文案须与英文运行时消息一致。
 
@@ -17,7 +17,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 示例（Record）：`happened_at`、`numeric_value`、`raw_content`、`objective_context`、`ai_analysis`；包络示例：`page_size`；探测示例：`database_reachable`、`connect_ms`。
 - 内部 TS/Go **变量名、Drizzle 属性、struct 字段名**可仍用惯用 camelCase / PascalCase；**仅序列化到 JSON/JSONL 的键**必须 snake。Go 用 `json:"happened_at"`；TS 组装响应对象时用 snake 键字面量（或显式 serializer），禁止 `JSON.stringify` 直接 dump Drizzle 行导致驼峰漏网。
 - 查询串参数与 JSON 键对齐时也用 snake（如 `page_size`）；错误文案里的字段名与契约键一致。
-- **错误文案（API `error` 字段）一律小写开头、双端逐字一致**（如 `missing required field: memo`；例外：`Unknown JSON key`、`Internal server error` 固定文案）。staticcheck ST1005 作为守卫拦截新的大写错误文案。
+- **错误响应一律 RFC 9457 problem+json**：形状 `{success: false, title, status, detail}`（key 顺序固定），Content-Type `application/problem+json`；`title` 用标准 HTTP reason phrase（Go `statusTitle` 413 特例 `Payload Too Large`，Node 标准库天然一致）；`detail` 承载具体文案。契约见 [`docs/20260805-error-response-shape.md`](docs/20260805-error-response-shape.md)。
+- **错误文案（API `detail` 字段）一律小写开头、双端逐字一致**（如 `missing required field: memo`；例外：`Unknown JSON key`、`Internal server error` 固定文案）。staticcheck ST1005 作为守卫拦截新的大写错误文案。
 
 # 复盘 API
 

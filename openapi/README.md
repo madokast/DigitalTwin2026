@@ -68,7 +68,7 @@ npm run openapi:preview
    - `npm run test:openapi`（无 DB）
    - `cd faas && go test ./internal/contract/ -count=1`（无 DB）
    - 行为回归：`npm test` 与 `cd faas && go test ./...`
-5. 用户可见的 `error` / `description` 用英文；本 README 等文档可用中文。
+5. 用户可见的 `detail` / `description` 用英文；本 README 等文档可用中文。
 
 鉴权：`Authorization: Bearer …`；普通路由接受 AI Token 或 Admin Token；`/api/admin/*` 仅 Admin Token。
 

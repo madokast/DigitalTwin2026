@@ -22,7 +22,7 @@
 | 运行时类型 | Go `error` / `(T, status, error)`；TS 对等的 `{ error, status }` 或现有 Result 联合（**两端选同一种形状**，不用单端专有 Result 库） |
 | DB / HTTP 适配器 | `pgx` vs Drizzle；`http.Request` vs `NextRequest` — **只出现在适配边界**，不进纯逻辑 |
 | 前端专用 | `prefs` / `datetime-ui` / `api-client` 仅 TS，**不进**对照表 |
-| **404 / 405 形态** | Go FC（`withJSONErrorPages`）统一 `{ "error": "…" }` JSON；Next 未导出的 method / 未知 `/api/*` 仍用 **框架默认**（常非业务 JSON）。业务路径的 4xx/5xx 仍两端 `{error}` 对齐 |
+| **404 / 405 形态** | Go FC（`withJSONErrorPages`）统一 problem+json（RFC 9457，`{success:false,title,status,detail}`）；Next 未导出的 method / 未知 `/api/*` 仍用 **框架默认**（常非业务 JSON）。业务路径的 4xx/5xx 仍两端 problem+json 对齐 |
 | **CORS / OPTIONS** | 仅 Go `withCORS`：跨域 Accelerate 需要预检 204、不鉴权；Next 同源 Vercel **不加** CORS，OPTIONS 也走 proxy 鉴权 → 401。属部署拓扑差异，非业务契约 |
 | **小数长度计数** | Next `string.length`（UTF-16）；Go `utf8.RuneCountInString`。`DECIMAL_STRING` 仅 ASCII，合法字面量下二者相等；非法非 ASCII 会先被正则拒 |
 | **通知调度** | Next `after()`（无 request scope 时退化 fire-and-forget）；Go `go` 协程。语义同为「HTTP 成功后不阻塞写响应的 best-effort notify」（见 §7） |
@@ -178,12 +178,12 @@ flowchart LR
 | | Go | TS |
 |--|----|----|
 | 成功带实体 | `(Record, status, nil)` 或 `(n, []Record, status, nil)` | `{ record, status }` / `{ inserted, records, status }` 等与 Go 字段语义对齐 |
-| 失败 | `(_, status, err)`，`err.Error()` 为用户可见英文 | `{ error: string, status: number }`（或等价联合，**两端字段语义一致**） |
-| HTTP 层 | 只读 status + error 字符串写 JSON；不改写业务文案 | 同左 |
+| 失败 | `(_, status, err)`，`err.Error()` 为用户可见英文 | `{ error: string, status: number }`（或等价联合，**两端字段语义一致**）——**内部函数 Result**，HTTP 层统一映射为 problem+json |
+| HTTP 层 | 组装 problem+json（`success:false` + `statusTitle(status)` + `detail`），Content-Type `application/problem+json`；不改写业务文案 | 同左 |
 
 约束：
 
-- 用户可见 `error` 字符串与 OpenAPI / 契约 fixtures **字节级一致**
+- 用户可见 `detail` 字符串与 OpenAPI / 契约 fixtures **字节级一致**（HTTP 错误形状 RFC 9457，见 `docs/20260805-error-response-shape.md`）
 - 不引入仅一端使用的 Result 库或错误码枚举体系（除非双端同时引入并写入本文）
 - **请求 body 上限**：双端写路径均为 **256 KiB**（`MAX_HTTP_BODY_BYTES` / `httpx.MaxBodyBytes`）。超限 → **413** + `Request body too large`（禁止静默截断后再当残缺 JSON）。
 

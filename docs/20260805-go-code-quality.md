@@ -51,7 +51,7 @@ Go 的 `encoding/json` 序列化 `map[string]any` 时 **key 按字母序排序**
 ### 现状（已实现，`faas/internal/httpx/responses.go`）
 
 - ✅ **15 处 handler 响应已改 typed struct**：`NumberBatchSuccess` / `TransactionBatchSuccess` / `RecordSuccess` / `TodoRecordSuccess` / `TransitionSuccess` / `QuerySuccess` / `SummarySuccess` / `TimeSuccess` / `TagsSuccess` / `RenameTagsSuccess` / `ImportRecordsSuccess` / `SuccessOnly` / `ErrorResponse`——字段声明序即 JSON key 序，符合「统一模板」。
-- ✅ `writeError` / 401 / import 均走 typed struct（错误响应形状仍为 `{error}`，RFC 9457 改造时一并换 `ErrorResponse`）。
+- ✅ `writeError` / 401 / import 均走 typed struct；错误响应已换 `ProblemResponse` problem+json（§8，RFC 9457）。
 
 ### 改法
 
@@ -88,7 +88,7 @@ Go typed struct 的 **JSON key 顺序 = 字段声明顺序**（`encoding/json` �
 
 ### 完成（`f0d47e7`）
 
-- `responses.go` 13 个 typed struct 替代全部 map/any jsonify；错误响应 `ErrorResponse{error}` 形状保留（RFC 9457 改造时换）。
+- `responses.go` 13 个 typed struct 替代全部 map/any jsonify；错误响应已换 `ProblemResponse` problem+json（§8，RFC 9457）。
 
 ## 3. 结构化日志 `log/slog`（✅ 已实现，`ecbc9c0`；Node 对应 pino `7dfb1a3`，规范见 AGENTS.md「日志」）
 
@@ -199,9 +199,9 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 
 - ✅ 全部完成：`golangci-lint run` exit 0（零发现）。Go 侧问题清单（§1-§7）收尾，仅剩 RFC 9457（§8，独立破坏性）。
 
-## 8. 错误响应 RFC 9457（另行文档）
+## 8. 错误响应 RFC 9457（✅ 已实现，S1-S4：`208c5d8` + `c5521dd` + `94cafa9` + 文档）
 
-- 见 `docs/20260805-error-response-shape.md`（已定案选 A 彻底 problem+json，待开工）；改造时同步换 `ErrorResponse` 形状。
+- 见 `docs/20260805-error-response-shape.md`（定案选 A 彻底 problem+json）。错误响应从 `{error: string}` 切换为 RFC 9457 problem+json（`{success: false, title, status, detail}`，Content-Type `application/problem+json`）：Go `writeError` → `ProblemResponse` + `statusTitle`（413 特例）；Node 各 route → `errorResponse()` helper；OpenAPI `Error` schema + 11 个 error fixtures + `responses.yaml` / paths example 全部同步；契约测试锁形状与 key 顺序。
 
 ## 优先级与实施顺序
 
@@ -212,6 +212,7 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 5. ~~**`go test -race`**~~（§6）：✅ 已实现（scripts + CI + README 命令加 `-race`）。
 6. ~~**`log/slog`**~~（§3）：✅ 已实现（Go `ecbc9c0` + Node pino `7dfb1a3`，规范见 AGENTS.md「日志」）。
 7. ~~**golangci-lint**~~（§7）：✅ 已实现（`.golangci.yml` + CI job；ST1005/ST1012 先清零，S1017×2/S1016×1 修复）。
+8. ~~**错误响应 RFC 9457**~~（§8）：✅ 已实现（S1-S4：基建 `208c5d8`、双端切换 `c5521dd`、契约同步 `94cafa9`、文档标记；规范见 `docs/20260805-error-response-shape.md`）。
 8. **RFC 9457 错误响应**（§8 / error-response-shape.md）：独立破坏性改造，待决策后开工。
 
 ## 相关记录

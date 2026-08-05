@@ -140,7 +140,7 @@ API **不**规定官方结束协议。常用启发：行数 `< limit` 可视为�
 
 实现是 **行级处理 + 有界缓冲**，**不是**「DB cursor 边读边按 chunk 刷 HTTP」的无限流：
 
-1. 先鉴权 + 校验 `from`/`limit`（失败 → JSON `{ "error" }`，**不**写 NDJSON，**不** Notify）。  
+1. 先鉴权 + 校验 `from`/`limit`（失败 → problem+json 错误 JSON，**不**写 NDJSON，**不** Notify）。  
 2. 再 `ORDER BY id ASC LIMIT :limit`（≤1000）一次查出本页行，在内存组完整 NDJSON，再写出响应体。  
 3. **响应体写出成功之后**才 Notify。若写出失败（或此前校验/查库失败）：**不**发成功 Notify（截断 / 失败不视为成功备份）。  
    - Go：`Write` 返回错误则 return，不调 `NotifyUser`。  
