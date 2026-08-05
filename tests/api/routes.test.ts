@@ -113,6 +113,26 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       })
     })
 
+    it('persists memo as objective_context with raw_content null', async () => {
+      await postNumbers(jsonPost('http://localhost/api/log/numbers', {
+        happened_at: '2026-07-30T08:00:00+08:00',
+        entries: [
+          { numeric_value: '75.5', memo: 'morning weigh-in', tags: ['persist_check'] },
+        ],
+      }))
+      const q = await queryRecords(jsonGet(
+        'http://localhost/api/query?tag=persist_check',
+      ))
+      expect(q.status).toBe(200)
+      const body = await q.json()
+      expect(body.records).toHaveLength(1)
+      const row = body.records[0]
+      expect(row.objective_context).toBe('morning weigh-in')
+      expect(row.raw_content).toBeNull()
+      expect(row.numeric_value).toBe('75.5')
+      expect(row.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
+    })
+
     it('rejects entry unknown key with index prefix', async () => {
       const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ raw_content: 'x' })))
       expect(res.status).toBe(400)
