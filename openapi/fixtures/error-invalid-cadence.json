@@ -1,3 +1,6 @@
 {
-  "error": "invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly"
+  "success": false,
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly"
 }

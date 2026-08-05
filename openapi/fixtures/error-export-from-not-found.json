@@ -1,3 +1,6 @@
 {
-  "error": "export from id not found"
+  "success": false,
+  "title": "Not Found",
+  "status": 404,
+  "detail": "export from id not found"
 }

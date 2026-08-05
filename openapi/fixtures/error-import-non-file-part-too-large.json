@@ -1,1 +1,6 @@
-{"error":"multipart non-file part exceeds size limit (max 4 MiB)"}
+{
+  "success": false,
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "multipart non-file part exceeds size limit (max 4 MiB)"
+}

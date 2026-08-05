@@ -1,3 +1,6 @@
 {
-  "error": "import exceeds limits (max 1000 lines or 4 MiB); split the file"
+  "success": false,
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "import exceeds limits (max 1000 lines or 4 MiB); split the file"
 }

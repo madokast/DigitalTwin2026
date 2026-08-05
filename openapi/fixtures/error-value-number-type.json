@@ -1,3 +1,6 @@
 {
-  "error": "numeric_value must be a decimal string"
+  "success": false,
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "numeric_value must be a decimal string"
 }

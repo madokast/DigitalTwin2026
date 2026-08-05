@@ -1,3 +1,6 @@
 {
-  "error": "line 2: duplicate record id 01900000-0000-7000-8000-000000000001"
+  "success": false,
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "line 2: duplicate record id 01900000-0000-7000-8000-000000000001"
 }

@@ -1,9 +1,19 @@
 Error:
   type: object
-  required: [error]
+  required: [success, title, status, detail]
   additionalProperties: false
   properties:
-    error:
+    success:
+      type: boolean
+      const: false
+      description: Always false for error responses (problem+json, RFC 9457)
+    title:
+      type: string
+      description: HTTP reason phrase (RFC 9110), e.g. Bad Request
+    status:
+      type: integer
+      description: HTTP status code (matches the response status)
+    detail:
       type: string
       description: English error message (user-visible)
 

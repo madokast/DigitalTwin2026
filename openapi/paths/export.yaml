@@ -51,26 +51,35 @@
         description: |
           Invalid `from` UUID, missing/invalid `limit`, or other query errors.
         content:
-          application/json:
+          application/problem+json:
             schema:
               $ref: '../components/schemas.yaml#/Error'
             examples:
               invalidFrom:
                 value:
-                  error: Invalid record id
+                  success: false
+                  title: Bad Request
+                  status: 400
+                  detail: invalid record id
               badLimit:
                 value:
-                  error: limit must be an integer between 1 and 1000
+                  success: false
+                  title: Bad Request
+                  status: 400
+                  detail: limit must be an integer between 1 and 1000
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
       '404':
         description: |
           `from` is a valid UUID but no row has that id
         content:
-          application/json:
+          application/problem+json:
             schema:
               $ref: '../components/schemas.yaml#/Error'
             example:
-              error: export from id not found
+              success: false
+              title: Not Found
+              status: 404
+              detail: export from id not found
       '500':
         $ref: '../components/responses.yaml#/InternalError'

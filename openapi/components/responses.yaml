@@ -1,30 +1,44 @@
 PayloadTooLarge:
   description: Request body exceeds the 256 KiB limit
   content:
-    application/json:
+    application/problem+json:
       schema:
         $ref: './schemas.yaml#/Error'
       example:
-        error: Request body too large
+        success: false
+        title: Payload Too Large
+        status: 413
+        detail: Request body too large
 BadRequest:
   description: Validation or malformed request
   content:
-    application/json:
+    application/problem+json:
       schema:
         $ref: './schemas.yaml#/Error'
+      example:
+        success: false
+        title: Bad Request
+        status: 400
+        detail: 'missing required query parameter: from'
 Unauthorized:
   description: Missing/invalid Bearer token for this route class
   content:
-    application/json:
+    application/problem+json:
       schema:
         $ref: './schemas.yaml#/Error'
       example:
-        error: 'Unauthorized: Invalid or missing token'
+        success: false
+        title: Unauthorized
+        status: 401
+        detail: 'Unauthorized: Invalid or missing token'
 InternalError:
   description: Unexpected server/database error
   content:
-    application/json:
+    application/problem+json:
       schema:
         $ref: './schemas.yaml#/Error'
       example:
-        error: Internal server error
+        success: false
+        title: Internal Server Error
+        status: 500
+        detail: Internal server error

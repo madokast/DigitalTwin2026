@@ -180,11 +180,14 @@
       '404':
         description: No to-do row with this id
         content:
-          application/json:
+          application/problem+json:
             schema:
               $ref: '../components/schemas.yaml#/Error'
             example:
-              error: to-do not found
+              success: false
+              title: Not Found
+              status: 404
+              detail: to-do not found
       '413':
         $ref: '../components/responses.yaml#/PayloadTooLarge'
       '500':

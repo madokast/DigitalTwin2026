@@ -1,3 +1,6 @@
 {
-  "error": "multipart form field \"file\" is required"
+  "success": false,
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "multipart form field \"file\" is required"
 }

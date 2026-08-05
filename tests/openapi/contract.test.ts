@@ -235,10 +235,33 @@ describe('OpenAPI contract (Phase 2)', () => {
 
   it('rejects Error / RecordSuccess with wrong shape', async () => {
     await assertInvalidSchema('Error', { message: 'oops' })
+    // problem+json 四字段缺一不可
+    await assertInvalidSchema('Error', {
+      success: false,
+      title: 'Bad Request',
+      status: 400,
+    })
+    await assertInvalidSchema('Error', {
+      title: 'Bad Request',
+      status: 400,
+      detail: 'x',
+    })
+    // success 必须恒 false（RFC 9457 定案：与成功包络统一、AI 只看布尔）
+    await assertInvalidSchema('Error', {
+      success: true,
+      title: 'Bad Request',
+      status: 400,
+      detail: 'x',
+    })
     await assertInvalidSchema('RecordSuccess', {
       success: true,
       // missing record
     })
+  })
+
+  it('Error fixture key order is success -> title -> status -> detail', () => {
+    const body = readFixture('error-unauthorized.json') as Record<string, unknown>
+    expect(Object.keys(body)).toEqual(['success', 'title', 'status', 'detail'])
   })
 
   it('Next fromDB output matches Record schema + preserved offset', async () => {

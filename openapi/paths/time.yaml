@@ -37,11 +37,14 @@
       '400':
         description: Empty or invalid `tz`
         content:
-          application/json:
+          application/problem+json:
             schema:
               $ref: '../components/schemas.yaml#/Error'
             example:
-              error: Query parameter tz must be a valid IANA time zone
+              success: false
+              title: Bad Request
+              status: 400
+              detail: query parameter tz must be a valid IANA time zone
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
       '500':

@@ -1,3 +1,6 @@
 {
-  "error": "DATABASE_URL is not set"
+  "success": false,
+  "title": "Service Unavailable",
+  "status": 503,
+  "detail": "DATABASE_URL is not set"
 }

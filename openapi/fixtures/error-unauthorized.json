@@ -1,3 +1,6 @@
 {
-  "error": "Unauthorized: Invalid or missing token"
+  "success": false,
+  "title": "Unauthorized",
+  "status": 401,
+  "detail": "Unauthorized: Invalid or missing token"
 }

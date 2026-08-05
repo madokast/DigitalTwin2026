@@ -36,11 +36,14 @@
       '400':
         description: Missing or invalid `tz`
         content:
-          application/json:
+          application/problem+json:
             schema:
               $ref: '../components/schemas.yaml#/Error'
             example:
-              error: Query parameter tz must be a valid IANA time zone
+              success: false
+              title: Bad Request
+              status: 400
+              detail: query parameter tz must be a valid IANA time zone
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
       '500':
@@ -151,23 +154,35 @@
           Messages include line numbers and field names when applicable;
           duplicate id includes the uuid.
         content:
-          application/json:
+          application/problem+json:
             schema:
               $ref: '../components/schemas.yaml#/Error'
             examples:
               limits:
                 value:
-                  error: import exceeds limits (max 1000 lines or 4 MiB); split the file
+                  success: false
+                  title: Bad Request
+                  status: 400
+                  detail: import exceeds limits (max 1000 lines or 4 MiB); split the file
               duplicateId:
                 value:
-                  error: 'line 2: duplicate record id 01900000-0000-7000-8000-000000000001'
+                  success: false
+                  title: Bad Request
+                  status: 400
+                  detail: 'line 2: duplicate record id 01900000-0000-7000-8000-000000000001'
               multipart:
                 value:
-                  error: multipart form field "file" is required
+                  success: false
+                  title: Bad Request
+                  status: 400
+                  detail: multipart form field "file" is required
               nonFilePartTooLarge:
                 summary: Go only — oversized non-file multipart part
                 value:
-                  error: multipart non-file part exceeds size limit (max 4 MiB)
+                  success: false
+                  title: Bad Request
+                  status: 400
+                  detail: multipart non-file part exceeds size limit (max 4 MiB)
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
       '500':
