@@ -177,17 +177,34 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 
 ### 现状
 
-- CI 仅 `go vet` + `go build` + `go test`。业界常用 golangci-lint（含 staticcheck / errcheck / gocritic / ineffassign / unused 等）。
-- 本仓库 11 处 `_ = tx.Rollback` / `defer rows.Close()` 忽略错误（defer 清理 best-effort，业界可接受；errcheck 默认会报，需按需豁免）。
+- CI 仅 `go vet` + `go build` + `go test`。业界常用 golangci-lint（聚合 staticcheck / errcheck / gocritic / ineffassign / unused 等）。
+- 本仓库 11 处 `_ = tx.Rollback` / `defer rows.Close()` 忽略错误（defer 清理 best-effort，业界可接受；errcheck 默认会报，需豁免）。
 
-### 目标
+### 探测结果（staticcheck 2025.xx，71 处）
 
-- 引入 golangci-lint（`.golangci.yml`，启用 staticcheck / govet / ineffassign / unused；errcheck 豁免 defer 清理类）。
-- CI 加 `golangci-lint run` 步骤。
+| 代码 | 数量 | 性质 | 处理 |
+|---|---|---|---|
+| `ST1005`（error 字符串大写） | 55 | **API 契约文案**（`Missing required query parameter: from` 等，双端逐字一致） | **豁免**——契约优先（§1 纪律），lint 不得改契约文案 |
+| `ST1012`（error var 命名 `ErrFoo`） | 13 | 哨兵命名风格（`InvalidWeight` / `NumericValueMustBeString` / `TransportFailedMessage` 等） | **豁免**——现有命名已是定案（`%w` 改造 `ecbc9c0`），改名为 `Err*` 影响跨包引用，收益低 |
+| `S1017`（`TrimPrefix`/`TrimSuffix` 简化） | 2 | 可重构（importapi.go:160、recordjsonl.go:75） | **修复** |
+| `S1016`（struct literal → 直接转换） | 1 | 测试代码（query/transactions_summary_test.go:96） | **修复** |
+
+**关键设计**：golangci-lint 配置**必须排除 ST1005 / ST1012**——否则契约文案大写会被全部标红，CI 无法通过。这与 §1「Go 错误消息 = API 契约文案」纪律一致：**契约优先于 Go 惯例**（ST1005 小写规则不适用）。
+
+### 方案（定案）
+
+1. **安装**：golangci-lint（CI 用官方 action `golangci/golangci-lint-action`；本地 `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`）。
+2. **`.golangci.yml`**：
+   - linters：default（govet / errcheck / ineffassign / unused / staticcheck / gocritic 等）
+   - **staticcheck 排除** `ST1005`、`ST1012`（`text` 排除规则）
+   - **errcheck**：豁免 defer 清理类（`_ = tx.Rollback` / `defer rows.Close()`）——用 `exclude-functions` 或文本排除
+3. **修复**：S1017×2 + S1016×1（小重构）。
+4. **CI**：加 `golangci-lint run` job（与 unit-go 并行）。
+5. **回归**：全量 unit + integration + lint。
 
 ### 优先级
 
-- 较大工程，排最后；可与 slog（§3）一起规划。
+- 剩余 Go 质量问题最后一项；实施后 Go 侧全部问题清单（§1-§7）收尾，仅剩 RFC 9457（§8，独立破坏性）。
 
 ## 8. 错误响应 RFC 9457（另行文档）
 
