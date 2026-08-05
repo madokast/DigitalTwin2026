@@ -936,9 +936,9 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(body.count).toBe(2)
       expect(body.page).toBe(1)
       expect(body.page_size).toBe(20)
-      // happenedAt ASC, id ASC
+      // happenedAt ASC, id ASC；weight 行为批量（raw_content null），text 行为 'reviewed physics notes'
       expect(body.records.map((r: { raw_content: string | null }) => r.raw_content)).toEqual([
-        'x',
+        null,
         'reviewed physics notes',
       ])
     })
@@ -1189,7 +1189,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('returns success wrapper with lexicographically sorted tag counts', async () => {
       await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        entries: [{ numeric_value: '75.5', memo: 'fasting weight', tags: ['weight'] }],
+        entries: [{ numeric_value: '75.5', memo: 'fasting weight', tags: ['weight', 'morning'] }],
       }))
       await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T15:00:00+08:00',
@@ -1276,7 +1276,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('renames tags across records and reports updated count', async () => {
       await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-30T08:00:00+08:00',
-        entries: [{ numeric_value: '1', memo: 'a', tags: ['exercise'] }],
+        entries: [{ numeric_value: '1', memo: 'a', tags: ['exercise', 'morning'] }],
       }))
       await postText(jsonPost('http://localhost/api/log/text', {
         happened_at: '2026-07-30T09:00:00+08:00',
@@ -1305,7 +1305,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         { tag: 'morning', count: 1 },
         { tag: 'study', count: 1 },
       ])
-      expect(body.tags.exercise).toBeUndefined()
+      expect(body.tags.some((t: { tag: string }) => t.tag === 'exercise')).toBe(false)
     })
 
     it('rejects reserved tag as from or to', async () => {
