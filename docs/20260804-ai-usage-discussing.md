@@ -111,4 +111,5 @@
 - **为什么带 admin 前缀**：系统鉴权仅两档——`/api/admin/*` 仅 AdminToken，其它 `/api/*` 是 ApiToken 或 AdminToken 都放行。summary「不是给 AI 用」这一判定，在 ApiToken 会放行的非 admin 路径下不成立，故唯一落点是 `/api/admin/*`。
 - **为什么 records 资源域 + stats**：未来是多 dashboard 架构（记账 / 待办 / 体重），命名按资源域平行组织：`records/stats`、`transaction/stats`（现有 `/api/query/transaction/summary` 可迁来）、`todo/stats`、`weight/stats`。`stats` 是「资源域聚合统计」集合概念，能容纳未来新增维度；`counts` 偏窄（装不下金额聚合、完成率），`overview` 偏前端页面概念，`summary` 语义泛。
 - **前端改动**：`api-client.ts` 的 `fetchSummary` 需把 URL 从 `/api/query/summary` 改为 `/api/admin/records/stats`；**鉴权逻辑零改动**——现用 AdminToken 调 `/api/query/summary` 本是因 `verifyApiAccess` 放行 AdminToken 才碰巧可用，移入 `/api/admin/*` 后仍传同一 AdminToken，`authHeader()` 不变。
-- **待办**：双端（Next `query/summary/route.ts` → `admin/records/stats/route.ts`；Go `handleSummary` 注册路径）+ OpenAPI（`paths/query.yaml` → `admin.yaml`，operationId 更名）+ 集成测试 + OpenAPI fixture 迁移。交易 stats 是否本次一并迁移未定（等做记账 dashboard 再动）。
+- **状态：已实现**（提交 `8fb70fb`）。双端（Next `src/app/api/admin/records/stats/route.ts` + Go `handleSummary` 注册新路径）、OpenAPI（`paths/query.yaml` 移除 → `admin.yaml` 新增，operationId `adminRecordsStats`，security `AdminToken`）、前端 `fetchSummary` URL 已改。实测：AdminToken 200 / AI token 401 / 旧路径 404。
+- **待办（未定）**：`/api/query/transaction/summary` 是否迁为 `/api/admin/transaction/stats` —— 等做记账 dashboard 再定。
