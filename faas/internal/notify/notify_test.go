@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"unicode/utf8"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -484,7 +485,11 @@ func TestNotifyNumberBatchInsertedFormats(t *testing.T) {
 	if !strings.Contains(body, "inserted: 2") {
 		t.Fatalf("body: %s", body)
 	}
-	if !strings.Contains(body, "values: 72.5, 36.8") {
+	// 逐条：value/memo/tags
+	if !strings.Contains(body, "72.5/Scale/") {
+		t.Fatalf("body: %s", body)
+	}
+	if !strings.Contains(body, "36.8/axillary/") {
 		t.Fatalf("body: %s", body)
 	}
 }
@@ -493,4 +498,29 @@ func TestNotifyNumberBatchInsertedSkipsEmpty(t *testing.T) {
 	// len==0 早返回，nil Notifier / 无渠道也不会 panic 或发送
 	var n *Notifier
 	n.NotifyNumberBatchInserted(nil)
+}
+
+func TestNotifyNumberBatchInsertedTruncatesOversized(t *testing.T) {
+	rows := make([]record.Record, 100)
+	for i := range rows {
+		v := "36.8"
+		rows[i] = record.Record{
+			ID:               fmt.Sprintf("id-%d", i),
+			HappenedAt:       "2026-08-05T10:00:00+08:00",
+			NumericValue:      &v,
+			Tags:             []string{"vitals"},
+			ObjectiveContext: fmt.Sprintf("axillary temperature reading %d", i),
+		}
+	}
+	raw := telegram.FormatNumberBatchMessage(rows)
+	if utf8.RuneCountInString(raw) <= NotifyMessageMaxLen {
+		t.Fatalf("raw should exceed limit, runes=%d", utf8.RuneCountInString(raw))
+	}
+	out := TruncateNotifyMessage(raw)
+	if utf8.RuneCountInString(out) != NotifyMessageMaxLen {
+		t.Fatalf("truncated runes=%d want %d", utf8.RuneCountInString(out), NotifyMessageMaxLen)
+	}
+	if !strings.HasSuffix(out, NotifyTruncationSuffix) {
+		t.Fatalf("missing suffix: %q", out[len(out)-20:])
+	}
 }

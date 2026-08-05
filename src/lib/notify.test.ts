@@ -12,6 +12,7 @@ import {
   shouldSuppressBotNotification,
   truncateNotifyMessage,
 } from './notify'
+import { formatNumberBatchMessage } from './telegram'
 import { clearAccessTokenCacheForTests } from './qqbot'
 
 afterEach(() => {
@@ -367,7 +368,27 @@ describe('notifyNumberBatchInserted', () => {
     const body = fetchMock.mock.calls[0][1].body as string
     expect(body).toContain('New numbers batch')
     expect(body).toContain('inserted: 2')
-    expect(body).toContain('values: 72.5, 36.8')
-    expect(body).toContain('first_memo: Scale reading')
+    // 逐条：value/memo/tags
+    expect(body).toContain('72.5/Scale reading/weight,morning')
+    expect(body).toContain('36.8/axillary/weight,morning')
+  })
+
+  it('truncates an oversized batch to the 4000-char limit', () => {
+    // 100 条 → 逐条输出远超 4000；经 notify_user 公共截断
+    const many = Array.from({ length: 100 }, (_, i) => ({
+      id: `id-${i}`,
+      happened_at: '2026-08-05T10:00:00+08:00',
+      numeric_value: '36.8',
+      raw_content: null,
+      tags: ['vitals'],
+      objective_context: `axillary temperature reading ${i}`,
+      ai_analysis: null,
+    }))
+    const raw = formatNumberBatchMessage(many)
+    expect(raw.length).toBeGreaterThan(NOTIFY_MESSAGE_MAX_LEN)
+
+    const out = truncateNotifyMessage(raw)
+    expect(out.length).toBe(NOTIFY_MESSAGE_MAX_LEN)
+    expect(out.endsWith(NOTIFY_TRUNCATION_SUFFIX)).toBe(true)
   })
 })

@@ -207,29 +207,23 @@ func FormatTransactionBatchMessage(rows []record.Record) string {
 // FormatNumberBatchMessage 整单摘要。
 func FormatNumberBatchMessage(rows []record.Record) string {
 	n := len(rows)
-	values := make([]string, 0, n)
-	for _, r := range rows {
-		if r.NumericValue != nil && *r.NumericValue != "" {
-			values = append(values, *r.NumericValue)
-		}
-	}
-	valuesLabel := "(mixed)"
-	if len(values) == n {
-		valuesLabel = strings.Join(values, ", ")
-	}
-	firstMemo := ""
 	happened := ""
 	if n > 0 {
-		firstMemo = rows[0].ObjectiveContext
 		happened = rows[0].HappenedAt
 	}
-	return strings.Join([]string{
+	lines := []string{
 		"New numbers batch",
 		fmt.Sprintf("inserted: %d", n),
 		"happened_at: " + happened,
-		"values: " + valuesLabel,
-		"first_memo: " + firstMemo,
-	}, "\n")
+	}
+	for _, r := range rows {
+		value := ""
+		if r.NumericValue != nil {
+			value = *r.NumericValue
+		}
+		lines = append(lines, fmt.Sprintf("%s/%s/%s", value, r.ObjectiveContext, strings.Join(r.Tags, ",")))
+	}
+	return strings.Join(lines, "\n")
 }
 
 // transactionTypeFromTags 从 tags JSON 取 transaction_entry:{type}。

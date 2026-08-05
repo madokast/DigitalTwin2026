@@ -135,19 +135,15 @@ export function formatTransactionBatchMessage(rows: NotifyRecord[]): string {
 /** 整单 number batch 摘要（不逐条刷屏） */
 export function formatNumberBatchMessage(rows: NotifyRecord[]): string {
   const n = rows.length
-  const values = rows
-    .map((r) => r.numeric_value)
-    .filter((v): v is string => v != null && v !== '')
-  const valuesLabel = values.length === n ? values.join(', ') : '(mixed)'
-  const firstMemo = rows[0]?.objective_context ?? ''
   const happened = rows[0]?.happened_at ?? ''
-  return [
-    'New numbers batch',
-    `inserted: ${n}`,
-    `happened_at: ${happened}`,
-    `values: ${valuesLabel}`,
-    `first_memo: ${firstMemo}`,
-  ].join('\n')
+  const lines = ['New numbers batch', `inserted: ${n}`, `happened_at: ${happened}`]
+  for (const r of rows) {
+    const value = r.numeric_value ?? ''
+    const memo = r.objective_context ?? ''
+    const tags = (r.tags ?? []).join(',')
+    lines.push(`${value}/${memo}/${tags}`)
+  }
+  return lines.join('\n')
 }
 /** 从 tags 数组取 transaction_entry:{type} 中的 type */
 function transactionTypeFromTags(tagList: string[] | undefined): string | null {
