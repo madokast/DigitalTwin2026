@@ -60,6 +60,44 @@
 2. ~~**自动补全**~~：✅ 已定案 —— `tags?prefix=a` 真前缀过滤，计数降序数组 `[{tag, count}]`。
 3. **层级呈现**：是否在 UI 用层级树 / 面包屑展示分层 tag？不影响后端语义（已定案），仅前端交互，待做 dashboard 时再议。
 
+## tag 归一化（normalize / canonicalize）—— 修改 API 之二
+
+> 定位：系统「修改 API 最终清单」两大操作之一（另一为单条 tag 增删，见 `docs/20260805-tags-add.md`）。目标是**搜索规范化**——`exercise`/`workout`/`training` 指向同一事物时合并为规范 tag，避免多重搜索。
+
+```
+POST /api/admin/tags/normalize（或 canonicalize）
+{ "from": ["exercise", "workout", "training"], "to": "workout" }
+→ 200 { success, updated: N }
+```
+
+### 语义（定案）
+
+- **多源 → 单目标**：每条记录中若含 `from` 中任意 tag → 删掉这些、加 `to`（去重；tag 为**无序集合**，顺序不影响使用）。
+- 是现有 `rename` 的**超集**（`from: [A], to: B` 即 rename A→B）→ 建议**替换** rename。
+- 边界（只做机械校验，**不做语义判断**）：
+  1. `from` 与 `to` 有交集（含 `to` 本身）→ 400（无意义操作）。
+  2. `from` / `to` 含保留前缀（`body:weight`/`todo`/`transaction_entry`/`review`）→ 400。
+  3. ~~父子关系检查~~ **不做**：`from: ["workout","workout:arm"]` 合并丢子类粒度，是 **AI 的语义决策**，系统信任 AI 不拦（备份兜底）。
+  4. 去重：合并后同一记录重复 tag → 去重（机械操作，必须做）。
+  5. 原子性：全表单事务 + advisory lock（对齐现有 `renameAcrossRecords`）。
+  6. 响应 `{success, updated}`。
+- 鉴权：**AdminToken**（全表破坏性，系统最大风险点；与补 tag 的 ApiToken 区分）。
+
+### tag 顺序：懒惰原则（全系统统一）
+
+tag 数组顺序只保留「创建时的用户意图 + 追加序」，**不刻意重排**：
+
+1. **创建时**：保留 tag 在最前，用户 tags 按序在后（现状已如此：`todo:in_progress` / `review:{cadence}` / `body:weight` 在前）。
+2. **新增 tag**（add 接口）：直接 **append 尾部**。
+3. **normalize**：要删除的 tag **原地删、后续前移**；target 若已存在则**保持原位**，否则**尾加**。
+
+优点：代码最简（append / 原地删，无重排）；顺序保留「创建序 + 追加序」弱语义；tag 本质无序，此顺序是「无额外成本」。
+
+### 待定
+
+- 路径名：`normalize` / `canonicalize` / `merge`；是否替换现有 `tags/rename`。
+- 是否支持 `to` 为空（纯删除 from 系列）？——倾向不支持（删除单条 tag 用 add/remove 接口）。
+
 ## 实现待办（定案后）
 
 - **query 通配**：双端 `parseRecordQueryParams` / `ParseRecordQueryParams` 解析 `tag` 尾缀 `:*`（校验：中间 `*` / 裸 `*` → 400，复用 `Invalid tag` 或新增文案）；`tag=X:*` 生成 `tags LIKE '%"X:%'`；OpenAPI `query.yaml` 描述、`like_escape_test.go` 相关断言同步。
