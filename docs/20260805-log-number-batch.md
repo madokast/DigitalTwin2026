@@ -35,7 +35,7 @@
 
 ## 已定案
 
-- **`POST /api/log/number` 改为批量**（破坏式改造，不复用单条；不兼容旧形状）。
+- **`POST /api/log/number` 改为批量**（破坏式改造，不复用单条；不兼容旧形状）。**状态：已实现**（提交 `019d368` 切换路由 + 复数化；`ac54bc4`/`f1acfc9`/`2e3f998` 为 numberdraft/Batch/notify；`c9d8c25` OpenAPI；`d626857` 集成测试修复）。
 
 ```
 POST /api/log/number

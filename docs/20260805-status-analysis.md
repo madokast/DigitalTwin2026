@@ -37,5 +37,9 @@
 
 1. ~~**开发真实时间 API**~~：✅ 已完成（`cfc55a7`，`GET /api/time`）。
 2. ~~**决策 query 的 review 检索语义**~~：✅ 已定案并实现（`tag=X:*` 族通配 + 裸保留前缀 hint，见 §2C）。
-3. **把 AI 使用规则提炼成正式 AI 使用规范**（独立于讨论文档，供真实 LLM 客户端消费；含「双写时 log text 不带保留 tag」等系统约束）。
-4. 推送本地领先的提交过 CI。
+3. ~~**log/numbers 批量**~~：✅ 已完成（`log/number` → `log/numbers` 批量，entries + memo→objective_context；numberdraft/CreateNumberBatch/batch notify/OpenAPI）。
+4. **复数化剩余**：`POST /api/log/transactions`（含 tags hint 文案已解耦，无需改）与 `GET /api/query/transactions/summary` 改名——独立阶段。
+5. **tags 增删接口**（`log/tags/add` + `remove`，见 `docs/20260805-tags-add.md`）——新接口。
+6. **tag 归一化 normalize**（见 `docs/20260805-tag-design.md`，替换 rename）——新接口。
+7. **把 AI 使用规则提炼成正式 AI 使用规范**（独立于讨论文档，供真实 LLM 客户端消费；含「双写时 log text 不带保留 tag」等系统约束）。
+8. 推送本地领先的提交过 CI。
