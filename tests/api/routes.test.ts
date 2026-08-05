@@ -117,7 +117,12 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-30T08:00:00+08:00',
         entries: [
-          { numeric_value: '75.5', memo: 'morning weigh-in', tags: ['persist_check'] },
+          {
+            numeric_value: '75.5',
+            memo: 'morning weigh-in',
+            tags: ['persist_check'],
+            ai_analysis: 'a bit heavy',
+          },
         ],
       }))
       const q = await queryRecords(jsonGet(
@@ -131,6 +136,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(row.raw_content).toBeNull()
       expect(row.numeric_value).toBe('75.5')
       expect(row.happened_at).toBe('2026-07-30T08:00:00.000+08:00')
+      expect(row.ai_analysis).toBe('a bit heavy')
     })
 
     it('rejects entry unknown key with index prefix', async () => {
