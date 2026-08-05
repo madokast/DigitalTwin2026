@@ -152,3 +152,46 @@ func TestGetZonedDayBounds(t *testing.T) {
 		t.Fatalf("utc end: %s", end.UTC())
 	}
 }
+
+type timeCase struct {
+	Name        string `json:"name"`
+	TZ          string `json:"tz"`
+	ExpectedNow string `json:"expectedNow"`
+	ExpectedTZ  string `json:"expectedTz"`
+}
+
+func TestFormatNowInZoneSharedFixtures(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
+	b, err := os.ReadFile(filepath.Join(root, "testdata", "time-cases.json"))
+	if err != nil {
+		t.Fatalf("read time-cases: %v", err)
+	}
+	var payload struct {
+		InstantUtcMs int64       `json:"instantUtcMs"`
+		Cases        []timeCase `json:"cases"`
+	}
+	if err := json.Unmarshal(b, &payload); err != nil {
+		t.Fatalf("parse time-cases: %v", err)
+	}
+	now := time.UnixMilli(payload.InstantUtcMs).UTC()
+	for _, c := range payload.Cases {
+		got, err := FormatNowInZone(now, c.TZ)
+		if err != nil {
+			t.Fatalf("%s: %v", c.Name, err)
+		}
+		if got != c.ExpectedNow {
+			t.Fatalf("%s now: got %s want %s", c.Name, got, c.ExpectedNow)
+		}
+		if c.TZ != c.ExpectedTZ {
+			t.Fatalf("%s tz mismatch in fixture", c.Name)
+		}
+	}
+	// 非法 tz → error
+	if _, err := FormatNowInZone(now, "Not/AZone"); err == nil {
+		t.Fatal("want error for invalid tz")
+	}
+}

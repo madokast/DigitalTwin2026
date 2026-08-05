@@ -43,6 +43,7 @@ describe('OpenAPI contract (Phase 2)', () => {
     await assertValidSchema('Error', readFixture('error-export-from-not-found.json'))
     await assertValidSchema('QuerySuccess', readFixture('query-success.json'))
     await assertValidSchema('SummarySuccess', readFixture('summary-success.json'))
+    await assertValidSchema('TimeSuccess', readFixture('time-success.json'))
     await assertValidSchema(
       'TransactionSummarySuccess',
       readFixture('transaction-summary-success.json'),

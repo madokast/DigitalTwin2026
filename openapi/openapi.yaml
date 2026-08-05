@@ -37,6 +37,8 @@ tags:
     description: Insert numeric or text life records (AI / client logging)
   - name: query
     description: List, summarize, and aggregate tags
+  - name: time
+    description: Current wall-clock time for AI models (ApiToken)
   - name: telegram
     description: Telegram Bot connectivity probe
   - name: qqbot
@@ -77,6 +79,8 @@ paths:
     $ref: './paths/query.yaml#/~1api~1query~1tags'
   /api/query/transaction/summary:
     $ref: './paths/query.yaml#/~1api~1query~1transaction~1summary'
+  /api/time:
+    $ref: './paths/time.yaml#/~1api~1time'
   /api/admin/tags/rename:
     $ref: './paths/admin.yaml#/~1api~1admin~1tags~1rename'
   /api/admin/import/records:
@@ -146,6 +150,8 @@ components:
       $ref: './components/schemas.yaml#/QuerySuccess'
     SummarySuccess:
       $ref: './components/schemas.yaml#/SummarySuccess'
+    TimeSuccess:
+      $ref: './components/schemas.yaml#/TimeSuccess'
     Money2String:
       $ref: './components/schemas.yaml#/Money2String'
     MoneyBucket:

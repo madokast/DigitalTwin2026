@@ -85,3 +85,14 @@ func CalendarDayBounds(year, month, day int, tz string) (start, end time.Time, e
 	end = start.AddDate(0, 0, 1)
 	return start, end, nil
 }
+
+// FormatNowInZone 将瞬间格式化为指定 IANA 时区的墙钟 ISO（毫秒三位）。
+// Z07:00 布局天然满足契约：offset 0 → Z；否则 ±HH:MM（含非整点，如 +05:45）。
+// 与 Next formatNowInZone 字节级对齐。
+func FormatNowInZone(now time.Time, tz string) (string, error) {
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		return "", fmt.Errorf("Invalid time zone: %s", tz)
+	}
+	return now.In(loc).Format("2006-01-02T15:04:05.000Z07:00"), nil
+}

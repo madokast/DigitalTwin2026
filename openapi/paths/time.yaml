@@ -1,0 +1,48 @@
+/api/time:
+  get:
+    operationId: getCurrentTime
+    tags: [time]
+    summary: Current wall-clock time in an IANA time zone
+    description: |
+      Returns the current instant formatted as wall-clock time in the given
+      IANA zone. `tz` is optional; omitted → `UTC` (echoed as `UTC`, not `Z`).
+      `now` uses `HappenedAtOutput` millisecond formatting: `Z` suffix when
+      the zone offset is 0, otherwise `±HH:MM` (including non-hour offsets
+      such as `+05:45`). This endpoint lets AI models know the real current
+      time. Auth: ApiToken (AI use only; external clients are rejected).
+    security:
+      - ApiToken: []
+    parameters:
+      - name: tz
+        in: query
+        required: false
+        description: |
+          Valid IANA time zone accepted by both backends (Intl ∩ Go tzdata),
+          e.g. `UTC`, `Asia/Shanghai`. Omitted → `UTC`. Empty or invalid →
+          400 (`Query parameter tz must be a valid IANA time zone`). Go-only
+          names (`Factory` / `localtime` / `posixrules`) and Intl-only names
+          Go cannot load (e.g. `America/Coyhaique`) are rejected.
+        schema:
+          type: string
+          examples:
+            - UTC
+            - Asia/Shanghai
+    responses:
+      '200':
+        description: Current time
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/TimeSuccess'
+      '400':
+        description: Empty or invalid `tz`
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Error'
+            example:
+              error: Query parameter tz must be a valid IANA time zone
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

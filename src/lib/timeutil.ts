@@ -7,6 +7,10 @@ const INTL_ONLY_TIME_ZONES = new Set([
   'America/Coyhaique',
 ])
 
+/** 与 Go query.ErrInvalidTZ / summary 同文案；/api/time 400 用 */
+export const INVALID_IANA_TZ_ERROR =
+  'Query parameter tz must be a valid IANA time zone'
+
 /** 校验 IANA 时区名：须同时被 Intl 与 Go tzdata 接受 */
 export function isValidTimeZone(tz: string): boolean {
   if (!tz) return false
@@ -77,6 +81,28 @@ function offsetMsAt(date: Date, timeZone: string): number {
   const p = zonedParts(date, timeZone)
   const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second)
   return asUtc - date.getTime()
+}
+
+/**
+ * 将瞬间格式化为指定 IANA 时区的墙钟 ISO（毫秒三位）。
+ * offset 0 → `Z` 后缀；否则 `±HH:MM`（含非整点，如 Kathmandu `+05:45`）。
+ * 与 Go `timeutil.FormatNowInZone`（`Z07:00` 布局）字节级对齐。
+ */
+export function formatNowInZone(now: Date, timeZone: string): string {
+  if (!isValidTimeZone(timeZone)) {
+    throw new Error(INVALID_IANA_TZ_ERROR)
+  }
+  const p = zonedParts(now, timeZone)
+  const offsetMs = offsetMsAt(now, timeZone)
+  const offsetMinutes = Math.round(offsetMs / 60_000)
+  const ms = String(now.getUTCMilliseconds()).padStart(3, '0')
+  const pad = (n: number) => String(n).padStart(2, '0')
+  if (offsetMinutes === 0) {
+    return `${p.year}-${pad(p.month)}-${pad(p.day)}T${pad(p.hour)}:${pad(p.minute)}:${pad(p.second)}.${ms}Z`
+  }
+  const sign = offsetMinutes < 0 ? '-' : '+'
+  const abs = Math.abs(offsetMinutes)
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}T${pad(p.hour)}:${pad(p.minute)}:${pad(p.second)}.${ms}${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
 }
 
 /** 将 timeZone 墙钟时间转为绝对 UTC Date */

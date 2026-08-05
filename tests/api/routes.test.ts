@@ -9,6 +9,7 @@ import { POST as postReview } from '@/app/api/log/review/route'
 import { POST as postTransaction } from '@/app/api/log/transaction/route'
 import { GET as queryRecords } from '@/app/api/query/route'
 import { GET as querySummary } from '@/app/api/query/summary/route'
+import { GET as getTime } from '@/app/api/time/route'
 import { GET as queryTags } from '@/app/api/query/tags/route'
 import { GET as exportRecords } from '@/app/api/export/records/route'
 import { POST as importRecords } from '@/app/api/admin/import/records/route'
@@ -924,6 +925,62 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         today: 2,
         tz: 'Asia/Shanghai',
       })
+    })
+  })
+
+  describe('GET /api/time', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('returns now + tz for default / explicit / zero-offset zones', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-07-30T16:30:45.123Z'))
+
+      const def = await getTime(jsonGet('http://localhost/api/time'))
+      expect(def.status).toBe(200)
+      await expect(def.json()).resolves.toEqual({
+        success: true,
+        now: '2026-07-30T16:30:45.123Z',
+        tz: 'UTC',
+      })
+
+      const sh = await getTime(jsonGet(
+        'http://localhost/api/time?tz=Asia%2FShanghai',
+      ))
+      expect(sh.status).toBe(200)
+      await expect(sh.json()).resolves.toEqual({
+        success: true,
+        now: '2026-07-31T00:30:45.123+08:00',
+        tz: 'Asia/Shanghai',
+      })
+
+      const ab = await getTime(jsonGet(
+        'http://localhost/api/time?tz=Africa%2FAbidjan',
+      ))
+      expect(ab.status).toBe(200)
+      await expect(ab.json()).resolves.toEqual({
+        success: true,
+        now: '2026-07-30T16:30:45.123Z',
+        tz: 'Africa/Abidjan',
+      })
+    })
+
+    it('returns 400 for empty or invalid tz', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-07-30T16:30:45.123Z'))
+
+      for (const url of [
+        'http://localhost/api/time?tz=',
+        'http://localhost/api/time?tz=Not%2FAZone',
+      ]) {
+        const res = await getTime(jsonGet(url))
+        expect(res.status, url).toBe(400)
+        const body = await res.json()
+        expect(body.error, url).toBe(
+          'Query parameter tz must be a valid IANA time zone',
+        )
+      }
     })
   })
 

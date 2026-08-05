@@ -1,0 +1,36 @@
+{
+  "comment": "Shared FormatNowInZone / formatNowInZone cases. Both Next (src/lib/timeutil.test.ts) and Go (faas/internal/timeutil) load this file. Fixed instant (epoch ms) formatted per tz; expected = wall-clock ISO with millisecond precision, Z suffix for zero offset, else ±HH:MM.",
+  "instantUtcMs": 1785429045123,
+  "cases": [
+    {
+      "name": "utc-default",
+      "tz": "UTC",
+      "expectedNow": "2026-07-30T16:30:45.123Z",
+      "expectedTz": "UTC"
+    },
+    {
+      "name": "utc-explicit",
+      "tz": "Etc/UTC",
+      "expectedNow": "2026-07-30T16:30:45.123Z",
+      "expectedTz": "Etc/UTC"
+    },
+    {
+      "name": "asia-shanghai",
+      "tz": "Asia/Shanghai",
+      "expectedNow": "2026-07-31T00:30:45.123+08:00",
+      "expectedTz": "Asia/Shanghai"
+    },
+    {
+      "name": "kathmandu-fractional-offset",
+      "tz": "Asia/Kathmandu",
+      "expectedNow": "2026-07-30T22:15:45.123+05:45",
+      "expectedTz": "Asia/Kathmandu"
+    },
+    {
+      "name": "abidjan-zero-offset",
+      "tz": "Africa/Abidjan",
+      "expectedNow": "2026-07-30T16:30:45.123Z",
+      "expectedTz": "Africa/Abidjan"
+    }
+  ]
+}

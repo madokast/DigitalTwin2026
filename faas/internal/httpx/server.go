@@ -27,6 +27,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
+	"github.com/mdk/digitaltwin2026/faas/internal/timeutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
 
@@ -78,6 +79,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/db/probe", s.handleDbProbe)
 	mux.HandleFunc("GET /api/query", s.handleQuery)
 	mux.HandleFunc("GET /api/query/summary", s.handleSummary)
+	mux.HandleFunc("GET /api/time", s.handleTime)
 	mux.HandleFunc("GET /api/query/tags", s.handleTags)
 	mux.HandleFunc("GET /api/query/transaction/summary", s.handleTransactionSummary)
 	mux.HandleFunc("POST /api/admin/tags/rename", s.handleRenameTags)
@@ -535,6 +537,28 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		"total":   result.Total,
 		"today":   result.Today,
 		"tz":      result.TZ,
+	})
+}
+
+func (s *Server) handleTime(w http.ResponseWriter, r *http.Request) {
+	tz := r.URL.Query().Get("tz")
+	// 与 Next /api/time 一致：?tz= 空串显式传入 → 400；缺省 → UTC
+	if tz == "" && r.URL.Query().Has("tz") {
+		writeError(w, 400, query.ErrInvalidTZ.Error())
+		return
+	}
+	if tz == "" {
+		tz = "UTC"
+	}
+	now, err := timeutil.FormatNowInZone(s.Now(), tz)
+	if err != nil {
+		writeError(w, 400, query.ErrInvalidTZ.Error())
+		return
+	}
+	writeJSON(w, 200, map[string]any{
+		"success": true,
+		"now":     now,
+		"tz":      tz,
 	})
 }
 

@@ -242,6 +242,24 @@ SummarySuccess:
       type: string
       description: Echo of the requested IANA zone
 
+TimeSuccess:
+  type: object
+  required: [success, now, tz]
+  additionalProperties: false
+  properties:
+    success:
+      type: boolean
+      const: true
+    now:
+      $ref: '#/HappenedAtOutput'
+      description: |
+        Current instant as wall-clock time in `tz`. `Z` suffix when the zone
+        offset is 0 (including zero-offset zones like `Africa/Abidjan`);
+        otherwise `±HH:MM` (e.g. `+08:00`, `+05:45`).
+    tz:
+      type: string
+      description: Echo of the effective IANA zone (`UTC` when omitted)
+
 # 金额输出：恰好两位小数的十进制字符串（聚合结果）
 Money2String:
   type: string

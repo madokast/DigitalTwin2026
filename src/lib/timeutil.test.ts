@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   calendarDayBounds,
   expandCompactOffset,
+  formatNowInZone,
   getZonedDayBounds,
   isValidTimeZone,
   parseRFC3339Flexible,
@@ -30,6 +31,25 @@ const dayBoundCases = (
       'utf8',
     ),
   ) as { cases: DayBoundCase[] }
+).cases
+
+type TimeCase = {
+  name: string
+  tz: string
+  expectedNow: string
+  expectedTz: string
+}
+
+const timeCases = (
+  JSON.parse(
+    readFileSync(
+      path.join(
+        path.dirname(fileURLToPath(import.meta.url)),
+        '../../testdata/time-cases.json',
+      ),
+      'utf8',
+    ),
+  ) as { instantUtcMs: number; cases: TimeCase[] }
 ).cases
 
 describe('time helpers', () => {
@@ -75,5 +95,13 @@ describe('time helpers', () => {
     const shanghai = getZonedDayBounds(now, 'Asia/Shanghai')
     expect(shanghai.start.toISOString()).toBe('2026-07-30T16:00:00.000Z')
     expect(shanghai.end.toISOString()).toBe('2026-07-31T16:00:00.000Z')
+  })
+
+  it('matches shared time-cases fixtures (incl. fractional offsets)', () => {
+    const now = new Date('2026-07-30T16:30:45.123Z')
+    for (const c of timeCases) {
+      expect(formatNowInZone(now, c.tz), c.name).toBe(c.expectedNow)
+      expect(c.tz).toBe(c.expectedTz)
+    }
   })
 })

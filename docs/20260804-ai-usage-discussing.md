@@ -23,6 +23,21 @@
 
 > 我们需要提供一个 API 让模型去查，从而知道现在真实的时间。
 
+## /api/time 契约定案
+
+> 端点：`GET /api/time`；`tz` 参数可选（IANA 名，如 `Asia/Shanghai`、`UTC`）。
+>
+> - `tz` 键恒为 IANA 名：不传时回显 `UTC`（不是 `Z`）；`Z` 只出现在 `now` 的 ISO 后缀（语法表示）。
+> - 传 `?tz=UTC` 与不传等价：`now` 都是 UTC 墙钟 + `Z` 后缀，`tz` 均回显 `UTC`。
+> - `now` 带毫秒（`.000`，对齐 HappenedAtOutput）。
+> - 非法 `tz` → 400：`Query parameter tz must be a valid IANA time zone`。
+> - `?tz=` 空串 → 400（与 summary 一致，不做缺省处理）。
+> - 鉴权：ApiToken；该 API 给 AI 使用，外人不可用（无 / 无效 token → 401）。
+> - 示例：
+>   - `GET /api/time` → `{ success: true, now: "…Z", tz: "UTC" }`
+>   - `GET /api/time?tz=Asia/Shanghai` → `{ success: true, now: "…+08:00", tz: "Asia/Shanghai" }`
+>   - `GET /api/time?tz=Bogus` → 400
+
 ## 模糊时间的 happened_at 处理
 
 > 当用户进行回忆的时候，给出的时间一般会是一个模糊时间，比如说早饭的时候，昨天晚上，两天前，等等。那么这个时候，Happened at 就不能用现在的时间。而是一个推测发生的时间。这么做是被允许的，比如用户说下午的时候，那样可以记录为下午 15 点钟，当然，如果可以从对话中更精确地推断出是 14 点或者 16 点的话，那就进一步精确化。如果是说两天前，且没有具体说是白天还是晚上的话，一般将时间设为那一天的 12 点。
@@ -82,3 +97,9 @@
 > 2. 也可能是用户在回忆他很想吃的一个零食，然后说了一句"真好吃"。
 >
 > 那么，当"真好吃"这三个字真的莫名其妙地被用户说出来，没有任何上下文的时候，objective context 也就如实描述：用户突然说"真好吃"这三个字，没有明确的指代。
+
+## summary 端点移出 API
+
+> /api/query/summary 需要大改，移出 api
+>
+> 因为这不是给 AI 用的，移到不完全不同的路由中去，现在没想好

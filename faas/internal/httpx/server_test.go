@@ -670,6 +670,48 @@ func TestSummaryInvalidTZWithoutDB(t *testing.T) {
 	}
 }
 
+func TestTimeEndpointWithoutDB(t *testing.T) {
+	s := testServer()
+	fixed := time.UnixMilli(1785429045123).UTC()
+	s.Now = func() time.Time { return fixed }
+	h := s.Handler()
+
+	do := func(url string) (int, map[string]any) {
+		req := httptest.NewRequest(http.MethodGet, url, nil)
+		req.Header.Set("Authorization", "Bearer ai-tok")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		var body map[string]any
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		return rr.Code, body
+	}
+
+	// 缺省 → UTC；显式 UTC；零偏移非 UTC 区 → Z
+	code, body := do("/api/time")
+	if code != 200 || body["now"] != "2026-07-30T16:30:45.123Z" || body["tz"] != "UTC" {
+		t.Fatalf("default: code=%d body=%v", code, body)
+	}
+	code, body = do("/api/time?tz=Asia/Shanghai")
+	if code != 200 || body["now"] != "2026-07-31T00:30:45.123+08:00" || body["tz"] != "Asia/Shanghai" {
+		t.Fatalf("shanghai: code=%d body=%v", code, body)
+	}
+	code, body = do("/api/time?tz=Africa/Abidjan")
+	if code != 200 || body["now"] != "2026-07-30T16:30:45.123Z" || body["tz"] != "Africa/Abidjan" {
+		t.Fatalf("abidjan: code=%d body=%v", code, body)
+	}
+
+	// 空串 tz → 400；非法 tz → 400
+	for _, url := range []string{"/api/time?tz=", "/api/time?tz=Not%2FAZone"} {
+		code, body = do(url)
+		if code != 400 {
+			t.Fatalf("%s status %d body %v", url, code, body)
+		}
+		if body["error"] != "Query parameter tz must be a valid IANA time zone" {
+			t.Fatalf("%s error=%v", url, body)
+		}
+	}
+}
+
 func TestTransactionSummaryMissingParamsWithoutDB(t *testing.T) {
 	h := testServer().Handler()
 	cases := []struct {
