@@ -106,7 +106,7 @@ function optionalTagList(raw: unknown): { value: string[] } | { error: string } 
   }
   const dup = firstDuplicateTag(raw)
   if (dup !== null) {
-    return { error: `Duplicate tag "${dup}"` }
+    return { error: `duplicate tag "${dup}"` }
   }
   return { value: raw }
 }

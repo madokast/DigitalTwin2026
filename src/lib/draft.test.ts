@@ -79,7 +79,7 @@ describe('parseHappenedAt', () => {
       '2026-07-30T8:00:00Z', // 时未补零
     ]) {
       expect(parseHappenedAt(raw), raw).toEqual({
-        error: 'Invalid happened_at datetime',
+        error: 'invalid happened_at datetime',
       })
     }
   })
@@ -96,10 +96,10 @@ describe('validateDecimalString / parseNumericValue', () => {
   it('rejects shared decimal-string fixtures', () => {
     for (const bad of decimalCases.reject) {
       expect(validateDecimalString(bad), bad).toEqual({
-        error: 'Invalid numeric_value',
+        error: 'invalid numeric_value',
       })
       expect(parseNumericValue(bad), bad).toEqual({
-        error: 'Invalid numeric_value',
+        error: 'invalid numeric_value',
       })
     }
   })

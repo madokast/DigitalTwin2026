@@ -30,7 +30,7 @@ export const MAX_TRANSACTION_ENTRIES = 100
 
 export const AMOUNT_MUST_BE_STRING = 'amount must be a decimal string'
 export const INVALID_AMOUNT =
-  'Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5'
+  'invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5'
 
 export type TransactionType = 'income' | 'expense'
 
@@ -99,7 +99,7 @@ function parseType(
   raw: unknown,
 ): { ok: true; value: TransactionType } | DraftValidationError {
   if (raw === undefined || raw === null || raw === '') {
-    return { error: 'Missing required field: type' }
+    return { error: 'missing required field: type' }
   }
   if (typeof raw !== 'string' || !TRANSACTION_TYPES.has(raw as TransactionType)) {
     return { error: 'type must be "income" or "expense"' }
@@ -111,7 +111,7 @@ function parseAmount(
   raw: unknown,
 ): { ok: true; value: string } | DraftValidationError {
   if (raw === undefined || raw === null) {
-    return { error: 'Missing required field: amount' }
+    return { error: 'missing required field: amount' }
   }
   if (typeof raw === 'number') {
     return { error: AMOUNT_MUST_BE_STRING }
@@ -135,12 +135,12 @@ function parseSegment(
   field: 'category' | 'subcategory',
 ): { ok: true; value: string } | DraftValidationError {
   if (typeof raw !== 'string' || raw === '') {
-    return { error: `Missing required field: ${field}` }
+    return { error: `missing required field: ${field}` }
   }
   // 与 Go parseSegment 一致：仅 ASCII 空白（空格/Tab/LF/CR），不用 /\s/（会含 \u00a0 等）
   if (/[ \t\n\r]/.test(raw) || raw.includes(':') || !SEGMENT.test(raw)) {
     return {
-      error: `Invalid ${field}: must be a single identifier without spaces or colons`,
+      error: `invalid ${field}: must be a single identifier without spaces or colons`,
     }
   }
   return { ok: true, value: raw }
@@ -181,7 +181,7 @@ function parseEntry(
 
   const composite = `${categoryResult.value}:${subcategoryResult.value}`
   if (!isValidTag(composite)) {
-    return { error: `entries[${index}]: Invalid category/subcategory combination` }
+    return { error: `entries[${index}]: invalid category/subcategory combination` }
   }
 
   // 语义：type + 正 amount = 正常；type + 负 amount = 该类型冲销。
@@ -212,7 +212,7 @@ export function parseTransactionBatch(
   if ('error' in typeResult) return typeResult
 
   if (!Array.isArray(body.entries)) {
-    return { error: 'Missing required field: entries (non-empty array)' }
+    return { error: 'missing required field: entries (non-empty array)' }
   }
   if (body.entries.length === 0) {
     return { error: 'entries must be a non-empty array' }

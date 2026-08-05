@@ -38,7 +38,7 @@ func TestExportRecordsValidation(t *testing.T) {
 	}
 	var body2 map[string]string
 	_ = json.Unmarshal(rr2.Body.Bytes(), &body2)
-	if body2["error"] != "Invalid record id" {
+	if body2["error"] != "invalid record id" {
 		t.Fatalf("body %v", body2)
 	}
 }

@@ -94,7 +94,7 @@ describe('parseBodyWeight', () => {
   it('rejects duplicate client tags', () => {
     expect(
       parseBodyWeight({ ...base, tags: ['morning', 'morning'] }),
-    ).toEqual({ error: 'Duplicate tag "morning"' })
+    ).toEqual({ error: 'duplicate tag "morning"' })
   })
 
   it('rejects unknown keys', () => {

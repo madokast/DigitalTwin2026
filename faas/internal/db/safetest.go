@@ -36,12 +36,12 @@ func AssertSafeTestDatabaseURL(raw string) error {
 	looksLikeTest :=
 		testMarkerRE.MatchString(host) ||
 			testMarkerRE.MatchString(dbName) ||
-			strings.Contains(host, "TestDigitalTwin") ||
-			strings.Contains(dbName, "TestDigitalTwin")
+			strings.Contains(host, "testDigitalTwin") ||
+			strings.Contains(dbName, "testDigitalTwin")
 
 	if !looksLikeTest {
 		return fmt.Errorf(
-			`Refusing DATABASE_URL: hostname or database name must contain "test" (case-insensitive) or "TestDigitalTwin". Set ALLOW_TEST_DB_WIPE=1 does not bypass this check. %s`,
+			`refusing DATABASE_URL: hostname or database name must contain "test" (case-insensitive) or "testDigitalTwin". Set ALLOW_TEST_DB_WIPE=1 does not bypass this check. %s`,
 			TestDatabaseURLHint,
 		)
 	}

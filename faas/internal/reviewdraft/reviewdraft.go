@@ -15,10 +15,10 @@ import (
 var cadences = []string{"daily", "weekly", "monthly", "quarterly", "semiannually", "yearly"}
 
 // ErrInvalidCadenceMessage 与 Next INVALID_CADENCE_MESSAGE 同文案：回显全部可用值。
-var ErrInvalidCadenceMessage = errors.New("Invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly")
+var ErrInvalidCadenceMessage = errors.New("invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly")
 
 // ErrMissingCadenceMessage 与 Next MISSING_CADENCE_MESSAGE 同文案。
-var ErrMissingCadenceMessage = errors.New("Missing required field: cadence")
+var ErrMissingCadenceMessage = errors.New("missing required field: cadence")
 
 // logReviewKeys 允许的请求键（strict unknown-key）。
 var logReviewKeys = []string{
@@ -157,7 +157,7 @@ func parseOptionalClientTags(raw any) ([]string, error) {
 	for _, tag := range out {
 		if !tags.IsValidTag(tag) {
 			return nil, fmt.Errorf(
-				`Invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
+				`invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number`,
 				tag,
 			)
 		}
@@ -166,7 +166,7 @@ func parseOptionalClientTags(raw any) ([]string, error) {
 		return nil, fmt.Errorf("%s", rv.Error)
 	}
 	if dup := tags.FirstDuplicateTag(out); dup != "" {
-		return nil, fmt.Errorf("Duplicate tag \"%s\"", dup)
+		return nil, fmt.Errorf("duplicate tag \"%s\"", dup)
 	}
 	return out, nil
 }

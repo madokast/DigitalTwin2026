@@ -74,14 +74,14 @@ func parseEntry(raw any, index int) (NormalizedNumberEntry, error) {
 
 	// numeric_value 必填且非空（批量数值每条必须有值）
 	if entry.NumericValue == nil {
-		return NormalizedNumberEntry{}, fmt.Errorf("%sMissing required field: numeric_value", prefix)
+		return NormalizedNumberEntry{}, fmt.Errorf("%smissing required field: numeric_value", prefix)
 	}
 	numStr, err := draft.ParseNumericValue(entry.NumericValue)
 	if err != nil {
 		return NormalizedNumberEntry{}, fmt.Errorf("%s%w", prefix, err)
 	}
 	if numStr == nil {
-		return NormalizedNumberEntry{}, fmt.Errorf("%sMissing required field: numeric_value", prefix)
+		return NormalizedNumberEntry{}, fmt.Errorf("%smissing required field: numeric_value", prefix)
 	}
 
 	// memo 必填 → objective_context（DB NOT NULL）
@@ -102,7 +102,7 @@ func parseEntry(raw any, index int) (NormalizedNumberEntry, error) {
 		return NormalizedNumberEntry{}, fmt.Errorf("%s%s", prefix, rv.Error)
 	}
 	if dup := tags.FirstDuplicateTag(tagList); dup != "" {
-		return NormalizedNumberEntry{}, fmt.Errorf("%sDuplicate tag \"%s\"", prefix, dup)
+		return NormalizedNumberEntry{}, fmt.Errorf("%sduplicate tag \"%s\"", prefix, dup)
 	}
 
 	// ai_analysis 可选：省略/null → nil；空白 → 400
@@ -159,11 +159,11 @@ func ParseNumberBatch(raw []byte) (NormalizedNumberBatch, error) {
 		return NormalizedNumberBatch{}, err
 	}
 	if body.Entries == nil {
-		return NormalizedNumberBatch{}, fmt.Errorf("Missing required field: entries (non-empty array)")
+		return NormalizedNumberBatch{}, fmt.Errorf("missing required field: entries (non-empty array)")
 	}
 	entryList, ok := body.Entries.([]any)
 	if !ok {
-		return NormalizedNumberBatch{}, fmt.Errorf("Missing required field: entries (non-empty array)")
+		return NormalizedNumberBatch{}, fmt.Errorf("missing required field: entries (non-empty array)")
 	}
 	if len(entryList) == 0 {
 		return NormalizedNumberBatch{}, fmt.Errorf("entries must be a non-empty array")

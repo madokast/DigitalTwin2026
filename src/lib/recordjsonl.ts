@@ -39,14 +39,14 @@ export const RECORD_JSONL_KEYS = [
   'ai_analysis',
 ] as const
 
-/** 非法 JSON 行（与 HTTP `Invalid JSON body` 区分） */
-export const INVALID_JSON_LINE = 'Invalid JSON line'
+/** 非法 JSON 行（与 HTTP `invalid JSON body` 区分） */
+export const INVALID_JSON_LINE = 'invalid JSON line'
 
 /** tags 类型非法（既非字符串化 JSON 数组，也非 JSON 数组） */
-export const INVALID_TAGS = 'Invalid tags'
+export const INVALID_TAGS = 'invalid tags'
 
 /** tags 字符串无法 JSON.parse */
-export const INVALID_TAGS_JSON = 'Invalid tags JSON'
+export const INVALID_TAGS_JSON = 'invalid tags JSON'
 
 const UTF8_BOM = '\uFEFF'
 
@@ -125,7 +125,7 @@ export function parseLine(
   for (const key of RECORD_JSONL_KEYS) {
     if (key === 'numeric_value') continue
     if (!hasOwn(body, key)) {
-      return fail(`Missing required field: ${key}`, lineNumber)
+      return fail(`missing required field: ${key}`, lineNumber)
     }
   }
 
@@ -181,7 +181,7 @@ export function parseLine(
   const tags = tagsRaw as string[]
   const tagsValidation = validateTags(tags)
   if (!tagsValidation.valid) {
-    return fail(tagsValidation.error ?? 'Invalid tags', lineNumber)
+    return fail(tagsValidation.error ?? 'invalid tags', lineNumber)
   }
   // 故意不调用 assertNoReservedTags（见文件头注释）
 

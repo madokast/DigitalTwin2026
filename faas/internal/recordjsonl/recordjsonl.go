@@ -34,13 +34,13 @@ var RecordJSONLKeys = []string{
 }
 
 // InvalidJSONLine 非法 JSON 行（与 HTTP Invalid JSON body 区分）。
-const InvalidJSONLine = "Invalid JSON line"
+const InvalidJSONLine = "invalid JSON line"
 
 // InvalidTags tags 类型非法（既非字符串化 JSON 数组，也非 JSON 数组）。
-const InvalidTags = "Invalid tags"
+const InvalidTags = "invalid tags"
 
 // InvalidTagsJSON tags 字符串无法 JSON.parse。
-const InvalidTagsJSON = "Invalid tags JSON"
+const InvalidTagsJSON = "invalid tags JSON"
 
 const utf8BOM = "\ufeff"
 
@@ -100,7 +100,7 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 			continue
 		}
 		if _, ok := m[key]; !ok {
-			return nil, wrapErr("Missing required field: "+key, lineNumber)
+			return nil, wrapErr("missing required field: "+key, lineNumber)
 		}
 	}
 
@@ -124,7 +124,7 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	if m["raw_content"] != nil {
 		s, ok := m["raw_content"].(string)
 		if !ok {
-			return nil, wrapErr("Invalid raw_content", lineNumber)
+			return nil, wrapErr("invalid raw_content", lineNumber)
 		}
 		t, err := draft.RequireTrimmedText(s, "raw_content")
 		if err != nil {

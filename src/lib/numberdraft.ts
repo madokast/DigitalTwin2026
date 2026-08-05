@@ -69,14 +69,14 @@ function parseEntry(
 
   // numeric_value 必填且非 null（批量数值每条必须有值）
   if (entry.numeric_value === undefined || entry.numeric_value === null) {
-    return { error: `entries[${index}]: Missing required field: numeric_value` }
+    return { error: `entries[${index}]: missing required field: numeric_value` }
   }
   const numResult = parseNumericValue(entry.numeric_value)
   if ('error' in numResult) {
     return { error: `entries[${index}]: ${numResult.error}` }
   }
   if (numResult.value === null) {
-    return { error: `entries[${index}]: Missing required field: numeric_value` }
+    return { error: `entries[${index}]: missing required field: numeric_value` }
   }
 
   // memo 必填 → objective_context（DB NOT NULL）
@@ -105,7 +105,7 @@ function parseEntry(
     }
     const dup = firstDuplicateTag(tagList)
     if (dup !== null) {
-      return { error: `entries[${index}]: Duplicate tag "${dup}"` }
+      return { error: `entries[${index}]: duplicate tag "${dup}"` }
     }
     tags = tagList
   }
@@ -139,7 +139,7 @@ export function parseNumberBatch(
   if ('error' in happenedResult) return happenedResult
 
   if (!Array.isArray(body.entries)) {
-    return { error: 'Missing required field: entries (non-empty array)' }
+    return { error: 'missing required field: entries (non-empty array)' }
   }
   if (body.entries.length === 0) {
     return { error: 'entries must be a non-empty array' }

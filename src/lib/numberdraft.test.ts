@@ -66,7 +66,7 @@ describe('parseNumberBatch', () => {
     const { happened_at: _omit, ...rest } = base
     void _omit
     expect(parseNumberBatch(rest)).toEqual({
-      error: 'Missing required field: happened_at',
+      error: 'missing required field: happened_at',
     })
   })
 
@@ -79,7 +79,7 @@ describe('parseNumberBatch', () => {
   it('rejects non-array / empty / oversized entries (top-level, no index)', () => {
     expect(
       parseNumberBatch({ happened_at: base.happened_at }),
-    ).toEqual({ error: 'Missing required field: entries (non-empty array)' })
+    ).toEqual({ error: 'missing required field: entries (non-empty array)' })
     expect(
       parseNumberBatch({
         happened_at: base.happened_at,
@@ -118,7 +118,7 @@ describe('parseNumberBatch', () => {
         happened_at: base.happened_at,
         entries: [{ memo: 'x' }],
       }),
-    ).toEqual({ error: 'entries[0]: Missing required field: numeric_value' })
+    ).toEqual({ error: 'entries[0]: missing required field: numeric_value' })
   })
 
   it('rejects null numeric_value', () => {
@@ -127,7 +127,7 @@ describe('parseNumberBatch', () => {
         happened_at: base.happened_at,
         entries: [{ numeric_value: null, memo: 'x' }],
       }),
-    ).toEqual({ error: 'entries[0]: Missing required field: numeric_value' })
+    ).toEqual({ error: 'entries[0]: missing required field: numeric_value' })
   })
 
   it('rejects JSON number numeric_value with index prefix', () => {
@@ -147,7 +147,7 @@ describe('parseNumberBatch', () => {
         happened_at: base.happened_at,
         entries: [{ numeric_value: '1e3', memo: 'x' }],
       }),
-    ).toEqual({ error: 'entries[0]: Invalid numeric_value' })
+    ).toEqual({ error: 'entries[0]: invalid numeric_value' })
   })
 
   it('rejects missing or blank memo with index prefix', () => {
@@ -156,7 +156,7 @@ describe('parseNumberBatch', () => {
         happened_at: base.happened_at,
         entries: [{ numeric_value: '1' }],
       }),
-    ).toEqual({ error: 'entries[0]: Missing required field: memo' })
+    ).toEqual({ error: 'entries[0]: missing required field: memo' })
     expect(
       parseNumberBatch({
         happened_at: base.happened_at,
@@ -183,7 +183,7 @@ describe('parseNumberBatch', () => {
       }),
     ).toEqual({
       error:
-        'entries[0]: Invalid tag: "体重". Tags must contain only letters, numbers, underscores, and cannot start with a number.',
+        'entries[0]: invalid tag: "体重". Tags must contain only letters, numbers, underscores, and cannot start with a number.',
     })
   })
 
@@ -213,12 +213,12 @@ describe('parseNumberBatch', () => {
         happened_at: base.happened_at,
         entries: [{ numeric_value: '1', memo: 'x', tags: ['a', 'b', 'a'] }],
       }),
-    ).toEqual({ error: 'entries[0]: Duplicate tag "a"' })
+    ).toEqual({ error: 'entries[0]: duplicate tag "a"' })
     expect(
       parseNumberBatch({
         happened_at: base.happened_at,
         entries: [{ numeric_value: '1', memo: 'x', tags: ['a', 'b', 'b', 'c', 'b'] }],
       }),
-    ).toEqual({ error: 'entries[0]: Duplicate tag "b"' })
+    ).toEqual({ error: 'entries[0]: duplicate tag "b"' })
   })
 })

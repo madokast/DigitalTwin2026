@@ -25,10 +25,10 @@
 - 字符串常量改 `errors.New` 哨兵后，测试可从 `err.Error() != want` 升级为 `errors.Is(err, ErrTodoNotFound)`（可保留字符串断言作补充）。
 ### 改造纪律（关键）
 
-- **Go 错误消息 = API 契约文案**：`writeError(w, status, err.Error())` 直接输出 Go error 为 HTTP `error` 字段，Node 端逐字一致（如 `Missing required query parameter: from` 大写开头）。全仓 44 处大写开头错误字面量均为契约。
-- 因此 Go 惯例「错误小写开头」（ST1005）在本仓库 **不适用**——契约优先，双端一致是硬约束。
+- **Go 错误消息 = API 契约文案**：`writeError(w, status, err.Error())` 直接输出 Go error 为 HTTP `error` 字段，Node 端**逐字一致**。
+- **契约文案已标准化为小写开头**（ST1005 改造，见「§7 探测结果」）：所有错误文案首字母小写（`Missing required field` → `missing required field`），双端同步。**新增错误文案必须小写开头 + 双端逐字一致**（staticcheck ST1005 作为守卫拦截新的大写文案）。
+- 例外（保持大写，staticcheck 不报）：`Unknown JSON key`（常量前缀）、`Internal server error`（固定 500 文案）——双端各自一致即可。
 - `%w` 改造 **只改机制**：`%s`→`%w`、string 常量→`errors.New`（**同文案**）——**文案字符串逐字不动**。
-- **禁止顺手改大小写 / 标点 / 措辞**——即使看起来「更符合 Go 惯例」；任何文案改动都会破坏 Node 一致性并被双端契约测试拦截。
 - 区分两类错误：
   - **契约错误（400/404/409）**：`writeError` 输出 `err.Error()` → 文案锁定，只改 wrap 机制。
   - **内部错误（500）**：`writeInternalError` 忽略 err（客户端只见固定 `Internal server error`）→ 内部 err 可自由 `%w` 增强日志，不影响契约。
@@ -173,30 +173,30 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 
 - 低成本（改命令），立即纳入；发现 race 则修复。
 
-## 7. golangci-lint / staticcheck 缺失
+## 7. golangci-lint / staticcheck（ST1005 / ST1012 已清零，仅剩 S1017×2 + S1016×1）
 
 ### 现状
 
 - CI 仅 `go vet` + `go build` + `go test`。业界常用 golangci-lint（聚合 staticcheck / errcheck / gocritic / ineffassign / unused 等）。
 - 本仓库 11 处 `_ = tx.Rollback` / `defer rows.Close()` 忽略错误（defer 清理 best-effort，业界可接受；errcheck 默认会报，需豁免）。
 
-### 探测结果（staticcheck 2025.xx，71 处）
+### 探测结果（staticcheck 2025.xx）
 
 | 代码 | 数量 | 性质 | 处理 |
 |---|---|---|---|
-| `ST1005`（error 字符串大写） | 55 | **API 契约文案**（`Missing required query parameter: from` 等，双端逐字一致） | **豁免**——契约优先（§1 纪律），lint 不得改契约文案 |
-| `ST1012`（error var 命名 `ErrFoo`） | 13 | 哨兵命名风格（`InvalidWeight` / `NumericValueMustBeString` / `TransportFailedMessage` 等） | **豁免**——现有命名已是定案（`%w` 改造 `ecbc9c0`），改名为 `Err*` 影响跨包引用，收益低 |
+| `ST1005`（error 字符串大写） | 55（已清零） | API 契约文案 | **已标准化为小写开头**（双端同步 + fixtures/测试/OpenAPI）——不再豁免，作 lint 守卫 |
+| `ST1012`（error var 命名 `ErrFoo`） | 13（已清零） | 哨兵命名 | **已重命名**加 `Err`/`err` 前缀（`e53ae9c`）——不再豁免 |
 | `S1017`（`TrimPrefix`/`TrimSuffix` 简化） | 2 | 可重构（importapi.go:160、recordjsonl.go:75） | **修复** |
 | `S1016`（struct literal → 直接转换） | 1 | 测试代码（query/transactions_summary_test.go:96） | **修复** |
 
-**关键设计**：golangci-lint 配置**必须排除 ST1005 / ST1012**——否则契约文案大写会被全部标红，CI 无法通过。这与 §1「Go 错误消息 = API 契约文案」纪律一致：**契约优先于 Go 惯例**（ST1005 小写规则不适用）。
+**关键设计**：ST1005 / ST1012 已通过**真正解决**（文案小写化 + 哨兵重命名）清零，`.golangci.yml` **无需豁免**——二者作为 lint 守卫拦截新的大写文案 / 非 `Err*` 命名。
 
 ### 方案（定案）
 
 1. **安装**：golangci-lint（CI 用官方 action `golangci/golangci-lint-action`；本地 `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`）。
 2. **`.golangci.yml`**：
    - linters：default（govet / errcheck / ineffassign / unused / staticcheck / gocritic 等）
-   - **staticcheck 排除** `ST1005`、`ST1012`（`text` 排除规则）
+   - **无需豁免 ST1005 / ST1012**（已清零，作守卫）
    - **errcheck**：豁免 defer 清理类（`_ = tx.Rollback` / `defer rows.Close()`）——用 `exclude-functions` 或文本排除
 3. **修复**：S1017×2 + S1016×1（小重构）。
 4. **CI**：加 `golangci-lint run` job（与 unit-go 并行）。

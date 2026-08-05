@@ -79,7 +79,7 @@ export function parseTagsField(tags: string): string[] {
 }
 
 /** 与 Go `record.InvalidID` 同文案：非 UUID → 400，避免 PG 类型错误变 500 */
-export const INVALID_RECORD_ID = 'Invalid record id'
+export const INVALID_RECORD_ID = 'invalid record id'
 
 /**
  * 与 Go `record.IsValidID` 对齐：npm `uuid.validate`

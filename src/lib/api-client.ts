@@ -36,7 +36,7 @@ async function parseJson<T>(res: Response): Promise<T> {
   const data = await res.json()
   if (!res.ok) {
     throw new Error(
-      typeof data?.error === 'string' ? data.error : `Request failed (${res.status})`,
+      typeof data?.error === 'string' ? data.error : `request failed (${res.status})`,
     )
   }
   return data as T

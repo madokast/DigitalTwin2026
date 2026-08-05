@@ -133,15 +133,15 @@ func TestParseTodoRejects(t *testing.T) {
 	}{
 		{
 			`{"content":"x","objective_context":"y"}`,
-			"Missing required field: created_at",
+			"missing required field: created_at",
 		},
 		{
 			`{"created_at":"2026-08-02T10:00:00+08:00","objective_context":"y"}`,
-			"Missing required field: content",
+			"missing required field: content",
 		},
 		{
 			`{"created_at":"2026-08-02T10:00:00+08:00","content":"x"}`,
-			"Missing required field: objective_context",
+			"missing required field: objective_context",
 		},
 		{
 			`{"created_at":"2026-08-02T10:00:00","content":"x","objective_context":"y"}`,
@@ -251,15 +251,15 @@ func TestParseTodoTransitionRejects(t *testing.T) {
 	}{
 		{
 			`{"target":"completed","happened_at":"2026-08-02T12:00:00+08:00"}`,
-			"Missing required field: id",
+			"missing required field: id",
 		},
 		{
 			`{"id":"01900000-0000-7000-8000-000000000003","happened_at":"2026-08-02T12:00:00+08:00"}`,
-			"Missing required field: target",
+			"missing required field: target",
 		},
 		{
 			`{"id":"01900000-0000-7000-8000-000000000003","target":"completed"}`,
-			"Missing required field: happened_at",
+			"missing required field: happened_at",
 		},
 		{
 			`{"id":"01900000-0000-7000-8000-000000000003","target":"done","happened_at":"2026-08-02T12:00:00+08:00"}`,
@@ -286,7 +286,7 @@ func TestParseTodoRejectsDuplicateTags(t *testing.T) {
 		"tags": ["errand", "errand"]
 	}`)
 	_, err := ParseTodo(raw)
-	if err == nil || err.Error() != `Duplicate tag "errand"` {
+	if err == nil || err.Error() != `duplicate tag "errand"` {
 		t.Fatalf("err: %v", err)
 	}
 }

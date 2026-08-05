@@ -33,31 +33,31 @@
       "name": "bare-wildcard-rejected",
       "tag": "*",
       "valid": false,
-      "error": "Invalid tag query \"*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+      "error": "invalid tag query \"*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
     },
     {
       "name": "mid-wildcard-rejected",
       "tag": "re*view",
       "valid": false,
-      "error": "Invalid tag query \"re*view\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+      "error": "invalid tag query \"re*view\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
     },
     {
       "name": "trailing-star-no-colon-rejected",
       "tag": "work*",
       "valid": false,
-      "error": "Invalid tag query \"work*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+      "error": "invalid tag query \"work*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
     },
     {
       "name": "double-wildcard-rejected",
       "tag": "re*vi*",
       "valid": false,
-      "error": "Invalid tag query \"re*vi*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+      "error": "invalid tag query \"re*vi*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
     },
     {
       "name": "wildcard-with-trailing-content-rejected",
       "tag": "review:*:x",
       "valid": false,
-      "error": "Invalid tag query \"review:*:x\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+      "error": "invalid tag query \"review:*:x\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
     },
     {
       "name": "bare-reserved-review-hint",
@@ -112,7 +112,7 @@
       "name": "trailing-star-requires-colon-double",
       "tag": "a:*:*",
       "valid": false,
-      "error": "Invalid tag query \"a:*:*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+      "error": "invalid tag query \"a:*:*\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
     }
   ]
 }

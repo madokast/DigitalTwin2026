@@ -25,7 +25,7 @@ describe('createText', () => {
       })
       expect(result).toEqual({
         error:
-          raw === '' ? 'Missing required field: raw_content' : 'raw_content must not be blank',
+          raw === '' ? 'missing required field: raw_content' : 'raw_content must not be blank',
         status: 400,
       })
     }
@@ -65,7 +65,7 @@ describe('createText', () => {
       objective_context: 'x',
     })
     expect(result).toEqual({
-      error: 'Duplicate tag "study"',
+      error: 'duplicate tag "study"',
       status: 400,
     })
   })
@@ -92,7 +92,7 @@ describe('createText', () => {
       ai_analysis: 42,
     })
     expect(result).toEqual({
-      error: 'Invalid ai_analysis',
+      error: 'invalid ai_analysis',
       status: 400,
     })
   })
@@ -105,7 +105,7 @@ describe('createText', () => {
         tags: ['study'],
         objective_context: 'x',
       }),
-    ).toEqual({ error: 'Missing required field: raw_content', status: 400 })
+    ).toEqual({ error: 'missing required field: raw_content', status: 400 })
   })
 })
 
@@ -152,7 +152,7 @@ describe('createTransactionBatch', () => {
       ],
     })
     expect(result).toEqual({
-      error: 'Missing required field: type',
+      error: 'missing required field: type',
       status: 400,
     })
   })
@@ -194,7 +194,7 @@ describe('createNumberBatch', () => {
       entries: [{ numeric_value: '1', memo: 'x' }],
     })
     expect(result).toEqual({
-      error: 'Missing required field: happened_at',
+      error: 'missing required field: happened_at',
       status: 400,
     })
   })
@@ -205,7 +205,7 @@ describe('createNumberBatch', () => {
       entries: [{ memo: 'x' }],
     })
     expect(result).toEqual({
-      error: 'entries[0]: Missing required field: numeric_value',
+      error: 'entries[0]: missing required field: numeric_value',
       status: 400,
     })
   })

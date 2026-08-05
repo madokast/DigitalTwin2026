@@ -142,7 +142,7 @@ describe('importRecordsJsonl', () => {
     const result = await importRecordsJsonl(text, text.length, mem.store)
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      expect(result.error).toBe('line 2: Invalid JSON line')
+      expect(result.error).toBe('line 2: invalid JSON line')
       expect(result.status).toBe(400)
     }
   })

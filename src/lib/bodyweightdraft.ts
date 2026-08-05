@@ -30,7 +30,7 @@ export const LOG_BODY_WEIGHT_KEYS = [
 const WEIGHT_AMOUNT = /^(?:0|[1-9]\d{0,2})(?:\.\d{1,2})?$/
 
 export const INVALID_WEIGHT =
-  'Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50'
+  'invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50'
 
 const WEIGHT_MIN_CENTS = 100 // 1.00
 const WEIGHT_MAX_CENTS = 50000 // 500.00
@@ -67,7 +67,7 @@ export function parseWeightAmount(
   raw: unknown,
 ): { ok: true; value: string } | DraftValidationError {
   if (raw === undefined || raw === null) {
-    return { error: 'Missing required field: numeric_value' }
+    return { error: 'missing required field: numeric_value' }
   }
   if (typeof raw === 'number') {
     return { error: NUMERIC_VALUE_MUST_BE_STRING }
@@ -109,7 +109,7 @@ function parseOptionalClientTags(
   for (const tag of list) {
     if (!isValidTag(tag)) {
       return {
-        error: `Invalid tag: "${tag}". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
+        error: `invalid tag: "${tag}". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
       }
     }
   }
@@ -119,7 +119,7 @@ function parseOptionalClientTags(
   }
   const dup = firstDuplicateTag(list)
   if (dup !== null) {
-    return { error: `Duplicate tag "${dup}"` }
+    return { error: `duplicate tag "${dup}"` }
   }
   return { ok: true, value: list }
 }

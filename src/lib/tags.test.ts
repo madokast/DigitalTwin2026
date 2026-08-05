@@ -246,11 +246,11 @@ describe('validateRename', () => {
   it('rejects empty from or to', () => {
     expect(validateRename('', 'to_tag')).toEqual({
       valid: false,
-      error: 'Missing required fields: from, to',
+      error: 'missing required fields: from, to',
     })
     expect(validateRename('from_tag', '')).toEqual({
       valid: false,
-      error: 'Missing required fields: from, to',
+      error: 'missing required fields: from, to',
     })
   })
 

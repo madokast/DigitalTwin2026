@@ -33,7 +33,7 @@ export function parseHappenedAt(
   raw: unknown,
 ): { ok: true; value: Date; utcOffset: string } | DraftValidationError {
   if (typeof raw !== 'string' || !raw) {
-    return { error: 'Missing required field: happened_at' }
+    return { error: 'missing required field: happened_at' }
   }
   if (!ISO_TZ_SUFFIX.test(raw)) {
     return {
@@ -42,7 +42,7 @@ export function parseHappenedAt(
   }
   const happenedAt = parseRFC3339Flexible(raw)
   if (!happenedAt) {
-    return { error: 'Invalid happened_at datetime' }
+    return { error: 'invalid happened_at datetime' }
   }
   const offset = extractUtcOffsetLiteral(raw)
   if (!('ok' in offset)) {
@@ -61,7 +61,7 @@ export function validateDecimalString(
   s: string,
 ): { ok: true } | DraftValidationError {
   if (s.length > NUMERIC_VALUE_MAX_LEN || !DECIMAL_STRING.test(s)) {
-    return { error: 'Invalid numeric_value' }
+    return { error: 'invalid numeric_value' }
   }
   const unsigned = s.startsWith('-') ? s.slice(1) : s
   const [intPart, fracPart = ''] = unsigned.split('.')
@@ -69,7 +69,7 @@ export function validateDecimalString(
     intPart.length > NUMERIC_VALUE_MAX_INT_DIGITS ||
     fracPart.length > NUMERIC_VALUE_MAX_FRAC_DIGITS
   ) {
-    return { error: 'Invalid numeric_value' }
+    return { error: 'invalid numeric_value' }
   }
   return { ok: true }
 }
@@ -88,7 +88,7 @@ export function parseNumericValue(
     return { error: NUMERIC_VALUE_MUST_BE_STRING }
   }
   if (typeof raw !== 'string') {
-    return { error: 'Invalid numeric_value' }
+    return { error: 'invalid numeric_value' }
   }
   const trimmed = raw.trim()
   if (trimmed === '') return { ok: true, value: null }
@@ -103,7 +103,7 @@ export function requireTrimmedText(
   field: 'raw_content' | 'objective_context' | 'content' | 'memo',
 ): { ok: true; value: string } | DraftValidationError {
   if (typeof raw !== 'string' || raw === '') {
-    return { error: `Missing required field: ${field}` }
+    return { error: `missing required field: ${field}` }
   }
   if (raw.trim() === '') {
     return { error: `${field} must not be blank` }
@@ -120,7 +120,7 @@ export function optionalTrimmedNullable(
     return { ok: true, value: null }
   }
   if (typeof raw !== 'string') {
-    return { error: `Invalid ${field}` }
+    return { error: `invalid ${field}` }
   }
   if (raw.trim() === '') {
     return { error: `${field} must not be blank` }

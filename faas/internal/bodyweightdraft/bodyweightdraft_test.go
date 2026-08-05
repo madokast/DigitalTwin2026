@@ -132,7 +132,7 @@ func TestParseBodyWeightRejectsDuplicateClientTag(t *testing.T) {
 		"tags": ["morning", "morning"]
 	}`)
 	_, err := ParseBodyWeight(raw)
-	if err == nil || err.Error() != `Duplicate tag "morning"` {
+	if err == nil || err.Error() != `duplicate tag "morning"` {
 		t.Fatalf("err: %v", err)
 	}
 }

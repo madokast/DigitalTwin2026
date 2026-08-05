@@ -44,13 +44,13 @@ export function normalizeUtcOffsetSuffix(suffix: string): string {
  */
 export function formatHappenedAt(instant: Date, utcOffset: string): string {
   if (!(instant instanceof Date) || Number.isNaN(instant.getTime())) {
-    throw new Error('Invalid instant')
+    throw new Error('invalid instant')
   }
   if (utcOffset === 'Z') {
     return formatUtcWall(instant) + 'Z'
   }
   if (!CANONICAL_OFFSET.test(utcOffset)) {
-    throw new Error(`Invalid utc_offset: ${utcOffset}`)
+    throw new Error(`invalid utc_offset: ${utcOffset}`)
   }
   const sign = utcOffset[0] === '-' ? -1 : 1
   const hours = Number(utcOffset.slice(1, 3))

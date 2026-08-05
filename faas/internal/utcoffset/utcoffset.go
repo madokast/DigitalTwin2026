@@ -50,7 +50,7 @@ func FormatHappenedAt(instant time.Time, utcOffset string) (string, error) {
 		return instant.UTC().Format("2006-01-02T15:04:05.000Z"), nil
 	}
 	if !canonicalOffset.MatchString(utcOffset) {
-		return "", fmt.Errorf("Invalid utc_offset: %s", utcOffset)
+		return "", fmt.Errorf("invalid utc_offset: %s", utcOffset)
 	}
 	sign := 1
 	if utcOffset[0] == '-' {
@@ -58,11 +58,11 @@ func FormatHappenedAt(instant time.Time, utcOffset string) (string, error) {
 	}
 	hours, err := strconv.Atoi(utcOffset[1:3])
 	if err != nil {
-		return "", fmt.Errorf("Invalid utc_offset: %s", utcOffset)
+		return "", fmt.Errorf("invalid utc_offset: %s", utcOffset)
 	}
 	minutes, err := strconv.Atoi(utcOffset[4:6])
 	if err != nil {
-		return "", fmt.Errorf("Invalid utc_offset: %s", utcOffset)
+		return "", fmt.Errorf("invalid utc_offset: %s", utcOffset)
 	}
 	secondsEast := sign * (hours*3600 + minutes*60)
 	// FixedZone 名为空时 Format 仍用数字 offset；用字面量作名便于调试。

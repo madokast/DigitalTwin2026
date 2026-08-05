@@ -140,9 +140,9 @@ func TestParseReviewRejectsBlank(t *testing.T) {
 	cases := []struct {
 		key, value, want string
 	}{
-		{"raw_content", "", "Missing required field: raw_content"},
+		{"raw_content", "", "missing required field: raw_content"},
 		{"raw_content", "   ", "raw_content must not be blank"},
-		{"objective_context", "", "Missing required field: objective_context"},
+		{"objective_context", "", "missing required field: objective_context"},
 		{"objective_context", "   ", "objective_context must not be blank"},
 		{"ai_analysis", "   ", "ai_analysis must not be blank"},
 	}
@@ -215,7 +215,7 @@ func TestParseReviewRejectsDuplicateTags(t *testing.T) {
 		"tags": ["work", "work"]
 	}`)
 	_, err := ParseReview(raw)
-	if err == nil || err.Error() != `Duplicate tag "work"` {
+	if err == nil || err.Error() != `duplicate tag "work"` {
 		t.Fatalf("err: %v", err)
 	}
 }

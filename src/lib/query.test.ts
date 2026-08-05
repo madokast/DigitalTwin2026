@@ -60,7 +60,7 @@ describe('parseRecordQueryParams from/to timezone', () => {
       '2026-7-30T00:00:00Z',
     ]) {
       expect(parseRecordQueryParams(new URLSearchParams({ from }))).toEqual({
-        error: 'Invalid from datetime',
+        error: 'invalid from datetime',
       })
     }
   })
@@ -115,10 +115,10 @@ describe('parseRecordQueryParams from/to timezone', () => {
   it('rejects non-UUID id', () => {
     expect(
       parseRecordQueryParams(new URLSearchParams({ id: 'not-a-uuid' })),
-    ).toEqual({ error: 'Invalid record id' })
+    ).toEqual({ error: 'invalid record id' })
     expect(
       parseRecordQueryParams(new URLSearchParams({ id: '123' })),
-    ).toEqual({ error: 'Invalid record id' })
+    ).toEqual({ error: 'invalid record id' })
   })
 
   it('rejects UUID-shaped ids with illegal version/variant', () => {
@@ -126,14 +126,14 @@ describe('parseRecordQueryParams from/to timezone', () => {
       parseRecordQueryParams(
         new URLSearchParams({ id: 'a0eebc99-9c0b-4ef8-7000-6bb9bd380a11' }),
       ),
-    ).toEqual({ error: 'Invalid record id' })
+    ).toEqual({ error: 'invalid record id' })
     expect(
       parseRecordQueryParams(
         new URLSearchParams({
           id: '01234567-89ab-cdef-0123-456789abcdef',
         }),
       ),
-    ).toEqual({ error: 'Invalid record id' })
+    ).toEqual({ error: 'invalid record id' })
   })
 })
 

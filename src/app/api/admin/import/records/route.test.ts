@@ -101,7 +101,7 @@ describe('POST /api/admin/import/records notify schedule', () => {
   it('does not schedule notify on domain error', async () => {
     importRecordsJsonl.mockResolvedValue({
       ok: false,
-      error: 'line 1: Invalid JSON line',
+      error: 'line 1: invalid JSON line',
       status: 400,
     })
     const res = await POST(multipartRequest('{bad}'))

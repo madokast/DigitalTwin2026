@@ -29,9 +29,9 @@ export const LOG_REVIEW_KEYS = [
 ] as const
 
 export const INVALID_CADENCE_MESSAGE =
-  'Invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly'
+  'invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly'
 
-export const MISSING_CADENCE_MESSAGE = 'Missing required field: cadence'
+export const MISSING_CADENCE_MESSAGE = 'missing required field: cadence'
 
 export type LogReviewBody = {
   happened_at?: unknown
@@ -102,7 +102,7 @@ export function parseReview(
   }
   const tagsValidation = validateTags(tagList)
   if (!tagsValidation.valid) {
-    return { error: tagsValidation.error ?? 'Invalid tags' }
+    return { error: tagsValidation.error ?? 'invalid tags' }
   }
   const reserved = assertNoReservedTags(tagList)
   if (!reserved.valid) {
@@ -110,7 +110,7 @@ export function parseReview(
   }
   const dup = firstDuplicateTag(tagList)
   if (dup !== null) {
-    return { error: `Duplicate tag "${dup}"` }
+    return { error: `duplicate tag "${dup}"` }
   }
 
   return {

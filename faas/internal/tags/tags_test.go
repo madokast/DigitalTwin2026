@@ -302,10 +302,10 @@ func TestRenameTagInTagsJSONDirty(t *testing.T) {
 }
 
 func TestValidateRename(t *testing.T) {
-	if r := ValidateRename("", "to_tag"); r.Valid || r.Error != "Missing required fields: from, to" {
+	if r := ValidateRename("", "to_tag"); r.Valid || r.Error != "missing required fields: from, to" {
 		t.Fatalf("empty from: %+v", r)
 	}
-	if r := ValidateRename("from_tag", ""); r.Valid || r.Error != "Missing required fields: from, to" {
+	if r := ValidateRename("from_tag", ""); r.Valid || r.Error != "missing required fields: from, to" {
 		t.Fatalf("empty to: %+v", r)
 	}
 	if r := ValidateRename("bad-tag", "ok"); r.Valid || r.Error != "from and to must be valid tag names" {

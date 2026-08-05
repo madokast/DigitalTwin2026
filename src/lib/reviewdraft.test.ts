@@ -111,9 +111,9 @@ describe('parseReview', () => {
 
   it('rejects blank raw_content / objective_context / ai_analysis', () => {
     for (const [key, value, want] of [
-      ['raw_content', '', 'Missing required field: raw_content'],
+      ['raw_content', '', 'missing required field: raw_content'],
       ['raw_content', '   ', 'raw_content must not be blank'],
-      ['objective_context', '', 'Missing required field: objective_context'],
+      ['objective_context', '', 'missing required field: objective_context'],
       ['objective_context', '   ', 'objective_context must not be blank'],
       ['ai_analysis', '   ', 'ai_analysis must not be blank'],
     ] as const) {
@@ -157,7 +157,7 @@ describe('parseReview', () => {
 
   it('rejects duplicate client tags', () => {
     expect(parseReview({ ...validBase, tags: ['work', 'work'] })).toEqual({
-      error: 'Duplicate tag "work"',
+      error: 'duplicate tag "work"',
     })
   })
 
@@ -165,7 +165,7 @@ describe('parseReview', () => {
     const parsed = parseReview({ ...validBase, tags: ['体重'] })
     expect('error' in parsed).toBe(true)
     if (!('error' in parsed)) return
-    expect(parsed.error).toContain('Invalid tag')
+    expect(parsed.error).toContain('invalid tag')
   })
 
   it('rejects non-string tags element', () => {

@@ -44,7 +44,7 @@ export function dayRangeToIso(
   const tz = timeZone || resolveTimezone()
   const [y, m, d] = dateYmd.split('-').map(Number)
   if (!y || !m || !d) {
-    throw new Error('Invalid date')
+    throw new Error('invalid date')
   }
   const { start, end } = calendarDayBounds(y, m, d, tz)
   return {
@@ -80,7 +80,7 @@ export function wallDateTimeToOffsetIso(
     /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/,
   )
   if (!match) {
-    throw new Error('Invalid datetime-local value')
+    throw new Error('invalid datetime-local value')
   }
   const year = Number(match[1])
   const month = Number(match[2])

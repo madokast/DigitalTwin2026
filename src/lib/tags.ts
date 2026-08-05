@@ -92,7 +92,7 @@ export function validateTags(tags: string[]): ValidationResult {
     if (!isValidTag(tag)) {
       return {
         valid: false,
-        error: `Invalid tag: "${tag}". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
+        error: `invalid tag: "${tag}". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
       }
     }
   }
@@ -103,7 +103,7 @@ export function validateTags(tags: string[]): ValidationResult {
 /**
  * 返回 tags 中第一个重复的 tag 名；无重复返回 null。
  * 各写入端点（numbers/text/todo/body/weight/review）在落库前调用，重复 → 400。
- * 文案由调用方拼：`Duplicate tag "${tag}"`（batch 端点加 `entries[i]:` 前缀）。
+ * 文案由调用方拼：`duplicate tag "${tag}"`（batch 端点加 `entries[i]:` 前缀）。
  */
 export function firstDuplicateTag(tagList: string[]): string | null {
   const seen = new Set<string>()
@@ -198,7 +198,7 @@ export function renameTagInTagsJson(
  */
 export function validateRename(from: string, to: string): ValidationResult {
   if (!from || !to) {
-    return { valid: false, error: 'Missing required fields: from, to' }
+    return { valid: false, error: 'missing required fields: from, to' }
   }
   if (!isValidTag(from) || !isValidTag(to)) {
     return { valid: false, error: 'from and to must be valid tag names' }

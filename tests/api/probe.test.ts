@@ -7,8 +7,8 @@ import { clearAccessTokenCacheForTests } from '@/lib/qqbot'
 /**
  * probe 契约（2026-08-04 与 Go 对齐）：
  * - 空 body → 发送默认文案 `DigitalTwin2026 probe`
- * - 非空但畸形 JSON / 尾部垃圾 → 400 `Invalid JSON body`，不发送
- * - 数组 / null 等非对象 → 400 `Request body must be a JSON object`
+ * - 非空但畸形 JSON / 尾部垃圾 → 400 `invalid JSON body`，不发送
+ * - 数组 / null 等非对象 → 400 `request body must be a JSON object`
  * - 未知键 → 400 `Unknown JSON key: <key>`
  * 全程 mock fetch，绝不对真实 Telegram / QQ 投递。
  */
@@ -102,14 +102,14 @@ for (const ep of endpoints) {
     it('malformed JSON → 400 Invalid JSON body, nothing sent', async () => {
       const res = await ep.run(rawPost('http://localhost', '{broken'))
       expect(res.status).toBe(400)
-      await expect(res.json()).resolves.toEqual({ error: 'Invalid JSON body' })
+      await expect(res.json()).resolves.toEqual({ error: 'invalid JSON body' })
       expect(fetchCalls).toHaveLength(0)
     })
 
     it('trailing garbage after valid JSON → 400, nothing sent', async () => {
       const res = await ep.run(rawPost('http://localhost', '{"text":"hi"} xyz'))
       expect(res.status).toBe(400)
-      await expect(res.json()).resolves.toEqual({ error: 'Invalid JSON body' })
+      await expect(res.json()).resolves.toEqual({ error: 'invalid JSON body' })
       expect(fetchCalls).toHaveLength(0)
     })
 
@@ -117,7 +117,7 @@ for (const ep of endpoints) {
       const res = await ep.run(rawPost('http://localhost', '[]'))
       expect(res.status).toBe(400)
       await expect(res.json()).resolves.toEqual({
-        error: 'Request body must be a JSON object',
+        error: 'request body must be a JSON object',
       })
       expect(fetchCalls).toHaveLength(0)
     })

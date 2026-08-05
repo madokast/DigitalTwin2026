@@ -73,7 +73,7 @@ describe('parseTransactionBatch', () => {
         happened_at: base.happened_at,
         entries: base.entries,
       }),
-    ).toEqual({ error: 'Missing required field: type' })
+    ).toEqual({ error: 'missing required field: type' })
 
     expect(
       parseTransactionBatch({
@@ -142,7 +142,7 @@ describe('parseTransactionBatch', () => {
       entries: [rest],
     })
     expect(parsed).toEqual({
-      error: 'entries[0]: Missing required field: amount',
+      error: 'entries[0]: missing required field: amount',
     })
   })
 
@@ -194,7 +194,7 @@ describe('parseTransactionBatch', () => {
         entries: 'x' as unknown as typeof base.entries,
       }),
     ).toEqual({
-      error: 'Missing required field: entries (non-empty array)',
+      error: 'missing required field: entries (non-empty array)',
     })
   })
 })

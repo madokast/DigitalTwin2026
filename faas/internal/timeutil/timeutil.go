@@ -66,7 +66,7 @@ func IsValidTimeZone(tz string) bool {
 func GetZonedDayBounds(now time.Time, tz string) (start, end time.Time, err error) {
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("Invalid time zone: %s", tz)
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid time zone: %s", tz)
 	}
 	local := now.In(loc)
 	y, m, d := local.Date()
@@ -79,7 +79,7 @@ func GetZonedDayBounds(now time.Time, tz string) (start, end time.Time, err erro
 func CalendarDayBounds(year, month, day int, tz string) (start, end time.Time, err error) {
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("Invalid time zone: %s", tz)
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid time zone: %s", tz)
 	}
 	start = time.Date(year, time.Month(month), day, 0, 0, 0, 0, loc)
 	end = start.AddDate(0, 0, 1)
@@ -92,7 +92,7 @@ func CalendarDayBounds(year, month, day int, tz string) (start, end time.Time, e
 func FormatNowInZone(now time.Time, tz string) (string, error) {
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
-		return "", fmt.Errorf("Invalid time zone: %s", tz)
+		return "", fmt.Errorf("invalid time zone: %s", tz)
 	}
 	return now.In(loc).Format("2006-01-02T15:04:05.000Z07:00"), nil
 }

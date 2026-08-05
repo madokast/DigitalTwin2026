@@ -95,37 +95,37 @@
     {
       "name": "invalid-id",
       "line": "{\"id\":\"not-a-uuid\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":\"[\\\"weight\\\"]\",\"objective_context\":\"x\",\"ai_analysis\":null}",
-      "error": "Invalid record id"
+      "error": "invalid record id"
     },
     {
       "name": "invalid-json",
       "line": "{not json",
-      "error": "Invalid JSON line"
+      "error": "invalid JSON line"
     },
     {
       "name": "tags-json-not-array",
       "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":\"{\\\"a\\\":1}\",\"objective_context\":\"x\",\"ai_analysis\":null}",
-      "error": "Invalid tags"
+      "error": "invalid tags"
     },
     {
       "name": "tags-as-number",
       "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":7,\"objective_context\":\"x\",\"ai_analysis\":null}",
-      "error": "Invalid tags"
+      "error": "invalid tags"
     },
     {
       "name": "tags-null",
       "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"tags\":null,\"objective_context\":\"x\",\"ai_analysis\":null}",
-      "error": "Invalid tags"
+      "error": "invalid tags"
     },
     {
       "name": "tags-missing",
       "line": "{\"id\":\"01900000-0000-7000-8000-000000000001\",\"happened_at\":\"2026-07-30T00:00:00.000Z\",\"numeric_value\":\"1\",\"raw_content\":null,\"objective_context\":\"x\",\"ai_analysis\":null}",
-      "error": "Missing required field: tags"
+      "error": "missing required field: tags"
     }
   ],
   "withLineNumber": {
     "lineNumber": 3,
     "line": "{not json",
-    "error": "line 3: Invalid JSON line"
+    "error": "line 3: invalid JSON line"
   }
 }

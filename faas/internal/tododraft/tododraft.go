@@ -251,18 +251,18 @@ func ParseTodoTransition(raw []byte) (NormalizedTodoTransition, error) {
 
 	id, ok := body.ID.(string)
 	if !ok || id == "" {
-		return NormalizedTodoTransition{}, fmt.Errorf("Missing required field: id")
+		return NormalizedTodoTransition{}, fmt.Errorf("missing required field: id")
 	}
 
 	if body.Target == nil {
-		return NormalizedTodoTransition{}, fmt.Errorf("Missing required field: target")
+		return NormalizedTodoTransition{}, fmt.Errorf("missing required field: target")
 	}
 	target, ok := body.Target.(string)
 	if !ok || target == "" {
 		if !ok {
 			return NormalizedTodoTransition{}, fmt.Errorf("%w", ErrInvalidTarget)
 		}
-		return NormalizedTodoTransition{}, fmt.Errorf("Missing required field: target")
+		return NormalizedTodoTransition{}, fmt.Errorf("missing required field: target")
 	}
 	if !isValidTodoState(target) {
 		return NormalizedTodoTransition{}, fmt.Errorf("%w", ErrInvalidTarget)
@@ -289,7 +289,7 @@ func happenedAtString(raw any) string {
 func parseCreatedAt(raw any) (time.Time, string, error) {
 	s, ok := raw.(string)
 	if !ok || s == "" {
-		return time.Time{}, "", fmt.Errorf("Missing required field: created_at")
+		return time.Time{}, "", fmt.Errorf("missing required field: created_at")
 	}
 	t, offset, err := draft.ParseHappenedAt(s)
 	if err != nil {
@@ -328,7 +328,7 @@ func parseOptionalClientTags(raw any) ([]string, error) {
 	for _, tag := range out {
 		if !tags.IsValidTag(tag) {
 			return nil, fmt.Errorf(
-				`Invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
+				`invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number`,
 				tag,
 			)
 		}
@@ -337,7 +337,7 @@ func parseOptionalClientTags(raw any) ([]string, error) {
 		return nil, fmt.Errorf("%s", rv.Error)
 	}
 	if dup := tags.FirstDuplicateTag(out); dup != "" {
-		return nil, fmt.Errorf("Duplicate tag \"%s\"", dup)
+		return nil, fmt.Errorf("duplicate tag \"%s\"", dup)
 	}
 	return out, nil
 }

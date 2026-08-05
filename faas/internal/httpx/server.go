@@ -35,9 +35,9 @@ import (
 const MaxBodyBytes = 256 * 1024
 
 // ErrBodyTooLarge / BodyTooLargeMessage 与 Next REQUEST_BODY_TOO_LARGE 同文案。
-var ErrBodyTooLarge = errors.New("Request body too large")
+var ErrBodyTooLarge = errors.New("request body too large")
 
-const BodyTooLargeMessage = "Request body too large"
+const BodyTooLargeMessage = "request body too large"
 
 type Server struct {
 	Pool     *pgxpool.Pool
@@ -233,7 +233,7 @@ func readBodyOrError(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 			writeError(w, http.StatusRequestEntityTooLarge, BodyTooLargeMessage)
 			return nil, false
 		}
-		writeError(w, http.StatusBadRequest, "Invalid JSON body")
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return nil, false
 	}
 	return raw, true
@@ -578,7 +578,7 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 		To   any `json:"to"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid JSON body")
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 	from := ""

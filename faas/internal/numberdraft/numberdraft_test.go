@@ -72,7 +72,7 @@ func TestParseNumberBatchErrors(t *testing.T) {
 		{
 			"missing happened_at",
 			`{"entries":[{"numeric_value":"1","memo":"x"}]}`,
-			"Missing required field: happened_at",
+			"missing required field: happened_at",
 		},
 		{
 			"unknown top-level key",
@@ -82,7 +82,7 @@ func TestParseNumberBatchErrors(t *testing.T) {
 		{
 			"missing entries",
 			`{"happened_at":"2026-08-05T10:00:00+08:00"}`,
-			"Missing required field: entries (non-empty array)",
+			"missing required field: entries (non-empty array)",
 		},
 		{
 			"empty entries",
@@ -102,12 +102,12 @@ func TestParseNumberBatchErrors(t *testing.T) {
 		{
 			"missing numeric_value",
 			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[{"memo":"x"}]}`,
-			"entries[0]: Missing required field: numeric_value",
+			"entries[0]: missing required field: numeric_value",
 		},
 		{
 			"null numeric_value",
 			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[{"numeric_value":null,"memo":"x"}]}`,
-			"entries[0]: Missing required field: numeric_value",
+			"entries[0]: missing required field: numeric_value",
 		},
 		{
 			"json number numeric_value",
@@ -117,12 +117,12 @@ func TestParseNumberBatchErrors(t *testing.T) {
 		{
 			"invalid decimal numeric_value",
 			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[{"numeric_value":"1e3","memo":"x"}]}`,
-			"entries[0]: Invalid numeric_value",
+			"entries[0]: invalid numeric_value",
 		},
 		{
 			"missing memo",
 			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[{"numeric_value":"1"}]}`,
-			"entries[0]: Missing required field: memo",
+			"entries[0]: missing required field: memo",
 		},
 		{
 			"blank memo",
@@ -132,7 +132,7 @@ func TestParseNumberBatchErrors(t *testing.T) {
 		{
 			"invalid tag",
 			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[{"numeric_value":"1","memo":"x","tags":["体重"]}]}`,
-			`entries[0]: Invalid tag: "体重". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
+			`entries[0]: invalid tag: "体重". Tags must contain only letters, numbers, underscores, and cannot start with a number`,
 		},
 		{
 			"reserved tag",
@@ -203,7 +203,7 @@ func TestParseNumberBatchDuplicateTags(t *testing.T) {
 		"happened_at":"2026-08-05T10:00:00+08:00",
 		"entries":[{"numeric_value":"1","memo":"x","tags":["a","b","a"]}]
 	}`))
-	if err == nil || err.Error() != `entries[0]: Duplicate tag "a"` {
+	if err == nil || err.Error() != `entries[0]: duplicate tag "a"` {
 		t.Fatalf("err: %v", err)
 	}
 }

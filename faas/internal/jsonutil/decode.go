@@ -11,10 +11,10 @@ import (
 )
 
 // ErrInvalidJSONBody 与 Next INVALID_JSON_BODY 同文案。
-var ErrInvalidJSONBody = errors.New("Invalid JSON body")
+var ErrInvalidJSONBody = errors.New("invalid JSON body")
 
 // ErrBodyMustBeObject 与 Next BODY_MUST_BE_OBJECT 同文案。
-var ErrBodyMustBeObject = errors.New("Request body must be a JSON object")
+var ErrBodyMustBeObject = errors.New("request body must be a JSON object")
 
 // UnknownJSONKeyPrefix 与 Next UNKNOWN_JSON_KEY_PREFIX 对齐。
 const UnknownJSONKeyPrefix = "Unknown JSON key: "

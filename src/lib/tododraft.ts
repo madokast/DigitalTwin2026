@@ -252,11 +252,11 @@ export function parseTodoTransition(
   }
 
   if (!body.id || typeof body.id !== 'string') {
-    return { error: 'Missing required field: id' }
+    return { error: 'missing required field: id' }
   }
 
   if (body.target === undefined || body.target === null || body.target === '') {
-    return { error: 'Missing required field: target' }
+    return { error: 'missing required field: target' }
   }
   if (typeof body.target !== 'string') {
     return { error: ERR_INVALID_TARGET }
@@ -283,7 +283,7 @@ function parseCreatedAt(
   raw: unknown,
 ): { ok: true; value: Date; utcOffset: string } | DraftValidationError {
   if (typeof raw !== 'string' || !raw) {
-    return { error: 'Missing required field: created_at' }
+    return { error: 'missing required field: created_at' }
   }
   const result = parseHappenedAt(raw)
   if ('error' in result) {
@@ -314,7 +314,7 @@ function parseOptionalClientTags(
   for (const tag of list) {
     if (!isValidTag(tag)) {
       return {
-        error: `Invalid tag: "${tag}". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
+        error: `invalid tag: "${tag}". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
       }
     }
   }
@@ -324,7 +324,7 @@ function parseOptionalClientTags(
   }
   const dup = firstDuplicateTag(list)
   if (dup !== null) {
-    return { error: `Duplicate tag "${dup}"` }
+    return { error: `duplicate tag "${dup}"` }
   }
   return { ok: true, value: list }
 }

@@ -17,7 +17,7 @@ func TestLoadConfig(t *testing.T) {
 	if cfg.Configured() {
 		t.Fatal("expected not configured")
 	}
-	if ConfigError(cfg) != "Telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)" {
+	if ConfigError(cfg) != "telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)" {
 		t.Fatalf("error: %q", ConfigError(cfg))
 	}
 
@@ -27,7 +27,7 @@ func TestLoadConfig(t *testing.T) {
 		}
 		return ""
 	})
-	if ConfigError(cfg) != "Telegram is not configured (missing TELEGRAM_USER_ID)" {
+	if ConfigError(cfg) != "telegram is not configured (missing TELEGRAM_USER_ID)" {
 		t.Fatalf("error: %q", ConfigError(cfg))
 	}
 

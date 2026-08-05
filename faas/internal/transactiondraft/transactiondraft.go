@@ -23,7 +23,7 @@ var moneyAmountPattern = regexp.MustCompile(`^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,2})
 
 var (
 	ErrAmountMustBeString = errors.New("amount must be a decimal string")
-	ErrInvalidAmount      = errors.New("Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5")
+	ErrInvalidAmount      = errors.New("invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5")
 )
 
 // TransactionEntryInput 单条 entry 原始输入（any：字段级校验文案与 Next 对齐）。
@@ -139,7 +139,7 @@ func NormalizeMoneyAmount2(s string) string {
 
 func parseType(raw any) (string, error) {
 	if raw == nil || raw == "" {
-		return "", fmt.Errorf("Missing required field: type")
+		return "", fmt.Errorf("missing required field: type")
 	}
 	s, ok := raw.(string)
 	if !ok || (s != "income" && s != "expense") {
@@ -150,7 +150,7 @@ func parseType(raw any) (string, error) {
 
 func parseAmount(raw any) (string, error) {
 	if raw == nil {
-		return "", fmt.Errorf("Missing required field: amount")
+		return "", fmt.Errorf("missing required field: amount")
 	}
 	switch v := raw.(type) {
 	case string:
@@ -172,11 +172,11 @@ func parseAmount(raw any) (string, error) {
 func parseSegment(raw any, field string) (string, error) {
 	s, ok := raw.(string)
 	if !ok || s == "" {
-		return "", fmt.Errorf("Missing required field: %s", field)
+		return "", fmt.Errorf("missing required field: %s", field)
 	}
 	// 仅 ASCII 空白（与 Next /[ \t\n\r]/ 一致；不用 unicode.IsSpace）
 	if strings.ContainsAny(s, " \t\n\r") || strings.Contains(s, ":") || !segmentPattern.MatchString(s) {
-		return "", fmt.Errorf("Invalid %s: must be a single identifier without spaces or colons", field)
+		return "", fmt.Errorf("invalid %s: must be a single identifier without spaces or colons", field)
 	}
 	return s, nil
 }
@@ -217,7 +217,7 @@ func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, err
 	}
 	composite := category + ":" + subcategory
 	if !tags.IsValidTag(composite) {
-		return NormalizedTransactionEntry{}, fmt.Errorf("%sInvalid category/subcategory combination", prefix)
+		return NormalizedTransactionEntry{}, fmt.Errorf("%sinvalid category/subcategory combination", prefix)
 	}
 	// 语义：type + 正 amount = 正常；type + 负 amount = 该类型冲销。
 	// 整单共用 type；落库 tags 含 transaction_entry:{type}。
@@ -248,11 +248,11 @@ func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, error) {
 		return NormalizedTransactionBatch{}, err
 	}
 	if body.Entries == nil {
-		return NormalizedTransactionBatch{}, fmt.Errorf("Missing required field: entries (non-empty array)")
+		return NormalizedTransactionBatch{}, fmt.Errorf("missing required field: entries (non-empty array)")
 	}
 	entryList, ok := body.Entries.([]any)
 	if !ok {
-		return NormalizedTransactionBatch{}, fmt.Errorf("Missing required field: entries (non-empty array)")
+		return NormalizedTransactionBatch{}, fmt.Errorf("missing required field: entries (non-empty array)")
 	}
 	if len(entryList) == 0 {
 		return NormalizedTransactionBatch{}, fmt.Errorf("entries must be a non-empty array")

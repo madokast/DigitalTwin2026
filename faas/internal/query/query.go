@@ -23,10 +23,10 @@ import (
 )
 
 // ErrInvalidTZ 与 Next fetchSummary 文案一致；httpx 用 errors.Is 映射 400。
-var ErrInvalidTZ = errors.New("Query parameter tz must be a valid IANA time zone")
+var ErrInvalidTZ = errors.New("query parameter tz must be a valid IANA time zone")
 
 // invalidTagQueryMsg 与 Next INVALID_TAG_QUERY 同文案；%s 为非法 tag 查询值。
-const invalidTagQueryMsg = "Invalid tag query \"%s\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
+const invalidTagQueryMsg = "invalid tag query \"%s\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
 
 // tagQueryWildcard 仅接受 `合法tag名:*` 尾缀通配；其余含 `*` 形态 → invalidTagQueryMsg。
 var tagQueryWildcard = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*:\*$`)
@@ -107,7 +107,7 @@ func parseIsoDate(raw, label string) (*time.Time, error) {
 	}
 	t, err := timeutil.ParseRFC3339Flexible(raw)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid %s datetime", label)
+		return nil, fmt.Errorf("invalid %s datetime", label)
 	}
 	return &t, nil
 }
@@ -444,25 +444,25 @@ type ParsedTransactionsSummaryRange struct {
 func ParseTransactionsSummaryParams(q url.Values) (*ParsedTransactionsSummaryRange, error) {
 	fromRaw := q.Get("from")
 	if fromRaw == "" {
-		return nil, fmt.Errorf("Missing required query parameter: from")
+		return nil, fmt.Errorf("missing required query parameter: from")
 	}
 	toRaw := q.Get("to")
 	if toRaw == "" {
-		return nil, fmt.Errorf("Missing required query parameter: to")
+		return nil, fmt.Errorf("missing required query parameter: to")
 	}
 	from, err := parseIsoDate(fromRaw, "from")
 	if err != nil {
 		return nil, err
 	}
 	if from == nil {
-		return nil, fmt.Errorf("Missing required query parameter: from")
+		return nil, fmt.Errorf("missing required query parameter: from")
 	}
 	to, err := parseIsoDate(toRaw, "to")
 	if err != nil {
 		return nil, err
 	}
 	if to == nil {
-		return nil, fmt.Errorf("Missing required query parameter: to")
+		return nil, fmt.Errorf("missing required query parameter: to")
 	}
 	if !from.Before(*to) {
 		return nil, fmt.Errorf("from must be earlier than to")

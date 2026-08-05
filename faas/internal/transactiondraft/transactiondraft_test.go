@@ -72,7 +72,7 @@ func TestParseTransactionBatchRejectsMissingType(t *testing.T) {
 		"entries": [{"amount": "25.00", "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
 	_, err := ParseTransactionBatch(raw)
-	if err == nil || err.Error() != "Missing required field: type" {
+	if err == nil || err.Error() != "missing required field: type" {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -169,7 +169,7 @@ func TestParseTransactionBatchRejectsBadCategory(t *testing.T) {
 			"entries": [{"amount": "25.00", "memo": "x", "category": "` + cat + `", "subcategory": "lunch"}]
 		}`)
 		_, err := ParseTransactionBatch(raw)
-		if err == nil || !strings.Contains(err.Error(), "Invalid category") {
+		if err == nil || !strings.Contains(err.Error(), "invalid category") {
 			t.Fatalf("category %q: err=%v", cat, err)
 		}
 	}

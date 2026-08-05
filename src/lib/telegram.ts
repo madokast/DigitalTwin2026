@@ -7,7 +7,7 @@ export const TELEGRAM_HTTP_TIMEOUT_MS = 15_000
 
 /** fetch/超时等传输失败：固定英文，避免 AbortError 与 Go deadline 文案分叉 */
 export const TELEGRAM_TRANSPORT_FAILED =
-  'Telegram sendMessage failed: request failed' as const
+  'telegram sendMessage failed: request failed' as const
 
 export type EnvLike = {
   TELEGRAM_BOT_TOKEN?: string
@@ -78,9 +78,9 @@ export function configError(env: EnvLike = processEnvLike()): string | null {
   const cfg = loadConfig(env)
   if (cfg.configured) return null
   if (cfg.missing.length === 2) {
-    return 'Telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)'
+    return 'telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)'
   }
-  return `Telegram is not configured (missing ${cfg.missing.join(', ')})`
+  return `telegram is not configured (missing ${cfg.missing.join(', ')})`
 }
 
 /** 英文纯文本排版，非 JSON 倾倒；时间串原样（须已 format） */
@@ -198,7 +198,7 @@ export async function sendTelegramMessage(
     }
 
     const reason = description || `HTTP ${res.status}`
-    return { ok: false, error: `Telegram sendMessage failed: ${reason}` }
+    return { ok: false, error: `telegram sendMessage failed: ${reason}` }
   } catch {
     return { ok: false, error: TELEGRAM_TRANSPORT_FAILED }
   }

@@ -12,7 +12,7 @@ func TestCreateTextTypeMismatchMessages(t *testing.T) {
 	t.Parallel()
 	raw := `{"happened_at":"2026-07-30T08:00:00Z","raw_content":123,"tags":["study"],"objective_context":"x"}`
 	_, status, err := CreateText(context.Background(), nil, []byte(raw))
-	if status != 400 || err == nil || err.Error() != "Missing required field: raw_content" {
+	if status != 400 || err == nil || err.Error() != "missing required field: raw_content" {
 		t.Fatalf("status=%d err=%v", status, err)
 	}
 }
@@ -38,7 +38,7 @@ func TestCreateTodoRejects(t *testing.T) {
 	}{
 		{
 			`{"content":"Buy milk","objective_context":"x"}`,
-			"Missing required field: created_at",
+			"missing required field: created_at",
 		},
 		{
 			`{"created_at":"2026-08-02T10:00:00+08:00","content":"Buy milk","objective_context":"x","tags":["todo:in_progress"]}`,
@@ -65,7 +65,7 @@ func TestTransitionTodoRejectsValidation(t *testing.T) {
 	}{
 		{
 			`{"target":"completed","happened_at":"2026-08-02T12:00:00+08:00"}`,
-			"Missing required field: id",
+			"missing required field: id",
 		},
 		{
 			`{"id":"01900000-0000-7000-8000-000000000003","target":"done","happened_at":"2026-08-02T12:00:00+08:00"}`,

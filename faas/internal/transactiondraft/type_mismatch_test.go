@@ -9,7 +9,7 @@ func TestParseTransactionBatchTypeMismatchMessages(t *testing.T) {
 		want string
 	}{
 		{`{"happened_at":"2026-07-30T08:00:00Z","type":123,"entries":[{"amount":"1","memo":"m","category":"food","subcategory":"lunch"}]}`, `type must be "income" or "expense"`},
-		{`{"happened_at":"2026-07-30T08:00:00Z","type":"expense","entries":"x"}`, "Missing required field: entries (non-empty array)"},
+		{`{"happened_at":"2026-07-30T08:00:00Z","type":"expense","entries":"x"}`, "missing required field: entries (non-empty array)"},
 	}
 	for _, c := range cases {
 		_, err := ParseTransactionBatch([]byte(c.raw))

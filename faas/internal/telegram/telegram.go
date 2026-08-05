@@ -20,7 +20,7 @@ import (
 const HTTPTimeout = 15 * time.Second
 
 // ErrTransportFailedMessage 与 Next TELEGRAM_TRANSPORT_FAILED 同文案（超时/网络等）。
-var ErrTransportFailedMessage = errors.New("Telegram sendMessage failed: request failed")
+var ErrTransportFailedMessage = errors.New("telegram sendMessage failed: request failed")
 
 // Config 为非空 token + user id 才算 configured。
 type Config struct {
@@ -56,9 +56,9 @@ func ConfigError(cfg Config) string {
 		return ""
 	}
 	if len(cfg.Missing) == 2 {
-		return "Telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)"
+		return "telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)"
 	}
-	return "Telegram is not configured (missing " + strings.Join(cfg.Missing, ", ") + ")"
+	return "telegram is not configured (missing " + strings.Join(cfg.Missing, ", ") + ")"
 }
 
 func formatTags(tags []string) string {
@@ -169,7 +169,7 @@ func (s *Sender) SendMessage(text string) error {
 	if reason == "" {
 		reason = fmt.Sprintf("HTTP %d", res.StatusCode)
 	}
-	return fmt.Errorf("Telegram sendMessage failed: %s", reason)
+	return fmt.Errorf("telegram sendMessage failed: %s", reason)
 }
 
 // FormatTransactionBatchMessage 整单摘要。

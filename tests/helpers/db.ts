@@ -34,7 +34,7 @@ export function assertSafeTestDatabaseUrl(url: string): void {
 
   if (!looksLikeTest) {
     throw new Error(
-      'Refusing DATABASE_URL: hostname or database name must contain "test" (case-insensitive) or "TestDigitalTwin". ' +
+      'refusing DATABASE_URL: hostname or database name must contain "test" (case-insensitive) or "TestDigitalTwin". ' +
         'Set ALLOW_TEST_DB_WIPE=1 does not bypass this check. ' +
         SAFE_TEST_DATABASE_HINT,
     )

@@ -9,7 +9,7 @@ const INTL_ONLY_TIME_ZONES = new Set([
 
 /** 与 Go query.ErrInvalidTZ / summary 同文案；/api/time 400 用 */
 export const INVALID_IANA_TZ_ERROR =
-  'Query parameter tz must be a valid IANA time zone'
+  'query parameter tz must be a valid IANA time zone'
 
 /** 校验 IANA 时区名：须同时被 Intl 与 Go tzdata 接受 */
 export function isValidTimeZone(tz: string): boolean {
@@ -130,7 +130,7 @@ export function getZonedDayBounds(
   timeZone: string,
 ): { start: Date; end: Date } {
   if (!isValidTimeZone(timeZone)) {
-    throw new Error(`Invalid time zone: ${timeZone}`)
+    throw new Error(`invalid time zone: ${timeZone}`)
   }
 
   const { year, month, day } = zonedParts(now, timeZone)
@@ -145,7 +145,7 @@ export function calendarDayBounds(
   timeZone: string,
 ): { start: Date; end: Date } {
   if (!isValidTimeZone(timeZone)) {
-    throw new Error(`Invalid time zone: ${timeZone}`)
+    throw new Error(`invalid time zone: ${timeZone}`)
   }
 
   const start = zonedLocalToUtc(year, month, day, 0, 0, 0, timeZone)

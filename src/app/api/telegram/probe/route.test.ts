@@ -28,7 +28,7 @@ describe('POST /api/telegram/probe', () => {
     const res = await POST(probeRequest())
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'Telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)',
+      error: 'telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)',
     })
   })
 
@@ -39,7 +39,7 @@ describe('POST /api/telegram/probe', () => {
     const res = await POST(probeRequest())
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'Telegram is not configured (missing TELEGRAM_USER_ID)',
+      error: 'telegram is not configured (missing TELEGRAM_USER_ID)',
     })
   })
 
@@ -58,7 +58,7 @@ describe('POST /api/telegram/probe', () => {
     const res = await POST(probeRequest())
     expect(res.status).toBe(502)
     await expect(res.json()).resolves.toEqual({
-      error: 'Telegram sendMessage failed: chat not found',
+      error: 'telegram sendMessage failed: chat not found',
     })
   })
 

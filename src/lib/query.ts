@@ -53,7 +53,7 @@ export type ParseError = { error: string }
  * 与 Go `query.ParseRecordQueryParams` 同文案同判定。
  */
 export const INVALID_TAG_QUERY =
-  'Invalid tag query "%s": use a valid tag name or a family pattern "tag=review:*" (a single "*" at the end, prefix must be non-empty)'
+  'invalid tag query "%s": use a valid tag name or a family pattern "tag=review:*" (a single "*" at the end, prefix must be non-empty)'
 
 /** `*` 仅允许作为 `合法tag名:*` 尾缀；`*` 之前必须是合法 tag 名加冒号 */
 const TAG_QUERY_WILDCARD = /^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*:\*$/
@@ -93,7 +93,7 @@ function parseIsoDate(raw: string | null, label: string): Date | ParseError | nu
   }
   const d = parseRFC3339Flexible(raw)
   if (!d) {
-    return { error: `Invalid ${label} datetime` }
+    return { error: `invalid ${label} datetime` }
   }
   return d
 }
@@ -270,7 +270,7 @@ export async function fetchSummary(
   now: Date = new Date(),
 ): Promise<SummaryResult | { error: string }> {
   if (!tz || !isValidTimeZone(tz)) {
-    return { error: 'Query parameter tz must be a valid IANA time zone' }
+    return { error: 'query parameter tz must be a valid IANA time zone' }
   }
 
   const { start, end } = getZonedDayBounds(now, tz)
@@ -351,22 +351,22 @@ export function parseTransactionsSummaryParams(
 ): ParsedTransactionsSummaryRange | ParseError {
   const fromRaw = searchParams.get('from')
   if (fromRaw === null || fromRaw === '') {
-    return { error: 'Missing required query parameter: from' }
+    return { error: 'missing required query parameter: from' }
   }
   const toRaw = searchParams.get('to')
   if (toRaw === null || toRaw === '') {
-    return { error: 'Missing required query parameter: to' }
+    return { error: 'missing required query parameter: to' }
   }
 
   const from = parseIsoDate(fromRaw, 'from')
   if (from && 'error' in from) return from
   if (!(from instanceof Date)) {
-    return { error: 'Missing required query parameter: from' }
+    return { error: 'missing required query parameter: from' }
   }
   const to = parseIsoDate(toRaw, 'to')
   if (to && 'error' in to) return to
   if (!(to instanceof Date)) {
-    return { error: 'Missing required query parameter: to' }
+    return { error: 'missing required query parameter: to' }
   }
 
   if (from.getTime() >= to.getTime()) {

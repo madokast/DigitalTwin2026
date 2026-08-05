@@ -4,10 +4,10 @@
  * 超过 MaxBodyBytes → 413（与 Go readBody 对齐）。
  */
 
-export const INVALID_JSON_BODY = 'Invalid JSON body' as const
+export const INVALID_JSON_BODY = 'invalid JSON body' as const
 /** 与 Go httpx.MaxBodyBytes（256 KiB）对齐 */
 export const MAX_HTTP_BODY_BYTES = 256 * 1024
-export const REQUEST_BODY_TOO_LARGE = 'Request body too large' as const
+export const REQUEST_BODY_TOO_LARGE = 'request body too large' as const
 /** 与 Go jsonutil.ErrBodyMustBeObject 同文案（对齐 RejectUnknownObjectKeys 先拒绝非对象） */
 import { BODY_MUST_BE_OBJECT } from '@/lib/unknown-keys'
 

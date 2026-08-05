@@ -252,7 +252,7 @@ func TestWriteEndpointsRejectTrailingGarbageAfterJSON(t *testing.T) {
 		}
 		var body map[string]string
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if body["error"] != "Invalid JSON body" {
+		if body["error"] != "invalid JSON body" {
 			t.Fatalf("%s %s: error %v", tc.method, tc.path, body)
 		}
 	}
@@ -286,7 +286,7 @@ func TestWriteEndpointsRejectNonObjectJSON(t *testing.T) {
 			}
 			var body map[string]string
 			_ = json.Unmarshal(rr.Body.Bytes(), &body)
-			if body["error"] != "Request body must be a JSON object" {
+			if body["error"] != "request body must be a JSON object" {
 				t.Fatalf("%s %s body=%s: error %v", tc.method, tc.path, payload, body)
 			}
 		}
@@ -426,7 +426,7 @@ func TestLogReviewRejectsMissingCadence(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "Missing required field: cadence" {
+	if body["error"] != "missing required field: cadence" {
 		t.Fatalf("error: %v", body)
 	}
 }
@@ -449,7 +449,7 @@ func TestLogReviewRejectsInvalidCadence(t *testing.T) {
 		}
 		var body map[string]string
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if body["error"] != "Invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly" {
+		if body["error"] != "invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly" {
 			t.Fatalf("%q: error %v", cadence, body)
 		}
 	}
@@ -540,7 +540,7 @@ func TestLogNumberRejectsWhitespacePaddedTag(t *testing.T) {
 		}
 		var body map[string]string
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if !strings.Contains(body["error"], "Invalid tag") {
+		if !strings.Contains(body["error"], "invalid tag") {
 			t.Fatalf("%q: error %v", bad, body["error"])
 		}
 	}
@@ -659,7 +659,7 @@ func TestSummaryInvalidTZWithoutDB(t *testing.T) {
 		}
 		var body map[string]string
 		_ = json.Unmarshal(rr.Body.Bytes(), &body)
-		if body["error"] != "Query parameter tz must be a valid IANA time zone" {
+		if body["error"] != "query parameter tz must be a valid IANA time zone" {
 			t.Fatalf("tz=%s error=%v", tz, body)
 		}
 	}
@@ -690,7 +690,7 @@ func TestTagQueryWildcardAndHintWithoutDB(t *testing.T) {
 			t.Fatalf("%s status %d body %v", url, code, body)
 		}
 		errMsg, _ := body["error"].(string)
-		if !strings.Contains(errMsg, "Invalid tag query") {
+		if !strings.Contains(errMsg, "invalid tag query") {
 			t.Fatalf("%s error=%v", url, body["error"])
 		}
 	}
@@ -734,7 +734,7 @@ func TestTimeEndpointWithoutDB(t *testing.T) {
 		if code != 400 {
 			t.Fatalf("%s status %d body %v", url, code, body)
 		}
-		if body["error"] != "Query parameter tz must be a valid IANA time zone" {
+		if body["error"] != "query parameter tz must be a valid IANA time zone" {
 			t.Fatalf("%s error=%v", url, body)
 		}
 	}
@@ -746,9 +746,9 @@ func TestTransactionsSummaryMissingParamsWithoutDB(t *testing.T) {
 		url  string
 		want string
 	}{
-		{"/api/query/transactions/summary", "Missing required query parameter: from"},
-		{"/api/query/transactions/summary?to=2026-08-01T00:00:00Z", "Missing required query parameter: from"},
-		{"/api/query/transactions/summary?from=2026-07-01T00:00:00Z", "Missing required query parameter: to"},
+		{"/api/query/transactions/summary", "missing required query parameter: from"},
+		{"/api/query/transactions/summary?to=2026-08-01T00:00:00Z", "missing required query parameter: from"},
+		{"/api/query/transactions/summary?from=2026-07-01T00:00:00Z", "missing required query parameter: to"},
 		{
 			"/api/query/transactions/summary?from=2026-07-01T00:00:00Z&to=2026-07-01T00:00:00Z",
 			"from must be earlier than to",
@@ -843,7 +843,7 @@ func TestTelegramProbeMalformedJSON(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "Invalid JSON body" {
+	if body["error"] != "invalid JSON body" {
 		t.Fatalf("error: %v", body)
 	}
 	if botCalls.Load() != 0 {
@@ -985,7 +985,7 @@ func TestQqbotProbeMalformedJSON(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["error"] != "Invalid JSON body" {
+	if body["error"] != "invalid JSON body" {
 		t.Fatalf("error: %v", body)
 	}
 	if tokenCalls.Load() != 0 || sendCalls.Load() != 0 {

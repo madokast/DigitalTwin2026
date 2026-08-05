@@ -3,7 +3,7 @@
  * 错误文案英文：Unknown JSON key: <name>
  */
 export const UNKNOWN_JSON_KEY_PREFIX = 'Unknown JSON key: '
-export const BODY_MUST_BE_OBJECT = 'Request body must be a JSON object'
+export const BODY_MUST_BE_OBJECT = 'request body must be a JSON object'
 
 /** 非对象 / 数组 / null → BODY_MUST_BE_OBJECT；未知键 → Unknown JSON key: …（按键名排序取第一个） */
 export function rejectUnknownKeys(

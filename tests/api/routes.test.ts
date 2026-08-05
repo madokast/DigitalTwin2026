@@ -92,7 +92,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ tags })))
         expect(res.status, JSON.stringify(tags)).toBe(400)
         const body = await res.json()
-        expect(body.error, JSON.stringify(tags)).toContain('Invalid tag')
+        expect(body.error, JSON.stringify(tags)).toContain('invalid tag')
       }
     })
 
@@ -190,7 +190,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         const res = await postNumbers(jsonPost('http://localhost/api/log/numbers', validEntry({ numeric_value: bad })))
         expect(res.status).toBe(400)
         expect((await res.json()).error).toBe(
-          'entries[0]: Invalid numeric_value',
+          'entries[0]: invalid numeric_value',
         )
       }
     })
@@ -202,7 +202,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(
-        'entries[0]: Missing required field: memo',
+        'entries[0]: missing required field: memo',
       )
     })
 
@@ -355,7 +355,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         jsonPost('http://localhost/api/log/review', withoutCadence),
       )
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('Missing required field: cadence')
+      expect((await res.json()).error).toBe('missing required field: cadence')
     })
 
     it('rejects invalid cadence with all allowed values', async () => {
@@ -368,7 +368,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         )
         expect(res.status, cadence).toBe(400)
         expect((await res.json()).error).toBe(
-          'Invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly',
+          'invalid cadence: must be one of daily, weekly, monthly, quarterly, semiannually, yearly',
         )
       }
     })
@@ -474,7 +474,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(
-        'entries[0]: Invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5',
+        'entries[0]: invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5',
       )
     })
 
@@ -560,7 +560,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe(
-        'Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50',
+        'invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50',
       )
     })
   })
@@ -592,7 +592,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'x',
       }))
       expect(missing.status).toBe(400)
-      expect((await missing.json()).error).toBe('Missing required field: content')
+      expect((await missing.json()).error).toBe('missing required field: content')
 
       const reserved = await postTodo(jsonPost('http://localhost/api/log/todo', {
         created_at: '2026-08-02T10:00:00+08:00',
@@ -920,7 +920,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         expect(res.status, url).toBe(400)
         const body = await res.json()
         expect(body.error, url).toBe(
-          'Query parameter tz must be a valid IANA time zone',
+          'query parameter tz must be a valid IANA time zone',
         )
       }
     })
@@ -950,7 +950,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     it('deforms todo rows with created_at/content; keeps default keys for others', async () => {
       const created = await postTodo(jsonPost('http://localhost/api/log/todo', {
         created_at: '2026-08-02T10:00:00+08:00',
-        content: 'Query deform smoke',
+        content: 'query deform smoke',
         objective_context: 'phase4',
         tags: ['errand'],
       }))
@@ -970,7 +970,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       expect(row).toBeTruthy()
       expect(row!.created_at).toBe(todo.created_at)
       expect(row!.created_at).toBe('2026-08-02T10:00:00.000+08:00')
-      expect(row!.content).toBe('Query deform smoke')
+      expect(row!.content).toBe('query deform smoke')
       expect(row!).not.toHaveProperty('happened_at')
       expect(row!).not.toHaveProperty('raw_content')
 
@@ -1106,7 +1106,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         const res = await queryRecords(jsonGet(url))
         expect(res.status, url).toBe(400)
         const body = await res.json()
-        expect(body.error, url).toMatch(/^Invalid tag query/)
+        expect(body.error, url).toMatch(/^invalid tag query/)
       }
     })
 
@@ -1436,7 +1436,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         ),
       )
       expect(badFrom.status).toBe(400)
-      expect((await badFrom.json()).error).toBe('Invalid record id')
+      expect((await badFrom.json()).error).toBe('invalid record id')
     })
 
     it('returns 404 when from uuid does not exist', async () => {
@@ -1587,7 +1587,7 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         ),
       )
       expect(bad.status).toBe(400)
-      expect((await bad.json()).error).toBe('line 2: Invalid JSON line')
+      expect((await bad.json()).error).toBe('line 2: invalid JSON line')
       const listed2 = await queryRecords(
         jsonGet('http://localhost/api/query?page_size=10'),
       )

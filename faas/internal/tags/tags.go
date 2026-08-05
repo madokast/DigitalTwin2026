@@ -77,7 +77,7 @@ func ValidateTags(tags []string) ValidationResult {
 			return ValidationResult{
 				Valid: false,
 				Error: fmt.Sprintf(
-					`Invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
+					`invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number`,
 					tag,
 				),
 			}
@@ -103,7 +103,7 @@ func FirstDuplicateTag(tagList []string) string {
 // ValidateRename rename 业务校验：非空、合法 tag、非保留、from≠to。调用方应先 trim。
 func ValidateRename(from, to string) ValidationResult {
 	if from == "" || to == "" {
-		return ValidationResult{Valid: false, Error: "Missing required fields: from, to"}
+		return ValidationResult{Valid: false, Error: "missing required fields: from, to"}
 	}
 	if !IsValidTag(from) || !IsValidTag(to) {
 		return ValidationResult{Valid: false, Error: "from and to must be valid tag names"}

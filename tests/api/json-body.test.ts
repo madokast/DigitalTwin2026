@@ -43,20 +43,20 @@ describe('malformed / empty JSON body → 400', () => {
     it(`${c.name}: empty body`, async () => {
       const res = await c.run('')
       expect(res.status).toBe(400)
-      await expect(res.json()).resolves.toEqual({ error: 'Invalid JSON body' })
+      await expect(res.json()).resolves.toEqual({ error: 'invalid JSON body' })
     })
 
     it(`${c.name}: malformed JSON`, async () => {
       const res = await c.run('{not-json')
       expect(res.status).toBe(400)
-      await expect(res.json()).resolves.toEqual({ error: 'Invalid JSON body' })
+      await expect(res.json()).resolves.toEqual({ error: 'invalid JSON body' })
     })
 
     it(`${c.name}: null body`, async () => {
       const res = await c.run('null')
       expect(res.status).toBe(400)
       await expect(res.json()).resolves.toEqual({
-        error: 'Request body must be a JSON object',
+        error: 'request body must be a JSON object',
       })
     })
 
@@ -64,21 +64,21 @@ describe('malformed / empty JSON body → 400', () => {
       const res = await c.run('[]')
       expect(res.status).toBe(400)
       await expect(res.json()).resolves.toEqual({
-        error: 'Request body must be a JSON object',
+        error: 'request body must be a JSON object',
       })
     })
 
     it(`${c.name}: trailing garbage after valid JSON`, async () => {
       const res = await c.run('{"from":"a","to":"b"} xyz')
       expect(res.status).toBe(400)
-      await expect(res.json()).resolves.toEqual({ error: 'Invalid JSON body' })
+      await expect(res.json()).resolves.toEqual({ error: 'invalid JSON body' })
     })
 
     it(`${c.name}: body larger than 256 KiB`, async () => {
       const res = await c.run('a'.repeat(256 * 1024 + 1))
       expect(res.status).toBe(413)
       await expect(res.json()).resolves.toEqual({
-        error: 'Request body too large',
+        error: 'request body too large',
       })
     })
   }

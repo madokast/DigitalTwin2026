@@ -72,16 +72,16 @@ describe('loadConfig / isTelegramConfigured', () => {
 describe('configError', () => {
   it('names both when neither is set', () => {
     expect(configError({})).toBe(
-      'Telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)',
+      'telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)',
     )
   })
 
   it('names the single missing env', () => {
     expect(configError({ TELEGRAM_BOT_TOKEN: 't' })).toBe(
-      'Telegram is not configured (missing TELEGRAM_USER_ID)',
+      'telegram is not configured (missing TELEGRAM_USER_ID)',
     )
     expect(configError({ TELEGRAM_USER_ID: '1' })).toBe(
-      'Telegram is not configured (missing TELEGRAM_BOT_TOKEN)',
+      'telegram is not configured (missing TELEGRAM_BOT_TOKEN)',
     )
   })
 
@@ -141,7 +141,7 @@ describe('sendTelegramMessage', () => {
     const result = await sendTelegramMessage('hi', { env: {} })
     expect(result).toEqual({
       ok: false,
-      error: 'Telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)',
+      error: 'telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_USER_ID)',
     })
   })
 
@@ -200,7 +200,7 @@ describe('sendTelegramMessage', () => {
     const result = await sendTelegramMessage('x', { env, fetch: fetchMock })
     expect(result).toEqual({
       ok: false,
-      error: 'Telegram sendMessage failed: chat not found',
+      error: 'telegram sendMessage failed: chat not found',
     })
   })
 })

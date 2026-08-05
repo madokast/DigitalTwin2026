@@ -20,7 +20,7 @@ describe('POST /api/admin/tags/rename type mismatches', () => {
     const res = await POST(post({ from: 123, to: 'ok_tag' }))
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'Missing required fields: from, to',
+      error: 'missing required fields: from, to',
     })
   })
 
@@ -28,7 +28,7 @@ describe('POST /api/admin/tags/rename type mismatches', () => {
     const res = await POST(post({ from: 'ok_tag', to: 456 }))
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'Missing required fields: from, to',
+      error: 'missing required fields: from, to',
     })
   })
 })

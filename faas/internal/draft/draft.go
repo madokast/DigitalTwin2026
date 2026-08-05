@@ -31,14 +31,14 @@ var ErrNumericValueMustBeString = errors.New("numeric_value must be a decimal st
 // 同时返回规范 utc_offset（创建路径写隐列）。
 func ParseHappenedAt(raw string) (time.Time, string, error) {
 	if raw == "" {
-		return time.Time{}, "", fmt.Errorf("Missing required field: happened_at")
+		return time.Time{}, "", fmt.Errorf("missing required field: happened_at")
 	}
 	if !isoTZSuffix.MatchString(raw) {
 		return time.Time{}, "", fmt.Errorf("happened_at must be ISO 8601 with timezone (Z or ±HH:MM)")
 	}
 	happenedAt, err := timeutil.ParseRFC3339Flexible(raw)
 	if err != nil {
-		return time.Time{}, "", fmt.Errorf("Invalid happened_at datetime")
+		return time.Time{}, "", fmt.Errorf("invalid happened_at datetime")
 	}
 	offset, err := utcoffset.ExtractUtcOffsetLiteral(raw)
 	if err != nil {
@@ -52,7 +52,7 @@ func ParseHappenedAt(raw string) (time.Time, string, error) {
 // 边界样例见仓库根 testdata/decimal-string-cases.json（双端单测同读）。
 func ValidateDecimalString(s string) error {
 	if utf8.RuneCountInString(s) > numericValueMaxLen || !decimalString.MatchString(s) {
-		return fmt.Errorf("Invalid numeric_value")
+		return fmt.Errorf("invalid numeric_value")
 	}
 	unsigned := s
 	if strings.HasPrefix(s, "-") {
@@ -60,10 +60,10 @@ func ValidateDecimalString(s string) error {
 	}
 	intPart, fracPart, hasDot := strings.Cut(unsigned, ".")
 	if len(intPart) > numericValueMaxIntDigits {
-		return fmt.Errorf("Invalid numeric_value")
+		return fmt.Errorf("invalid numeric_value")
 	}
 	if hasDot && len(fracPart) > numericValueMaxFracDigits {
-		return fmt.Errorf("Invalid numeric_value")
+		return fmt.Errorf("invalid numeric_value")
 	}
 	return nil
 }
@@ -87,7 +87,7 @@ func ParseNumericValue(raw any) (*string, error) {
 	case float64, json.Number:
 		return nil, fmt.Errorf("%w", ErrNumericValueMustBeString)
 	default:
-		return nil, fmt.Errorf("Invalid numeric_value")
+		return nil, fmt.Errorf("invalid numeric_value")
 	}
 }
 
@@ -95,7 +95,7 @@ func ParseNumericValue(raw any) (*string, error) {
 func RequireTrimmedText(raw any, field string) (string, error) {
 	s, ok := raw.(string)
 	if !ok || s == "" {
-		return "", fmt.Errorf("Missing required field: %s", field)
+		return "", fmt.Errorf("missing required field: %s", field)
 	}
 	if strings.TrimSpace(s) == "" {
 		return "", fmt.Errorf("%s must not be blank", field)
@@ -110,7 +110,7 @@ func OptionalTrimmedNullable(raw any, field string) (*string, error) {
 	}
 	s, ok := raw.(string)
 	if !ok {
-		return nil, fmt.Errorf("Invalid %s", field)
+		return nil, fmt.Errorf("invalid %s", field)
 	}
 	if strings.TrimSpace(s) == "" {
 		return nil, fmt.Errorf("%s must not be blank", field)

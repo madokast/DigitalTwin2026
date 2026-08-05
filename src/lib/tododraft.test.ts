@@ -142,17 +142,17 @@ describe('parseTodo', () => {
 
   it('rejects missing created_at / content / objective_context', () => {
     expect(parseTodo({ content: 'x', objective_context: 'y' })).toEqual({
-      error: 'Missing required field: created_at',
+      error: 'missing required field: created_at',
     })
     expect(parseTodo({ created_at: base.created_at, objective_context: 'y' })).toEqual({
-      error: 'Missing required field: content',
+      error: 'missing required field: content',
     })
     expect(parseTodo({ created_at: base.created_at, content: 'x' })).toEqual({
-      error: 'Missing required field: objective_context',
+      error: 'missing required field: objective_context',
     })
     expect(
       parseTodo({ ...base, content: '' }),
-    ).toEqual({ error: 'Missing required field: content' })
+    ).toEqual({ error: 'missing required field: content' })
   })
 
   it('rejects created_at without timezone using created_at wording', () => {
@@ -174,7 +174,7 @@ describe('parseTodo', () => {
 
   it('rejects duplicate client tags', () => {
     expect(parseTodo({ ...base, tags: ['errand', 'errand'] })).toEqual({
-      error: 'Duplicate tag "errand"',
+      error: 'duplicate tag "errand"',
     })
   })
 
@@ -265,13 +265,13 @@ describe('parseTodoTransition', () => {
 
   it('rejects missing fields / invalid target / unknown keys', () => {
     expect(parseTodoTransition({ ...base, id: undefined })).toEqual({
-      error: 'Missing required field: id',
+      error: 'missing required field: id',
     })
     expect(parseTodoTransition({ ...base, target: undefined })).toEqual({
-      error: 'Missing required field: target',
+      error: 'missing required field: target',
     })
     expect(parseTodoTransition({ ...base, happened_at: undefined })).toEqual({
-      error: 'Missing required field: happened_at',
+      error: 'missing required field: happened_at',
     })
     expect(parseTodoTransition({ ...base, target: 'done' })).toEqual({
       error: ERR_INVALID_TARGET,

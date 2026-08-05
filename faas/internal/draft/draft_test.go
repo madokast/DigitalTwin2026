@@ -33,7 +33,7 @@ func loadDecimalStringCases(t *testing.T) decimalStringCases {
 }
 
 func TestRequireTrimmedTextAndOptionalTrimmedNullable(t *testing.T) {
-	if _, err := RequireTrimmedText("", "raw_content"); err == nil || err.Error() != "Missing required field: raw_content" {
+	if _, err := RequireTrimmedText("", "raw_content"); err == nil || err.Error() != "missing required field: raw_content" {
 		t.Fatalf("empty: %v", err)
 	}
 	if _, err := RequireTrimmedText("   ", "raw_content"); err == nil || err.Error() != "raw_content must not be blank" {
@@ -90,7 +90,7 @@ func TestParseHappenedAt(t *testing.T) {
 		"2026-07-30T8:00:00Z",
 	} {
 		_, _, err := ParseHappenedAt(raw)
-		if err == nil || err.Error() != "Invalid happened_at datetime" {
+		if err == nil || err.Error() != "invalid happened_at datetime" {
 			t.Fatalf("%q: got %v", raw, err)
 		}
 	}
@@ -108,10 +108,10 @@ func TestValidateDecimalStringSharedFixtures(t *testing.T) {
 		}
 	}
 	for _, bad := range cases.Reject {
-		if err := ValidateDecimalString(bad); err == nil || err.Error() != "Invalid numeric_value" {
+		if err := ValidateDecimalString(bad); err == nil || err.Error() != "invalid numeric_value" {
 			t.Fatalf("reject ValidateDecimalString %q: %v", bad, err)
 		}
-		if _, err := ParseNumericValue(bad); err == nil || err.Error() != "Invalid numeric_value" {
+		if _, err := ParseNumericValue(bad); err == nil || err.Error() != "invalid numeric_value" {
 			t.Fatalf("reject ParseNumericValue %q: %v", bad, err)
 		}
 	}

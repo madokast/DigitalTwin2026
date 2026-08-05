@@ -74,7 +74,7 @@ func TestCreateTransactionBatchRejectsMissingType(t *testing.T) {
 		"entries": [{"amount": "25.00", "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
 	_, _, _, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
-	if status != 400 || err == nil || err.Error() != "Missing required field: type" {
+	if status != 400 || err == nil || err.Error() != "missing required field: type" {
 		t.Fatalf("status=%d err=%v", status, err)
 	}
 }
@@ -108,7 +108,7 @@ func TestOptionalAiAnalysis(t *testing.T) {
 		t.Fatalf("string: got (%v, %v)", v, err)
 	}
 	for _, bad := range []any{1, true, []any{}, map[string]any{}} {
-		if _, err := draft.OptionalTrimmedNullable(bad, "ai_analysis"); err == nil || err.Error() != "Invalid ai_analysis" {
+		if _, err := draft.OptionalTrimmedNullable(bad, "ai_analysis"); err == nil || err.Error() != "invalid ai_analysis" {
 			t.Fatalf("%v: want Invalid ai_analysis, got %v", bad, err)
 		}
 	}
@@ -128,12 +128,12 @@ func TestCreateNumberBatchValidation(t *testing.T) {
 		{
 			"missing happened_at",
 			`{"entries":[{"numeric_value":"1","memo":"x"}]}`,
-			"Missing required field: happened_at",
+			"missing required field: happened_at",
 		},
 		{
 			"missing numeric_value",
 			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[{"memo":"x"}]}`,
-			"entries[0]: Missing required field: numeric_value",
+			"entries[0]: missing required field: numeric_value",
 		},
 		{
 			"json number numeric_value",
@@ -143,7 +143,7 @@ func TestCreateNumberBatchValidation(t *testing.T) {
 		{
 			"missing memo",
 			`{"happened_at":"2026-08-05T10:00:00+08:00","entries":[{"numeric_value":"1"}]}`,
-			"entries[0]: Missing required field: memo",
+			"entries[0]: missing required field: memo",
 		},
 		{
 			"reserved tag",
@@ -170,7 +170,7 @@ func TestCreateTextRejectsDuplicateTags(t *testing.T) {
 		"objective_context": "x"
 	}`)
 	_, status, err := CreateText(context.Background(), nil, raw)
-	if status != 400 || err == nil || err.Error() != `Duplicate tag "study"` {
+	if status != 400 || err == nil || err.Error() != `duplicate tag "study"` {
 		t.Fatalf("status=%d err=%v", status, err)
 	}
 }

@@ -423,14 +423,14 @@
       "query": {
         "to": "2026-08-01T00:00:00Z"
       },
-      "error": "Missing required query parameter: from"
+      "error": "missing required query parameter: from"
     },
     {
       "name": "missing-to",
       "query": {
         "from": "2026-07-01T00:00:00Z"
       },
-      "error": "Missing required query parameter: to"
+      "error": "missing required query parameter: to"
     },
     {
       "name": "empty-from",
@@ -438,7 +438,7 @@
         "from": "",
         "to": "2026-08-01T00:00:00Z"
       },
-      "error": "Missing required query parameter: from"
+      "error": "missing required query parameter: from"
     },
     {
       "name": "from-without-tz",
@@ -454,7 +454,7 @@
         "from": "2026-07-01T00:00:00Z",
         "to": "not-a-dateZ"
       },
-      "error": "Invalid to datetime"
+      "error": "invalid to datetime"
     },
     {
       "name": "from-equals-to",

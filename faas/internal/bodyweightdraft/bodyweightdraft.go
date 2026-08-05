@@ -19,7 +19,7 @@ import (
 // 体重形态：正数、至多 3 位整数或至多两位小数；禁 +、负号、空格、残缺点、前导零。
 var weightAmountPattern = regexp.MustCompile(`^(?:0|[1-9]\d{0,2})(?:\.\d{1,2})?$`)
 
-var ErrInvalidWeight = errors.New("Invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50")
+var ErrInvalidWeight = errors.New("invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50")
 
 const weightMinCents = 100   // 1.00
 const weightMaxCents = 50000 // 500.00
@@ -66,7 +66,7 @@ func WeightCentsInRange(normalized2 string) bool {
 // ParseWeightAmount 解析体重 numeric_value（trim 后校验；存 trim 后值）。
 func ParseWeightAmount(raw any) (string, error) {
 	if raw == nil {
-		return "", fmt.Errorf("Missing required field: numeric_value")
+		return "", fmt.Errorf("missing required field: numeric_value")
 	}
 	switch v := raw.(type) {
 	case string:
@@ -115,7 +115,7 @@ func parseOptionalClientTags(raw any) ([]string, error) {
 	for _, tag := range out {
 		if !tags.IsValidTag(tag) {
 			return nil, fmt.Errorf(
-				`Invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
+				`invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number`,
 				tag,
 			)
 		}
@@ -124,7 +124,7 @@ func parseOptionalClientTags(raw any) ([]string, error) {
 		return nil, fmt.Errorf("%s", rv.Error)
 	}
 	if dup := tags.FirstDuplicateTag(out); dup != "" {
-		return nil, fmt.Errorf("Duplicate tag \"%s\"", dup)
+		return nil, fmt.Errorf("duplicate tag \"%s\"", dup)
 	}
 	return out, nil
 }
