@@ -28,7 +28,7 @@ console.log('Running Go unit tests (go test -short ./...)...')
 const goStatus = runInherited(
   'go',
   // -count=1：与 CI 一致，禁用 go test 结果缓存，保证命令永远真跑
-  ['test', '-short', '-count=1', './...'],
+  ['test', '-short', '-count=1', '-race', './...'],
   {
     cwd: resolve(REPO_ROOT, 'faas'),
   },

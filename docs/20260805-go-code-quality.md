@@ -157,7 +157,7 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 
 - 与 §4 一起；纯重构，测试全绿即完成。
 
-## 6. `go test -race` 未启用
+## 6. `go test -race`（✅ 已实现）
 
 ### 现状
 
@@ -199,7 +199,7 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 2. ~~**禁止 map/any jsonify**~~：✅ 已实现（`responses.go` typed struct，见 §2「现状」；错误响应 RFC 9457 改造随 `docs/20260805-error-response-shape.md` 进行）。
 3. ~~**状态码常量**（§4）~~：✅ 已实现（`5c1c3b1`，37 处字面量 → `net/http` 常量）。
 4. ~~**handler 错误样板收敛**（§5）~~：✅ 已实现（`59b12ae`，`writeLogOrError` helper 收敛 8 处）。
-5. **`go test -race`**（§6，改命令即得）。
+5. ~~**`go test -race`**~~（§6）：✅ 已实现（scripts + CI + README 命令加 `-race`）。
 6. **`log/slog`**（§3）与 **golangci-lint**（§7）：低优先，可合并规划。
 7. **RFC 9457 错误响应**（§8 / error-response-shape.md）：独立破坏性改造，待决策后开工。
 

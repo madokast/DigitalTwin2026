@@ -14,7 +14,7 @@
 | Go FaaS（国内加速） | `faas/`（`cmd/` + `internal/`） | 本目录 HTTP 服务；部署见 `providers/` |
 
 - **新增 / 修改 API：两侧都要改**（路径、方法、鉴权、请求响应语义、校验规则）。
-- **测试双份**：Node（Vitest / `tests/api`）+ Go（`cd faas && go test ./...`）。
+- **测试双份**：Node（Vitest / `tests/api`）+ Go（`cd faas && go test -race ./...`）。
 - 行为真源：现有 TS `src/lib/{auth,tags,timeutil,query,draft,transactiondraft,record,telegram}` 与各 `route.ts`；Go 对齐它们（分层见 [`docs/20260801-api-layering.md`](../docs/20260801-api-layering.md)）。
 - 只用**标准 PostgreSQL**（见根 `AGENTS.md`「数据库」节）。
 - **共享代码不得** `import` `providers/*`。
@@ -50,7 +50,7 @@
 cd faas
 # 使用与根目录相同的测试库密钥（或自行 export）
 set -a && source ../.env.test && set +a
-go test ./...
+go test -race ./...
 go run ./cmd/api          # :8080，可用 PORT 覆盖
 ```
 

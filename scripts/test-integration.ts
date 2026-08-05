@@ -85,7 +85,7 @@ async function main() {
   const goStatus = runInherited(
     'go',
     // -count=1：清库重建后必须真跑，禁用 go test 结果缓存（与 CI 一致）
-    ['test', '-count=1', './internal/httpx/', './internal/dbprobe/'],
+    ['test', '-count=1', '-race', './internal/httpx/', './internal/dbprobe/'],
     {
       cwd: resolve(REPO_ROOT, 'faas'),
       env,

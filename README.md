@@ -122,7 +122,7 @@ npm run test:unit   # 双端一起：Node + Go
 ```
 
 - Node：`npx vitest run --exclude 'tests/api/**'`（`src/lib`、`src/proxy`、scripts 等）
-- Go：`cd faas && go test -short ./...`（`-short` 为 Go 单测专属入口，跳过全部 DB 集成）
+- Go：`cd faas && go test -short -race ./...`（`-short` 为 Go 单测专属入口，跳过全部 DB 集成；`-race` 为 race detector）
 - 含双端契约 fixtures（`tests/openapi`、`faas/internal/contract`）
 
 ### 集成测试（连真实 PG）
@@ -135,16 +135,16 @@ npm run test:integration   # 双端一起：Node tests/api + Go httpx/dbprobe
 1. 仓库根有 `.env.test`（由 `.env.test.example` 复制而来）
 2. `.env.test` 的 `DATABASE_URL` 指向测试库：host 或库名须含 `test` / `TestDigitalTwin`——缺失 / unsafe 一律拒绝（不 wipe、不旁路）
 
-跑测前自动重建表结构：可达性检查 → DROP `records` 与 `drizzle.__drizzle_migrations` → migrate 重建（与基准 migration 一致，防 schema 漂移）；Go 段 `-count=1` 禁用 go test 缓存、保证真跑；用例间共享连接 `DELETE FROM records` 清理（Node 清全表，Go 按 marker 定向删），不逐测 DROP。
+跑测前自动重建表结构：可达性检查 → DROP `records` 与 `drizzle.__drizzle_migrations` → migrate 重建（与基准 migration 一致，防 schema 漂移）；Go 段 `-count=1` 禁用 go test 缓存、保证真跑、`-race` 开 race detector；用例间共享连接 `DELETE FROM records` 清理（Node 清全表，Go 按 marker 定向删），不逐测 DROP。
 
 ### Node / Go 分开跑
 
 | 侧 | 单元测（无 DB） | 集成测 | 全量 |
 |--|--|--|--|
 | Node | `npx vitest run --exclude 'tests/api/**'` | `npx vitest run tests/api` | `npm test` |
-| Go（faas/ 下） | `go test -short ./...` | `go test ./internal/httpx/ ./internal/dbprobe/` | `go test ./...` |
+| Go（faas/ 下） | `go test -short -race ./...` | `go test -race ./internal/httpx/ ./internal/dbprobe/` | `go test -race ./...` |
 
-Node 全量 `npm test` 在无安全 `DATABASE_URL` 时集成自动 Skip；Go 全量 `go test ./...` 同理（CI 检出无 `.env.test`，集成自动 Skip）。
+Node 全量 `npm test` 在无安全 `DATABASE_URL` 时集成自动 Skip；Go 全量 `go test -race ./...` 同理（CI 检出无 `.env.test`，集成自动 Skip）。
 
 ### OpenAPI 契约（与测试分开，见 [`openapi/README.md`](openapi/README.md)）
 
