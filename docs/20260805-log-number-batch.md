@@ -110,6 +110,34 @@ POST /api/log/number
 - 记账批量实现：`src/lib/transactiondraft.ts` / `faas/internal/transactiondraft` / `logapi.CreateTransactionBatch`。
 - 记账 OpenAPI：`LogTransactionRequest` / `TransactionBatchSuccess`（schemas.yaml §808+）。
 
+## 命名约定（分层，draft 模块不加 s）
+
+复数化只作用于 **API 路径层**（一次处理多个记录的端点 → 复数）；内部代码分层命名如下，**draft 模块一律单数**：
+
+| 层 | 记账（参照） | number |
+|---|---|---|
+| API 路径 | `POST /api/log/transactions` | `POST /api/log/numbers` |
+| 解析校验模块 | `transactiondraft`（单数） | `numberdraft`（单数） |
+| 落库执行函数 | `createTransactionBatch` / `CreateTransactionBatch` | `createNumberBatch` / `CreateNumberBatch` |
+| 通知函数 | `notifyTransactionBatchInserted` / `NotifyTransactionBatchInserted` | `notifyNumberBatchInserted` / `NotifyNumberBatchInserted` |
+
+- **draft 模块不加 s**：是「领域标识」非「请求形状」；与现有 `tododraft` / `bodyweightdraft` / `reviewdraft` 保持一致（均单数），不改动现有 `transactiondraft`。
+- **批量语义由路径（复数）+ 函数名（Batch）表达**，模块名不承载「数量」。
+- 复数化不扩散到模块/函数名层。
+
+## 实现注意点（log/numbers 批量）
+
+1. **双层 unknown key 校验**：顶层 `{happened_at, entries}` 之外 → `Unknown JSON key: xxx`；每条 entry `{numeric_value, memo, tags?, ai_analysis?}` 之外 → `entries[i]: Unknown JSON key: xxx`（复用记账 `RejectUnknownObjectKeys` / `RejectUnknownMapKeys` 双层模式）。
+2. **`memo` 必填（DB 约束）**：`objective_context` NOT NULL → entry 缺 `memo` → 400 `entries[i]: Missing required field: memo`（不得靠 DB 报 500）。
+3. **`entries` 双层校验顺序**：非数组 / 空数组 / >100 → **顶层错误无 index**（`entries must be a non-empty array` / `entries must contain at most 100 items`）；逐条错误才用 `entries[i]:` 前缀。
+4. **通知 = 整批一条摘要**：新增 `notifyNumberBatchInserted` / `NotifyNumberBatchInserted`（对齐 `NotifyTransactionBatchInserted`，一条汇总，不逐条通知）。
+5. **事务原子性**：整批单事务，任何一条失败 → 全部回滚（`atomic: true`）；**校验全部在事务外**（draft 先全量 Parse 通过才 Begin，对齐记账）。
+6. **`tags` 可选但保留校验**：省略 → `[]`；传了含保留前缀 → 400 `entries[i]: tag "..." is reserved...`（`body:weight` 被拒，新 hint 文案已解耦，无需指向具体端点）。
+7. **`ai_analysis` 空白校验**：省略/`null` → null；`""`/空白 → 400 `entries[i]: ai_analysis must not be blank`；非空 trim 后存。
+8. **破坏式改造连带**：旧单条 `log/number` 移除 → 单条测试、proxy 测试、集成测试全改；前端 api-client 无引用（无前端连带）。
+9. **`numeric_value` 复用校验**：复用现有 `parseNumericValue`（DecimalString）；JSON number → 400 `numeric_value must be a decimal string`。
+10. **一次到位**：`log/number` → `log/numbers` 改名 + 批量同时切换，避免中间态；保留前缀 hint 文案无需改。
+
 ## 新需求（记录，另行设计）
 
 - **按 id 补 tag / 删 tag**：独立设计文档 [`docs/20260805-tags-add.md`](docs/20260805-tags-add.md)。鉴权已定（ApiToken）；add/remove、幂等、404 等详见该文档。

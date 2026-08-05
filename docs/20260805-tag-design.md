@@ -10,6 +10,17 @@
 - `GET /api/query?tag=X` 的 SQL 是 `tags LIKE '%"X"%'`——**带闭合引号的完整 tag 匹配**：`tag=body` **匹配不到** `body:weight`（`"body"` 字面不存在，`"body:weight` 的 `"body` 后跟 `:`）。
 - 多层 tag 靠自然语言分层：`transaction_entry:income`、`body:weight`、`todo:in_progress`、`review:weekly`。
 - 保留 tag 前缀（不可被普通写路径使用）：`transaction_entry`、`body:weight`、`todo`、`review`。
+
+## 保留前缀 hint 文案（定案）
+
+**新文案**（替换现有硬编码端点路径的 hint）：
+
+> `tag "{tag}" is reserved; use the dedicated log API for this record type`
+
+- 现有 `RESERVED_TAG_HINTS`（`src/lib/tags.ts:41` / `faas/internal/tags/tags.go:31`）硬编码各专用端点路径（如 `use POST /api/log/transaction for ...`）——**每新增/改名端点都要改**。
+- 新文案**不指向具体路径**，永久有效；AI 收到后自行查 OpenAPI 找正确端点。
+- 连带收益：复数化（`log/transaction`→`log/transactions`）**无需改 hint 文案**，阶段 1 少一处工作。
+- 实现时：双端同步改为单一通用文案（去掉按前缀区分的内容）。
 - 现状影响：`tag=body` 搜不到 `body:weight`；`tag=review` 搜不到 `review:weekly`（周/月回顾首查受阻）。
 
 ## 业界 tag 交互（用户提问）
