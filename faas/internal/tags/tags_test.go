@@ -122,27 +122,27 @@ func TestAssertNoReservedTags(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 
-	wantTx := `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`
+	wantTx := `tag "transaction_entry" is reserved; use the dedicated log API for this record type`
 	if ReservedTagError("transaction_entry") != wantTx {
 		t.Fatalf("tx hint: %q", ReservedTagError("transaction_entry"))
 	}
-	wantWt := `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`
+	wantWt := `tag "body:weight" is reserved; use the dedicated log API for this record type`
 	if ReservedTagError("body:weight") != wantWt {
 		t.Fatalf("weight hint: %q", ReservedTagError("body:weight"))
 	}
-	wantTodo := `tag "todo" is reserved; use POST /api/log/todo for to-do entries`
+	wantTodo := `tag "todo" is reserved; use the dedicated log API for this record type`
 	if ReservedTagError("todo") != wantTodo {
 		t.Fatalf("todo hint: %q", ReservedTagError("todo"))
 	}
-	wantTodoPrefixed := `tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries`
+	wantTodoPrefixed := `tag "todo:in_progress" is reserved; use the dedicated log API for this record type`
 	if ReservedTagError("todo:in_progress") != wantTodoPrefixed {
 		t.Fatalf("todo prefixed hint: %q", ReservedTagError("todo:in_progress"))
 	}
-	wantReview := `tag "review" is reserved; use POST /api/log/review for review records`
+	wantReview := `tag "review" is reserved; use the dedicated log API for this record type`
 	if ReservedTagError("review") != wantReview {
 		t.Fatalf("review hint: %q", ReservedTagError("review"))
 	}
-	wantReviewPrefixed := `tag "review:weekly" is reserved; use POST /api/log/review for review records`
+	wantReviewPrefixed := `tag "review:weekly" is reserved; use the dedicated log API for this record type`
 	if ReservedTagError("review:weekly") != wantReviewPrefixed {
 		t.Fatalf("review prefixed hint: %q", ReservedTagError("review:weekly"))
 	}

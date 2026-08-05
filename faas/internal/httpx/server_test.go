@@ -385,7 +385,7 @@ func TestLogTextRejectsReservedTag(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	want := `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`
+	want := `tag "transaction_entry" is reserved; use the dedicated log API for this record type`
 	if body["error"] != want {
 		t.Fatalf("error: %v", body)
 	}
@@ -408,7 +408,7 @@ func TestLogTextRejectsReviewReservedTag(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	want := `tag "review:weekly" is reserved; use POST /api/log/review for review records`
+	want := `tag "review:weekly" is reserved; use the dedicated log API for this record type`
 	if body["error"] != want {
 		t.Fatalf("error: %v", body)
 	}
@@ -477,7 +477,7 @@ func TestLogReviewRejectsReservedTag(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	want := `tag "review:weekly" is reserved; use POST /api/log/review for review records`
+	want := `tag "review:weekly" is reserved; use the dedicated log API for this record type`
 	if body["error"] != want {
 		t.Fatalf("error: %v", body)
 	}
@@ -571,7 +571,7 @@ func TestLogNumberRejectsBodyWeightReservedTag(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	want := `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`
+	want := `tag "body:weight" is reserved; use the dedicated log API for this record type`
 	if body["error"] != want {
 		t.Fatalf("error: %v", body)
 	}
@@ -595,7 +595,7 @@ func TestLogNumberRejectsTodoReservedTag(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	want := `tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries`
+	want := `tag "todo:in_progress" is reserved; use the dedicated log API for this record type`
 	if body["error"] != want {
 		t.Fatalf("error: %v", body)
 	}
@@ -628,13 +628,13 @@ func TestRenameTagsRejectsReservedTag(t *testing.T) {
 		payload string
 		want    string
 	}{
-		{`{"from":"transaction_entry","to":"legacy_tx"}`, `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`},
-		{`{"from":"food","to":"transaction_entry"}`, `tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries`},
-		{`{"from":"transaction_entry:income","to":"legacy_tx"}`, `tag "transaction_entry:income" is reserved; use POST /api/log/transaction for transaction line entries`},
-		{`{"from":"weight","to":"body:weight"}`, `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`},
-		{`{"from":"body:weight","to":"mass"}`, `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`},
-		{`{"from":"todo","to":"errand"}`, `tag "todo" is reserved; use POST /api/log/todo for to-do entries`},
-		{`{"from":"errand","to":"todo:in_progress"}`, `tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries`},
+		{`{"from":"transaction_entry","to":"legacy_tx"}`, `tag "transaction_entry" is reserved; use the dedicated log API for this record type`},
+		{`{"from":"food","to":"transaction_entry"}`, `tag "transaction_entry" is reserved; use the dedicated log API for this record type`},
+		{`{"from":"transaction_entry:income","to":"legacy_tx"}`, `tag "transaction_entry:income" is reserved; use the dedicated log API for this record type`},
+		{`{"from":"weight","to":"body:weight"}`, `tag "body:weight" is reserved; use the dedicated log API for this record type`},
+		{`{"from":"body:weight","to":"mass"}`, `tag "body:weight" is reserved; use the dedicated log API for this record type`},
+		{`{"from":"todo","to":"errand"}`, `tag "todo" is reserved; use the dedicated log API for this record type`},
+		{`{"from":"errand","to":"todo:in_progress"}`, `tag "todo:in_progress" is reserved; use the dedicated log API for this record type`},
 	} {
 		req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/rename", strings.NewReader(tc.payload))
 		req.Header.Set("Authorization", "Bearer admin-tok")

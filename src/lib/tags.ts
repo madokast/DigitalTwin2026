@@ -37,14 +37,9 @@ export const RESERVED_TAG_BODY_WEIGHT: ReservedTagPrefix = 'body:weight'
 export const RESERVED_TAG_TODO: ReservedTagPrefix = 'todo'
 export const RESERVED_TAG_REVIEW: ReservedTagPrefix = 'review'
 
-/** 按前缀指向专用写入路径（与 Go ReservedTagError 同句） */
-const RESERVED_TAG_HINTS: Record<ReservedTagPrefix, string> = {
-  transaction_entry:
-    'use POST /api/log/transaction for transaction line entries',
-  'body:weight': 'use POST /api/log/body/weight for body weight entries',
-  todo: 'use POST /api/log/todo for to-do entries',
-  review: 'use POST /api/log/review for review records',
-}
+/** 保留 tag 错误后缀：不指向具体端点路径，AI 自行查 OpenAPI（端点改名/新增不会过时） */
+const RESERVED_TAG_HINT =
+  'use the dedicated log API for this record type'
 
 /** 组装落库用的类型 tag：`transaction_entry:income` / `transaction_entry:expense` */
 export function transactionEntryTypeTag(
@@ -62,19 +57,9 @@ export function isReservedTag(tag: string): boolean {
   return false
 }
 
-function reservedPrefixFor(tag: string): ReservedTagPrefix | null {
-  for (const p of RESERVED_TAG_PREFIXES) {
-    if (tag === p || tag.startsWith(`${p}:`)) {
-      return p
-    }
-  }
-  return null
-}
-
-/** 英文错误：按匹配前缀指明正确录入路径 */
+/** 英文错误：指明保留 tag 应走专用记录 API（不指向具体端点） */
 export function reservedTagError(tag: string): string {
-  const prefix = reservedPrefixFor(tag) ?? RESERVED_TAG_TRANSACTION_ENTRY
-  return `tag "${tag}" is reserved; ${RESERVED_TAG_HINTS[prefix]}`
+  return `tag "${tag}" is reserved; ${RESERVED_TAG_HINT}`
 }
 
 /** 与 Go `tags.ValidationResult` 同构 */

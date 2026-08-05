@@ -121,28 +121,20 @@ describe('reserved tags', () => {
     expect(assertNoReservedTags(['reviewpoint'])).toEqual({ valid: true })
   })
 
-  it('reservedTagError picks path by matched prefix', () => {
-    expect(reservedTagError('transaction_entry')).toBe(
-      'tag "transaction_entry" is reserved; use POST /api/log/transaction for transaction line entries',
-    )
-    expect(reservedTagError('body:weight')).toBe(
-      'tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries',
-    )
-    expect(reservedTagError('body:weight:morning')).toBe(
-      'tag "body:weight:morning" is reserved; use POST /api/log/body/weight for body weight entries',
-    )
-    expect(reservedTagError('todo')).toBe(
-      'tag "todo" is reserved; use POST /api/log/todo for to-do entries',
-    )
-    expect(reservedTagError('todo:in_progress')).toBe(
-      'tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries',
-    )
-    expect(reservedTagError('review')).toBe(
-      'tag "review" is reserved; use POST /api/log/review for review records',
-    )
-    expect(reservedTagError('review:weekly')).toBe(
-      'tag "review:weekly" is reserved; use POST /api/log/review for review records',
-    )
+  it('reservedTagError uses the generic dedicated-API hint', () => {
+    for (const tag of [
+      'transaction_entry',
+      'body:weight',
+      'body:weight:morning',
+      'todo',
+      'todo:in_progress',
+      'review',
+      'review:weekly',
+    ]) {
+      expect(reservedTagError(tag)).toBe(
+        `tag "${tag}" is reserved; use the dedicated log API for this record type`,
+      )
+    }
   })
 })
 

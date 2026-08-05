@@ -60,7 +60,7 @@ func TestCreateTodoRejects(t *testing.T) {
 		},
 		{
 			`{"created_at":"2026-08-02T10:00:00+08:00","content":"Buy milk","objective_context":"x","tags":["todo:in_progress"]}`,
-			`tag "todo:in_progress" is reserved; use POST /api/log/todo for to-do entries`,
+			`tag "todo:in_progress" is reserved; use the dedicated log API for this record type`,
 		},
 		{
 			`{"created_at":"2026-08-02T10:00:00+08:00","happened_at":"2026-08-02T10:00:00+08:00","content":"Buy milk","objective_context":"x"}`,
@@ -119,7 +119,7 @@ func TestCreateNumberRejectsBodyWeightTag(t *testing.T) {
 	if status != 400 {
 		t.Fatalf("status %d", status)
 	}
-	want := `tag "body:weight" is reserved; use POST /api/log/body/weight for body weight entries`
+	want := `tag "body:weight" is reserved; use the dedicated log API for this record type`
 	if err == nil || err.Error() != want {
 		t.Fatalf("err=%v", err)
 	}

@@ -27,13 +27,9 @@ const ReservedTagBodyWeight = "body:weight"
 const ReservedTagTodo = "todo"
 const ReservedTagReview = "review"
 
-// reservedTagHints 按前缀指向专用写入路径（与 TS reservedTagError 同句）。
-var reservedTagHints = map[string]string{
-	ReservedTagTransactionEntry: "use POST /api/log/transaction for transaction line entries",
-	ReservedTagBodyWeight:       "use POST /api/log/body/weight for body weight entries",
-	ReservedTagTodo:             "use POST /api/log/todo for to-do entries",
-	ReservedTagReview:           "use POST /api/log/review for review records",
-}
+// reservedTagHint 保留 tag 错误后缀：不指向具体端点路径，AI 自行查 OpenAPI
+//（端点改名/新增不会过时；与 TS RESERVED_TAG_HINT 同句）。
+const reservedTagHint = "use the dedicated log API for this record type"
 
 // ErrTagsNotJSONArray 与 TS TAGS_NOT_JSON_ARRAY 同文案：根不是 JSON 数组。
 var ErrTagsNotJSONArray = errors.New("tags field is not a JSON array")
@@ -56,19 +52,9 @@ func IsReservedTag(tag string) bool {
 	return false
 }
 
-func reservedPrefixFor(tag string) string {
-	for _, p := range ReservedTagPrefixes {
-		if tag == p || strings.HasPrefix(tag, p+":") {
-			return p
-		}
-	}
-	return ReservedTagTransactionEntry
-}
-
-// ReservedTagError 英文错误：按匹配前缀指明正确录入路径。
+// ReservedTagError 英文错误：指明保留 tag 应走专用记录 API（不指向具体端点）。
 func ReservedTagError(tag string) string {
-	hint := reservedTagHints[reservedPrefixFor(tag)]
-	return fmt.Sprintf(`tag "%s" is reserved; %s`, tag, hint)
+	return fmt.Sprintf(`tag "%s" is reserved; %s`, tag, reservedTagHint)
 }
 
 type ValidationResult struct {
