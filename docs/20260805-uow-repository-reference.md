@@ -130,6 +130,60 @@ RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_con
 
 ## 4. 业务层（`faas/internal/logapi/number.go` 迁移后）
 
+### 4a. 领域错误映射（含事务内错误分类的写法）
+
+```go
+package record // faas/internal/record/errors.go —— 领域错误集合（聚合根级）
+
+var (
+	ErrNotFound = errors.New("record not found")              // FindByID 未命中 / CAS 发现 id 不存在
+	ErrConflict = errors.New("record tags changed concurrently, retry") // CAS affected==0 且行仍在
+)
+```
+
+```go
+// Repository 返回领域错误，不碰 HTTP（recordrepo/repository.go）
+func (r *RecordRepository) FindByID(ctx context.Context, q db.Executor, id string) (record.Record, error) {
+	...
+	if errors.Is(err, pgx.ErrNoRows) {
+		return record.Record{}, record.ErrNotFound
+	}
+}
+
+// 业务函数签名保持 (T, status, error)；status 在闭包外 switch errors.Is 映射。
+// 错误处理风格：先 err==nil 快速返回成功；switch 全用 errors.Is；
+// default = 未知错误 = 漏了 case 需补代码（暂 500 并留注释）。
+func AttachTag(ctx context.Context, q db.TxBeginner, id, tag string) (TagsEdit, int, error) {
+	var result TagsEdit
+	err := db.WithTx(ctx, q, func(q db.Executor) error {
+		rec, err := recordRepo.FindByID(ctx, q, id)
+		if err != nil {
+			return err // 领域错误透传（record.ErrNotFound）
+		}
+		newTags, err := recordRepo.AttachTag(ctx, q, rec, tag)
+		if err != nil {
+			return err
+		}
+		result = newTags
+		return nil
+	})
+	if err == nil {
+		return result, http.StatusOK, nil // 成功路径快速返回
+	}
+	switch {
+	case errors.Is(err, record.ErrNotFound):
+		return result, http.StatusNotFound, err
+	case errors.Is(err, record.ErrConflict):
+		return result, http.StatusConflict, err
+	default:
+		// 未知错误：漏了 case，需要补代码
+		return result, http.StatusInternalServerError, err
+	}
+}
+```
+
+> 400 校验错误发生在事务外（零 DB），业务函数直接 `return ..., 400, err`，无需领域分类。
+
 ```go
 package logapi
 

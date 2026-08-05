@@ -23,6 +23,7 @@
 - 现状：业务函数返回 `(T, status, error)`（如 `(Record, int, error)`）；`WithTx` 回调 `fn func(q Executor) error` 只有 error。
 - 问题：事务内错误如何转 HTTP status？404 / 409 / 400 是业务语义，500 是事务失败。若 `WithTx` 只回 `error`，业务层拿不到 status。
 - 待决：`WithTx` 签名是否 `func(q Executor) (int, error)`？或错误走 sentinel + 统一映射？
+- 状态：✅ **已定案**——`WithTx` 保持纯事务机制（`fn func(q Executor) error`，**不含 HTTP**）；Repository 方法返回**领域错误**（`record.ErrNotFound` / `record.ErrConflict` 等）；**业务函数签名保持 `(T, status, error)`**（handler 不动），status 在业务函数闭包外 `switch errors.Is` 映射。400 校验错误发生在事务外（零 DB），直接 `return ..., 400, err`（现状不变，无需领域分类）。**错误处理风格约定**：先 `if err == nil` 快速返回成功；`switch` 所有 case 用 `errors.Is`；`default` = 未知错误 = 漏了 case 需补代码（暂映射 500 并留注释）。参考代码见 [`docs/20260805-uow-repository-reference.md`](20260805-uow-repository-reference.md)「领域错误映射」。
 
 ### A3【阻塞】Repository 方法签名 / 返回类型未定义
 - 现状：方法集只有名称与入参（`Save(ctx, q, record)` 等），**无返回类型**。
