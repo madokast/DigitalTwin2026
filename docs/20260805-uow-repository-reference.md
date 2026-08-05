@@ -285,20 +285,22 @@ func TestCreateNumberBatchRollback(t *testing.T) {
 import db from '@/db'
 import { PgDatabase, PgTransaction } from 'drizzle-orm/pg-core'
 
-/** 可执行器形状：drizzle db 与事务 tx 的公共方法集 */
-export type DbQueryable = Pick<
+/** Executor：可执行器形状（drizzle db 与事务 tx 的公共方法集）。
+ *  与 Go `Executor` 同名对齐（AGENTS.md 双端同构）；Node 无 Tx/TxBeginner 对应类型——
+ *  drizzle `db.transaction` 已封装事务边界（Commit/Rollback 由框架管），业务方只见到 Executor。 */
+export type Executor = Pick<
   PgDatabase<Record<string, never>>,
   'insert' | 'select' | 'update' | 'delete' | 'execute'
 >
 
 /** withTx：闭包式 UoW，包装 drizzle db.transaction；与 Go WithTx 同构（业务方零事务 API） */
-export function withTx<T>(fn: (q: DbQueryable) => Promise<T>): Promise<T> {
-  return db.transaction(async (tx) => fn(tx as DbQueryable))
+export function withTx<T>(fn: (q: Executor) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => fn(tx as Executor))
 }
 
 /** RecordRepository：唯一聚合根持久化（领域语义，内部 SQL） */
 export const recordRepo = {
-  async saveAll(q: DbQueryable, records: RecordInput[]): Promise<Record[]> {
+  async saveAll(q: Executor, records: RecordInput[]): Promise<Record[]> {
     const rows = await q.insert(schema.records).values(records).returning()
     return rows.map(fromDB)
   },
@@ -365,10 +367,11 @@ it('rolls back when the Nth insert fails', async () => {
 
 | 环节 | Go | Node |
 |---|---|---|
-| 事务闭包 | `db.WithTx(ctx, q TxBeginner, fn(q Executor))` | `withTx(fn(q))`（包装 `db.transaction`） |
+| 执行器类型名 | `Executor`（+ `Tx` / `TxBeginner`） | `Executor`（**无 Tx/TxBeginner**——drizzle transaction 已封装事务边界） |
+| 事务闭包 | `db.WithTx(ctx, q TxBeginner, fn(q Executor))` | `withTx(fn(q: Executor))`（包装 `db.transaction`） |
 | 业务层 | 校验零 DB → `WithTx` 闭包 → `recordRepo.SaveAll(q, ...)` | 同左 |
 | Repository | `SaveAll(ctx, q, records)`（内部 SQL） | `recordRepo.saveAll(q, records)` |
 | 执行器来源 | 业务函数收参数（`pool`，接口注入） | 全局 `db` 单例（`vi.mock` 模块） |
 | 测试机制 | fake `TxBeginner`/`Tx` | `vi.mock('@/db')` |
 
-**形态同构（业务代码一样长闭包）、注入机制不同（Go 接口 / Node 模块 mock）**——后者是框架差异，非不一致。
+**形态同构（业务代码一样长闭包，类型名/参数名统一 `Executor`/`q`）、注入机制不同（Go 接口 / Node 模块 mock）**——后者是框架差异，非不一致。
