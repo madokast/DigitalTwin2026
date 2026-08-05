@@ -90,13 +90,14 @@ export function statusTitle(status: number): string {
 - **契约测试**：contract.test.ts 的 Error 断言；双端集成测试 `res.error` → `res.detail`。
 - **文档**：OpenAPI README、AI 使用文档错误处理节。
 
-## 实施顺序（待开工）
+## 实施顺序（定案，分 4 阶段，每阶段独立提交 + 测试绿）
 
-1. 双端定义公共错误结构（Go `ErrorResponse` struct / Node helper）+ `statusTitle`（413 特例）。
-2. OpenAPI `Error` schema 重写 + fixtures 重写。
-3. Go / Node 全部错误响应切换（含 401/400/404/409/413/500）。
-4. 契约 + 集成测试全量更新；openapi lint。
-5. 回归。
+- **S1 双端基建（纯新增，无行为变化）**：Go `httpx/httperror.go`（`statusTitle` 含 413 特例 + `ErrorResponse` 改 `success/title/status/detail` struct）；Node `src/lib/httperror.ts`（`statusTitle` + `errorResponse` helper）；新增 `statusTitle` 映射单测（含 413 特例）。现有错误响应不变。
+- **S2 双端错误响应切换（破坏性主变更）**：Go `writeError`/`writeInternalError`/401 → 新 `ErrorResponse`；Node 各 route `{ error }` → `errorResponse` helper；**连带**更新双端集成测试断言（`res.error` → `res.detail`）。
+- **S3 OpenAPI + fixtures（契约同步）**：`Error` schema 重写（`required: [success, title, status, detail]`）；`error-*.json` fixtures 全重写；契约测试更新。
+- **S4 收尾回归 + 文档**：`openapi:lint` + 全量 unit/integration 回归；本文件标记已实现、`go-code-quality.md` §8 标记完成。
+
+**分阶段理由**：S1 纯新增零风险；S2 是唯一破坏性步骤（代码切换与测试断言必须同步，否则中间态测试红）；S3 契约与代码切换分离各自可验证；S4 回归收尾。每阶段独立提交、可回滚。
 
 ## 相关记录
 
