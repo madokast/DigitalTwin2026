@@ -37,6 +37,8 @@
 >   - `GET /api/time` → `{ success: true, now: "…Z", tz: "UTC" }`
 >   - `GET /api/time?tz=Asia/Shanghai` → `{ success: true, now: "…+08:00", tz: "Asia/Shanghai" }`
 >   - `GET /api/time?tz=Bogus` → 400
+>
+> **状态：已实现**（提交 `cfc55a7`）。双端（`src/app/api/time/route.ts` + `faas/internal/httpx/server.go` 的 `handleTime`）+ OpenAPI（`paths/time.yaml`、`TimeSuccess`）+ 共享 fixture `testdata/time-cases.json`；`now` 用 Go `Z07:00` 布局对齐（offset 0 → `Z`，非 0 → `±HH:MM`，含非整点 `+05:45`）。零偏移非 UTC 区（如 `Africa/Abidjan`）后缀统一 `Z`（`Z07:00` 天然行为）。
 
 ## 模糊时间的 happened_at 处理
 
@@ -103,3 +105,10 @@
 > /api/query/summary 需要大改，移出 api
 >
 > 因为这不是给 AI 用的，移到不完全不同的路由中去，现在没想好
+
+**定案：`GET /api/admin/records/stats`**（响应体不变：`{success,total,today,tz}`）。
+
+- **为什么带 admin 前缀**：系统鉴权仅两档——`/api/admin/*` 仅 AdminToken，其它 `/api/*` 是 ApiToken 或 AdminToken 都放行。summary「不是给 AI 用」这一判定，在 ApiToken 会放行的非 admin 路径下不成立，故唯一落点是 `/api/admin/*`。
+- **为什么 records 资源域 + stats**：未来是多 dashboard 架构（记账 / 待办 / 体重），命名按资源域平行组织：`records/stats`、`transaction/stats`（现有 `/api/query/transaction/summary` 可迁来）、`todo/stats`、`weight/stats`。`stats` 是「资源域聚合统计」集合概念，能容纳未来新增维度；`counts` 偏窄（装不下金额聚合、完成率），`overview` 偏前端页面概念，`summary` 语义泛。
+- **前端改动**：`api-client.ts` 的 `fetchSummary` 需把 URL 从 `/api/query/summary` 改为 `/api/admin/records/stats`；**鉴权逻辑零改动**——现用 AdminToken 调 `/api/query/summary` 本是因 `verifyApiAccess` 放行 AdminToken 才碰巧可用，移入 `/api/admin/*` 后仍传同一 AdminToken，`authHeader()` 不变。
+- **待办**：双端（Next `query/summary/route.ts` → `admin/records/stats/route.ts`；Go `handleSummary` 注册路径）+ OpenAPI（`paths/query.yaml` → `admin.yaml`，operationId 更名）+ 集成测试 + OpenAPI fixture 迁移。交易 stats 是否本次一并迁移未定（等做记账 dashboard 再动）。
