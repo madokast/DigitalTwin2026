@@ -132,39 +132,85 @@ RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_con
 
 ### 4a. 领域错误映射（含事务内错误分类的写法）
 
-```go
-package record // faas/internal/record/errors.go —— 领域错误集合（聚合根级）
+**DDD Error（一套，双端对称；message 可固定或运行时拼接）**：
 
+```go
+// faas/internal/record/errors.go —— 领域错误哨兵（Go）
 var (
-	ErrNotFound = errors.New("record not found")              // FindByID 未命中 / CAS 发现 id 不存在
-	ErrConflict = errors.New("record tags changed concurrently, retry") // CAS affected==0 且行仍在
+	ErrNotFound = errors.New("record not found")                              // 固定 message
+	ErrConflict = errors.New("record tags changed concurrently, retry")       // 固定 message
 )
+// 运行时拼接：fmt.Errorf("record %s not found: %w", id, record.ErrNotFound)
+```
+```ts
+// src/lib/record/errors.ts —— 领域错误类（Node）
+export class RecordNotFoundError extends Error {}
+export class RecordConflictError extends Error {}
+// 运行时拼接：new RecordNotFoundError(`record ${id} not found`)
+```
+
+**每方法专属 XXXXResult（拒绝泛型，Go/Node 同名同构；error 字段是领域错误对象，null/nil = 成功）**：
+
+```go
+type RecordFindByIDResult struct {
+	OK     bool
+	Record record.Record
+	Error  error // 领域哨兵；nil = 成功
+}
+```
+```ts
+export type RecordFindByIDResult = {
+	ok: boolean
+	record: Record | null
+	error: Error | null // 领域错误实例；null = 成功（Node 不 throw，错误放 Result）
+}
 ```
 
 ```go
-// Repository 返回领域错误，不碰 HTTP（recordrepo/repository.go）
-func (r *RecordRepository) FindByID(ctx context.Context, q db.Executor, id string) (record.Record, error) {
-	...
+// Repository 返回 Result（recordrepo/repository.go）
+func (r *RecordRepository) FindByID(ctx context.Context, q db.Executor, id string) RecordFindByIDResult {
+	var res RecordFindByIDResult
+	err := q.QueryRow(...).Scan(...)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return record.Record{}, record.ErrNotFound
+		res.Error = fmt.Errorf("record %s not found: %w", id, record.ErrNotFound)
+		return res
 	}
+	if err != nil {
+		res.Error = fmt.Errorf("query record: %w", err)
+		return res
+	}
+	res.OK, res.Record = true, rec
+	return res
 }
+```
 
-// 业务函数签名保持 (T, status, error)；status 在闭包外 switch errors.Is 映射。
+```ts
+// Node（src/lib/recordrepo.ts）
+async findById(q: Executor, id: string): Promise<RecordFindByIDResult> {
+	...
+	if (rows.length === 0) {
+		return { ok: false, record: null, error: new RecordNotFoundError(`record ${id} not found`) }
+	}
+	return { ok: true, record: fromDB(rows[0]), error: null }
+}
+```
+
+```go
+// 业务函数签名保持 (T, status, error)；status 在闭包外 errors.Is / instanceof 映射。
 // 错误处理风格：先 err==nil 快速返回成功；switch 全用 errors.Is；
 // default = 未知错误 = 漏了 case 需补代码（暂 500 并留注释）。
 func AttachTag(ctx context.Context, q db.TxBeginner, id, tag string) (TagsEdit, int, error) {
 	var result TagsEdit
 	err := db.WithTx(ctx, q, func(q db.Executor) error {
-		rec, err := recordRepo.FindByID(ctx, q, id)
-		if err != nil {
-			return err // 领域错误透传（record.ErrNotFound）
+		res := recordRepo.FindByID(ctx, q, id)
+		if !res.OK {
+			return res.Error // 领域错误透传
 		}
-		newTags, err := recordRepo.AttachTag(ctx, q, rec, tag)
-		if err != nil {
-			return err
+		res2 := recordRepo.AttachTag(ctx, q, res.Record, tag)
+		if !res2.OK {
+			return res2.Error
 		}
-		result = newTags
+		result = toTagsEdit(res.Record, res2.Record)
 		return nil
 	})
 	if err == nil {
@@ -179,6 +225,16 @@ func AttachTag(ctx context.Context, q db.TxBeginner, id, tag string) (TagsEdit, 
 		// 未知错误：漏了 case，需要补代码
 		return result, http.StatusInternalServerError, err
 	}
+}
+```
+
+```ts
+// Node Service（src/lib/recordrepo.ts 或 logapi.ts）
+const res = await recordRepo.findById(q, id)
+if (!res.ok) {
+	if (res.error instanceof RecordNotFoundError) return { error: res.error.message, status: 404 }
+	if (res.error instanceof RecordConflictError) return { error: res.error.message, status: 409 }
+	return { error: 'Internal server error', status: 500 }
 }
 ```
 
