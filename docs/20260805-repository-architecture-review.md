@@ -179,10 +179,16 @@
 
 ### E1 迁移顺序与每步全绿（已定案，确认执行）
 - 继承项 3 教训：按操作逐个迁移、每步测试全绿。实施步骤 1-9 已列。确认按此执行，不做一次性大改造。
+- 状态：✅ **确认执行**——按架构文档实施步骤 1-9 逐个迁移，每步 `go build/vet/lint` + `npm run test:unit` + `npm run test:integration` 全绿后提交。
 
 ### E2 httpx 层签名保持
 - 问题：httpx `Server.TransitionTodo` 字段（单测注入 fake 结果）签名 `func(ctx, pool, raw) (TransitionResult, int, error)`。transition 迁移后此字段签名是否保持？httpx 测试（`todo_transition_test.go`）与集成测试如何跟？
 - 待决：httpx 注入点迁移策略。
+- 状态：✅ **已定案**（随 A4）：
+  - `Server.TransitionTodo` 字段签名 pool 参数 `*pgxpool.Pool` → `db.TxBeginner`（多语句形态）。
+  - httpx 单测（`todo_transition_test.go`）fake 注入签名同步更新（行为不变：返回预置结果，不碰真实 DB）。
+  - 集成测试不受影响：真实 DB 路径，`*pgxpool.Pool` 天然满足 `TxBeginner`。
+  - 迁移时**过渡期双轨**：字段签名放宽为 `db.TxBeginner` 后，单测 fake 与生产 `TransitionTodo`（内部 `WithTx`）同签名，无中间兼容层。
 
 ## F. 内部错误透传阶段 B（ErrInternal 防腐层，随 UoW 落地）
 
