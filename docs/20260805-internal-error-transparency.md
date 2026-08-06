@@ -51,33 +51,106 @@ if body["detail"] != "Internal server error" { t.Fatalf("leaked internal detail"
 | 传统安全（内部错误不泄漏） | 个人系统 + AI 唯一操作者，威胁模型低；设计哲学 §2.1 已定安全让位于 AI 诊断权 | 不成立 |
 | 可测试性（固定值好断言） | 三方库 message 不确定、双端不一致 → 固定文案好测——**测试策略反过来决定设计，本末倒置**；正确做法是 mock 测行为 | 不成立 |
 
-## 3. 策略
+## 3. 策略（统一领域错误模型）
 
 ### 3.1 目标
 
-500 出口**透传实际错误信息**（detail = 具体错误），保留具体性；`status=500` + `title=Internal Server Error`（reason phrase）继续表达「内部服务器错误」类型语义。
+**消除「内部错误」特殊通道**——三方库错误（pgx / postgres.js）在底层被**吸收**为系统自己的领域错误 `ErrInternal`（message = 原始三方库错误内容），上层所有错误统一走领域错误链与 `statusOf` 映射。`writeInternalError` / `writeLogOrError` 分支消失，`detail` 透传原始内容（AI 诊断权，设计哲学 §2.1）。
 
-### 3.2 分层原则（消息来源 → 一致性要求）
+### 3.2 统一错误模型（防腐层思想）
 
-| 消息来源 | 双端一致 | 测试方式 |
-|---|---|---|
-| **领域错误**（我们写：`record not found` 等） | ✅ 必须（契约） | 精确 message 断言 + 双端一致契约测试 |
-| **透传三方库错误**（pgx / postgres.js） | ❌ 不强求（不同驱动天然不同，各自真实） | **mock** 驱动错误，测「透传发生 + 500」，不断言三方 message 具体值 |
+```
+三方库错误（pgx / postgres.js）
+  → Repository 层吸收，包装为领域错误 ErrInternal{ message: 原始 err 内容 }   ← 防腐层（唯一碰 SQL 的层）
+  → 业务层 / handler：所有错误都是领域错误，统一 statusOf 映射
+  → handler：writeError(w, statusOf(err), err.Error())   ← 无 writeInternalError
+```
 
-### 3.3 具体改动清单
+| 领域错误 | status |
+|---|---|
+| `ErrNotFound` | 404 |
+| `ErrConflict` | 409 |
+| `ErrValidation` | 400 |
+| **`ErrInternal`**（message = 原始三方库错误） | **500** |
 
-1. **Go** `writeInternalError`：`writeError(w, http.StatusInternalServerError, err.Error())`——透传，不合并。
-2. **Node** route catch：`errorResponse(err.message, 500)`；`logapi.ts` / `importapi.ts` 内部：`return { error: err.message, status: 500 }`。
-3. **守卫测试反转**：`TestWriteInternalErrorNeverExposesDetails` → `TestWriteInternalErrorTransmitsDetail`（断言 status=500 + detail 透传了注入的错误）。
-4. **OpenAPI** `InternalError` example 更新（示意透传具体错误，如 `disk full (SQLSTATE 53100)`）。
-5. **AGENTS**：错误文案规范移除 `Internal server error` 固定例外的适用面（title 保持 reason phrase，detail 透传）；「双端逐字一致」适用范围明确为**仅契约文案（我们写的）**，透传驱动错误不在其内。
+### 3.3 Go 形态
+
+```go
+// record/errors.go —— ErrInternal 领域错误（message 承载原始三方库错误，不合并不丢弃）
+type InternalError struct{ message string }
+func (e *InternalError) Error() string { return e.message }
+func ErrInternal(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &InternalError{message: err.Error()}
+}
+
+// Repository：唯一碰 SQL 的层，在此吸收三方库错误（防腐层）
+func (r *RecordRepository) SaveAll(ctx, q, records) SaveAllResult {
+	var res SaveAllResult
+	err := q.Exec(...)
+	if err != nil {
+		res.Error = record.ErrInternal(err)   // 三方库错误 → 领域错误
+		return res
+	}
+	...
+}
+
+// statusOf：统一映射（替代 writeInternalError 分支）
+func statusOf(err error) int {
+	switch {
+	case errors.Is(err, record.ErrNotFound):   return http.StatusNotFound
+	case errors.Is(err, record.ErrConflict):   return http.StatusConflict
+	case errors.Is(err, record.ErrValidation): return http.StatusBadRequest
+	case errors.As(err, new(*record.InternalError)): return http.StatusInternalServerError
+	default:                                   return http.StatusInternalServerError
+	}
+}
+
+// handler：统一，无 writeInternalError
+result, err := service.AttachTag(ctx, s.Pool, id, tag)
+if err != nil {
+	writeError(w, statusOf(err), err.Error())
+	return
+}
+```
+
+### 3.4 具体改动清单
+
+1. **Go**：`record` 包新增 `ErrInternal`（`InternalError` 类型 + `ErrInternal(err)` 包装）；Repository 层吸收三方库错误；`statusOf` 统一映射；删除 `writeInternalError` 特殊通道（handler 统一 `statusOf + writeError`）。
+2. **Node**：见 §3.5（双端对称，但当前无 Repository 层，见下）。
+3. **守卫测试反转**：`TestWriteInternalErrorNeverExposesDetails` → 验证 500 + detail 透传。
+4. **OpenAPI** `InternalError` example 更新（示意透传具体错误）。
+5. **AGENTS**：错误文案规范移除 `Internal server error` 固定例外的适用面；「双端逐字一致」适用范围明确为仅契约文案（我们写的），透传驱动错误不在其内。
 6. **双端 message 差异**：接受（pgx vs postgres.js 格式不同），不强求统一——统一才是信息丢失。
+
+### 3.5 Node 形态（当前阶段）
+
+- Node 现状**无 Repository 层**（UoW 架构暂停中），三方库错误由 `logapi` / 各 route 的 `catch` 直接吸收。
+- 当前落地：catch 统一透传 message（抽 `errorMessage(error)` helper 处理 `unknown` → string）：
+
+```ts
+// src/lib/errors.ts（或现有公共 helper）
+export function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error)
+}
+
+// logapi / route catch
+} catch (error) {
+	logger.error({ err: error }, '...')
+	return { error: errorMessage(error), status: 500 }   // 透传，不合并
+}
+```
+
+- **`InternalError` 类留到 UoW 落地时引入**（与 Repository 一起）：届时 `class InternalError extends Error` 与 Go `ErrInternal` 对称，Repository 吸收三方库错误，业务层 `instanceof InternalError` → 500。当前 Result 已带 status，无判别需求，引入类纯为铺路——故推迟。
 
 ## 4. 待验证 / 风险
 
 - **Go pgx vs Node postgres.js 实际错误 message 差异**：实施时对比（如 `relation ... does not exist`、`disk full` 在两端的实际输出），确认透传后 detail 形态。
 - **detail 长度 / 可读性**：`err.Error()` 可能较长（含驱动前缀 / SQLSTATE）；评估是否需要提取可读摘要（倾向先透传原文，视实际效果再定）。
 - **契约影响**：detail 不再固定 → OpenAPI `InternalError` example、相关断言、AGENTS 例外需同步（改动清单 4/5）。
+- **Node catch 类型**：`unknown` → `errorMessage` helper 统一处理（§3.5）。
 - 不改 fixtures（无 500 项）。
 
 ## 5. 相关记录
