@@ -76,14 +76,16 @@ if body["detail"] != "Internal server error" { t.Fatalf("leaked internal detail"
 ### 3.3 Go 形态
 
 ```go
-// record/errors.go —— ErrInternal 领域错误（message 承载原始三方库错误，不合并不丢弃）
-type InternalError struct{ message string }
-func (e *InternalError) Error() string { return e.message }
+// record/errors.go —— ErrInternal 领域错误（保留原始三方库错误，不合并不丢弃）
+// 存原始 err + Unwrap：Error() 返回原文，errors.As 命中 InternalError，底层链仍可 errors.Is 穿透
+type InternalError struct{ err error }
+func (e *InternalError) Error() string { return e.err.Error() }
+func (e *InternalError) Unwrap() error { return e.err }
 func ErrInternal(err error) error {
 	if err == nil {
 		return nil
 	}
-	return &InternalError{message: err.Error()}
+	return &InternalError{err: err}
 }
 
 // Repository：唯一碰 SQL 的层，在此吸收三方库错误（防腐层）
