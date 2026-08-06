@@ -62,8 +62,8 @@ if body["detail"] != "Internal server error" { t.Fatalf("leaked internal detail"
 ```
 三方库错误（pgx / postgres.js）
   → Repository 层吸收，包装为领域错误 ErrInternal{ message: 原始 err 内容 }   ← 防腐层（唯一碰 SQL 的层）
-  → 业务层 / handler：所有错误都是领域错误，统一 statusOf 映射
-  → handler：writeError(w, statusOf(err), err.Error())   ← 无 writeInternalError
+  → 业务层 / handler：所有错误都是领域错误，status 由业务函数显式返回（A2 定案，无 statusOf）
+  → handler：writeError(w, status, err.Error())   ← 无 writeInternalError
 ```
 
 | 领域错误 | status |
@@ -97,28 +97,19 @@ func (r *RecordRepository) SaveAll(ctx, q, records) SaveAllResult {
 	...
 }
 
-// statusOf：统一映射（替代 writeInternalError 分支）
-func statusOf(err error) int {
-	switch {
-	case errors.Is(err, record.ErrNotFound):   return http.StatusNotFound
-	case errors.Is(err, record.ErrConflict):   return http.StatusConflict
-	case errors.Is(err, record.ErrValidation): return http.StatusBadRequest
-	case errors.As(err, new(*record.InternalError)): return http.StatusInternalServerError
-	default:                                   return http.StatusInternalServerError
-	}
-}
+// statusOf：~~统一映射（替代 writeInternalError 分支）~~ 已否决——方案 A 定案：status 由业务函数显式返回（A2），不引入 statusOf。
 
-// handler：统一，无 writeInternalError
-result, err := service.AttachTag(ctx, s.Pool, id, tag)
+// handler：统一，无 writeInternalError（status 来自业务函数，err 透传）
+result, status, err := service.AttachTag(ctx, s.Pool, id, tag)
 if err != nil {
-	writeError(w, statusOf(err), err.Error())
+	writeError(w, status, err.Error())
 	return
 }
 ```
 
 ### 3.4 具体改动清单
 
-1. **Go**：`record` 包新增 `ErrInternal`（`InternalError` 类型 + `ErrInternal(err)` 包装）；Repository 层吸收三方库错误；`statusOf` 统一映射；删除 `writeInternalError` 特殊通道（handler 统一 `statusOf + writeError`）。
+1. **Go**：`record` 包新增 `ErrInternal`（`InternalError` 类型 + `ErrInternal(err)` 包装）；Repository 层吸收三方库错误；**status 来源保持 A2 定案（业务函数显式返回，不引入 statusOf）**；删除 `writeInternalError` 特殊通道（handler 统一 `writeError(w, status, err.Error())`）。
 2. **Node**：见 §3.5（双端对称，但当前无 Repository 层，见下）。
 3. **守卫测试反转**：`TestWriteInternalErrorNeverExposesDetails` → 验证 500 + detail 透传。
 4. **OpenAPI** `InternalError` example 更新（示意透传具体错误）。
@@ -157,10 +148,10 @@ export function errorMessage(error: unknown): string {
 
 1. **阶段划分**：当前**无 Repository 层**（UoW 暂停），业务函数直接返回 `(T, status, error)`（err 为含三方库错误的包装链）。分两阶段：
    - **阶段 A（现在）**：最小透传——`writeInternalError` 改为 `writeError(w, 500, err.Error())`（透传），守卫测试反转。统一模型的**中间态**。
-   - **阶段 B（UoW 落地时）**：引入 `ErrInternal` 类 + `statusOf` 统一映射 + Repository 层吸收三方库错误（防腐层）——`writeInternalError` 消失。与 Node 端「`InternalError` 类推迟」决策对称。
-2. **`ErrInternal` 错误链保留**：`InternalError` 存原始 `err` + 实现 `Unwrap()`（返回原 err）——`Error()` 返回原文，`errors.As` 命中 `InternalError`，底层链仍可 `errors.Is` 穿透（如判 SQLSTATE）。**不**只存 `message` 断链。
-3. **`statusOf` 归属**：放 `httpx` 包（HTTP 适配层职责：领域错误 → HTTP status）。领域错误定义在 `record` 包，`statusOf` 是其到 HTTP 的映射。
-4. **`writeLogOrError` 去留**：倾向**保留**（改造内部用 `statusOf`）：≥500 → `slog.Error` + `writeError(w, statusOf(err), err.Error())`；<500 → `writeError(w, status, err.Error())`。它已是「日志 + 错误写出」统一入口，handler 调用点（10 处）不动。
+   - **阶段 B（UoW 落地时）**：引入 `ErrInternal` 类 + Repository 层吸收三方库错误（防腐层）——`writeInternalError` 消失。与 Node 端「`InternalError` 类推迟」决策对称。
+2. **statusOf 已否决（方案 A 定案）**：status 来源保持 A2 定案——业务函数显式返回 `(T, status, error)`，handler 用业务函数给的 status。**不引入** statusOf 统一映射（双端对称：Node `Result.status` 亦保留）。领域错误分类（400/404/409/500）在业务函数内完成。
+3. **`ErrInternal` 错误链保留**：`InternalError` 存原始 `err` + 实现 `Unwrap()`（返回原 err）——`Error()` 返回原文，`errors.As` 命中 `InternalError`，底层链仍可 `errors.Is` 穿透（如判 SQLSTATE）。**不**只存 `message` 断链。
+4. **`writeLogOrError` 去留**：倾向**保留**（内部仍用 `status` 参数判断，无 statusOf）：≥500 → `slog.Error` + `writeError(w, 500, err.Error())`；<500 → `writeError(w, status, err.Error())`。它已是「日志 + 错误写出」统一入口，handler 调用点（8 处）不动。
 5. **日志位置**：500 时 `slog.Error(logMsg, "err", err)` 保持（写路径 `writeLogOrError`、读路径 handler 内 `slog.Error`）——日志是诊断兜底，与透传并存。
 6. **守卫测试 + 空 err 兜底**：`TestWriteInternalErrorNeverExposesDetails` → `TestWriteInternalErrorTransmitsDetail`（500 + 透传注入 message）；`writeInternalError` 内 `err == nil` 或 `err.Error() == ""` 回退固定文案（防空 detail）。
 
