@@ -161,6 +161,11 @@
 ### D2 upsert（import）幂等 / 错误归属
 - 问题：import 是 insert-or-update by id，含「batch 内重复 id → 400 `line 2: duplicate record id`」。此重复检测在业务层还是 Repository？`Upsert` 是否含冲突检测？
 - 待决：import 拆分。
+- 状态：✅ **已定案**：
+  - **`Upsert(ctx, q, recs []record.Record) (record.UpsertCounts, error)`** = Repository 原语：批量 insert-or-update by id（`INSERT ... ON CONFLICT (id) DO UPDATE` 全字段），返回 Inserted / Updated / Total 计数（待定点 4 的 `UpsertCounts`）。
+  - **batch 内重复 id 检测（400 `line N: duplicate record id`）= 业务层**——是**输入校验**（两行同 id = 输入错误，带行号语义），不是 SQL 冲突语义；现状 `seen` Set 保留在 import 业务层，`Upsert` 假定入参已去重。
+  - 行级 parse 错误 / `MAX_IMPORT_LINES` / 单行 `parseLine` = 业务层（现状不变）。
+  - 业务层：逐行 parse + 重复检测 → 一次 `repo.Upsert(ctx, q, recs)`（在 `WithTx` 内，A4 多语句形态）。
 
 ### D3 读路径 SQL 策略（双端是否同构）
 - 问题：Go 全部 raw SQL；Node 现在用 drizzle query builder。Repository 双端「方法名对齐」但 SQL 实现策略是否要求同构？`EscapeLikePattern` 等共享 util 放哪？
