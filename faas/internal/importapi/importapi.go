@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordjsonl"
 )
@@ -77,49 +78,20 @@ func IsAcceptedImportFilePart(contentType, filename string) bool {
 	return false
 }
 
-// domainError 可映射为 HTTP 状态的导入域错误。
-type domainError struct {
-	msg    string
-	status int
-}
-
-func (e *domainError) Error() string { return e.msg }
-
-func fail(status int, msg string) error {
-	return &domainError{msg: msg, status: status}
-}
-
-// StatusOf 若为导入域错误则返回其 HTTP 状态；否则 0。
-func StatusOf(err error) int {
-	var de *domainError
-	if errors.As(err, &de) {
-		return de.status
-	}
-	if errors.Is(err, ErrImportLimitsError) ||
-		errors.Is(err, ErrMultipartRequired) ||
-		errors.Is(err, ErrMultipartMultipleFile) ||
-		errors.Is(err, ErrMultipartContentType) ||
-		errors.Is(err, ErrUnsupportedFileContentType) ||
-		errors.Is(err, ErrMultipartPartTooLarge) {
-		return 400
-	}
-	return 0
-}
-
 // ImportRecordsJSONL 读 file part（≤4MiB）后单事务逐行 upsert。
 // 不把整文件解析成 []Record；空内容 → 全 0。
 func ImportRecordsJSONL(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (Counts, error) {
 	raw, err := io.ReadAll(io.LimitReader(r, int64(MaxImportFileBytes)+1))
 	if err != nil {
-		return Counts{}, err
+		return Counts{}, myerr.NewInternal(err)
 	}
 	if len(raw) > MaxImportFileBytes {
-		return Counts{}, fail(400, ErrImportLimitsError.Error())
+		return Counts{}, myerr.NewValidation(ErrImportLimitsError.Error())
 	}
 
 	tx, err := pool.Begin(ctx)
 	if err != nil {
-		return Counts{}, err
+		return Counts{}, myerr.NewInternal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
@@ -128,7 +100,7 @@ func ImportRecordsJSONL(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (C
 		return Counts{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return Counts{}, err
+		return Counts{}, myerr.NewInternal(err)
 	}
 	return counts, nil
 }
@@ -136,7 +108,7 @@ func ImportRecordsJSONL(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (C
 // ImportRecordsJSONLTx 同语义，使用已有 tx（单测注入假 tx / 真实 tx）。
 func ImportRecordsJSONLTx(ctx context.Context, tx pgx.Tx, text string, fileBytes int) (Counts, error) {
 	if fileBytes > MaxImportFileBytes {
-		return Counts{}, fail(400, ErrImportLimitsError.Error())
+		return Counts{}, myerr.NewValidation(ErrImportLimitsError.Error())
 	}
 	return importTextInTx(ctx, tx, text)
 }
@@ -165,30 +137,30 @@ func importTextInTx(ctx context.Context, tx pgx.Tx, text string) (Counts, error)
 		}
 		nonEmpty++
 		if nonEmpty > MaxImportLines {
-			return Counts{}, fail(400, ErrImportLimitsError.Error())
+			return Counts{}, myerr.NewValidation(ErrImportLimitsError.Error())
 		}
 
 		row, err := recordjsonl.ParseLine(line, physicalLine)
 		if err != nil {
-			return Counts{}, fail(400, err.Error())
+			return Counts{}, myerr.NewValidation(err.Error())
 		}
 		if _, ok := seen[row.ID]; ok {
-			return Counts{}, fail(400, FormatDuplicateIDError(row.ID, physicalLine))
+			return Counts{}, myerr.NewValidation(FormatDuplicateIDError(row.ID, physicalLine))
 		}
 		seen[row.ID] = struct{}{}
 
 		exists, err := rowExists(ctx, tx, row.ID)
 		if err != nil {
-			return Counts{}, err
+			return Counts{}, myerr.NewInternal(err)
 		}
 		if exists {
 			if err := updateRow(ctx, tx, row); err != nil {
-				return Counts{}, err
+				return Counts{}, myerr.NewInternal(err)
 			}
 			updated++
 		} else {
 			if err := insertRow(ctx, tx, row); err != nil {
-				return Counts{}, err
+				return Counts{}, myerr.NewInternal(err)
 			}
 			inserted++
 		}
@@ -212,19 +184,22 @@ func rowExists(ctx context.Context, q interface {
 func insertRow(ctx context.Context, tx pgx.Tx, row *recordjsonl.Row) error {
 	tagsJSON, err := record.TagsJSON(row.Tags)
 	if err != nil {
-		return err
+		return myerr.NewInternal(err)
 	}
 	_, err = tx.Exec(ctx, `
 INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
 `, row.ID, row.HappenedAt, row.UtcOffset, row.NumericValue, row.RawContent, tagsJSON, row.ObjectiveContext, row.AiAnalysis)
-	return err
+	if err != nil {
+		return myerr.NewInternal(err)
+	}
+	return nil
 }
 
 func updateRow(ctx context.Context, tx pgx.Tx, row *recordjsonl.Row) error {
 	tagsJSON, err := record.TagsJSON(row.Tags)
 	if err != nil {
-		return err
+		return myerr.NewInternal(err)
 	}
 	_, err = tx.Exec(ctx, `
 UPDATE records SET
@@ -237,5 +212,8 @@ UPDATE records SET
   ai_analysis = $7
 WHERE id = $8
 `, row.HappenedAt, row.UtcOffset, row.NumericValue, row.RawContent, tagsJSON, row.ObjectiveContext, row.AiAnalysis, row.ID)
-	return err
+	if err != nil {
+		return myerr.NewInternal(err)
+	}
+	return nil
 }

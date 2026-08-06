@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/logapi"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
 
@@ -22,13 +23,13 @@ func TestLogTodoTransitionSuccessBodyAndNotify(t *testing.T) {
 	var notified []string
 	s := &Server{
 		Tokens: auth.Tokens{AI: "ai-tok", Admin: "admin-tok"},
-		TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ tododraft.NormalizedTodoTransition) (logapi.TransitionResult, int, error) {
+		TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ tododraft.NormalizedTodoTransition) (logapi.TransitionResult, error) {
 			return logapi.TransitionResult{
 				ID:                  todoID,
 				From:                tododraft.TodoStateInProgress,
 				To:                  tododraft.TodoStateCompleted,
 				TodoAuditNotifyText: notifyText,
-			}, 200, nil
+			}, nil
 		},
 		NotifyUser: func(text string) {
 			notified = append(notified, text)
@@ -112,8 +113,11 @@ func TestLogTodoTransitionDomainErrorsWithoutDB(t *testing.T) {
 			wantErr := c.err
 			s := &Server{
 				Tokens: auth.Tokens{AI: "ai-tok", Admin: "admin-tok"},
-				TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ tododraft.NormalizedTodoTransition) (logapi.TransitionResult, int, error) {
-					return logapi.TransitionResult{}, wantStatus, errString(wantErr)
+				TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ tododraft.NormalizedTodoTransition) (logapi.TransitionResult, error) {
+					if wantStatus == 404 {
+						return logapi.TransitionResult{}, myerr.NewNotFound(wantErr)
+					}
+					return logapi.TransitionResult{}, myerr.NewValidation(wantErr)
 				},
 			}
 			h := s.Handler()
@@ -133,7 +137,3 @@ func TestLogTodoTransitionDomainErrorsWithoutDB(t *testing.T) {
 		})
 	}
 }
-
-type errString string
-
-func (e errString) Error() string { return string(e) }

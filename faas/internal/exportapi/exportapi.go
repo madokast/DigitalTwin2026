@@ -17,6 +17,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordjsonl"
 )
@@ -52,18 +53,18 @@ func parseRequiredLimit(raw string) (int, error) {
 }
 
 // ParseExportRecordsParams 解析导出 query；失败可映射为 400。
-// from 不存在由 FetchExportRecords 返 404。
+// ParseExportRecordsParams 校验导出参数（400 类 myerr）；from 不存在由 FetchExportRecords 返 404。
 func ParseExportRecordsParams(q url.Values) (*ParsedExport, error) {
 	limit, err := parseRequiredLimit(q.Get("limit"))
 	if err != nil {
-		return nil, err
+		return nil, myerr.NewValidation(err.Error())
 	}
 	from := q.Get("from")
 	if from == "" {
 		return &ParsedExport{From: "", Limit: limit}, nil
 	}
 	if !record.IsValidID(from) {
-		return nil, record.ErrInvalidID
+		return nil, myerr.NewValidation(record.ErrInvalidID.Error())
 	}
 	return &ParsedExport{From: from, Limit: limit}, nil
 }
@@ -71,16 +72,16 @@ func ParseExportRecordsParams(q url.Values) (*ParsedExport, error) {
 const selectCols = `id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis`
 
 // FetchExportRecords 有 from 时先确认存在，再 id >= from ORDER BY id ASC LIMIT。
-// 成功 (recs, 200, nil)；from 不存在 (nil, 404, ErrExportFromNotFound)。
-func FetchExportRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedExport) ([]record.Record, int, error) {
+// from 不存在 → myerr 404。
+func FetchExportRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedExport) ([]record.Record, error) {
 	if p.From != "" {
 		var exists bool
 		err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM records WHERE id = $1)`, p.From).Scan(&exists)
 		if err != nil {
-			return nil, 500, err
+			return nil, myerr.NewInternal(err)
 		}
 		if !exists {
-			return nil, 404, ErrExportFromNotFound
+			return nil, myerr.NewNotFound(ErrExportFromNotFound.Error())
 		}
 	}
 
@@ -100,7 +101,7 @@ func FetchExportRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedExport
 		)
 	}
 	if err != nil {
-		return nil, 500, err
+		return nil, myerr.NewInternal(err)
 	}
 	defer rows.Close()
 
@@ -108,14 +109,14 @@ func FetchExportRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedExport
 	for rows.Next() {
 		rec, scanErr := scanRecord(rows)
 		if scanErr != nil {
-			return nil, 500, scanErr
+			return nil, myerr.NewInternal(scanErr)
 		}
 		recs = append(recs, rec)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, 500, err
+		return nil, myerr.NewInternal(err)
 	}
-	return recs, 200, nil
+	return recs, nil
 }
 
 func scanRecord(row pgx.Row) (record.Record, error) {

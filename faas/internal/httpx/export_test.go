@@ -72,8 +72,8 @@ func TestExportRecordsNotifyOnEmptySuccess(t *testing.T) {
 func TestExportRecordsNoNotifyWhenWriteFails(t *testing.T) {
 	var notified []string
 	srv := testServer()
-	srv.FetchExportRecords = func(_ context.Context, _ *pgxpool.Pool, _ *exportapi.ParsedExport) ([]record.Record, int, error) {
-		return []record.Record{}, 200, nil
+	srv.FetchExportRecords = func(_ context.Context, _ *pgxpool.Pool, _ *exportapi.ParsedExport) ([]record.Record, error) {
+		return []record.Record{}, nil
 	}
 	srv.NotifyUser = func(text string) {
 		notified = append(notified, text)

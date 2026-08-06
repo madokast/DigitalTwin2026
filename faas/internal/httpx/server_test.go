@@ -13,8 +13,8 @@ import (
 
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/importapi"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
-	"github.com/mdk/digitaltwin2026/faas/internal/query"
 	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
 )
 
@@ -717,22 +717,29 @@ func TestTransactionsSummaryMissingParamsWithoutDB(t *testing.T) {
 }
 
 func TestSummaryErrorClassification(t *testing.T) {
-	// 与 handleSummary 相同判定：errors.Is(ErrInvalidTZ)；禁止再靠文案含 "tz"
-	classify := func(err error) int {
-		if errors.Is(err, query.ErrInvalidTZ) {
-			return 400
+	// 决策 D：分类靠 myerr.Status，不靠文案。writeErr 对 400/500 myerr 各写对应 status。
+	for _, tc := range []struct {
+		name   string
+		err    error
+		status int
+	}{
+		{"validation", myerr.NewValidation("query parameter tz must be a valid IANA time zone"), 400},
+		{"internal", myerr.NewInternal(errors.New("connection failed")), 500},
+	} {
+		rr := httptest.NewRecorder()
+		writeErr(rr, tc.err, "query summary")
+		if rr.Code != tc.status {
+			t.Fatalf("%s: status %d want %d", tc.name, rr.Code, tc.status)
 		}
-		return 500
+		assertProblemDetailContains(t, rr, tc.err.Error())
 	}
-	if classify(query.ErrInvalidTZ) != 400 {
-		t.Fatal("ErrInvalidTZ → 400")
+	// 非 myerr（漏包装）→ 500 兜底，detail 含类型名
+	rr := httptest.NewRecorder()
+	writeErr(rr, errors.New("connection failed near timezone column tz"), "query summary")
+	if rr.Code != 500 {
+		t.Fatalf("non-myerr status %d want 500", rr.Code)
 	}
-	if classify(fmt.Errorf("%w", query.ErrInvalidTZ)) != 400 {
-		t.Fatal("wrapped ErrInvalidTZ → 400")
-	}
-	if classify(fmt.Errorf("connection failed near timezone column tz")) != 500 {
-		t.Fatal("DB error containing tz must stay 500")
-	}
+	assertProblemDetailContains(t, rr, "connection failed near timezone column tz")
 }
 
 func TestTelegramProbeNotConfigured(t *testing.T) {
@@ -1035,33 +1042,21 @@ func TestWriteJSONDoesNotHTMLEscape(t *testing.T) {
 }
 
 func TestWriteInternalErrorTransmitsDetail(t *testing.T) {
-	// 内部错误透传：500 detail = 实际错误 message（设计哲学 §2.1，AI 诊断权）
+	// 内部错误透传（决策 D）：500 detail 含类型名 + 驱动消息（设计哲学 §2.1，AI 诊断权）
 	rr := httptest.NewRecorder()
-	writeInternalError(rr, errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`))
+	writeErr(rr, errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`), "test")
 	if rr.Code != 500 {
 		t.Fatalf("status %d", rr.Code)
 	}
-	var body map[string]any
-	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
-		t.Fatal(err)
-	}
-	if body["detail"] != `ERROR: relation "records" does not exist (SQLSTATE 42P01)` {
-		t.Fatalf("detail not transmitted: %q", body["detail"])
-	}
+	assertProblemDetailContains(t, rr, `ERROR: relation "records" does not exist (SQLSTATE 42P01)`)
 }
 
 func TestWriteInternalErrorEmptyMessageUsesTypeName(t *testing.T) {
-	// 空 message 兜底：%T 类型名（永不为空）
+	// 空 message 兜底（myerr.describe）：%T 类型名（永不为空）
 	rr := httptest.NewRecorder()
-	writeInternalError(rr, errors.New(""))
+	writeErr(rr, errors.New(""), "test")
 	if rr.Code != 500 {
 		t.Fatalf("status %d", rr.Code)
 	}
-	var body map[string]any
-	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
-		t.Fatal(err)
-	}
-	if body["detail"] != "*errors.errorString" {
-		t.Fatalf("type-name fallback missing: %q", body["detail"])
-	}
+	assertProblemDetail(t, rr, "*errors.errorString")
 }

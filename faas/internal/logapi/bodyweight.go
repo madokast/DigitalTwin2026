@@ -2,22 +2,21 @@ package logapi
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/bodyweightdraft"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 )
 
 // CreateBodyWeight 与 Next createBodyWeight 对齐：落库强制含 body:weight。
 // 收 typed 产物（route 层经 bodyweightdraft.ParseBodyWeight 解析校验）。
-func CreateBodyWeight(ctx context.Context, pool *pgxpool.Pool, parsed bodyweightdraft.NormalizedBodyWeight) (record.Record, int, error) {
-
+func CreateBodyWeight(ctx context.Context, pool *pgxpool.Pool, parsed bodyweightdraft.NormalizedBodyWeight) (record.Record, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return record.Record{}, 500, err
+		return record.Record{}, myerr.NewInternal(err)
 	}
 
 	vn := parsed.NumericValue
@@ -32,7 +31,7 @@ func CreateBodyWeight(ctx context.Context, pool *pgxpool.Pool, parsed bodyweight
 		AiAnalysis:       parsed.AiAnalysis,
 	})
 	if !res.OK {
-		return record.Record{}, 500, fmt.Errorf("insert body weight: %w", res.Error)
+		return record.Record{}, res.Error
 	}
-	return res.Record, 201, nil
+	return res.Record, nil
 }

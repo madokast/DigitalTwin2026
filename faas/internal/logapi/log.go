@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
@@ -77,38 +78,38 @@ func optionalTagList(raw any) ([]string, error) {
 
 // CreateText 与 Next createText 对齐：校验 + INSERT。收 typed 请求体（route 层已
 // reject unknown keys + decode）；业务层只做字段校验与落库。
-func CreateText(ctx context.Context, pool *pgxpool.Pool, body TextBody) (record.Record, int, error) {
+func CreateText(ctx context.Context, pool *pgxpool.Pool, body TextBody) (record.Record, error) {
 	happenedRaw := happenedAtString(body.HappenedAt)
 	if err := draft.ValidateHappenedAt(happenedRaw); err != nil {
-		return record.Record{}, 400, err
+		return record.Record{}, myerr.NewValidation(err.Error())
 	}
 	rawContent, err := draft.RequireTrimmedText(body.RawContent, "raw_content")
 	if err != nil {
-		return record.Record{}, 400, err
+		return record.Record{}, myerr.NewValidation(err.Error())
 	}
 	tagList, err := optionalTagList(body.Tags)
 	if err != nil {
-		return record.Record{}, 400, err
+		return record.Record{}, myerr.NewValidation(err.Error())
 	}
 	tv := tags.ValidateTags(tagList)
 	if !tv.Valid {
-		return record.Record{}, 400, fmt.Errorf("%s", tv.Error)
+		return record.Record{}, myerr.NewValidation(tv.Error)
 	}
 	if rv := tags.AssertNoReservedTags(tagList); !rv.Valid {
-		return record.Record{}, 400, fmt.Errorf("%s", rv.Error)
+		return record.Record{}, myerr.NewValidation(rv.Error)
 	}
 	objCtx, err := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
 	if err != nil {
-		return record.Record{}, 400, err
+		return record.Record{}, myerr.NewValidation(err.Error())
 	}
 	subj, err := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
 	if err != nil {
-		return record.Record{}, 400, err
+		return record.Record{}, myerr.NewValidation(err.Error())
 	}
 
 	id, err := uuid.NewV7()
 	if err != nil {
-		return record.Record{}, 500, err
+		return record.Record{}, myerr.NewInternal(err)
 	}
 
 	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record，业务层唯一使用。
@@ -122,7 +123,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, body TextBody) (record.
 		AiAnalysis:       subj,
 	})
 	if !res.OK {
-		return record.Record{}, 500, res.Error
+		return record.Record{}, res.Error
 	}
-	return res.Record, 201, nil
+	return res.Record, nil
 }

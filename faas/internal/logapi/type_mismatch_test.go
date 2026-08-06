@@ -16,9 +16,10 @@ func TestCreateTextTypeMismatchMessages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, status, err := CreateText(context.Background(), nil, body)
-	if status != 400 || err == nil || err.Error() != "missing required field: raw_content" {
-		t.Fatalf("status=%d err=%v", status, err)
+	_, err = CreateText(context.Background(), nil, body)
+	assertMyStatus(t, err, 400)
+	if err == nil || err.Error() != "missing required field: raw_content" {
+		t.Fatalf("err=%v", err)
 	}
 }
 
@@ -86,20 +87,20 @@ func TestTransitionTodoRejectsValidation(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		var status int
 		var err error
 		if c.want == record.ErrInvalidID.Error() {
 			parsed, perr := tododraft.ParseTodoTransition([]byte(c.raw))
 			if perr != nil {
 				t.Fatalf("%s: parse: %v", c.raw, perr)
 			}
-			_, status, err = TransitionTodo(context.Background(), nil, parsed)
+			_, err = TransitionTodo(context.Background(), nil, parsed)
+			assertMyStatus(t, err, 400)
 		} else {
+			// route 层 draft 解析错误：裸 error（非 myerr），直接断言文案
 			_, err = tododraft.ParseTodoTransition([]byte(c.raw))
-			status = 400
 		}
-		if status != 400 || err == nil || err.Error() != c.want {
-			t.Fatalf("%s: status=%d err=%v want %q", c.raw, status, err, c.want)
+		if err == nil || err.Error() != c.want {
+			t.Fatalf("%s: err=%v want %q", c.raw, err, c.want)
 		}
 	}
 }

@@ -3,6 +3,7 @@ package logapi
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -97,11 +98,9 @@ func TestCreateNumberBatchRollsBackOnInsertFailure(t *testing.T) {
 	fx := &fakeNumberTx{failOn: 2}
 	q := &fakeNumberBeginner{tx: fx}
 
-	inserted, recs, status, err := createNumberBatch(context.Background(), q, numberBatchParsed)
-	if status != 500 {
-		t.Fatalf("status=%d want 500", status)
-	}
-	if err == nil || err.Error() != "injected insert failure" {
+	inserted, recs, err := createNumberBatch(context.Background(), q, numberBatchParsed)
+	assertMyStatus(t, err, 500)
+	if err == nil || !strings.Contains(err.Error(), "injected insert failure") {
 		t.Fatalf("err=%v", err)
 	}
 	if inserted != 0 || len(recs) != 0 {
@@ -122,9 +121,9 @@ func TestCreateNumberBatchSuccessCommits(t *testing.T) {
 	fx := &fakeNumberTx{}
 	q := &fakeNumberBeginner{tx: fx}
 
-	inserted, recs, status, err := createNumberBatch(context.Background(), q, numberBatchParsed)
-	if err != nil || status != 201 {
-		t.Fatalf("status=%d err=%v", status, err)
+	inserted, recs, err := createNumberBatch(context.Background(), q, numberBatchParsed)
+	if err != nil {
+		t.Fatalf("err=%v", err)
 	}
 	if inserted != 2 || len(recs) != 2 {
 		t.Fatalf("inserted=%d recs=%d", inserted, len(recs))

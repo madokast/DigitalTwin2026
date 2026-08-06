@@ -11,8 +11,21 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
+
+// assertMyStatus 断言 err 为 *myerr.MyError 且 status 匹配。
+func assertMyStatus(t *testing.T, err error, status int) {
+	t.Helper()
+	me, ok := err.(*myerr.MyError)
+	if !ok {
+		t.Fatalf("err %v, want *myerr.MyError", err)
+	}
+	if me.Status != status {
+		t.Fatalf("status %d want %d (msg %q)", me.Status, status, me.Message)
+	}
+}
 
 // ---- 假 db.Tx / db.TxBeginner（四类域错误 + 成功路径，不依赖真实数据库）----
 
@@ -202,10 +215,8 @@ func TestTransitionTodo_fourDomainErrors(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			_, status, err := transitionTodo(context.Background(), c.db, todoParsed)
-			if status != c.status {
-				t.Fatalf("status=%d want %d", status, c.status)
-			}
+			_, err := transitionTodo(context.Background(), c.db, todoParsed)
+			assertMyStatus(t, err, c.status)
 			if err == nil || err.Error() != c.want {
 				t.Fatalf("err=%v want %q", err, c.want)
 			}
@@ -223,9 +234,10 @@ func TestTransitionTodo_updateAffectedNotOne(t *testing.T) {
 		selectRow: sampleTodoSelect(`["todo:in_progress"]`, "Buy milk"),
 		tx:        &fakeTx{rowsAff: 2},
 	}
-	_, status, err := transitionTodo(context.Background(), fdb, todoParsed)
-	if status != 500 || err == nil || !strings.Contains(err.Error(), "todo update affected 2 rows") {
-		t.Fatalf("status=%d err=%v", status, err)
+	_, err := transitionTodo(context.Background(), fdb, todoParsed)
+	assertMyStatus(t, err, 500)
+	if err == nil || !strings.Contains(err.Error(), "todo update affected 2 rows") {
+		t.Fatalf("err=%v", err)
 	}
 	if fdb.tx.commitN != 0 {
 		t.Fatal("must not commit when affected != 1")
@@ -271,12 +283,9 @@ func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 		tx: tx,
 	}
 
-	result, status, err := transitionTodo(context.Background(), db, todoParsed)
+	result, err := transitionTodo(context.Background(), db, todoParsed)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if status != 200 {
-		t.Fatalf("status=%d", status)
 	}
 	if result.ID != todoID || result.From != "in_progress" || result.To != "completed" {
 		t.Fatalf("result=%+v", result)
@@ -307,21 +316,10 @@ func TestTransitionTodo_updateOkInsertFailRollsBack(t *testing.T) {
 		tx:        tx,
 	}
 
-	result, status, err := transitionTodo(context.Background(), db, todoParsed)
-	if status != 500 {
-		t.Fatalf("status=%d want 500", status)
-	}
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "insert todo audit") {
-		t.Fatalf("err=%v want wrap of insert todo audit", err)
-	}
-	if !errors.Is(err, insertBoom) {
-		t.Fatalf("err=%v want errors.Is insertBoom", err)
-	}
-	if result != (TransitionResult{}) {
-		t.Fatalf("result=%+v want zero (no half-success)", result)
+	_, err := transitionTodo(context.Background(), db, todoParsed)
+	assertMyStatus(t, err, 500)
+	if err == nil || !strings.Contains(err.Error(), "audit insert failed") {
+		t.Fatalf("err=%v want audit insert failure", err)
 	}
 	if len(tx.execSQL) != 1 || !strings.Contains(tx.execSQL[0], "UPDATE records SET tags") {
 		t.Fatalf("UPDATE must run before INSERT fail; execSQL=%v", tx.execSQL)

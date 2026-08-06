@@ -3,7 +3,6 @@ package query
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -16,14 +15,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/timeutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
-
-// ErrInvalidTZ 与 Next fetchSummary 文案一致；httpx 用 errors.Is 映射 400。
-var ErrInvalidTZ = errors.New("query parameter tz must be a valid IANA time zone")
 
 // invalidTagQueryMsg 与 Next INVALID_TAG_QUERY 同文案；%s 为非法 tag 查询值。
 const invalidTagQueryMsg = "invalid tag query \"%s\": use a valid tag name or a family pattern \"tag=review:*\" (a single \"*\" at the end, prefix must be non-empty)"
@@ -84,16 +81,16 @@ func parsePositiveInt(raw string, fallback int) (int, error) {
 		return fallback, nil
 	}
 	if !digitsOnly.MatchString(raw) {
-		return 0, fmt.Errorf("invalid")
+		return 0, myerr.NewValidation("invalid")
 	}
 	n, err := strconv.Atoi(raw)
 	if err != nil || n < 1 {
-		return 0, fmt.Errorf("invalid")
+		return 0, myerr.NewValidation("invalid")
 	}
 	// 与 Next Number.MAX_SAFE_INTEGER 对齐，避免 JS Number 精度丢失造成双端分叉
 	const maxSafeInt = 9007199254740991
 	if n > maxSafeInt {
-		return 0, fmt.Errorf("invalid")
+		return 0, myerr.NewValidation("invalid")
 	}
 	return n, nil
 }
@@ -103,11 +100,11 @@ func parseIsoDate(raw, label string) (*time.Time, error) {
 		return nil, nil
 	}
 	if !isoTZSuffix.MatchString(raw) {
-		return nil, fmt.Errorf("%s must be ISO 8601 with timezone (Z or ±HH:MM)", label)
+		return nil, myerr.NewValidation(fmt.Sprintf("%s must be ISO 8601 with timezone (Z or ±HH:MM)", label))
 	}
 	t, err := timeutil.ParseRFC3339Flexible(raw)
 	if err != nil {
-		return nil, fmt.Errorf("invalid %s datetime", label)
+		return nil, myerr.NewValidation(fmt.Sprintf("invalid %s datetime", label))
 	}
 	return &t, nil
 }
@@ -115,20 +112,20 @@ func parseIsoDate(raw, label string) (*time.Time, error) {
 func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
 	page, err := parsePositiveInt(q.Get("page"), 1)
 	if err != nil {
-		return nil, fmt.Errorf("page must be a positive integer")
+		return nil, myerr.NewValidation("page must be a positive integer")
 	}
 	pageSize, err := parsePositiveInt(q.Get("page_size"), 20)
 	if err != nil || pageSize > 100 {
-		return nil, fmt.Errorf("page_size must be an integer between 1 and 100")
+		return nil, myerr.NewValidation("page_size must be an integer between 1 and 100")
 	}
 
 	sortByRaw := q.Get("sort_by")
 	if sortByRaw != "" && sortByRaw != "happened_at" && sortByRaw != "id" {
-		return nil, fmt.Errorf("sort_by must be one of: happened_at, id")
+		return nil, myerr.NewValidation("sort_by must be one of: happened_at, id")
 	}
 	sortOrderRaw := q.Get("sort_order")
 	if sortOrderRaw != "" && sortOrderRaw != "asc" && sortOrderRaw != "desc" {
-		return nil, fmt.Errorf("sort_order must be one of: asc, desc")
+		return nil, myerr.NewValidation("sort_order must be one of: asc, desc")
 	}
 	sortBy := "happened_at"
 	if sortByRaw != "" {
@@ -156,7 +153,7 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
 		}
 		if strings.Contains(tag, "*") {
 			if !tagQueryWildcard.MatchString(tag) {
-				return nil, fmt.Errorf(invalidTagQueryMsg, tag)
+				return nil, myerr.NewValidation(fmt.Sprintf(invalidTagQueryMsg, tag))
 			}
 			tagList = append(tagList, tag)
 			continue
@@ -170,7 +167,7 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
 
 	id := q.Get("id")
 	if id != "" && !record.IsValidID(id) {
-		return nil, record.ErrInvalidID
+		return nil, myerr.NewValidation(record.ErrInvalidID.Error())
 	}
 
 	return &ParsedQuery{
@@ -359,11 +356,11 @@ type SummaryResult struct {
 
 func FetchSummary(ctx context.Context, pool *pgxpool.Pool, tz string, now time.Time) (*SummaryResult, error) {
 	if !timeutil.IsValidTimeZone(tz) {
-		return nil, ErrInvalidTZ
+		return nil, myerr.NewValidation("query parameter tz must be a valid IANA time zone")
 	}
 	start, end, err := timeutil.GetZonedDayBounds(now, tz)
 	if err != nil {
-		return nil, ErrInvalidTZ
+		return nil, myerr.NewValidation("query parameter tz must be a valid IANA time zone")
 	}
 
 	var total, today int
@@ -453,28 +450,28 @@ type ParsedTransactionsSummaryRange struct {
 func ParseTransactionsSummaryParams(q url.Values) (*ParsedTransactionsSummaryRange, error) {
 	fromRaw := q.Get("from")
 	if fromRaw == "" {
-		return nil, fmt.Errorf("missing required query parameter: from")
+		return nil, myerr.NewValidation("missing required query parameter: from")
 	}
 	toRaw := q.Get("to")
 	if toRaw == "" {
-		return nil, fmt.Errorf("missing required query parameter: to")
+		return nil, myerr.NewValidation("missing required query parameter: to")
 	}
 	from, err := parseIsoDate(fromRaw, "from")
 	if err != nil {
 		return nil, err
 	}
 	if from == nil {
-		return nil, fmt.Errorf("missing required query parameter: from")
+		return nil, myerr.NewValidation("missing required query parameter: from")
 	}
 	to, err := parseIsoDate(toRaw, "to")
 	if err != nil {
 		return nil, err
 	}
 	if to == nil {
-		return nil, fmt.Errorf("missing required query parameter: to")
+		return nil, myerr.NewValidation("missing required query parameter: to")
 	}
 	if !from.Before(*to) {
-		return nil, fmt.Errorf("from must be earlier than to")
+		return nil, myerr.NewValidation("from must be earlier than to")
 	}
 	return &ParsedTransactionsSummaryRange{
 		FromRaw: fromRaw,

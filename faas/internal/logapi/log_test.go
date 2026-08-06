@@ -22,10 +22,8 @@ func TestCreateTextRejectsReservedTag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, status, err := CreateText(context.Background(), nil, body)
-	if status != 400 {
-		t.Fatalf("status %d", status)
-	}
+	_, err = CreateText(context.Background(), nil, body)
+	assertMyStatus(t, err, 400)
 	want := tags.ReservedTagError("transaction_entry")
 	if err == nil || err.Error() != want {
 		t.Fatalf("err=%v", err)
@@ -43,10 +41,8 @@ func TestCreateTextRejectsTodoReservedTag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, status, err := CreateText(context.Background(), nil, body)
-	if status != 400 {
-		t.Fatalf("status %d", status)
-	}
+	_, err = CreateText(context.Background(), nil, body)
+	assertMyStatus(t, err, 400)
 	want := tags.ReservedTagError("todo:in_progress")
 	if err == nil || err.Error() != want {
 		t.Fatalf("err=%v", err)
@@ -175,8 +171,9 @@ func TestCreateTextRejectsDuplicateTags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, status, err := CreateText(context.Background(), nil, body)
-	if status != 400 || err == nil || err.Error() != `duplicate tag "study"` {
-		t.Fatalf("status=%d err=%v", status, err)
+	_, err = CreateText(context.Background(), nil, body)
+	assertMyStatus(t, err, 400)
+	if err == nil || err.Error() != `duplicate tag "study"` {
+		t.Fatalf("err=%v", err)
 	}
 }

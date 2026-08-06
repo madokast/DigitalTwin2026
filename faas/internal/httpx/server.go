@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"mime"
@@ -22,6 +21,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/importapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/logapi"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/notify"
 	"github.com/mdk/digitaltwin2026/faas/internal/numberdraft"
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
@@ -51,11 +51,11 @@ type Server struct {
 	Qqbot    *qqbot.Sender
 	Notify   *notify.Notifier
 	// TransitionTodo 可选；nil → logapi.TransitionTodo（单测注入成功/域错误结果，无需真实数据库）。
-	TransitionTodo func(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodoTransition) (logapi.TransitionResult, int, error)
+	TransitionTodo func(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodoTransition) (logapi.TransitionResult, error)
 	// NotifyUser 可选；非 nil 时同步调用（单测 spy）；nil → go notify().NotifyUser（生产路径）。
 	NotifyUser func(text string)
 	// FetchExportRecords 可选；nil → exportapi.FetchExportRecords（单测注入空页，无需真实数据库）。
-	FetchExportRecords func(ctx context.Context, pool *pgxpool.Pool, p *exportapi.ParsedExport) ([]record.Record, int, error)
+	FetchExportRecords func(ctx context.Context, pool *pgxpool.Pool, p *exportapi.ParsedExport) ([]record.Record, error)
 }
 
 func NewServer(pool *pgxpool.Pool, tokens auth.Tokens) *Server {
@@ -143,19 +143,6 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	writeEncoded(w, status, "application/json", body)
 }
 
-func writeInternalError(w http.ResponseWriter, err error) {
-	// 透传实际错误（设计哲学 §2.1：AI 诊断权）；空 message 以类型名兜底
-	writeError(w, http.StatusInternalServerError, errorDetail(err))
-}
-
-// errorDetail：错误 detail 字符串。err.Error() 为空时以 %T 类型名兜底（非 nil error 永不为空）。
-func errorDetail(err error) string {
-	if msg := err.Error(); msg != "" {
-		return msg
-	}
-	return fmt.Sprintf("%T", err)
-}
-
 func writeError(w http.ResponseWriter, status int, msg string) {
 	// RFC 9457 problem+json（docs/20260805-error-response-shape.md）：
 	// 形状与 key 顺序双端逐字一致（success→title→status→detail），Content-Type 用 problem+json。
@@ -167,15 +154,21 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	})
 }
 
-// writeLogOrError 契约错误（<500）直接 writeError；内部错误（>=500）记日志 + writeInternalError。
-// 日志前缀 logMsg 为英文（AGENTS.md），逐字保持现状（如 "Error creating number records"）。
-func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string) {
-	if status >= http.StatusInternalServerError {
-		slog.Error(logMsg, "err", err)
-		writeInternalError(w, err)
+// writeErr 统一错误出口（决策 D）：myerr 取 status（>=500 记 error，<500 记 info）；
+// 非 myerr = 漏包装 → 500 兜底（describe 类型名+消息）。日志前缀 logMsg 为英文（AGENTS.md）。
+func writeErr(w http.ResponseWriter, err error, logMsg string) {
+	var me *myerr.MyError
+	if errors.As(err, &me) {
+		if me.Status >= http.StatusInternalServerError {
+			slog.Error(logMsg, "err", err)
+		} else {
+			slog.Info(logMsg, "err", err)
+		}
+		writeError(w, me.Status, me.Error())
 		return
 	}
-	writeError(w, status, err.Error())
+	slog.Error(logMsg, "err", err)
+	writeError(w, http.StatusInternalServerError, myerr.NewInternal(err).Error())
 }
 
 func readBody(r *http.Request) ([]byte, error) {
@@ -215,16 +208,16 @@ func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	inserted, recs, status, err := logapi.CreateNumberBatch(r.Context(), s.Pool, batch)
+	inserted, recs, err := logapi.CreateNumberBatch(r.Context(), s.Pool, batch)
 	if err != nil {
-		writeLogOrError(w, status, err, "Error creating number records")
+		writeErr(w, err, "Error creating number records")
 		return
 	}
 	// INSERT 成功后异步 best-effort notify（整批一条摘要），不阻塞写响应。
 	// 刻意允许的双端差异（docs/20260801-api-layering.md §1.1 / §7）：
 	// Go 用 go 协程；Next 用 after()。语义同为成功后不阻塞的扇出。
 	go s.notify().NotifyNumberBatchInserted(recs)
-	writeJSON(w, status, NumberBatchSuccess{Success: true, Inserted: inserted, Atomic: true})
+	writeJSON(w, http.StatusCreated, NumberBatchSuccess{Success: true, Inserted: inserted, Atomic: true})
 }
 
 func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
@@ -237,13 +230,13 @@ func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	rec, status, err := logapi.CreateBodyWeight(r.Context(), s.Pool, parsed)
+	rec, err := logapi.CreateBodyWeight(r.Context(), s.Pool, parsed)
 	if err != nil {
-		writeLogOrError(w, status, err, "Error creating body weight record")
+		writeErr(w, err, "Error creating body weight record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
-	writeJSON(w, status, RecordSuccess{Success: true, Record: rec})
+	writeJSON(w, http.StatusCreated, RecordSuccess{Success: true, Record: rec})
 }
 
 func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
@@ -256,13 +249,13 @@ func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	rec, status, err := logapi.CreateTodo(r.Context(), s.Pool, parsed)
+	rec, err := logapi.CreateTodo(r.Context(), s.Pool, parsed)
 	if err != nil {
-		writeLogOrError(w, status, err, "Error creating to-do record")
+		writeErr(w, err, "Error creating to-do record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
-	writeJSON(w, status, TodoRecordSuccess{Success: true, Record: tododraft.ToTodoRecordJSON(rec)})
+	writeJSON(w, http.StatusCreated, TodoRecordSuccess{Success: true, Record: tododraft.ToTodoRecordJSON(rec)})
 }
 
 func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request) {
@@ -275,17 +268,14 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	var (
-		result logapi.TransitionResult
-		status int
-	)
+	var result logapi.TransitionResult
 	if s.TransitionTodo != nil {
-		result, status, err = s.TransitionTodo(r.Context(), s.Pool, parsed)
+		result, err = s.TransitionTodo(r.Context(), s.Pool, parsed)
 	} else {
-		result, status, err = logapi.TransitionTodo(r.Context(), s.Pool, parsed)
+		result, err = logapi.TransitionTodo(r.Context(), s.Pool, parsed)
 	}
 	if err != nil {
-		writeLogOrError(w, status, err, "Error transitioning to-do")
+		writeErr(w, err, "Error transitioning to-do")
 		return
 	}
 	// D6：恰好一次 notify，正文 = objective_context 句 + ": " + 原文
@@ -294,7 +284,7 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 	} else {
 		go s.notify().NotifyUser(result.TodoAuditNotifyText)
 	}
-	writeJSON(w, status, TransitionSuccess{
+	writeJSON(w, http.StatusOK, TransitionSuccess{
 		Success: true,
 		ID:      result.ID,
 		Transition: TransitionInfo{
@@ -314,13 +304,13 @@ func (s *Server) handleLogReview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	rec, status, err := logapi.CreateReview(r.Context(), s.Pool, parsed)
+	rec, err := logapi.CreateReview(r.Context(), s.Pool, parsed)
 	if err != nil {
-		writeLogOrError(w, status, err, "Error creating review record")
+		writeErr(w, err, "Error creating review record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
-	writeJSON(w, status, RecordSuccess{Success: true, Record: rec})
+	writeJSON(w, http.StatusCreated, RecordSuccess{Success: true, Record: rec})
 }
 
 func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
@@ -333,13 +323,13 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	rec, status, err := logapi.CreateText(r.Context(), s.Pool, body)
+	rec, err := logapi.CreateText(r.Context(), s.Pool, body)
 	if err != nil {
-		writeLogOrError(w, status, err, "Error creating text record")
+		writeErr(w, err, "Error creating text record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
-	writeJSON(w, status, RecordSuccess{Success: true, Record: rec})
+	writeJSON(w, http.StatusCreated, RecordSuccess{Success: true, Record: rec})
 }
 
 func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
@@ -352,13 +342,13 @@ func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	inserted, batchType, sum, recs, status, err := logapi.CreateTransactionBatch(r.Context(), s.Pool, batch)
+	inserted, batchType, sum, recs, err := logapi.CreateTransactionBatch(r.Context(), s.Pool, batch)
 	if err != nil {
-		writeLogOrError(w, status, err, "Error creating transaction records")
+		writeErr(w, err, "Error creating transaction records")
 		return
 	}
 	go s.notify().NotifyTransactionBatchInserted(recs)
-	writeJSON(w, status, TransactionBatchSuccess{
+	writeJSON(w, http.StatusCreated, TransactionBatchSuccess{
 		Success:  true,
 		Inserted: inserted,
 		Type:     batchType,
@@ -478,8 +468,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := query.FetchFilteredRecords(r.Context(), s.Pool, parsed)
 	if err != nil {
-		slog.Error("query records", "err", err)
-		writeInternalError(w, err)
+		writeErr(w, err, "query records")
 		return
 	}
 	writeJSON(w, http.StatusOK, QuerySuccess{
@@ -498,12 +487,7 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 	tz := r.URL.Query().Get("tz")
 	result, err := query.FetchSummary(r.Context(), s.Pool, tz, s.Now())
 	if err != nil {
-		if errors.Is(err, query.ErrInvalidTZ) {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		slog.Error("query summary", "err", err)
-		writeInternalError(w, err)
+		writeErr(w, err, "query summary")
 		return
 	}
 	writeJSON(w, http.StatusOK, SummarySuccess{
@@ -516,9 +500,10 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleTime(w http.ResponseWriter, r *http.Request) {
 	tz := r.URL.Query().Get("tz")
+	const invalidTZMsg = "query parameter tz must be a valid IANA time zone"
 	// 与 Next /api/time 一致：?tz= 空串显式传入 → 400；缺省 → UTC
 	if tz == "" && r.URL.Query().Has("tz") {
-		writeError(w, http.StatusBadRequest, query.ErrInvalidTZ.Error())
+		writeError(w, http.StatusBadRequest, invalidTZMsg)
 		return
 	}
 	if tz == "" {
@@ -526,7 +511,7 @@ func (s *Server) handleTime(w http.ResponseWriter, r *http.Request) {
 	}
 	now, err := timeutil.FormatNowInZone(s.Now(), tz)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, query.ErrInvalidTZ.Error())
+		writeError(w, http.StatusBadRequest, invalidTZMsg)
 		return
 	}
 	writeJSON(w, http.StatusOK, TimeSuccess{Success: true, Now: now, TZ: tz})
@@ -536,8 +521,7 @@ func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
 	prefix := r.URL.Query().Get("prefix")
 	counts, err := query.FetchTagCounts(r.Context(), s.Pool, prefix)
 	if err != nil {
-		slog.Error("aggregate tags", "err", err)
-		writeInternalError(w, err)
+		writeErr(w, err, "aggregate tags")
 		return
 	}
 	if counts == nil {
@@ -556,8 +540,7 @@ func (s *Server) handleTransactionsSummary(w http.ResponseWriter, r *http.Reques
 		r.Context(), s.Pool, parsed.From, parsed.To, parsed.FromRaw, parsed.ToRaw,
 	)
 	if err != nil {
-		slog.Error("query transaction summary", "err", err)
-		writeInternalError(w, err)
+		writeErr(w, err, "query transaction summary")
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -596,8 +579,7 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := tags.RenameAcrossRecords(r.Context(), s.Pool, from, to)
 	if err != nil {
-		slog.Error("rename tags", "err", err)
-		writeInternalError(w, err)
+		writeErr(w, err, "rename tags")
 		return
 	}
 	writeJSON(w, http.StatusOK, RenameTagsSuccess{Success: true, Updated: updated})
@@ -610,20 +592,18 @@ func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var recs []record.Record
-	var status int
 	if s.FetchExportRecords != nil {
-		recs, status, err = s.FetchExportRecords(r.Context(), s.Pool, parsed)
+		recs, err = s.FetchExportRecords(r.Context(), s.Pool, parsed)
 	} else {
-		recs, status, err = exportapi.FetchExportRecords(r.Context(), s.Pool, parsed)
+		recs, err = exportapi.FetchExportRecords(r.Context(), s.Pool, parsed)
 	}
 	if err != nil {
-		writeLogOrError(w, status, err, "Error exporting records")
+		writeErr(w, err, "Error exporting records")
 		return
 	}
 	body, err := exportapi.BuildExportNdjson(recs)
 	if err != nil {
-		slog.Error("serialize export ndjson", "err", err)
-		writeInternalError(w, err)
+		writeErr(w, err, "serialize export ndjson")
 		return
 	}
 	now := s.Now()
@@ -718,12 +698,7 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 
 	counts, err := importapi.ImportRecordsJSONL(r.Context(), s.Pool, strings.NewReader(string(fileRaw)))
 	if err != nil {
-		if st := importapi.StatusOf(err); st > 0 && st < 500 {
-			writeError(w, st, err.Error())
-			return
-		}
-		slog.Error("import records", "err", err)
-		writeInternalError(w, err)
+		writeErr(w, err, "import records")
 		return
 	}
 

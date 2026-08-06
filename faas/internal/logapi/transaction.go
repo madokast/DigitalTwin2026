@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/transactiondraft"
@@ -14,17 +15,17 @@ import (
 // CreateTransactionBatch 整单事务写入；成功返回 inserted、type、sum（代数合计）与行（供 Telegram 摘要）。
 // 收 typed 产物（route 层经 transactiondraft.ParseTransactionBatch 解析校验）。
 // Body 必填顶层 type（income|expense）；amount 为零 → 400。
-func CreateTransactionBatch(ctx context.Context, pool *pgxpool.Pool, batch transactiondraft.NormalizedTransactionBatch) (int, string, string, []record.Record, int, error) {
+func CreateTransactionBatch(ctx context.Context, pool *pgxpool.Pool, batch transactiondraft.NormalizedTransactionBatch) (int, string, string, []record.Record, error) {
 	return createTransactionBatch(ctx, db.NewPoolTxBeginner(pool), batch)
 }
 
-func createTransactionBatch(ctx context.Context, q db.TxBeginner, batch transactiondraft.NormalizedTransactionBatch) (int, string, string, []record.Record, int, error) {
+func createTransactionBatch(ctx context.Context, q db.TxBeginner, batch transactiondraft.NormalizedTransactionBatch) (int, string, string, []record.Record, error) {
 	// 领域 Record 组装（HappenedAt = 已校验请求串；Repository 内解析落库）。
 	recs := make([]record.Record, 0, len(batch.Entries))
 	for _, e := range batch.Entries {
 		id, err := uuid.NewV7()
 		if err != nil {
-			return 0, "", "", nil, 500, err
+			return 0, "", "", nil, myerr.NewInternal(err)
 		}
 		amount := e.Amount
 		recs = append(recs, record.Record{
@@ -50,12 +51,12 @@ func createTransactionBatch(ctx context.Context, q db.TxBeginner, batch transact
 		return nil
 	})
 	if err != nil {
-		return 0, "", "", nil, 500, err
+		return 0, "", "", nil, err
 	}
 
 	amounts := make([]string, 0, len(batch.Entries))
 	for _, e := range batch.Entries {
 		amounts = append(amounts, e.Amount)
 	}
-	return inserted, batch.Type, transactiondraft.SumMoneyAmounts2(amounts), out, 201, nil
+	return inserted, batch.Type, transactiondraft.SumMoneyAmounts2(amounts), out, nil
 }
