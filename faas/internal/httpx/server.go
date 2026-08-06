@@ -156,19 +156,15 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 
 // writeErr 统一错误出口（决策 D）：myerr 取 status（>=500 记 error，<500 记 info）；
 // 非 myerr = 漏包装 → 500 兜底（describe 类型名+消息）。日志前缀 logMsg 为英文（AGENTS.md）。
-func writeErr(w http.ResponseWriter, err error, logMsg string) {
-	var me *myerr.MyError
-	if errors.As(err, &me) {
-		if me.Status >= http.StatusInternalServerError {
-			slog.Error(logMsg, "err", err)
-		} else {
-			slog.Info(logMsg, "err", err)
-		}
-		writeError(w, me.Status, me.Error())
-		return
+// writeErr 业务错误统一出口（决策 D）：全层 *MyError（编译期保证，无裸 error 兜底路径——
+// Node routeError 的 unknown 兜底是 JS 无编译期保证的框架差异）。
+func writeErr(w http.ResponseWriter, me *myerr.MyError, logMsg string) {
+	if me.Status >= http.StatusInternalServerError {
+		slog.Error(logMsg, "err", me)
+	} else {
+		slog.Info(logMsg, "err", me)
 	}
-	slog.Error(logMsg, "err", err)
-	writeError(w, http.StatusInternalServerError, myerr.NewInternal(err).Error())
+	writeError(w, me.Status, me.Error())
 }
 
 func readBody(r *http.Request) ([]byte, error) {

@@ -13,6 +13,12 @@ export class MyError extends Error {
     super(message)
     this.name = 'MyError'
   }
+
+  /** 语义判等（内部按 status）：业务层区分「记录不存在」与驱动错误时使用，
+   * 不直接比较 HTTP status 魔法数字（transitionTodo 预读 404 映射等）。 */
+  isNotFound(): boolean {
+    return this.status === 404
+  }
 }
 
 /** 404（记录不存在等）。 */

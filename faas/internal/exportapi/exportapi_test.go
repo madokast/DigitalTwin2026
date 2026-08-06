@@ -45,9 +45,9 @@ func TestParseExportRecordsParams(t *testing.T) {
 }
 
 func TestBuildExportNdjsonAndFilename(t *testing.T) {
-	empty, err := BuildExportNdjson(nil)
-	if err != nil || empty != "" {
-		t.Fatalf("empty: %q %v", empty, err)
+	empty, me := BuildExportNdjson(nil)
+	if me != nil || empty != "" {
+		t.Fatalf("empty: %q %v", empty, me)
 	}
 
 	num := "1.5"
@@ -64,9 +64,9 @@ func TestBuildExportNdjsonAndFilename(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body, err := BuildExportNdjson([]record.Record{rec})
-	if err != nil {
-		t.Fatal(err)
+	body, me := BuildExportNdjson([]record.Record{rec})
+	if me != nil {
+		t.Fatal(me)
 	}
 	if body != line+"\n" {
 		t.Fatalf("body %q want %q", body, line+"\n")

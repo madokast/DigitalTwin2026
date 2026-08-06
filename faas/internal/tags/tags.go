@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 )
 
 var tagPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$`)
@@ -180,32 +181,32 @@ const TagRenameAdvisoryLockKey int64 = 726478478
 // RenameAcrossRecords 在单事务内全表扫描并将 tags JSON 中 from 重命名为 to。
 // 先拿 advisory xact lock，再读改写，保证：中途失败全滚；并发 rename 互斥。
 // 脏 tags JSON 向上返回 error（HTTP 映射 500）。
-func RenameAcrossRecords(ctx context.Context, pool *pgxpool.Pool, from, to string) (int, error) {
+func RenameAcrossRecords(ctx context.Context, pool *pgxpool.Pool, from, to string) (int, *myerr.MyError) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
-		return 0, err
+		return 0, myerr.NewInternal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, TagRenameAdvisoryLockKey); err != nil {
-		return 0, err
+		return 0, myerr.NewInternal(err)
 	}
 
-	updated, err := renameAcrossQuerier(ctx, tx, from, to)
-	if err != nil {
-		return 0, err
+	updated, me := renameAcrossQuerier(ctx, tx, from, to)
+	if me != nil {
+		return 0, me
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return 0, err
+		return 0, myerr.NewInternal(err)
 	}
 	return updated, nil
 }
 
 // renameAcrossQuerier 事务内（或单测假执行器）的读改写循环。
-func renameAcrossQuerier(ctx context.Context, q db.Executor, from, to string) (int, error) {
+func renameAcrossQuerier(ctx context.Context, q db.Executor, from, to string) (int, *myerr.MyError) {
 	rows, err := q.Query(ctx, `SELECT id, tags FROM records`)
 	if err != nil {
-		return 0, err
+		return 0, myerr.NewInternal(err)
 	}
 	defer rows.Close()
 
@@ -217,25 +218,25 @@ func renameAcrossQuerier(ctx context.Context, q db.Executor, from, to string) (i
 	for rows.Next() {
 		var r row
 		if err := rows.Scan(&r.id, &r.tags); err != nil {
-			return 0, err
+			return 0, myerr.NewInternal(err)
 		}
 		list = append(list, r)
 	}
 	if err := rows.Err(); err != nil {
-		return 0, err
+		return 0, myerr.NewInternal(err)
 	}
 
 	updated := 0
 	for _, r := range list {
 		next, ok, err := RenameTagInTagsJSON(r.tags, from, to)
 		if err != nil {
-			return 0, err
+			return 0, myerr.NewInternal(err)
 		}
 		if !ok {
 			continue
 		}
 		if _, err := q.Exec(ctx, `UPDATE records SET tags = $1 WHERE id = $2`, next, r.id); err != nil {
-			return 0, err
+			return 0, myerr.NewInternal(err)
 		}
 		updated++
 	}

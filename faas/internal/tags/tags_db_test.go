@@ -142,9 +142,9 @@ func TestRenameAcrossRecords_dirtyTagsJSONError(t *testing.T) {
 			{"id-1", `{"not":"array"}`},
 		},
 	}
-	updated, err := renameAcrossQuerier(context.Background(), q, "a", "b")
-	if !errors.Is(err, ErrTagsNotJSONArray) {
-		t.Fatalf("err=%v want ErrTagsNotJSONArray", err)
+	updated, me := renameAcrossQuerier(context.Background(), q, "a", "b")
+	if me == nil || me.Status != 500 || !strings.Contains(me.Message, "tags field is not a JSON array") {
+		t.Fatalf("err=%v want myerr 500 dirty tags", me)
 	}
 	if updated != 0 {
 		t.Fatalf("updated=%d want 0", updated)

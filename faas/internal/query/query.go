@@ -285,7 +285,7 @@ func RecordsForResponse(recs []record.Record) []any {
 	return out
 }
 
-func FetchFilteredRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedQuery) (*FetchResult, error) {
+func FetchFilteredRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedQuery) (*FetchResult, *myerr.MyError) {
 	where, args := buildWhere(p)
 	countSQL := "SELECT count(*) FROM records"
 	if where != "" {
@@ -293,7 +293,7 @@ func FetchFilteredRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedQuer
 	}
 	var total int
 	if err := pool.QueryRow(ctx, countSQL, args...).Scan(&total); err != nil {
-		return nil, err
+		return nil, myerr.NewInternal(err)
 	}
 
 	selectSQL := `SELECT id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis
@@ -306,19 +306,19 @@ FROM records`
 	if p.ID != "" {
 		rows, err := pool.Query(ctx, selectSQL, args...)
 		if err != nil {
-			return nil, err
+			return nil, myerr.NewInternal(err)
 		}
 		defer rows.Close()
 		recs := []record.Record{}
 		for rows.Next() {
 			rec, err := scanRecord(rows)
 			if err != nil {
-				return nil, err
+				return nil, myerr.NewInternal(err)
 			}
 			recs = append(recs, rec)
 		}
 		if err := rows.Err(); err != nil {
-			return nil, err
+			return nil, myerr.NewInternal(err)
 		}
 		ps := len(recs)
 		if ps == 0 {
@@ -331,19 +331,19 @@ FROM records`
 	selectSQL += fmt.Sprintf(" LIMIT %d OFFSET %d", p.PageSize, offset)
 	rows, err := pool.Query(ctx, selectSQL, args...)
 	if err != nil {
-		return nil, err
+		return nil, myerr.NewInternal(err)
 	}
 	defer rows.Close()
 	recs := []record.Record{}
 	for rows.Next() {
 		rec, err := scanRecord(rows)
 		if err != nil {
-			return nil, err
+			return nil, myerr.NewInternal(err)
 		}
 		recs = append(recs, rec)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, myerr.NewInternal(err)
 	}
 	return &FetchResult{Total: total, Page: p.Page, PageSize: p.PageSize, Records: recs}, nil
 }
@@ -451,7 +451,7 @@ type ParsedTransactionsSummaryRange struct {
 }
 
 // ParseTransactionsSummaryParams 强制 from/to；要求 from < to（与 Next 同文案）。
-func ParseTransactionsSummaryParams(q url.Values) (*ParsedTransactionsSummaryRange, error) {
+func ParseTransactionsSummaryParams(q url.Values) (*ParsedTransactionsSummaryRange, *myerr.MyError) {
 	fromRaw := q.Get("from")
 	if fromRaw == "" {
 		return nil, myerr.NewValidation("missing required query parameter: from")
@@ -598,7 +598,7 @@ func categoriesFromMap(cats map[string]*catAcc) []CategoryBucket {
 
 // AggregateTransactionsSummary 内存聚合（与 Next aggregateTransactionsSummary 同构）。
 // 脏行跳过；非法 tags JSON / 非数组返回 error。
-func AggregateTransactionsSummary(rows []TransactionsSummaryRow, fromRaw, toRaw string) (*TransactionsSummaryResult, error) {
+func AggregateTransactionsSummary(rows []TransactionsSummaryRow, fromRaw, toRaw string) (*TransactionsSummaryResult, *myerr.MyError) {
 	income := newAcc()
 	expense := newAcc()
 	incomeCats := map[string]*catAcc{}
@@ -631,11 +631,11 @@ func AggregateTransactionsSummary(rows []TransactionsSummaryRow, fromRaw, toRaw 
 	for _, row := range rows {
 		var parsed any
 		if err := json.Unmarshal([]byte(row.Tags), &parsed); err != nil {
-			return nil, err
+			return nil, myerr.NewInternal(err)
 		}
 		arr, ok := parsed.([]any)
 		if !ok {
-			return nil, tags.ErrTagsNotJSONArray
+			return nil, myerr.NewInternal(tags.ErrTagsNotJSONArray)
 		}
 		tagList := make([]string, 0, len(arr))
 		for _, item := range arr {
@@ -690,7 +690,7 @@ func AggregateTransactionsSummary(rows []TransactionsSummaryRow, fromRaw, toRaw 
 }
 
 // FetchTransactionsSummary 拉取区间候选行并聚合。
-func FetchTransactionsSummary(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, fromRaw, toRaw string) (*TransactionsSummaryResult, error) {
+func FetchTransactionsSummary(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, fromRaw, toRaw string) (*TransactionsSummaryResult, *myerr.MyError) {
 	incomeLike := `%"` + EscapeLikePattern(txEntryIncome) + `"%`
 	expenseLike := `%"` + EscapeLikePattern(txEntryExpense) + `"%`
 	rows, err := pool.Query(ctx, `
@@ -700,7 +700,7 @@ WHERE happened_at >= $1 AND happened_at < $2
 		from, to, incomeLike, expenseLike,
 	)
 	if err != nil {
-		return nil, err
+		return nil, myerr.NewInternal(err)
 	}
 	defer rows.Close()
 
@@ -709,12 +709,12 @@ WHERE happened_at >= $1 AND happened_at < $2
 		var tagsField string
 		var vn *string
 		if err := rows.Scan(&tagsField, &vn); err != nil {
-			return nil, err
+			return nil, myerr.NewInternal(err)
 		}
 		list = append(list, TransactionsSummaryRow{Tags: tagsField, NumericValue: vn})
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, myerr.NewInternal(err)
 	}
 	return AggregateTransactionsSummary(list, fromRaw, toRaw)
 }

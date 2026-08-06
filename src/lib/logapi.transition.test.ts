@@ -11,7 +11,8 @@ const select = vi.fn<(...args: unknown[]) => { from: typeof from }>(
   () => ({ from }),
 )
 
-const txWhere = vi.fn().mockResolvedValue({ count: 1 })
+const txTransitionReturning = vi.fn().mockResolvedValue([{ id: '01900000-0000-7000-8000-000000000003' }])
+const txWhere = vi.fn(() => ({ returning: txTransitionReturning }))
 const txSet = vi.fn(() => ({ where: txWhere }))
 const txUpdate = vi.fn(() => ({ set: txSet }))
 const txReturning = vi.fn().mockResolvedValue([
@@ -191,7 +192,7 @@ describe('transitionTodo UPDATE affected rows race (D7)', () => {
     limit.mockResolvedValueOnce([
       todoRow(JSON.stringify(['todo:in_progress', 'errand'])),
     ])
-    txWhere.mockResolvedValueOnce({ count: 0 })
+    txTransitionReturning.mockResolvedValueOnce([])
 
     await expect(transitionTodo(body)).rejects.toMatchObject({ status: 500, message: expect.stringContaining('todo update affected 0 rows') })
     expect(txUpdate).toHaveBeenCalled()

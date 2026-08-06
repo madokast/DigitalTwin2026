@@ -197,7 +197,7 @@ export async function transitionTodo(
       todoRec = await Repo.findById(db, parsed.id)
     } catch (err) {
       // 404 文案映射为待办专属（契约）；其余（驱动错误）透传 myerr 500
-      if (err instanceof MyError && err.status === 404) {
+      if (err instanceof MyError && err.isNotFound()) {
         throw newNotFound(ERR_TODO_NOT_FOUND)
       }
       throw err

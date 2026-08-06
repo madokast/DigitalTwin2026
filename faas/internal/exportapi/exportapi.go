@@ -142,7 +142,7 @@ func scanRecord(row pgx.Row) (record.Record, error) {
 }
 
 // BuildExportNdjson 每行一条 Record JSON + 换行；0 行 → 空字符串。
-func BuildExportNdjson(recs []record.Record) (string, error) {
+func BuildExportNdjson(recs []record.Record) (string, *myerr.MyError) {
 	if len(recs) == 0 {
 		return "", nil
 	}
@@ -150,7 +150,7 @@ func BuildExportNdjson(recs []record.Record) (string, error) {
 	for _, rec := range recs {
 		line, err := recordjsonl.SerializeRecord(rec)
 		if err != nil {
-			return "", err
+			return "", myerr.NewInternal(err)
 		}
 		b.WriteString(line)
 		b.WriteByte('\n')

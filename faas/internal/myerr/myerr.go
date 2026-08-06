@@ -14,6 +14,10 @@ type MyError struct {
 
 func (e *MyError) Error() string { return e.Message }
 
+// IsNotFound 语义判等（内部按 status）：业务层区分「记录不存在」与驱动错误时使用，
+// 不直接比较 HTTP status 魔法数字（todo.go 预读 404 映射等）。
+func (e *MyError) IsNotFound() bool { return e.Status == 404 }
+
 // NewNotFound 404（记录不存在等）。
 func NewNotFound(msg string) *MyError { return &MyError{Status: 404, Message: msg} }
 

@@ -720,26 +720,19 @@ func TestSummaryErrorClassification(t *testing.T) {
 	// 决策 D：分类靠 myerr.Status，不靠文案。writeErr 对 400/500 myerr 各写对应 status。
 	for _, tc := range []struct {
 		name   string
-		err    error
+		me     *myerr.MyError
 		status int
 	}{
 		{"validation", myerr.NewValidation("query parameter tz must be a valid IANA time zone"), 400},
 		{"internal", myerr.NewInternal(errors.New("connection failed")), 500},
 	} {
 		rr := httptest.NewRecorder()
-		writeErr(rr, tc.err, "query summary")
+		writeErr(rr, tc.me, "query summary")
 		if rr.Code != tc.status {
 			t.Fatalf("%s: status %d want %d", tc.name, rr.Code, tc.status)
 		}
-		assertProblemDetailContains(t, rr, tc.err.Error())
+		assertProblemDetailContains(t, rr, tc.me.Error())
 	}
-	// 非 myerr（漏包装）→ 500 兜底，detail 含类型名
-	rr := httptest.NewRecorder()
-	writeErr(rr, errors.New("connection failed near timezone column tz"), "query summary")
-	if rr.Code != 500 {
-		t.Fatalf("non-myerr status %d want 500", rr.Code)
-	}
-	assertProblemDetailContains(t, rr, "connection failed near timezone column tz")
 }
 
 func TestTelegramProbeNotConfigured(t *testing.T) {
@@ -1044,7 +1037,7 @@ func TestWriteJSONDoesNotHTMLEscape(t *testing.T) {
 func TestWriteInternalErrorTransmitsDetail(t *testing.T) {
 	// 内部错误透传（决策 D）：500 detail 含类型名 + 驱动消息（设计哲学 §2.1，AI 诊断权）
 	rr := httptest.NewRecorder()
-	writeErr(rr, errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`), "test")
+	writeErr(rr, myerr.NewInternal(errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`)), "test")
 	if rr.Code != 500 {
 		t.Fatalf("status %d", rr.Code)
 	}
@@ -1054,7 +1047,7 @@ func TestWriteInternalErrorTransmitsDetail(t *testing.T) {
 func TestWriteInternalErrorEmptyMessageUsesTypeName(t *testing.T) {
 	// 空 message 兜底（myerr.describe）：%T 类型名（永不为空）
 	rr := httptest.NewRecorder()
-	writeErr(rr, errors.New(""), "test")
+	writeErr(rr, myerr.NewInternal(errors.New("")), "test")
 	if rr.Code != 500 {
 		t.Fatalf("status %d", rr.Code)
 	}

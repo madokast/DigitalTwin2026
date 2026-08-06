@@ -41,17 +41,18 @@ export class RecordRepository {
 
   /** 只 UPDATE tags（WHERE id）；影响行数 ≠ 1 → 内部错误（D7 并发竞态文案含实际行数）。 */
   async transition(q: Executor, id: string, tags: string[]): Promise<void> {
-    let res: { count: number }
+    let rows: { id: string }[]
     try {
-      res = (await q
+      rows = (await q
         .update(schema.records)
         .set({ tags: JSON.stringify(tags) })
-        .where(eq(schema.records.id, id))) as { count: number }
+        .where(eq(schema.records.id, id))
+        .returning({ id: schema.records.id })) as { id: string }[]
     } catch (err) {
       throw newInternal(err)
     }
-    if (res.count !== 1) {
-      throw newInternal(new Error(`todo update affected ${res.count} rows`))
+    if (rows.length !== 1) {
+      throw newInternal(new Error(`todo update affected ${rows.length} rows`))
     }
   }
 

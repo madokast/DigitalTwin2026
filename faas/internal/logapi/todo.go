@@ -62,7 +62,7 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, parsed tododraft.Norma
 	todoRec, me := recordrepo.Repo.FindByID(ctx, q, parsed.ID)
 	if me != nil {
 		// 404 文案映射为待办专属（契约）；其余（驱动错误）透传 myerr 500
-		if me.Status == 404 {
+		if me.IsNotFound() {
 			return TransitionResult{}, myerr.NewNotFound(tododraft.ErrTodoNotFound.Error())
 		}
 		return TransitionResult{}, me

@@ -318,6 +318,17 @@ src/lib/logapi.ts 等   业务层（Service class）
 
 > 注：A/B/C/D 已全部按终稿形态落地。
 
+## 10b. 下一步待办（2026-08-06 排序，按推荐顺序执行）
+
+1. **小修三件套**（10 分钟级，无依赖）：
+   - Node `transition` 的 `res.count` 类型断言（`as { count: number }`）脆弱——drizzle update 无 `.returning()` 时返回 postgres-js 原始 result，`count` 为 number 是驱动实现细节（`connection.js` `+x` 强转），非 drizzle 类型契约；升级驱动可能变 string → `"1" !== 1` 恒真 500。改为 `.returning({ id })` 用 `rows.length`（与 Go `RowsAffected() != 1` 语义对齐，零类型断言）。
+   - Go 业务层 `me.Status == 404` 魔法数字（todo.go 预读映射）——HTTP status 承载域语义（耦合）。建议 myerr 加语义判等 `IsNotFound()`（Go）/ `isNotFound()`（TS），内部仍按 status，调用点改语义名。
+   - Go `writeErr` 的 `errors.As` → 直接断言：MyError 无 Unwrap（决策 D），As 永不命中链，只是断言。**倾向签名直接收紧 `writeErr(w, me *myerr.MyError, ...)`**（全 16 个调用点已传 *MyError，编译期保证，删兜底分支）；Node `routeError` 保留 `unknown` 兜底（JS 无编译期保证，框架差异可接受）。
+2. **UoW 步骤 6：迁移 import / rename**——写路径最后一块手写 SQL：`recordrepo` 加 `Upsert` / `RenameTag` 原语（双端对称）；`UpsertCounts` 移 `record` 包；importapi / tagsdb / tags.go 瘦身。**待拍板**：Go 现状 `rowExists → update/insert`（2 次往返 + 竞态窗口）可换 PG `INSERT ... ON CONFLICT DO UPDATE`（1 次往返、并发安全；inserted/updated 计数区分需 `xmax` 技巧）——保守复刻现有语义或顺手优化，二选一。
+3. **UoW 步骤 8：迁移读路径**——query/export/stats/summary/tags 的散落 SELECT 收进 `recordrepo`（`FindByCriteria` / `FindByCursor` / `Count` / `CountTags`，fake executor 单测查询条件），query.go 瘦身。
+4. **UoW 步骤 9：Service 化（最终横切）**——业务层自由函数 → Service struct/class 方法，构造注入 `db` + `uow`；**届时废除 httpx 可选函数字段 + nil 回落**（TransitionTodo/NotifyUser/FetchExportRecords → 接口注入）。依赖 2/3 完成后的完整原语集合。
+5. **步骤 7：tags 增删接口**——保持暂停（新接口，动 OpenAPI 契约 + 双端，待 4 后）。
+
 ## 11. 阶段 B（ErrInternal 防腐层，随 UoW 落地）
 
 Repository 吸收三方库错误为 `record.ErrInternal`（Unwrap 保链）；`writeInternalError`/`writeLogOrError` 删除，handler 统一 `logResponseError(status, logMsg, err)` + `writeError(w, status, errorDetail(err))`（阶段 A 的 `errorDetail`/`errorMessage` 已先行落地）。细节见 [`docs/20260806-internal-error-transparency.md`](20260806-internal-error-transparency.md)。

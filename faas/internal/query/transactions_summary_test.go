@@ -95,9 +95,9 @@ func TestAggregateTransactionsSummarySharedFixtures(t *testing.T) {
 			for i, r := range tc.Rows {
 				rows[i] = TransactionsSummaryRow(r)
 			}
-			got, err := AggregateTransactionsSummary(rows, tc.From, tc.To)
-			if err != nil {
-				t.Fatal(err)
+			got, me := AggregateTransactionsSummary(rows, tc.From, tc.To)
+			if me != nil {
+				t.Fatal(me)
 			}
 			gotJSON, err := json.Marshal(got)
 			if err != nil {
