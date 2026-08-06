@@ -250,8 +250,7 @@ type Criteria struct {
 
 - **`hint` 不进 Criteria**（响应辅助，业务层 parse 时产出、随响应返回）。
 - **校验归属**：现有 `ParseRecordQueryParams`（双端）保留在业务层，产出**已校验**的 `Criteria`；Repository 不重复校验。
-- **repo 内分页防御（2026-08-06 定案）**：`Page < 1 → 1`；`PageSize < 1 → 100`（传空默认 100）；**无上限**（page_size ≤ 100 是 HTTP query API 的现有契约——`ParseRecordQueryParams` 校验 `> 100 → 400`，非 repo 职责；repo 信任调用方）。HTTP 路径业务层 parse 已填默认 20 + 上限校验，repo 防御只兜底内部调用（如 `RenameTag` 显式传 100）。
-- **SortBy/SortOrder 空值默认**：`happened_at` / `asc`（`orderByRecordsList` 现状行为搬移，行为保持）。
+- **零值填补全部在业务层（2026-08-06 定案）**：repo 内**不做任何**默认值填补（`Page<1→1` / `PageSize<1→100` / `SortBy`/`SortOrder` 空值默认均不在 repo）；`findByCriteria` 原语直接使用调用方给的 `Criteria`（§6「Repository 不重复校验」原则的延伸）。调用方责任：HTTP 路径业务层 parse（page 默认 1、page_size 默认 20、上限 100 校验——`> 100 → 400` 是对外契约，防客户端拉爆；sort 默认 happened_at/asc）；内部调用者自守（`RenameTag` 自构造 Criteria 时显式 `Page ≥ 1` / `PageSize = 100` / `SortBy = "id"`）。调用方漏填 → 非法 SQL（如 OFFSET 负值）→ 500（编程错误）。
 - **条件构建在 Repository 内部**（D3：Go raw SQL / Node drizzle builder，双端不强制 SQL 同构，只保证行为一致；`EscapeLikePattern`、族通配判定、`recordsOrderBySql` 迁入 Repository 层，避免 query↔recordrepo 循环）。
 
 ## 7. 包布局（B1 / B2 定案）
