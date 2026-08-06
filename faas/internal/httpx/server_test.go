@@ -282,10 +282,10 @@ func TestWriteEndpointsRejectNonObjectJSON(t *testing.T) {
 func TestImportRecordsRejectsMissingOrMalformedBoundary(t *testing.T) {
 	h := testServer().Handler()
 	for _, ct := range []string{
-		"multipart/form-data",            // 缺 boundary
-		"multipart/form-data; boundary=", // 空 boundary
+		"multipart/form-data",                         // 缺 boundary
+		"multipart/form-data; boundary=",              // 空 boundary
 		`multipart/form-data; boundary="unterminated`, // 引号不闭合 → ParseMediaType 报错
-		"application/json",               // 非 multipart
+		"application/json",                            // 非 multipart
 	} {
 		req := httptest.NewRequest(http.MethodPost, "/api/admin/import/records", strings.NewReader("x"))
 		req.Header.Set("Authorization", "Bearer admin-tok")

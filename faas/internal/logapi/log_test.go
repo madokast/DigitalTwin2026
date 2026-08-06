@@ -10,7 +10,6 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/transactiondraft"
 )
 
-
 func TestCreateTextRejectsReservedTag(t *testing.T) {
 	raw := []byte(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",

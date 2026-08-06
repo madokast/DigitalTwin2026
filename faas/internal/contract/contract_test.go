@@ -196,13 +196,13 @@ func TestLogNumberRequestRejectsNoTzAndScientific(t *testing.T) {
 func TestRecordRejectsNumericNumericValue(t *testing.T) {
 	doc := loadDoc(t)
 	bad := map[string]any{
-		"id":                       "01900000-0000-7000-8000-000000000001",
-		"happened_at":               "2026-07-30T00:00:00.000Z",
-		"numeric_value":              75.5,
-		"raw_content":                nil,
-		"tags":                     `["weight"]`,
-		"objective_context":         "x",
-		"ai_analysis": nil,
+		"id":                "01900000-0000-7000-8000-000000000001",
+		"happened_at":       "2026-07-30T00:00:00.000Z",
+		"numeric_value":     75.5,
+		"raw_content":       nil,
+		"tags":              `["weight"]`,
+		"objective_context": "x",
+		"ai_analysis":       nil,
 	}
 	visitJSONExpectFail(t, schema(t, doc, "Record"), bad)
 }
@@ -211,8 +211,8 @@ func TestGoFromDBMatchesNumberSuccessFixture(t *testing.T) {
 	doc := loadDoc(t)
 	raw := readFixture(t, "record-number-success.json")
 	var fixture struct {
-		Success bool           `json:"success"`
-		Record  record.Record  `json:"record"`
+		Success bool          `json:"success"`
+		Record  record.Record `json:"record"`
 	}
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)

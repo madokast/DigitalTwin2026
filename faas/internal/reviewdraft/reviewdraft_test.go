@@ -69,9 +69,9 @@ func TestCadenceFixtures(t *testing.T) {
 	for _, raw := range cases.Missing {
 		body := map[string]any{
 			"happened_at":       "2026-08-09T19:00:00+08:00",
-			"cadence":            raw,
-			"raw_content":        "x",
-			"objective_context":  "ctx",
+			"cadence":           raw,
+			"raw_content":       "x",
+			"objective_context": "ctx",
 		}
 		b, _ := json.Marshal(body)
 		_, err := ParseReview(b)
@@ -82,9 +82,9 @@ func TestCadenceFixtures(t *testing.T) {
 	for _, raw := range cases.Invalid {
 		body := map[string]any{
 			"happened_at":       "2026-08-09T19:00:00+08:00",
-			"cadence":            raw,
-			"raw_content":        "x",
-			"objective_context":  "ctx",
+			"cadence":           raw,
+			"raw_content":       "x",
+			"objective_context": "ctx",
 		}
 		b, _ := json.Marshal(body)
 		_, err := ParseReview(b)
@@ -118,9 +118,9 @@ func TestParseReviewValid(t *testing.T) {
 
 func TestParseReviewOptionalFields(t *testing.T) {
 	body := map[string]any{
-		"happened_at":      "2026-08-09T19:00:00+08:00",
-		"cadence":          "yearly",
-		"raw_content":      "  text  ",
+		"happened_at":       "2026-08-09T19:00:00+08:00",
+		"cadence":           "yearly",
+		"raw_content":       "  text  ",
 		"objective_context": " ctx ",
 	}
 	b, _ := json.Marshal(body)

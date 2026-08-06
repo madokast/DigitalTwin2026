@@ -237,13 +237,13 @@ func TestRecordsListOrderBySharedFixture(t *testing.T) {
 func TestToQueryRecordJSON(t *testing.T) {
 	todoText := "Buy milk"
 	todo := record.Record{
-		ID:                       "01900000-0000-7000-8000-000000000003",
-		HappenedAt:               "2026-08-02T02:00:00.000Z",
-		NumericValue:              nil,
-		RawContent:                &todoText,
-		Tags:                     []string{"todo:in_progress", "errand"},
-		ObjectiveContext:         "weekend grocery list",
-		AiAnalysis: nil,
+		ID:               "01900000-0000-7000-8000-000000000003",
+		HappenedAt:       "2026-08-02T02:00:00.000Z",
+		NumericValue:     nil,
+		RawContent:       &todoText,
+		Tags:             []string{"todo:in_progress", "errand"},
+		ObjectiveContext: "weekend grocery list",
+		AiAnalysis:       nil,
 	}
 	got := ToQueryRecordJSON(todo)
 	b, err := json.Marshal(got)
@@ -271,7 +271,7 @@ func TestToQueryRecordJSON(t *testing.T) {
 	audit := record.Record{
 		ID:               "01900000-0000-7000-8000-000000000004",
 		HappenedAt:       "2026-08-02T04:00:00.000Z",
-		RawContent:        &copyText,
+		RawContent:       &copyText,
 		Tags:             []string{"todo:transition"},
 		ObjectiveContext: "Complete a to-do 01900000-0000-7000-8000-000000000003 created at 2026-08-02T02:00:00.000Z",
 	}

@@ -46,14 +46,14 @@ const utf8BOM = "\ufeff"
 
 // Row 领域行：ParseLine 产出；SerializeLine 输入。
 type Row struct {
-	ID                       string
-	HappenedAt               time.Time
-	UtcOffset                string
-	NumericValue              *string
-	RawContent                *string
-	Tags                     []string
-	ObjectiveContext         string
-	AiAnalysis *string
+	ID               string
+	HappenedAt       time.Time
+	UtcOffset        string
+	NumericValue     *string
+	RawContent       *string
+	Tags             []string
+	ObjectiveContext string
+	AiAnalysis       *string
 }
 
 // FormatLineError 可选行号包装：`line N: …`（1-based）。lineNumber < 1 时原样返回。
@@ -170,14 +170,14 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	}
 
 	return &Row{
-		ID:                       id,
-		HappenedAt:               happenedAt,
-		UtcOffset:                utcOffset,
-		NumericValue:              numericValue,
-		RawContent:                rawContent,
-		Tags:                     tagsOut,
-		ObjectiveContext:         objCtx,
-		AiAnalysis: aiAnalysis,
+		ID:               id,
+		HappenedAt:       happenedAt,
+		UtcOffset:        utcOffset,
+		NumericValue:     numericValue,
+		RawContent:       rawContent,
+		Tags:             tagsOut,
+		ObjectiveContext: objCtx,
+		AiAnalysis:       aiAnalysis,
 	}, nil
 }
 
@@ -190,13 +190,13 @@ func SerializeLine(row *Row) (string, error) {
 		happenedAt = record.FormatHappenedAt(row.HappenedAt)
 	}
 	rec := record.Record{
-		ID:                       row.ID,
-		HappenedAt:               happenedAt,
-		NumericValue:              row.NumericValue,
-		RawContent:                row.RawContent,
-		Tags:                     row.Tags,
-		ObjectiveContext:         row.ObjectiveContext,
-		AiAnalysis: row.AiAnalysis,
+		ID:               row.ID,
+		HappenedAt:       happenedAt,
+		NumericValue:     row.NumericValue,
+		RawContent:       row.RawContent,
+		Tags:             row.Tags,
+		ObjectiveContext: row.ObjectiveContext,
+		AiAnalysis:       row.AiAnalysis,
 	}
 	return SerializeRecord(rec)
 }
@@ -205,13 +205,13 @@ func SerializeLine(row *Row) (string, error) {
 func SerializeRecord(rec record.Record) (string, error) {
 	// 用手写 map 保键序（encoding/json 对 struct 按字段声明序，与 Next 对象字面量一致）
 	b, err := json.Marshal(orderedRecord{
-		ID:                       rec.ID,
-		HappenedAt:               rec.HappenedAt,
-		NumericValue:              rec.NumericValue,
-		RawContent:                rec.RawContent,
-		Tags:                     rec.Tags,
-		ObjectiveContext:         rec.ObjectiveContext,
-		AiAnalysis: rec.AiAnalysis,
+		ID:               rec.ID,
+		HappenedAt:       rec.HappenedAt,
+		NumericValue:     rec.NumericValue,
+		RawContent:       rec.RawContent,
+		Tags:             rec.Tags,
+		ObjectiveContext: rec.ObjectiveContext,
+		AiAnalysis:       rec.AiAnalysis,
 	})
 	if err != nil {
 		return "", err
@@ -221,11 +221,11 @@ func SerializeRecord(rec record.Record) (string, error) {
 
 // orderedRecord 字段声明序 = JSONL 键序。
 type orderedRecord struct {
-	ID                       string   `json:"id"`
-	HappenedAt               string   `json:"happened_at"`
-	NumericValue              *string  `json:"numeric_value,omitempty"`
-	RawContent                *string  `json:"raw_content"`
-	Tags                     []string `json:"tags"`
-	ObjectiveContext         string   `json:"objective_context"`
-	AiAnalysis *string  `json:"ai_analysis"`
+	ID               string   `json:"id"`
+	HappenedAt       string   `json:"happened_at"`
+	NumericValue     *string  `json:"numeric_value,omitempty"`
+	RawContent       *string  `json:"raw_content"`
+	Tags             []string `json:"tags"`
+	ObjectiveContext string   `json:"objective_context"`
+	AiAnalysis       *string  `json:"ai_analysis"`
 }

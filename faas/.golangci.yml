@@ -3,9 +3,11 @@
 # ST1005（错误文案大写）与 ST1012（哨兵命名）已清零（契约文案小写化 + Err 前缀重命名），
 # 无需豁免——二者作为 lint 守卫拦截新的大写错误文案 / 非 Err* 哨兵命名。
 # `_ = tx.Rollback` / `defer rows.Close()` 是显式忽略，errcheck 默认放行，无需豁免。
+# gofmt：2026-08-06 全仓 gofmt -w 清零后启用，拦截新引入的不符合 gofmt 的格式。
 linters:
   enable:
     - errcheck
+    - gofmt
     - gosimple
     - govet
     - ineffassign

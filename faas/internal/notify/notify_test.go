@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"unicode/utf8"
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 }
 
 type truncateCases struct {
-	MaxLen int `json:"max_len"`
+	MaxLen int    `json:"max_len"`
 	Suffix string `json:"suffix"`
 	Cases  []struct {
 		Name      string `json:"name"`
@@ -406,7 +406,7 @@ func TestNotifyRecordInsertedFormats(t *testing.T) {
 	n.NotifyRecordInserted(record.Record{
 		ID:               "id-1",
 		HappenedAt:       "2026-07-31T12:00:00.000Z",
-		NumericValue:      &num,
+		NumericValue:     &num,
 		Tags:             []string{"weight"},
 		ObjectiveContext: "Scale",
 	})
@@ -507,7 +507,7 @@ func TestNotifyNumberBatchInsertedTruncatesOversized(t *testing.T) {
 		rows[i] = record.Record{
 			ID:               fmt.Sprintf("id-%d", i),
 			HappenedAt:       "2026-08-05T10:00:00+08:00",
-			NumericValue:      &v,
+			NumericValue:     &v,
 			Tags:             []string{"vitals"},
 			ObjectiveContext: fmt.Sprintf("axillary temperature reading %d", i),
 		}

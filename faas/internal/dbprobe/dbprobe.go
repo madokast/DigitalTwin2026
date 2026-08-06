@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	DatabaseURLNotSet  = "DATABASE_URL is not set"
+	DatabaseURLNotSet   = "DATABASE_URL is not set"
 	DatabaseUnreachable = "Database unreachable"
 )
 
@@ -24,12 +24,12 @@ const ConnectTimeout = 15 * time.Second
 
 // Result 成功探测体（HTTP 200）；ok = reachable ∧ records 存在。
 type Result struct {
-	Ok                   bool    `json:"ok"`
-	DatabaseReachable    bool    `json:"database_reachable"`
-	RecordsTableExists   bool    `json:"records_table_exists"`
-	ConnectMs            float64 `json:"connect_ms"`
-	Select1FirstMs       float64 `json:"select1_first_ms"`
-	Select1SecondMs      float64 `json:"select1_second_ms"`
+	Ok                 bool    `json:"ok"`
+	DatabaseReachable  bool    `json:"database_reachable"`
+	RecordsTableExists bool    `json:"records_table_exists"`
+	ConnectMs          float64 `json:"connect_ms"`
+	Select1FirstMs     float64 `json:"select1_first_ms"`
+	Select1SecondMs    float64 `json:"select1_second_ms"`
 }
 
 func roundMs(d time.Duration) float64 {

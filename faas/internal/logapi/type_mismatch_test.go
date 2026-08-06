@@ -87,4 +87,3 @@ func TestTransitionTodoRejectsValidation(t *testing.T) {
 		}
 	}
 }
-

@@ -11,15 +11,15 @@ import (
 )
 
 type validCase struct {
-	Name                           string   `json:"name"`
-	Line                           string   `json:"line"`
-	ExpectTags                     []string `json:"expectTags"`
-	ExpectNumericValue              *string  `json:"expectNumericValue"`
-	ExpectRawContent                *string  `json:"expectRawContent"`
-	ExpectObjectiveContext         string   `json:"expectObjectiveContext"`
-	ExpectAiAnalysis *string  `json:"expectAiAnalysis"`
-	ExpectHappenedAtUtcMs          int64    `json:"expectHappenedAtUtcMs"`
-	Serialized                     string   `json:"serialized"`
+	Name                   string   `json:"name"`
+	Line                   string   `json:"line"`
+	ExpectTags             []string `json:"expectTags"`
+	ExpectNumericValue     *string  `json:"expectNumericValue"`
+	ExpectRawContent       *string  `json:"expectRawContent"`
+	ExpectObjectiveContext string   `json:"expectObjectiveContext"`
+	ExpectAiAnalysis       *string  `json:"expectAiAnalysis"`
+	ExpectHappenedAtUtcMs  int64    `json:"expectHappenedAtUtcMs"`
+	Serialized             string   `json:"serialized"`
 }
 
 type invalidCase struct {

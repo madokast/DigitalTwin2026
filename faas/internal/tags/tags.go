@@ -28,7 +28,7 @@ const ReservedTagTodo = "todo"
 const ReservedTagReview = "review"
 
 // reservedTagHint 保留 tag 错误后缀：不指向具体端点路径，AI 自行查 OpenAPI
-//（端点改名/新增不会过时；与 TS RESERVED_TAG_HINT 同句）。
+// （端点改名/新增不会过时；与 TS RESERVED_TAG_HINT 同句）。
 const reservedTagHint = "use the dedicated log API for this record type"
 
 // ErrTagsNotJSONArray 与 TS TAGS_NOT_JSON_ARRAY 同文案：根不是 JSON 数组。

@@ -85,7 +85,7 @@ type TimeSuccess struct {
 
 // TagsSuccess `{success, tags}`。
 type TagsSuccess struct {
-	Success bool          `json:"success"`
+	Success bool            `json:"success"`
 	Tags    []tags.TagCount `json:"tags"`
 }
 

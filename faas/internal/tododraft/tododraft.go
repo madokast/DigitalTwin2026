@@ -32,11 +32,11 @@ const (
 
 // LogTodoBody POST /api/log/todo 请求体（any：字段级校验文案与 Next 对齐）。
 type LogTodoBody struct {
-	CreatedAt                any `json:"created_at"`
-	Content                  any `json:"content"`
-	ObjectiveContext         any `json:"objective_context"`
-	AiAnalysis any `json:"ai_analysis"`
-	Tags                     any `json:"tags"`
+	CreatedAt        any `json:"created_at"`
+	Content          any `json:"content"`
+	ObjectiveContext any `json:"objective_context"`
+	AiAnalysis       any `json:"ai_analysis"`
+	Tags             any `json:"tags"`
 }
 
 var logTodoKeys = []string{
@@ -46,12 +46,12 @@ var logTodoKeys = []string{
 
 // NormalizedTodo 校验后的待办行（落库列语义）。
 type NormalizedTodo struct {
-	HappenedAt               time.Time
-	UtcOffset                string
-	RawContent                string
-	Tags                     []string
-	ObjectiveContext         string
-	AiAnalysis any // string or nil
+	HappenedAt       time.Time
+	UtcOffset        string
+	RawContent       string
+	Tags             []string
+	ObjectiveContext string
+	AiAnalysis       any // string or nil
 }
 
 // TodoRecordJSON 待办行 HTTP JSON（别名键；其余与 Record snake_case 一致）。
@@ -378,11 +378,11 @@ func ParseTodo(raw []byte) (NormalizedTodo, error) {
 	tagsOut = append(tagsOut, clientTags...)
 
 	return NormalizedTodo{
-		HappenedAt:               happenedAt,
-		UtcOffset:                utcOffset,
-		RawContent:                content,
-		Tags:                     tagsOut,
-		ObjectiveContext:         objCtx,
-		AiAnalysis: subj,
+		HappenedAt:       happenedAt,
+		UtcOffset:        utcOffset,
+		RawContent:       content,
+		Tags:             tagsOut,
+		ObjectiveContext: objCtx,
+		AiAnalysis:       subj,
 	}, nil
 }

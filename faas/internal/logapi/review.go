@@ -12,7 +12,7 @@ import (
 )
 
 // CreateReview 校验复盘请求并落库；落库 tags = [review:{cadence}, ...clientTags]
-//（自动附加，客户端不得传 review:*；解析已在 reviewdraft 内完成）。
+// （自动附加，客户端不得传 review:*；解析已在 reviewdraft 内完成）。
 func CreateReview(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {
 	parsed, err := reviewdraft.ParseReview(raw)
 	if err != nil {

@@ -26,11 +26,11 @@ const weightMaxCents = 50000 // 500.00
 
 // LogBodyWeightBody POST /api/log/body/weight 请求体（any：字段级校验文案与 Next 对齐）。
 type LogBodyWeightBody struct {
-	HappenedAt               any `json:"happened_at"`
-	NumericValue              any `json:"numeric_value"`
-	ObjectiveContext         any `json:"objective_context"`
-	AiAnalysis any `json:"ai_analysis"`
-	Tags                     any `json:"tags"`
+	HappenedAt       any `json:"happened_at"`
+	NumericValue     any `json:"numeric_value"`
+	ObjectiveContext any `json:"objective_context"`
+	AiAnalysis       any `json:"ai_analysis"`
+	Tags             any `json:"tags"`
 }
 
 var logBodyWeightKeys = []string{
@@ -40,12 +40,12 @@ var logBodyWeightKeys = []string{
 
 // NormalizedBodyWeight 校验后的体重行。
 type NormalizedBodyWeight struct {
-	HappenedAt               time.Time
-	UtcOffset                string
-	NumericValue              string
-	Tags                     []string
-	ObjectiveContext         string
-	AiAnalysis any // string or nil
+	HappenedAt       time.Time
+	UtcOffset        string
+	NumericValue     string
+	Tags             []string
+	ObjectiveContext string
+	AiAnalysis       any // string or nil
 }
 
 // WeightCentsInRange 已通过体重正则并规范为两位小数的字面量是否在 [1.00, 500.00]。
@@ -170,11 +170,11 @@ func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, error) {
 	tagsOut = append(tagsOut, clientTags...)
 
 	return NormalizedBodyWeight{
-		HappenedAt:               happenedAt,
-		UtcOffset:                utcOffset,
-		NumericValue:              numericValue,
-		Tags:                     tagsOut,
-		ObjectiveContext:         objCtx,
-		AiAnalysis: subj,
+		HappenedAt:       happenedAt,
+		UtcOffset:        utcOffset,
+		NumericValue:     numericValue,
+		Tags:             tagsOut,
+		ObjectiveContext: objCtx,
+		AiAnalysis:       subj,
 	}, nil
 }

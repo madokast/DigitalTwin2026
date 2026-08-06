@@ -8,8 +8,7 @@ import (
 )
 
 // TestDatabaseURLHint 集成测缺失 / 不安全 DATABASE_URL 时的英文提示。
-const TestDatabaseURLHint =
-	`Point DATABASE_URL at a test database (hostname or database name must contain "test").`
+const TestDatabaseURLHint = `Point DATABASE_URL at a test database (hostname or database name must contain "test").`
 
 var testMarkerRE = regexp.MustCompile(`(?i)test`)
 

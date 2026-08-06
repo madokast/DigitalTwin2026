@@ -52,13 +52,13 @@ func TestBuildExportNdjsonAndFilename(t *testing.T) {
 
 	num := "1.5"
 	rec := record.Record{
-		ID:                       "01900000-0000-7000-8000-000000000001",
-		HappenedAt:               "2026-07-30T00:00:00.000Z",
-		NumericValue:              &num,
-		RawContent:                nil,
-		Tags:                     []string{"weight"},
-		ObjectiveContext:         "scale",
-		AiAnalysis: nil,
+		ID:               "01900000-0000-7000-8000-000000000001",
+		HappenedAt:       "2026-07-30T00:00:00.000Z",
+		NumericValue:     &num,
+		RawContent:       nil,
+		Tags:             []string{"weight"},
+		ObjectiveContext: "scale",
+		AiAnalysis:       nil,
 	}
 	line, err := recordjsonl.SerializeRecord(rec)
 	if err != nil {

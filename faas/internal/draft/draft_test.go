@@ -130,4 +130,3 @@ func TestParseNumericValueBlankAndJSONNumber(t *testing.T) {
 		t.Fatalf("float64: %v", err)
 	}
 }
-

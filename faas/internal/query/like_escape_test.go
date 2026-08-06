@@ -10,11 +10,11 @@ import (
 func TestEscapeLikePattern(t *testing.T) {
 	t.Parallel()
 	cases := map[string]string{
-		"a_b":     `a\_b`,
-		"100%":    `100\%`,
-		`a\b`:     `a\\b`,
-		`a_%\x`:   `a\_\%\\x`,
-		"plain":   "plain",
+		"a_b":   `a\_b`,
+		"100%":  `100\%`,
+		`a\b`:   `a\\b`,
+		`a_%\x`: `a\_\%\\x`,
+		"plain": "plain",
 	}
 	for in, want := range cases {
 		if got := EscapeLikePattern(in); got != want {

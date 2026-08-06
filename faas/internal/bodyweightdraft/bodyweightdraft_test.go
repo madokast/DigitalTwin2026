@@ -22,10 +22,10 @@ type weightAmountReject struct {
 }
 
 type weightAmountCases struct {
-	InvalidWeightError       string               `json:"invalidWeightError"`
-	ErrNumericValueMustBeString  string               `json:"numericValueMustBeString"`
-	Accept                   []weightAmountAccept `json:"accept"`
-	Reject                   []weightAmountReject `json:"reject"`
+	InvalidWeightError          string               `json:"invalidWeightError"`
+	ErrNumericValueMustBeString string               `json:"numericValueMustBeString"`
+	Accept                      []weightAmountAccept `json:"accept"`
+	Reject                      []weightAmountReject `json:"reject"`
 }
 
 func loadWeightAmountCases(t *testing.T) weightAmountCases {

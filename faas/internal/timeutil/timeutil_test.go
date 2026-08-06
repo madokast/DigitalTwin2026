@@ -171,7 +171,7 @@ func TestFormatNowInZoneSharedFixtures(t *testing.T) {
 		t.Fatalf("read time-cases: %v", err)
 	}
 	var payload struct {
-		InstantUtcMs int64       `json:"instantUtcMs"`
+		InstantUtcMs int64      `json:"instantUtcMs"`
 		Cases        []timeCase `json:"cases"`
 	}
 	if err := json.Unmarshal(b, &payload); err != nil {

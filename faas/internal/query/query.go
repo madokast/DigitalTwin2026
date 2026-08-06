@@ -245,7 +245,7 @@ func scanRecord(row pgx.Row) (record.Record, error) {
 	var (
 		id, tagsField, objectiveContext, utcOffset string
 		happenedAt                                 time.Time
-		numericValue, rawContent, subj               *string
+		numericValue, rawContent, subj             *string
 	)
 	err := row.Scan(&id, &happenedAt, &utcOffset, &numericValue, &rawContent, &tagsField, &objectiveContext, &subj)
 	if err != nil {
@@ -438,7 +438,7 @@ type TransactionsSummaryResult struct {
 }
 
 type TransactionsSummaryRow struct {
-	Tags        string
+	Tags         string
 	NumericValue *string
 }
 

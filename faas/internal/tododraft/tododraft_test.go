@@ -52,7 +52,7 @@ func TestToTodoRecordJSONPreservesOffset(t *testing.T) {
 	rec := record.Record{
 		ID:               "01900000-0000-7000-8000-000000000003",
 		HappenedAt:       "2026-08-02T10:00:00.000+08:00",
-		RawContent:        strPtr("Buy milk"),
+		RawContent:       strPtr("Buy milk"),
 		Tags:             []string{"todo:in_progress", "errand"},
 		ObjectiveContext: "x",
 	}
@@ -193,7 +193,7 @@ func TestTodoAuditNotifyTextSharedFixture(t *testing.T) {
 			Target           string `json:"target"`
 			TodoID           string `json:"todoId"`
 			TodoHappenedAt   string `json:"todoHappenedAt"`
-			TodoRawContent    string `json:"todoRawContent"`
+			TodoRawContent   string `json:"todoRawContent"`
 			ObjectiveContext string `json:"objective_context"`
 			NotifyText       string `json:"notify_text"`
 		} `json:"cases"`

@@ -22,11 +22,11 @@ func repoRoot(t *testing.T) string {
 
 type sharedSummaryCases struct {
 	Cases []struct {
-		Name     string                   `json:"name"`
-		From     string                   `json:"from"`
-		To       string                   `json:"to"`
-		Rows     []sharedSummaryRow       `json:"rows"`
-		Expected json.RawMessage          `json:"expected"`
+		Name     string             `json:"name"`
+		From     string             `json:"from"`
+		To       string             `json:"to"`
+		Rows     []sharedSummaryRow `json:"rows"`
+		Expected json.RawMessage    `json:"expected"`
 	} `json:"cases"`
 	ParseErrors []struct {
 		Name  string            `json:"name"`
@@ -36,7 +36,7 @@ type sharedSummaryCases struct {
 }
 
 type sharedSummaryRow struct {
-	Tags        string  `json:"tags"`
+	Tags         string  `json:"tags"`
 	NumericValue *string `json:"numeric_value"`
 }
 

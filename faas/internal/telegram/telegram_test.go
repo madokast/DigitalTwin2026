@@ -49,12 +49,12 @@ func TestFormatRecordMessage(t *testing.T) {
 	num := "72.5"
 	subj := "Feeling lighter"
 	rec := record.Record{
-		ID:                       "id-1",
-		HappenedAt:               "2026-07-31T12:00:00.000Z",
-		NumericValue:              &num,
-		Tags:                     []string{"weight", "morning"},
-		ObjectiveContext:         "Scale reading",
-		AiAnalysis: &subj,
+		ID:               "id-1",
+		HappenedAt:       "2026-07-31T12:00:00.000Z",
+		NumericValue:     &num,
+		Tags:             []string{"weight", "morning"},
+		ObjectiveContext: "Scale reading",
+		AiAnalysis:       &subj,
 	}
 	got := FormatRecordMessage(rec)
 	want := strings.Join([]string{
@@ -74,7 +74,7 @@ func TestFormatRecordMessage(t *testing.T) {
 	rec2 := record.Record{
 		ID:               "id-2",
 		HappenedAt:       "2026-07-31T13:00:00.000Z",
-		RawContent:        &text,
+		RawContent:       &text,
 		Tags:             []string{"run"},
 		ObjectiveContext: "Park loop",
 	}
@@ -84,10 +84,10 @@ func TestFormatRecordMessage(t *testing.T) {
 	}
 
 	offsetRec := record.Record{
-		ID:         "id-3",
-		HappenedAt: "2026-07-31T20:00:00.000+08:00",
-		RawContent:  &text,
-		Tags:       []string{"run"},
+		ID:               "id-3",
+		HappenedAt:       "2026-07-31T20:00:00.000+08:00",
+		RawContent:       &text,
+		Tags:             []string{"run"},
 		ObjectiveContext: "Park loop",
 	}
 	got3 := FormatRecordMessage(offsetRec)
