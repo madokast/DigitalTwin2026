@@ -13,7 +13,7 @@
  * newInternal 后 throw），成功路径返回直接值——业务层无拆包样板。
  */
 
-import { and, eq, gte, like, lt, or, sql, type SQL } from 'drizzle-orm'
+import { and, count, eq, gte, like, lt, or, sql, type SQL } from 'drizzle-orm'
 import * as schema from '@/db/schema'
 import { fromDB, type Record } from '@/lib/record'
 import { parseHappenedAt } from '@/lib/draft'
@@ -65,6 +65,26 @@ export class RecordRepository {
     } catch (err) {
       throw newInternal(err)
     }
+  }
+
+  /** 按过滤条件计数（§6 分层：收 Criteria——类型上不存在分页/排序字段，无需校验）。
+   * 方案 B：列表 total 由业务层另行 count；stats total/today、summary 覆盖。 */
+  async count(q: Executor, c: Criteria): Promise<number> {
+    const where = buildCriteriaWhere(c)
+    let rows: { value: number }[]
+    try {
+      rows = where
+        ? ((await q
+            .select({ value: count() })
+            .from(schema.records)
+            .where(where)) as { value: number }[])
+        : ((await q
+            .select({ value: count() })
+            .from(schema.records)) as { value: number }[])
+    } catch (err) {
+      throw newInternal(err)
+    }
+    return Number(rows[0]?.value ?? 0)
   }
 
   /** 按 id 判存在（import 逐行 upsert 用）。竞态语义：并发同 id 时唯一索引兜底
@@ -161,33 +181,7 @@ export class RecordRepository {
   async findByCriteria(q: Executor, c: FindCriteria): Promise<Record[]> {
     validateCriteria(c)
 
-    const conditions: SQL[] = []
-    if (c.id) conditions.push(eq(schema.records.id, c.id))
-    if (c.idFrom) conditions.push(gte(schema.records.id, c.idFrom))
-    if (c.from) conditions.push(gte(schema.records.happenedAt, c.from))
-    if (c.to) conditions.push(lt(schema.records.happenedAt, c.to))
-    for (const tag of c.tags) {
-      if (tag.endsWith(':*')) {
-        // 族通配 `X:*` → `%"X:%`（去尾闭合引号、保留冒号）
-        conditions.push(like(schema.records.tags, `%"${escapeLikePattern(tag.slice(0, -1))}%`))
-      } else {
-        conditions.push(like(schema.records.tags, `%"${escapeLikePattern(tag)}"%`))
-      }
-    }
-    if (c.q) {
-      const pattern = `%${escapeLikePattern(c.q)}%`
-      // 必须用 or() 包一层，否则 and(...conds) 拼出 tag AND vt OR obj …（AND 优先于 OR）
-      conditions.push(
-        or(
-          like(schema.records.rawContent, pattern),
-          like(schema.records.objectiveContext, pattern),
-          like(schema.records.aiAnalysis, pattern),
-          like(schema.records.tags, pattern),
-        )!,
-      )
-    }
-
-    const where = conditions.length > 0 ? and(...conditions) : undefined
+    const where = buildCriteriaWhere(c)
     const listOrder = sql.raw(recordsOrderBySql(c.sortBy, c.sortOrder))
 
     let rows: typeof schema.records.$inferSelect[]
@@ -240,6 +234,36 @@ export type FindCriteria = Criteria & {
   pageSize: number
   sortBy: 'happened_at' | 'id'
   sortOrder: 'asc' | 'desc'
+}
+
+/** 条件构建（findByCriteria / count 共享；D3：条件构建在 Repository 内部）。 */
+function buildCriteriaWhere(c: Criteria): SQL | undefined {
+  const conditions: SQL[] = []
+  if (c.id) conditions.push(eq(schema.records.id, c.id))
+  if (c.idFrom) conditions.push(gte(schema.records.id, c.idFrom))
+  if (c.from) conditions.push(gte(schema.records.happenedAt, c.from))
+  if (c.to) conditions.push(lt(schema.records.happenedAt, c.to))
+  for (const tag of c.tags) {
+    if (tag.endsWith(':*')) {
+      // 族通配 `X:*` → `%"X:%`（去尾闭合引号、保留冒号）
+      conditions.push(like(schema.records.tags, `%"${escapeLikePattern(tag.slice(0, -1))}%`))
+    } else {
+      conditions.push(like(schema.records.tags, `%"${escapeLikePattern(tag)}"%`))
+    }
+  }
+  if (c.q) {
+    const pattern = `%${escapeLikePattern(c.q)}%`
+    // 必须用 or() 包一层，否则 and(...conds) 拼出 tag AND vt OR obj …（AND 优先于 OR）
+    conditions.push(
+      or(
+        like(schema.records.rawContent, pattern),
+        like(schema.records.objectiveContext, pattern),
+        like(schema.records.aiAnalysis, pattern),
+        like(schema.records.tags, pattern),
+      )!,
+    )
+  }
+  return conditions.length > 0 ? and(...conditions) : undefined
 }
 
 /** 检测非法值 → 400（错误语义：数据/格式问题不限层级；只属 FindCriteria）。文案与 HTTP query parse 层一致。 */

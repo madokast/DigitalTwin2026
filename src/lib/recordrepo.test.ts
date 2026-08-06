@@ -260,3 +260,44 @@ describe('findByCriteria idFrom', () => {
     expect(select).not.toHaveBeenCalled()
   })
 })
+
+describe('count', () => {
+  it('returns total without filter', async () => {
+    const cFrom = vi.fn(() => ({
+      then: (resolve: (v: unknown) => void) => resolve([{ value: 42 }]),
+    }))
+    const cSelect = vi.fn(() => ({ from: cFrom }))
+    const cQ = { select: cSelect } as unknown as Executor
+    const total = await Repo.count(cQ, { tags: [] })
+    expect(total).toBe(42)
+  })
+
+  it('returns total with conditions', async () => {
+    const cWhere = vi.fn(() => ({
+      then: (resolve: (v: unknown) => void) => resolve([{ value: 7 }]),
+    }))
+    const cFrom = vi.fn(() => ({ where: cWhere }))
+    const cSelect = vi.fn(() => ({ from: cFrom }))
+    const cQ = { select: cSelect } as unknown as Executor
+    const total = await Repo.count(cQ, {
+      from: new Date('2026-08-01T00:00:00.000Z'),
+      tags: ['work'],
+    })
+    expect(total).toBe(7)
+    expect(cWhere).toHaveBeenCalledTimes(1)
+  })
+
+  it('wraps driver errors as internal 500', async () => {
+    const cFrom = vi.fn(() => ({
+      then: (_resolve: (v: unknown) => void) => {
+        throw new Error('connection refused')
+      },
+    }))
+    const cSelect = vi.fn(() => ({ from: cFrom }))
+    const cQ = { select: cSelect } as unknown as Executor
+    await expect(Repo.count(cQ, { tags: [] })).rejects.toMatchObject({
+      status: 500,
+      message: 'Error: connection refused',
+    })
+  })
+})

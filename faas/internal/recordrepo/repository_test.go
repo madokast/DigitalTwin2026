@@ -28,6 +28,8 @@ func (r *fakeRow) Scan(dest ...any) error {
 			*p = r.vals[i].(string)
 		case *bool:
 			*p = r.vals[i].(bool)
+		case *int:
+			*p = r.vals[i].(int)
 		case *time.Time:
 			*p = r.vals[i].(time.Time)
 		case **string:
@@ -45,18 +47,26 @@ func (r *fakeRow) Scan(dest ...any) error {
 }
 
 type fakeExecutor struct {
-	execSQL   []string
-	execArgs  [][]any
-	row       *fakeRow
-	rowsAff   int64
-	execErr   error
-	querySQL  string
-	queryArgs []any
-	queryRows [][]any
-	queryErr  error
+	execSQL      []string
+	execArgs     [][]any
+	row          *fakeRow
+	rowsAff      int64
+	execErr      error
+	querySQL     string
+	queryArgs    []any
+	queryRows    [][]any
+	queryErr     error
+	queryRowSQL  string
+	queryRowArgs []any
+	queryRowErr  error
 }
 
 func (f *fakeExecutor) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
+	f.queryRowSQL = sql
+	f.queryRowArgs = append([]any{}, args...)
+	if f.queryRowErr != nil {
+		return &fakeRow{err: f.queryRowErr}
+	}
 	return f.row
 }
 func (f *fakeExecutor) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
@@ -527,5 +537,50 @@ func TestFindByCriteriaIDAndIDFromMutuallyExclusive(t *testing.T) {
 	}
 	if f.querySQL != "" {
 		t.Fatalf("no query expected, got %q", f.querySQL)
+	}
+}
+
+func TestCountNoFilter(t *testing.T) {
+	f := &fakeExecutor{row: &fakeRow{vals: []any{42}}}
+	total, me := Repo.Count(context.Background(), f, Criteria{})
+	if me != nil {
+		t.Fatal(me)
+	}
+	if total != 42 {
+		t.Fatalf("total=%d want 42", total)
+	}
+	if !strings.Contains(f.queryRowSQL, "SELECT count(*) FROM records") || strings.Contains(f.queryRowSQL, "WHERE") {
+		t.Fatalf("unexpected SQL: %q", f.queryRowSQL)
+	}
+}
+
+func TestCountWithConditions(t *testing.T) {
+	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	f := &fakeExecutor{row: &fakeRow{vals: []any{7}}}
+	total, me := Repo.Count(context.Background(), f, Criteria{
+		From: &from,
+		Tags: []string{"work", "family:*"},
+	})
+	if me != nil {
+		t.Fatal(me)
+	}
+	if total != 7 {
+		t.Fatalf("total=%d want 7", total)
+	}
+	for _, want := range []string{"happened_at >= $1", "tags LIKE $2", "tags LIKE $3"} {
+		if !strings.Contains(f.queryRowSQL, want) {
+			t.Fatalf("SQL missing %q:\n%s", want, f.queryRowSQL)
+		}
+	}
+	if len(f.queryRowArgs) != 3 {
+		t.Fatalf("args=%v want 3", f.queryRowArgs)
+	}
+}
+
+func TestCountDriverErrorInternal(t *testing.T) {
+	f := &fakeExecutor{row: &fakeRow{err: errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`)}}
+	_, me := Repo.Count(context.Background(), f, Criteria{})
+	if me == nil || me.Status != 500 {
+		t.Fatalf("me=%v want 500", me)
 	}
 }

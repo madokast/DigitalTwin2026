@@ -184,6 +184,21 @@ func (r *RecordRepository) AcquireRenameLock(ctx context.Context, q db.Executor)
 	return nil
 }
 
+// Count 按过滤条件计数（§6 分层：收 Criteria——类型上不存在分页/排序字段，无需校验）。
+// 方案 B：列表 total 由业务层另行 Count；stats total/today、summary 覆盖。
+func (r *RecordRepository) Count(ctx context.Context, q db.Executor, c Criteria) (int, *myerr.MyError) {
+	where, args := buildCriteriaWhere(c)
+	countSQL := "SELECT count(*) FROM records"
+	if where != "" {
+		countSQL += " WHERE " + where
+	}
+	var total int
+	if err := q.QueryRow(ctx, countSQL, args...).Scan(&total); err != nil {
+		return 0, myerr.NewInternal(err)
+	}
+	return total, nil
+}
+
 // FindByCriteria 按条件查询 records 列表（只返回行；total 由业务层另行 Count，方案 B）。
 // 条件构建在 Repository 内部（D3：escapeLikePattern / 族通配 / recordsOrderBySql 迁入本包）。
 // Scan DBRow + FromDB 唯一转换点。ID 非空时忽略分页返回 0～1 条（现状语义）。
