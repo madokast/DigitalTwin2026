@@ -113,8 +113,19 @@
 - 问题：httpx `Server.TransitionTodo` 字段（单测注入 fake 结果）签名 `func(ctx, pool, raw) (TransitionResult, int, error)`。transition 迁移后此字段签名是否保持？httpx 测试（`todo_transition_test.go`）与集成测试如何跟？
 - 待决：httpx 注入点迁移策略。
 
+## F. 内部错误透传阶段 B（ErrInternal 防腐层，随 UoW 落地）
+
+- 状态：✅ **已定案**（2026-08-06）。细节见 [`docs/20260806-internal-error-transparency.md`](20260806-internal-error-transparency.md) §3.3 / §3.6；**实施时机 = UoW 落地时**（需 Repository 层作为三方库错误吸收点），不单独实施。
+- 与 A2 / A3 关系：A2 已定「Repository 返回领域错误 + status 由业务函数返回（无 statusOf）」；A3 已定「error 字段承载领域错误对象」——阶段 B 为这套体系**补充 `ErrInternal`（内部错误）**，补全 400/404/409/500 四类 status 的领域错误覆盖。
+- 内容：
+  1. **`record.ErrInternal`**（Go）：`InternalError` 类型 + `ErrInternal(err)` 包装，**存原始 err + `Unwrap()` 保链**（`Error()` 返回原文，`errors.As` 命中 `InternalError`，底层链仍可 `errors.Is` 穿透判 SQLSTATE）。Node：`InternalError extends Error`，**随 Repository 一起引入**（与 `RecordNotFoundError`/`RecordConflictError` 对称，不 throw，放 `res.error`）。
+  2. **Repository 层吸收三方库错误**（防腐层，唯一碰 SQL 的层）：`q.QueryRow/Exec/Query` 出错 → `res.Error = record.ErrInternal(err)`，替换普通 `fmt.Errorf` 包装。
+  3. **handler 统一形态**：`logResponseError(status, logMsg, err)`（仅 ≥500 记日志）+ `writeError(w, status, errorDetail(err))`；`writeInternalError` 特殊通道**删除**。`errorDetail` 由阶段 A 引入（空 message 以 `%T` 类型名兜底）。
+- 阶段 A（现在，先行）：`writeInternalError` 内部透传 + 守卫测试反转 + OpenAPI/AGENTS 同步——已在现行代码独立落地，不阻塞 UoW。
+
 ## 相关记录
 
 - 架构定案：[`docs/20260805-repository-architecture.md`](20260805-repository-architecture.md)
 - 首个采用接口：[`docs/20260805-tags-add.md`](20260805-tags-add.md)
 - 回滚测试待办：架构文档「继承」节第 2 条（log/numbers 回滚测试）
+- 内部错误透传（ErrInternal 防腐层 + 阶段 A 透传）：[`docs/20260806-internal-error-transparency.md`](20260806-internal-error-transparency.md)

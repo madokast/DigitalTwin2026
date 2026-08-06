@@ -140,12 +140,26 @@ var (
 	ErrNotFound = errors.New("record not found")                              // 固定 message
 	ErrConflict = errors.New("record tags changed concurrently, retry")       // 固定 message
 )
+
+// ErrInternal：内部错误（三方库错误防腐层吸收后的领域错误）
+// 存原始 err + Unwrap 保链：Error() 返回原文，errors.As 命中 InternalError，底层链仍可 errors.Is 穿透
+type InternalError struct{ err error }
+func (e *InternalError) Error() string { return e.err.Error() }
+func (e *InternalError) Unwrap() error { return e.err }
+func ErrInternal(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &InternalError{err: err}
+}
+
 // 运行时拼接：fmt.Errorf("record %s not found: %w", id, record.ErrNotFound)
 ```
 ```ts
 // src/lib/record/errors.ts —— 领域错误类（Node）
 export class RecordNotFoundError extends Error {}
 export class RecordConflictError extends Error {}
+export class InternalError extends Error {} // 随 Repository 一起引入（阶段 B）；不 throw，放 res.error
 // 运行时拼接：new RecordNotFoundError(`record ${id} not found`)
 ```
 
@@ -176,7 +190,7 @@ func (r *RecordRepository) FindByID(ctx context.Context, q db.Executor, id strin
 		return res
 	}
 	if err != nil {
-		res.Error = fmt.Errorf("query record: %w", err)
+		res.Error = record.ErrInternal(err) // 三方库错误 → 领域错误（防腐层吸收，阶段 B）
 		return res
 	}
 	res.OK, res.Record = true, rec
@@ -321,7 +335,9 @@ func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 	}
 	inserted, recs, status, err := logapi.CreateNumberBatch(r.Context(), s.Pool, raw)
 	if err != nil {
-		writeLogOrError(w, status, err, "Error creating number records")
+		// 阶段 B 定案形态：日志与错误写出拆开（writeLogOrError 已删除）
+		logResponseError(status, "Error creating number records", err) // 仅 status>=500 记日志
+		writeError(w, status, errorDetail(err))                        // detail 透传；空 message 以 %T 兜底
 		return
 	}
 	go s.notify().NotifyNumberBatchInserted(recs)
