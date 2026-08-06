@@ -13,42 +13,41 @@
 | 层 | 职责 | 依赖 |
 |---|---|---|
 | **业务层（Service）** | 参数解析与校验（**零 DB**）；**决定用不用事务**（经 UoW）；编排领域操作；组织响应 | `db`（执行器源）、`UoW`、`RecordRepository` |
-| **Repository**（`RecordRepository`） | 领域语义持久化方法（非 SQL 透传）；存在性 / 重复性 / 并发（CAS）；**不管理事务** | 构造注入的 `Executor` |
+| **Repository**（`RecordRepository`） | 领域语义持久化方法（非 SQL 透传）；存在性 / 重复性 / 并发（CAS）；**不管理事务** | **方法收执行器 `q`**（`Executor` 参数） |
 | **Executor** | DB 访问句柄：Go `*pgxpool.Pool` / `pgx.Tx` 均满足；Node drizzle `db` / 事务 `tx` 均满足 | — |
 | **UnitOfWork（UoW）** | 事务边界：`begin / rollback / commit` 机制封装 | 构造注入的事务起点 |
 
 - **业务层不得直接发 SQL**——写路径与读路径全部经 `RecordRepository`（Service 持有的 `db` 仅作执行器源传给 repo / UoW）。
-- **UoW 在业务层，不在 Repository**（DDD 规范：事务边界是 UoW 的职责）。**硬约束：Repository 内禁止开事务**——方法只消费构造注入的 `Executor`（业务层 UoW 传入的 tx 或非事务 pool），绝不调用 `Begin`/`Commit`/`Rollback`；业务层需多方法同事务时，在 `uow.Do` 闭包内用同一个 `q`（= tx）依次调用 repo 方法，原子性由业务层这一个事务保证。
+- **UoW 在业务层，不在 Repository**（DDD 规范：事务边界是 UoW 的职责）。**硬约束：Repository 内禁止开事务**——方法只消费**传入的执行器参数 `q`**（业务层 UoW 传入的 tx 或非事务 pool），绝不调用 `Begin`/`Commit`/`Rollback`；业务层需多方法同事务时，在 `uow.Do` 闭包内用同一个 `q`（= tx）依次调用 repo 方法，原子性由业务层这一个事务保证。
+- **业务函数错误 = 带 status 的 error**（`StatusError`，见 §4）——业务函数返回 `(T, error)`，handler `errors.As` 取 status；不再用 `(T, status, error)` 元组。
 
-## 2. 形态（双端一致，2026-08-06 定案）
+## 2. 形态（双端一致，2026-08-06 定案 + 修订）
 
-**Service 结构体 / class + 依赖注入**；**Repository 无状态、每次现构建**（构造注入执行器）；**事务边界在 Service 方法内部**（UoW 封装机制）。
+**Service 结构体 / class + 依赖注入**；**Repository 无状态、包级函数（方法收执行器 `q`）**；**事务边界在 Service 方法内部**（UoW 封装机制）；**业务函数收 typed 请求体、返回 `(T, error)`**（错误带 status，§4）。
 
 ```go
 // Go（faas/internal/logapi/service.go 等）
 type Service struct {
-	db  *pgxpool.Pool // 执行器源（单条路径直接当 Executor 用）
+	db  *pgxpool.Pool // 执行器源（单条路径直接当 Executor 传 repo）
 	uow *db.UoW       // 事务源
 }
 
-// 单条（无事务）：db 直接注入 repo
-func (s *Service) GetUser(ctx context.Context, id string) (*User, error) {
-	repo := recordrepo.New(s.db)
-	res := repo.FindByID(ctx, id)
+// 单条（无事务）：pool 当执行器传给 repo 包级函数
+func (s *Service) GetUser(ctx context.Context, req GetUserRequest) (*User, error) {
+	res := recordrepo.FindByID(ctx, s.db, req.ID)   // ← q 为方法/函数参数
 	if !res.OK {
-		return nil, res.Error
+		return nil, statusError(http.StatusNotFound, res.Error)  // 领域错误 → 带 status
 	}
 	return res.User, nil
 }
 
-// 多语句（事务）：UoW 包，闭包收执行器（= tx）
-func (s *Service) Transfer(ctx context.Context, fromID, toID string, amount int64) error {
+// 多语句（事务）：UoW 包，闭包内 q = tx
+func (s *Service) Transfer(ctx context.Context, req TransferRequest) error {
 	return s.uow.Do(ctx, func(q db.Executor) error {
-		repo := recordrepo.New(q)
-		if err := repo.DecreaseBalance(ctx, fromID, amount); err != nil {
+		if err := recordrepo.DecreaseBalance(ctx, q, req.FromID, req.Amount); err != nil {
 			return err
 		}
-		return repo.IncreaseBalance(ctx, toID, amount)
+		return recordrepo.IncreaseBalance(ctx, q, req.ToID, req.Amount)  // ← 同一个 q = tx
 	})
 }
 ```
@@ -58,26 +57,27 @@ func (s *Service) Transfer(ctx context.Context, fromID, toID string, amount int6
 class Service {
   constructor(private db: Db, private uow: UoW) {}
 
-  // 单条（无事务）
-  async getUser(id: string): Promise<User | null> {
-    const res = await new RecordRepository(this.db).findById(id)
-    if (!res.ok) throw res.error
-    return res.user
+  // 单条（无事务）：db 当执行器传 repo 模块级函数
+  async getUser(req: GetUserRequest): Promise<User | null> {
+    const res = await recordrepo.findById(this.db, req.id)
+    if (!res.ok) throw new StatusError(httpStatus.NOT_FOUND, res.error)
+    return res.record
   }
 
   // 多语句（事务）
-  async transfer(fromID: string, toID: string, amount: number): Promise<void> {
+  async transfer(req: TransferRequest): Promise<void> {
     return this.uow.do(async (q) => {
-      const repo = new RecordRepository(q)
-      await repo.decreaseBalance(fromID, amount)
-      await repo.increaseBalance(toID, amount)
+      await recordrepo.decreaseBalance(q, req.fromID, req.amount)
+      await recordrepo.increaseBalance(q, req.toID, req.amount)  // ← 同一个 q = tx
     })
   }
 }
 ```
 
 **要点**：
-- Service 方法内部决定「用不用事务」：单条直接 `repo` 用 `s.db`；多语句 `s.uow.Do` 包，闭包内 `repo` 收 `tx`（两者都满足 `Executor`，repo 构造形态一致）。
+- **Repository 包级函数 / 模块级函数，第一参数一律收执行器 `q`**（`recordrepo.Save(ctx, q, rec)`；WithTx 下 `recordrepo.Save(ctx, tx, rec)`）——不构造注入、不每次 `New(q)`。
+- **业务函数收 typed 请求体**（`GetUserRequest` 等，双端同构），Go 不再收 `raw []byte`（对齐 Node typed body）。
+- Service 方法内部决定「用不用事务」：单条直接传 `s.db`；多语句 `s.uow.Do` 包，闭包内传 `tx`（两者都满足 `Executor`）。
 - **预读位置按业务语义**：CAS 操作（attachTag/detachTag——旧 tags 参与写 WHERE）预读**必须在同一事务**；非 CAS（transition——预读只用于判断与组装）预读**在事务外**，准备好才开事务，事务持有时间最短。
 - **嵌套支持**：Go `pgx.Tx` 亦满足 `TxBeginner`（savepoint），Service 可在外层事务内被调用。
 
@@ -157,12 +157,9 @@ export class RecordConflictError extends Error {}
 // 阶段 B：export class InternalError extends Error {}（随 Repository 引入，不 throw，放 res.error）
 ```
 
-**每方法专属 `XXXXResult`**（拒绝泛型；Go/Node 同名同构；`error` 字段是领域错误对象，`null` = 成功；Node **不 throw**）。**三种形态，职责分明**：
-- **`record.Record`（领域 = 对外 JSON 形状）**：`happened_at` 带区串、tags 数组——Repository 返回、业务层消费（唯一 happened_at 来源，由 `Save`/`FindByID` 产出规范化形）。
-- **`record.NewRecord`（写入意图）**：`HappenedAt draft.DateTimeWithOffset{ Time, Offset }`（time + 规范 offset 值对象）+ 领域字段（tags 数组）——业务层构造、`Save`/`SaveAll` 入参；`happened_at` 只此一次解析（业务层 `draft.NormalizeHappenedAt` / draft 系解析产物组装），Repository 直接落库**不再解析**。
-- **`record.DBRow`（数据库直接映射，仅 Repository 内部）**：`FromDB` 入参 / Scan 产物；业务层禁止接触。
+**每方法专属 `XXXXResult`**（拒绝泛型；Go/Node 同名同构；`error` 字段是领域错误对象，`null` = 成功；Node **不 throw**）。**单一领域形态 `record.Record`**（领域 = 对外 JSON 形状：`happened_at` 带区串、tags 数组）——Repository 返回、业务层构造写意图、消费输出；`record.DBRow` 为**数据库直接映射（仅 Repository 内部**：FromDB 入参 / Scan 产物），业务层禁止接触。
 
-**happened_at 处理原则（写路径）**：业务层**只做校验 + 一次解析**（`draft.NormalizeHappenedAt` 产出 `DateTimeWithOffset`，或 draft 系解析产物组装），构造 `NewRecord`；`Save` 内部用 `dt.Time`/`dt.Offset` 直接落库 → RETURNING → `FromDB`（规范化）→ **返回规范化 `Record`**；业务层后续（响应、后续处理）**一律用返回值，绝不用传入的 happened_at**。业务层 API 无散落 offset、无 format。
+**happened_at 处理原则（写路径，2026-08-06 修订）**：业务层只 `ValidateHappenedAt(raw) error`（校验，零 DB，400）→ 构造 `record.Record`（`HappenedAt` 为已校验的请求串，作写入意图）→ `Save(ctx, q, rec)`；Repository 内部 `ParseHappenedAt(rec.HappenedAt)` 落库（time + utc_offset）→ RETURNING → `FromDB`（规范化）→ **返回规范化 `Record`**。业务层后续（响应、后续处理）**一律用返回值，绝不用传入的 happened_at**。**接受两次解析成本**（业务层 `ValidateHappenedAt` 校验解析 + Repository 内 `ParseHappenedAt` 落库）——换取单一 `Record` 形态（无 NewRecord / DateTimeWithOffset 双类型）。
 
 ```go
 type RecordFindByIDResult struct {
@@ -170,8 +167,8 @@ type RecordFindByIDResult struct {
 	Record record.Record // 领域 = 对外形状：HappenedAt 带区串（规范化）
 	Error  error         // 领域哨兵；nil = 成功
 }
-// Save(ctx, q, nr record.NewRecord) RecordSaveResult —— 写路径收写入意图，返回规范化 Record（FromDB）
-// draft.NormalizeHappenedAt(raw) (draft.DateTimeWithOffset, error) —— 业务层唯一 happened_at 解析入口
+// Save(ctx, q, rec record.Record) RecordSaveResult —— 写路径收领域对象，返回规范化 Record（FromDB）
+// draft.ValidateHappenedAt(raw) error —— 业务层唯一 happened_at 校验入口（不产 time/offset）
 ```
 ```ts
 export type RecordFindByIDResult = {
@@ -179,29 +176,58 @@ export type RecordFindByIDResult = {
 	record: Record | null // 领域 = 对外形状：happened_at 带区串（规范化）
 	error: Error | null   // 领域错误实例；null = 成功
 }
-// save(nr: NewRecord) → Promise<RecordSaveResult> —— 写路径收写入意图（happenedAt: DateTimeWithOffset），返回规范化 Record（fromDB）
+// save(q, rec: Record) → Promise<RecordSaveResult> —— 写路径收领域对象，返回规范化 Record（fromDB）
 ```
 
-**status 映射**（业务层，A2 风格）：先 `err == nil` 快速返回成功；`switch errors.Is(err, ...)`（Node `instanceof`）；`default` = 未知错误 = 漏了 case 需补代码（暂 500 并留注释）。**400 校验错误发生在事务外（零 DB）**，直接给 status，无需领域分类。
+**业务函数错误 = 带 status 的 error（`StatusError`，2026-08-06 定案，替代 `(T, status, error)` 元组）**：
 
-## 5. Repository 方法签名表（构造注入执行器；`New(q db.Executor)` / `new RecordRepository(q)`）
+```go
+// record 包或 httpx 层
+type StatusError struct {
+	Status int
+	Err    error
+}
+func (e *StatusError) Error() string { return e.Err.Error() }
+func (e *StatusError) Unwrap() error { return e.Err }
+
+// 业务函数返回 (T, error)，status 由错误携带：
+func (s *Service) GetUser(ctx context.Context, req GetUserRequest) (*User, error) {
+	res := recordrepo.FindByID(ctx, s.db, req.ID)
+	if !res.OK {
+		switch {
+		case errors.Is(res.Error, record.ErrNotFound):
+			return nil, statusError(http.StatusNotFound, res.Error)   // 带 status 的错误
+		default:
+			return nil, statusError(http.StatusInternalServerError, res.Error) // 漏了 case 需补代码
+		}
+	}
+	return res.User, nil
+}
+// handler：errors.As(err, &se) 取 se.Status
+```
+
+- **400 校验错误发生在事务外（零 DB）**：`ValidateHappenedAt` / 字段校验失败 → `statusError(400, err)`，无需领域分类。
+- **status 来源**：领域错误（ErrNotFound→404 等）由业务层 `errors.Is`（Node `instanceof`）映射为 `StatusError`；透传的驱动错误（500）包成 `StatusError{500, err}`（阶段 B 用 `ErrInternal` 领域化）。
+- `default` = 未知错误 = 漏了 case 需补代码（暂 500 并留注释）。
+
+## 5. Repository 方法签名表（**包级 / 模块级函数，第一参数一律收执行器 `q`**）
 
 | # | 方法 | Go | Node | 说明（定案） |
 |---|---|---|---|---|
-| 1 | `save` | `Save(ctx, q, nr record.NewRecord) RecordSaveResult` | `save(q, nr: NewRecord) → Promise<RecordSaveResult>` | 单条 INSERT，RETURNING 完整行；`nr.HappenedAt` 为 `DateTimeWithOffset`（一次解析，直接落库） |
-| 2 | `saveAll` | `SaveAll(ctx, q, nrs []record.NewRecord) RecordSaveAllResult` | `saveAll(q, nrs: NewRecord[]) → Promise<RecordSaveAllResult>` | number/transaction 批量，事务内 |
-| 3 | `upsert` | `Upsert(ctx, recs) RecordUpsertResult` | `upsert(recs) → Promise<RecordUpsertResult>` | `INSERT ... ON CONFLICT (id) DO UPDATE` 全字段（D2）；**batch 内重复 id 检测在业务层**；返回 `record.UpsertCounts`（待定点 4：移 `record` 包，否则 recordrepo↔importapi 循环） |
-| 4 | `findById` | `FindByID(ctx, id) RecordFindByIDResult` | `findById(id) → Promise<RecordFindByIDResult>` | 未找到 → `record.ErrNotFound` |
-| 5 | `findByCriteria` | `FindByCriteria(ctx, c) RecordFindByCriteriaResult` | `findByCriteria(c) → Promise<...>` | **只返回 records**；`total` 由业务层再 `Count(q, c)`（待定点 1：方案 B，读路径无事务，默认 READ COMMITTED 下两次独立查询可接受） |
-| 6 | `findByCursor` | `FindByCursor(ctx, from, limit) RecordFindByCursorResult` | 同左 | export 游标（待定点 2：`findInRange` **移除**——summary 无区间参数用 `count`，export 是 id 游标）。无 from → 全表 id ASC LIMIT；有 from → 先 EXISTS 检查（不存在 → `fmt.Errorf("export from id not found: %w", ErrNotFound)`）再 `id >= from` ASC LIMIT |
-| 7 | `count` | `Count(ctx, c) RecordCountResult` | 同左 | stats total/today；summary 覆盖 |
-| 8 | `countTags` | `CountTags(ctx, prefix) RecordCountTagsResult` | 同左 | 返回 `[]tags.TagCount` |
-| 9 | `attachTag` | `AttachTag(ctx, rec, tag) RecordAttachTagResult` | 同左 | **CAS**（WHERE 含旧 tags）；`rec` 自带旧 tags（业务层 `findById` 预读）；返回新 record，业务层 diff 得 `changed` |
-| 10 | `detachTag` | `DetachTag(ctx, rec, tag) RecordDetachTagResult` | 同左 | 同上 |
-| 11 | `transition` | `Transition(ctx, id, tags []string) RecordTransitionResult` | 同左 | **只 UPDATE tags**（A5：领域服务编排 + Repository 原语）；`RowsAffected != 1` → 内部错误（阶段 B 用 `ErrInternal`）；审计行 INSERT **复用 `save`** |
-| 12 | `renameTag` | `RenameTag(ctx, from, to) RecordRenameTagResult` | 同左 | 全表改名，事务内 |
+| 1 | `save` | `Save(ctx, q, rec record.Record) RecordSaveResult` | `save(q, rec: Record) → Promise<RecordSaveResult>` | 单条 INSERT，RETURNING 完整行；Repository 内 `ParseHappenedAt(rec.HappenedAt)` 落库，返回规范化 Record |
+| 2 | `saveAll` | `SaveAll(ctx, q, recs []record.Record) RecordSaveAllResult` | `saveAll(q, recs: Record[]) → Promise<RecordSaveAllResult>` | number/transaction 批量，事务内 |
+| 3 | `upsert` | `Upsert(ctx, q, recs) RecordUpsertResult` | `upsert(q, recs) → Promise<RecordUpsertResult>` | `INSERT ... ON CONFLICT (id) DO UPDATE` 全字段（D2）；**batch 内重复 id 检测在业务层**；返回 `record.UpsertCounts`（移 `record` 包，否则 recordrepo↔importapi 循环） |
+| 4 | `findById` | `FindByID(ctx, q, id) RecordFindByIDResult` | `findById(q, id) → Promise<RecordFindByIDResult>` | 未找到 → `record.ErrNotFound` |
+| 5 | `findByCriteria` | `FindByCriteria(ctx, q, c) RecordFindByCriteriaResult` | `findByCriteria(q, c) → Promise<...>` | **只返回 records**；`total` 由业务层再 `Count(q, c)`（方案 B，读路径无事务） |
+| 6 | `findByCursor` | `FindByCursor(ctx, q, from, limit) RecordFindByCursorResult` | 同左 | export 游标（`findInRange` **移除**）。无 from → 全表 id ASC LIMIT；有 from → 先 EXISTS 检查（不存在 → `fmt.Errorf("export from id not found: %w", ErrNotFound)`）再 `id >= from` ASC LIMIT |
+| 7 | `count` | `Count(ctx, q, c) RecordCountResult` | 同左 | stats total/today；summary 覆盖 |
+| 8 | `countTags` | `CountTags(ctx, q, prefix) RecordCountTagsResult` | 同左 | 返回 `[]tags.TagCount` |
+| 9 | `attachTag` | `AttachTag(ctx, q, rec, tag) RecordAttachTagResult` | 同左 | **CAS**（WHERE 含旧 tags）；`rec` 自带旧 tags（业务层 `FindByID` 预读）；返回新 record，业务层 diff 得 `changed` |
+| 10 | `detachTag` | `DetachTag(ctx, q, rec, tag) RecordDetachTagResult` | 同左 | 同上 |
+| 11 | `transition` | `Transition(ctx, q, id, tags []string) RecordTransitionResult` | 同左 | **只 UPDATE tags**（A5：领域服务编排 + Repository 原语）；`RowsAffected != 1` → 内部错误（阶段 B 用 `ErrInternal`）；审计行 INSERT **复用 `save`** |
+| 12 | `renameTag` | `RenameTag(ctx, q, from, to) RecordRenameTagResult` | 同左 | 全表改名，事务内 |
 
-- 方法第一个参数一律是构造注入的 `Executor`（无「有的收 pool 有的收 tx」割裂）；Go PascalCase / Node camelCase，**词干一致**。
+- **第一参数一律是执行器 `q`**（非事务 `pool` / `db`，或事务 `tx`——无「有的收 pool 有的收 tx」割裂）；Go PascalCase / Node camelCase，**词干一致**。
 - 复合领域操作（saveAll / upsert / attachTag / detachTag / transition / renameTag）由业务层 `s.uow.Do` 包裹，Repository 内不出现 `Begin`/`Commit`。
 - todo 变形、summary 聚合等**领域逻辑留在业务层**，Repository 只读写原始行；tags 保留前缀 / 合法性校验在**业务层零 DB**。
 
@@ -260,11 +286,13 @@ src/lib/logapi.ts 等   业务层（Service class）
 | UoW | `db.UoW`，`Do(ctx, fn(q Executor))` | `UoW` class，`do(fn(q: Executor))`（包装 `db.transaction`） |
 | 事务边界 | **Service 方法内部**（业务层决定用不用事务） | 同左（模块级 db 单例） |
 | Service | struct + 方法，构造注入 `db` + `uow` | class + 方法，构造注入 `db` + `uow` |
-| Repository | `recordrepo.New(q)` 每次现构建 | `new RecordRepository(q)` 每次现构建 |
-| 执行器来源 | 构造注入（Go 接口） | 全局 `db` 单例（`vi.mock` 模块） |
+| Repository | **包级函数，第一参数收执行器 `q`** | **模块级函数，第一参数收执行器 `q`** |
+| 业务函数入参 | **typed 请求体**（对齐 Node） | typed 请求体 |
+| 业务函数返回 | `(T, error)`，status 由 `StatusError` 携带 | `Promise<(T, StatusError)>` 或 throw StatusError |
+| 执行器来源 | 调用方传参（Go 接口） | 调用方传参（模块 mock） |
 | 测试 | fake Executor / TxBeginner / UoW | `vi.mock('@/db')` |
 
-**行为同构（事务边界在业务层、repo 构造注入执行器、领域错误 + XXXXResult、预读位置按语义）**；注入机制差异（Go 接口 / Node 模块 mock）为框架差异，非不一致。
+**行为同构（事务边界在业务层、repo 函数收执行器参数、领域错误 + XXXXResult、StatusError 错误、typed 入参、预读位置按语义）**；注入机制差异（Go 接口 / Node 模块 mock）为框架差异，非不一致。
 
 ## 10. 迁移步骤（E1 定案：逐个迁移、每步全绿提交）
 
@@ -278,6 +306,17 @@ src/lib/logapi.ts 等   业务层（Service class）
 8. **迁移读路径**（query/export/stats/summary/tags）：`FindByCriteria` / `FindByCursor` / `Count` / `CountTags`（fake executor 单测查询条件）。
 9. **Service 化（横切，2026-08-06 补充）**：业务层自由函数（logapi/importapi/exportapi/query）→ **Service struct/class 方法**，构造注入 `db` + `uow`；`db.WithTx(ctx, q, fn)` → `s.uow.Do(ctx, fn)`（Node `new UoW(db)` → 构造注入 `this.uow`）；httpx/route 装配注入 Service；测试改注入 fake uow。双端对称，一次性横切。
 10. **回归**：全量 unit + integration + lint（`npm run test:unit`、`npm run test:integration`、`go build/vet/golangci-lint`、`npm run openapi:lint`）。
+
+## 10a. 形态修订待实施（2026-08-06 定案，A/B/C/D）
+
+以下四项为 2026-08-06 与业界对照后的修订决策，**已写入 §1/§2/§4/§5**，代码待落地（建议作为独立横切步骤，每步全绿）：
+
+- **A. Repository 形态 → 包级函数收执行器 `q`**：`recordrepo.Save(ctx, q, rec)` / WithTx 下 `recordrepo.Save(ctx, tx, rec)`；删除 `recordrepo.New(q)` 构造注入与每次现构建（双端：Go 包级函数 / Node 模块级函数）。业界主流（方法收执行器，sqlc 教程派）。
+- **B. happened_at 简化 → 单一 `Record` 形态**：删除 `NewRecord` / `DateTimeWithOffset` / `NormalizeHappenedAt`；业务层 `ValidateHappenedAt(raw) error`（校验）→ 构造 `record.Record`（`HappenedAt` 为已校验请求串）→ `Save(ctx, q, rec)`；Repository 内 `ParseHappenedAt` 落库 → 返回规范化 `Record`；业务层只用返回值。**接受两次解析成本**（业务层校验解析 + Repository 落库解析），换取无双类型。
+- **C. Go 业务函数入参 → typed 请求体**：`CreateText(ctx, pool, raw []byte)` → `CreateText(ctx, pool, body TextBody)`（typed 结构体，对齐 Node typed body）；双端请求结构同构。
+- **D. 业务函数错误 → 带 status 的 error**：`(T, status, error)` 元组 → `(T, error)` + `StatusError{Status, Err}`（`errors.As` 取 status，Node `StatusError` class）；handler 统一映射。
+
+> 注：步骤 3/4/5 的代码现仍为过渡形态（`New(q)` 构造 + `NewRecord` + `(T, status, error)` 元组 + Go 收 `[]byte`）——随 A/B/C/D 落地统一到终稿形态。
 
 ## 11. 阶段 B（ErrInternal 防腐层，随 UoW 落地）
 
