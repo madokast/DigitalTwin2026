@@ -14,15 +14,16 @@ export type Record = {
   ai_analysis: string | null
 }
 
-/** DB 行形态（含隐列 utcOffset；Repository 写入 / fromDB 读入用，对外不可见） */
+/** 领域行对象（Repository 收/返；时间 = 绝对瞬间 + 录入偏移，格式化到带区 ISO 是 fromDB 的职责）。
+ * 与 Go `record.RecordRow` 同构：tags 为领域形态（数组），JSON 序列化在 Repository 内部。 */
 export type RecordRow = {
   id: string
-  happenedAt: Date | string
+  happenedAt: Date
   /** 隐列；fromDB 按此格式化 happened_at（对外不可见） */
   utcOffset: string
   numericValue: string | null
   rawContent: string | null
-  tags: string
+  tags: string[]
   objectiveContext: string
   aiAnalysis: string | null
 }
@@ -43,21 +44,39 @@ export function formatHappenedAt(value: Date | string): string {
   return d.toISOString()
 }
 
-function instantOf(value: Date | string): Date {
-  if (value instanceof Date) return value
-  return new Date(value)
+/** drizzle 行（tags 为 DB JSON 字符串）→ 领域行对象（tags 数组）。与 Go 端 FindByID 的 ParseTagsField 对称。 */
+export function rowFromDB(row: {
+  id: string
+  happenedAt: Date
+  utcOffset: string
+  numericValue: string | null
+  rawContent: string | null
+  tags: string
+  objectiveContext: string
+  aiAnalysis: string | null
+}): RecordRow {
+  return {
+    id: row.id,
+    happenedAt: row.happenedAt,
+    utcOffset: row.utcOffset,
+    numericValue: row.numericValue,
+    rawContent: row.rawContent,
+    tags: parseTagsField(row.tags),
+    objectiveContext: row.objectiveContext,
+    aiAnalysis: row.aiAnalysis,
+  }
 }
 
-/** 与 Go `record.FromDB` 对齐：DB 行 → API Record（happened_at = 瞬间 + utc_offset；tags 解析为数组；numeric_value null → 键省略） */
+/** 与 Go `record.FromDB` 对齐：领域行 → API Record（happened_at = 瞬间 + utc_offset；tags 已数组） */
 export function fromDB(row: RecordRow): Record {
   return {
     id: row.id,
-    happened_at: formatWithUtcOffset(instantOf(row.happenedAt), row.utcOffset),
+    happened_at: formatWithUtcOffset(row.happenedAt, row.utcOffset),
     ...(row.numericValue !== null ? { numeric_value: row.numericValue } : {}),
     raw_content: row.rawContent,
     objective_context: row.objectiveContext,
     ai_analysis: row.aiAnalysis,
-    tags: parseTagsField(row.tags),
+    tags: row.tags,
   }
 }
 

@@ -227,7 +227,7 @@ describe('OpenAPI contract (Phase 2)', () => {
       happened_at: '2026-07-30T00:00:00.000Z',
       numeric_value: 75.5,
       raw_content: null,
-      tags: '["weight"]',
+      tags: ['weight'],
       objective_context: 'x',
       ai_analysis: null,
     })
@@ -278,7 +278,7 @@ describe('OpenAPI contract (Phase 2)', () => {
       utcOffset: '+08:00',
       numericValue: '1.0',
       rawContent: null,
-      tags: '["weight"]',
+      tags: ['weight'],
       objectiveContext: 'morning',
       aiAnalysis: null,
     })

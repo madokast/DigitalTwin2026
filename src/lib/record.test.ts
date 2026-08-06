@@ -40,7 +40,7 @@ describe('fromDB', () => {
       utcOffset: 'Z',
       numericValue: '75.5',
       rawContent: null,
-      tags: '["weight"]',
+      tags: ['weight'],
       objectiveContext: 'morning',
       aiAnalysis: null,
     })
@@ -56,7 +56,7 @@ describe('fromDB', () => {
       utcOffset: '+08:00',
       numericValue: '1',
       rawContent: null,
-      tags: '["weight"]',
+      tags: ['weight'],
       objectiveContext: 'x',
       aiAnalysis: null,
     })

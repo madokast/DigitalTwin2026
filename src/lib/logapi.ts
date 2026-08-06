@@ -8,6 +8,7 @@ import { UoW } from '@/db/uow'
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
+import { formatHappenedAt } from '@/lib/utcoffset'
 import { RecordRepository } from '@/lib/recordrepo'
 import { RecordNotFoundError } from '@/lib/record/errors'
 import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
@@ -19,6 +20,7 @@ import {
 } from '@/lib/draft'
 import {
   fromDB,
+  rowFromDB,
   isValidRecordId,
   INVALID_RECORD_ID,
   tagsJSON,
@@ -119,7 +121,7 @@ async function insertReturning(
   values: InsertValues,
 ): Promise<Record> {
   const result = await executor.insert(records).values(values).returning()
-  return fromDB(result[0])
+  return fromDB(rowFromDB(result[0]))
 }
 
 export type CreateNumberBatchOk = {
@@ -161,7 +163,7 @@ export async function createNumberBatch(
             aiAnalysis: entry.aiAnalysis,
           })
           .returning()
-        rows.push(fromDB(result[0]))
+        rows.push(fromDB(rowFromDB(result[0])))
       }
       return rows
     })
@@ -270,8 +272,8 @@ export async function transitionTodo(
       return { error: errorMessage(found.error), status: 500 }
     }
 
-    const todoRec = found.record!
-    const tagList = todoRec.tags
+    const todoRow = found.record!
+    const tagList = todoRow.tags
 
     if (isTodoAuditRecordTags(tagList)) {
       return { error: ERR_AUDIT_TRANSITION, status: 400 }
@@ -284,17 +286,19 @@ export async function transitionTodo(
       return { error: ERR_ALREADY_TARGET, status: 400 }
     }
 
-    const content = todoRec.raw_content ?? ''
+    const content = todoRow.rawContent ?? ''
+    // 通知/审计文案需要带区串：领域行（瞬间 + offset）→ 序列化层格式化
+    const todoHappenedAt = formatHappenedAt(todoRow.happenedAt, todoRow.utcOffset)
     const notifyText = todoAuditNotifyText(
       parsed.target,
       parsed.id,
-      todoRec.happened_at,
+      todoHappenedAt,
       content,
     )
     const objCtx = auditObjectiveContext(
       parsed.target,
       parsed.id,
-      todoRec.happened_at,
+      todoHappenedAt,
     )
     const newTags = replaceTodoStateInTags(tagList, parsed.target)
 
@@ -313,7 +317,7 @@ export async function transitionTodo(
         utcOffset: parsed.utcOffset,
         numericValue: null,
         rawContent: content,
-        tags: tagsJSON([TODO_TAG_TRANSITION]),
+        tags: [TODO_TAG_TRANSITION],
         objectiveContext: objCtx,
         aiAnalysis: null,
       })
@@ -451,7 +455,7 @@ export async function createTransactionBatch(
             aiAnalysis: null,
           })
           .returning()
-        rows.push(fromDB(result[0]))
+        rows.push(fromDB(rowFromDB(result[0])))
       }
       return rows
     })
