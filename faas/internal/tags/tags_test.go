@@ -1,9 +1,7 @@
 package tags
 
 import (
-	"encoding/json"
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -149,14 +147,11 @@ func TestAssertNoReservedTags(t *testing.T) {
 }
 
 func TestAggregateTagCounts(t *testing.T) {
-	got, err := AggregateTagCounts([]string{
+	got := AggregateTagCounts([]string{
 		`["weight","morning"]`,
 		`["study","physics"]`,
 		`["weight"]`,
 	}, "")
-	if err != nil {
-		t.Fatal(err)
-	}
 	want := []TagCount{
 		{Tag: "weight", Count: 2},
 		{Tag: "morning", Count: 1},
@@ -170,22 +165,16 @@ func TestAggregateTagCounts(t *testing.T) {
 
 func TestAggregateTagCountsEmptyReturnsEmptySlice(t *testing.T) {
 	// 与 TS `returns empty array for no rows` 对齐：空输入返回空非 nil slice（JSON []）
-	got, err := AggregateTagCounts(nil, "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	got := AggregateTagCounts(nil, "")
 	if got == nil || len(got) != 0 {
 		t.Fatalf("empty input must return empty non-nil slice, got %#v", got)
 	}
 }
 
 func TestAggregateTagCountsOrderCountDescThenName(t *testing.T) {
-	got, err := AggregateTagCounts([]string{
+	got := AggregateTagCounts([]string{
 		`["a","b","b","c","c","c"]`,
 	}, "")
-	if err != nil {
-		t.Fatal(err)
-	}
 	// 计数降序：c(3) → b(2) → a(1)；同计数按名升序
 	want := []TagCount{
 		{Tag: "c", Count: 3},
@@ -199,12 +188,9 @@ func TestAggregateTagCountsOrderCountDescThenName(t *testing.T) {
 
 func TestAggregateTagCountsTieBreakByNameAsc(t *testing.T) {
 	// 同计数次级按 tag 名升序（字节序：大写在小写前）
-	got, err := AggregateTagCounts([]string{
+	got := AggregateTagCounts([]string{
 		`["weight","Weight","apple","Apple","banana","Banana"]`,
 	}, "")
-	if err != nil {
-		t.Fatal(err)
-	}
 	want := []TagCount{
 		{Tag: "Apple", Count: 1},
 		{Tag: "Banana", Count: 1},
@@ -219,12 +205,9 @@ func TestAggregateTagCountsTieBreakByNameAsc(t *testing.T) {
 }
 
 func TestAggregateTagCountsPrefix(t *testing.T) {
-	got, err := AggregateTagCounts([]string{
+	got := AggregateTagCounts([]string{
 		`["body:weight","body:weight","workout:arm","morning"]`,
 	}, "body:")
-	if err != nil {
-		t.Fatal(err)
-	}
 	// 真前缀：只留 body: 开头；workout:arm、morning 排除
 	want := []TagCount{{Tag: "body:weight", Count: 2}}
 	if !reflect.DeepEqual(got, want) {
@@ -235,69 +218,25 @@ func TestAggregateTagCountsPrefix(t *testing.T) {
 func TestAggregateTagCountsPrefixTreatsStarLiterally(t *testing.T) {
 	// prefix 是纯字面前缀，`*` 不做通配解析：`*` 不是合法 tag 字符，
 	// 故无任何 tag 以字面 `*` 开头 → 返回空；若被当通配则会返回全部。
-	got, err := AggregateTagCounts([]string{
+	got := AggregateTagCounts([]string{
 		`["workout:arm","morning"]`,
 	}, "*")
-	if err != nil {
-		t.Fatal(err)
-	}
 	if len(got) != 0 {
 		t.Fatalf("literal star prefix should match nothing, got %#v", got)
 	}
 }
 
-func TestAggregateTagCountsDirtyJSON(t *testing.T) {
-	if _, me := AggregateTagCounts([]string{`not-json`}, ""); me == nil {
-		t.Fatal("expected invalid JSON error")
+func TestAggregateTagCountsDirtyJSONSkipped(t *testing.T) {
+	// 脏字段静默跳过（2026-08-06 用户拍板：聚合不再被脏数据搞死）
+	got := AggregateTagCounts([]string{`not-json`}, "")
+	if len(got) != 0 {
+		t.Fatalf("dirty JSON must count 0, got %#v", got)
 	}
 	for _, field := range []string{`{}`, `null`, `"weight"`} {
-		_, me := AggregateTagCounts([]string{field}, "")
-		if me == nil || me.Status != 500 || !strings.Contains(me.Message, ErrTagsNotJSONArray) {
-			t.Fatalf("%q: want 500 ErrTagsNotJSONArray, got %v", field, me)
+		got := AggregateTagCounts([]string{field}, "")
+		if len(got) != 0 {
+			t.Fatalf("%q: want empty counts, got %#v", field, got)
 		}
-	}
-}
-
-func TestRenameTagInTagsJSON(t *testing.T) {
-	_, ok, err := RenameTagInTagsJSON(`["weight"]`, "exercise", "workout")
-	if err != nil || ok {
-		t.Fatalf("absent from: ok=%v err=%v", ok, err)
-	}
-
-	out, ok, err := RenameTagInTagsJSON(`["exercise","morning"]`, "exercise", "workout")
-	if err != nil || !ok {
-		t.Fatal(err, ok)
-	}
-	if out != `["workout","morning"]` {
-		t.Fatalf("got %s", out)
-	}
-
-	out, ok, err = RenameTagInTagsJSON(`["exercise","workout"]`, "exercise", "workout")
-	if err != nil || !ok {
-		t.Fatal(err, ok)
-	}
-	if out != `["workout"]` {
-		t.Fatalf("dedupe got %s", out)
-	}
-
-	var arr []string
-	if err := json.Unmarshal([]byte(out), &arr); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestRenameTagInTagsJSONDirty(t *testing.T) {
-	_, _, me := RenameTagInTagsJSON(`{`, "a", "b")
-	if me == nil {
-		t.Fatal("expected invalid JSON error")
-	}
-	_, _, me = RenameTagInTagsJSON(`{}`, "a", "b")
-	if me == nil || me.Status != 500 || !strings.Contains(me.Message, ErrTagsNotJSONArray) {
-		t.Fatalf("got %v", me)
-	}
-	_, _, me = RenameTagInTagsJSON(`null`, "a", "b")
-	if me == nil || me.Status != 500 || !strings.Contains(me.Message, ErrTagsNotJSONArray) {
-		t.Fatalf("null: got %v", me)
 	}
 }
 
@@ -334,12 +273,6 @@ func TestValidateRename(t *testing.T) {
 // renameAcrossQuerier 写库路径见 tags_db_test.go（假 Querier）。
 // 生产 RenameAcrossRecords 另包事务 + advisory lock。
 // 此处保留纯逻辑契约：脏 JSON 与 RenameTagInTagsJSON 对齐。
-func TestRenameAcrossRecordsPureLogicContract(t *testing.T) {
-	_, _, me := RenameTagInTagsJSON(`{"not":"array"}`, "a", "b")
-	if me == nil || me.Status != 500 || !strings.Contains(me.Message, ErrTagsNotJSONArray) {
-		t.Fatalf("dirty row must abort rename: %v", me)
-	}
-}
 
 func TestFirstDuplicateTag(t *testing.T) {
 	if got := FirstDuplicateTag([]string{"a", "b", "a"}); got != "a" {

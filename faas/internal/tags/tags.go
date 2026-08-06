@@ -31,9 +31,6 @@ const ReservedTagReview = "review"
 // （端点改名/新增不会过时；与 TS RESERVED_TAG_HINT 同句）。
 const reservedTagHint = "use the dedicated log API for this record type"
 
-// ErrTagsNotJSONArray 与 TS TAGS_NOT_JSON_ARRAY 同文案：根不是 JSON 数组（DB 脏数据 → 500）。
-const ErrTagsNotJSONArray = "tags field is not a JSON array"
-
 // TransactionEntryTypeTag 组装落库用类型 tag。
 func TransactionEntryTypeTag(typ string) string {
 	return ReservedTagTransactionEntry + ":" + typ
@@ -120,17 +117,21 @@ func ValidateRename(from, to string) ValidationResult {
 	return ValidationResult{Valid: true}
 }
 
-// parseTagsJSONArray 解析 records.tags；非法 JSON / 根非数组 = DB 脏数据（内部错误 500，非客户端请求问题）。
-func parseTagsJSONArray(tagsJSON string) ([]any, *myerr.MyError) {
+// ErrTagsNotJSONArray 与 TS TAGS_NOT_JSON_ARRAY 同文案（transactions-summary 行解析仍 500 用）。
+const ErrTagsNotJSONArray = "tags field is not a JSON array"
+
+// parseTagsJSONArray 解析 records.tags；非法 JSON / 根非数组 = DB 脏数据 → 空数组
+// （聚合时静默跳过该行，与 rename 的 FromDB 兜底语义统一——2026-08-06 用户拍板）。
+func parseTagsJSONArray(tagsJSON string) []any {
 	var raw any
 	if err := json.Unmarshal([]byte(tagsJSON), &raw); err != nil {
-		return nil, myerr.NewInternal(err)
+		return nil
 	}
 	arr, ok := raw.([]any)
 	if !ok {
-		return nil, myerr.NewInternalMsg(ErrTagsNotJSONArray)
+		return nil
 	}
-	return arr, nil
+	return arr
 }
 
 // TagCount 单个 tag 的计数（JSON `tag`/`count` snake_case）。
@@ -142,13 +143,10 @@ type TagCount struct {
 // AggregateTagCounts 汇总 tag 出现次数，按「计数降序、同名 tag 升序」返回。
 // prefix 非空时仅保留 strings.HasPrefix(tag, prefix) 的 tag（真前缀，自动补全语义）。
 // 非法 JSON / 非数组返回 error（HTTP 映射 500）。
-func AggregateTagCounts(tagFields []string, prefix string) ([]TagCount, *myerr.MyError) {
+func AggregateTagCounts(tagFields []string, prefix string) []TagCount {
 	counts := map[string]int{}
 	for _, field := range tagFields {
-		parsed, me := parseTagsJSONArray(field)
-		if me != nil {
-			return nil, me
-		}
+		parsed := parseTagsJSONArray(field)
 		for _, item := range parsed {
 			tag, ok := item.(string)
 			if !ok {
@@ -170,7 +168,7 @@ func AggregateTagCounts(tagFields []string, prefix string) ([]TagCount, *myerr.M
 		}
 		return list[i].Tag < list[j].Tag
 	})
-	return list, nil
+	return list
 }
 
 // RenamePageSize rename 分页循环的页大小（写死 100，§6 定案）。
@@ -260,42 +258,4 @@ func renameTags(tags []string, from, to string) ([]string, bool) {
 		}
 	}
 	return out, true
-}
-
-func RenameTagInTagsJSON(tagsJSON, from, to string) (string, bool, *myerr.MyError) {
-	parsed, me := parseTagsJSONArray(tagsJSON)
-	if me != nil {
-		return "", false, me
-	}
-
-	found := false
-	next := make([]string, 0, len(parsed))
-	seen := map[string]struct{}{}
-
-	for _, item := range parsed {
-		s, ok := item.(string)
-		if !ok {
-			continue
-		}
-		mapped := s
-		if s == from {
-			mapped = to
-			found = true
-		}
-		if _, exists := seen[mapped]; exists {
-			continue
-		}
-		seen[mapped] = struct{}{}
-		next = append(next, mapped)
-	}
-
-	if !found {
-		return "", false, nil
-	}
-	b, err := json.Marshal(next)
-	if err != nil {
-		// 数据/格式问题 → 400（非第三方库错误）
-		return "", false, myerr.NewValidation(err.Error())
-	}
-	return string(b), true, nil
 }

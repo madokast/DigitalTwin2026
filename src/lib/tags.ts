@@ -120,14 +120,16 @@ export function firstDuplicateTag(tagList: string[]): string | null {
 /** 与 Go `tags.ErrTagsNotJSONArray` 同文案：解析成功但根不是数组 */
 export const TAGS_NOT_JSON_ARRAY = 'tags field is not a JSON array'
 
-/** 解析 records.tags JSON；非法 JSON / 根非数组 = DB 脏数据（内部错误 500，非客户端请求问题）。
- * 与 Go `tags.parseTagsJSONArray` 对称（NewInternalMsg 固定文案，无类型名前缀）。 */
+/** 解析 records.tags JSON；非法 JSON / 根非数组 = DB 脏数据 → 空数组
+ * （聚合时静默跳过该行，与 rename 的 FromDB 兜底语义统一——2026-08-06 用户拍板）。
+ * 与 Go `tags.parseTagsJSONArray` 对称。 */
 function parseTagsJsonArray(tagsJson: string): unknown[] {
-  const parsed: unknown = JSON.parse(tagsJson)
-  if (!Array.isArray(parsed)) {
-    throw newInternalMsg(TAGS_NOT_JSON_ARRAY)
+  try {
+    const parsed: unknown = JSON.parse(tagsJson)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
   }
-  return parsed
 }
 
 /** 单个 tag 的计数（JSON `tag`/`count` snake_case） */

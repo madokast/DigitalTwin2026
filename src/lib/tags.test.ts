@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  TAGS_NOT_JSON_ARRAY,
   aggregateTagCounts,
   assertNoReservedTags,
   firstDuplicateTag,
@@ -203,14 +202,11 @@ describe('aggregateTagCounts', () => {
     expect(result).toEqual([])
   })
 
-  it('throws on invalid JSON', () => {
-    expect(() => aggregateTagCounts(['not-json'])).toThrow()
-  })
-
-  it('throws on non-array JSON root (object/null/string)', () => {
-    expect(() => aggregateTagCounts(['{}'])).toThrow(TAGS_NOT_JSON_ARRAY)
-    expect(() => aggregateTagCounts(['null'])).toThrow(TAGS_NOT_JSON_ARRAY)
-    expect(() => aggregateTagCounts(['"weight"'])).toThrow(TAGS_NOT_JSON_ARRAY)
+  it('skips dirty JSON rows (invalid JSON / non-array root)', () => {
+    expect(aggregateTagCounts(['not-json'])).toEqual([])
+    expect(aggregateTagCounts(['{}'])).toEqual([])
+    expect(aggregateTagCounts(['null'])).toEqual([])
+    expect(aggregateTagCounts(['"weight"'])).toEqual([])
   })
 })
 

@@ -221,7 +221,7 @@ func (s *Service) GetUser(ctx context.Context, req GetUserRequest) (*User, error
 | 5 | `findByCriteria` | `FindByCriteria(ctx, q, c FindCriteria) ([]record.Record, *MyError)` | `findByCriteria(q, c: FindCriteria) → Promise<Record[]>` | **只返回 records**；`total` 由业务层再 `Count(q, c)`（方案 B，读路径无事务） |
 | 6 | ~~`findByCursor`~~（取消） | — | — | **`FindByCriteria.IDFrom` 替代（2026-08-06 定案）**：export 游标走业务层 `Repo.Exists(from)` → 404（`ErrExportFromNotFound` 留 exportapi 包）→ `FindByCriteria{IDFrom, PageSize: limit, SortBy: id}`；无 from → `FindByCriteria{PageSize: limit, SortBy: id}`；limit 即 PageSize（`validateCriteria` 已检测 `PageSize<1 → 400`，原「limit 检测」待拍板点随之消解） |
 | 7 | `count` | `Count(ctx, q, c Criteria) (int, *MyError)` | 同左 | stats total/today；summary 覆盖；**无分页/排序字段**（§6 分层） |
-| 8 | `countTags` | `CountTags(ctx, q, prefix) RecordCountTagsResult` | 同左 | 返回 `[]tags.TagCount` |
+| 8 | `countTags` | `CountTags(ctx, q) ([]string, *MyError)` | 同左 | **返回 tags 字段原文列表**（原始 JSON 串；聚合留业务层——repo 内聚合会与 tags → recordrepo（rename 编排）循环依赖；prefix 过滤留业务层）；**脏数据静默跳过**（2026-08-06 用户拍板：`AggregateTagCounts`/`aggregateTagCounts` 对非法 JSON / 根非数组从 500 改为跳过计数——与 rename 的 FromDB 兜底语义统一；`RenameTagInTagsJSON` 串版残留已删） |
 | 9 | `attachTag` | `AttachTag(ctx, q, rec, tag) RecordAttachTagResult` | 同左 | **CAS**（WHERE 含旧 tags）；`rec` 自带旧 tags（业务层 `FindByID` 预读）；返回新 record，业务层 diff 得 `changed` |
 | 10 | `detachTag` | `DetachTag(ctx, q, rec, tag) RecordDetachTagResult` | 同左 | 同上 |
 | 11 | `transition` | `Transition(ctx, q, id, tags []string) RecordTransitionResult` | 同左 | **只 UPDATE tags**（A5：领域服务编排 + Repository 原语）；`RowsAffected != 1` → 内部错误（阶段 B 用 `ErrInternal`）；审计行 INSERT **复用 `save`** |

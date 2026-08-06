@@ -393,11 +393,7 @@ func FetchTagCounts(ctx context.Context, pool *pgxpool.Pool, prefix string) ([]t
 	if err := rows.Err(); err != nil {
 		return nil, myerr.NewInternal(err)
 	}
-	counts, me := tags.AggregateTagCounts(fields, prefix)
-	if me != nil {
-		return nil, me
-	}
-	return counts, nil
+	return tags.AggregateTagCounts(fields, prefix), nil
 }
 
 // --- GET /api/query/transactions/summary ---
