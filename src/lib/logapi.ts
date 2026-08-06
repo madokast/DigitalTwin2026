@@ -22,6 +22,7 @@ import {
   isValidRecordId,
   INVALID_RECORD_ID,
   tagsJSON,
+  type DBRow,
   type Record,
 } from '@/lib/record'
 import { assertNoReservedTags, firstDuplicateTag, validateTags } from '@/lib/tags'
@@ -145,25 +146,23 @@ export async function createNumberBatch(
   }
 
   try {
-    const out = await db.transaction(async (tx) => {
-      const rows: Record[] = []
-      for (const entry of parsed.entries) {
-        const result = await tx
-          .insert(records)
-          .values({
-            id: uuidv7(),
-            happenedAt: parsed.happenedAt,
-            utcOffset: parsed.utcOffset,
-            numericValue: entry.numericValue,
-            rawContent: null,
-            tags: tagsJSON(entry.tags),
-            objectiveContext: entry.objectiveContext,
-            aiAnalysis: entry.aiAnalysis,
-          })
-          .returning()
-        rows.push(fromDB(result[0]))
+    // 批量原子：业务层经 UoW 决定事务性；rows（DB 直接映射）组装零 DB。
+    const rows: DBRow[] = parsed.entries.map((entry) => ({
+      id: uuidv7(),
+      happenedAt: parsed.happenedAt,
+      utcOffset: parsed.utcOffset,
+      numericValue: entry.numericValue,
+      rawContent: null,
+      tags: tagsJSON(entry.tags),
+      objectiveContext: entry.objectiveContext,
+      aiAnalysis: entry.aiAnalysis,
+    }))
+    const out = await new UoW(db).do(async (q) => {
+      const res = await new RecordRepository(q).saveAll(rows)
+      if (!res.ok) {
+        throw res.error
       }
-      return rows
+      return res.records
     })
     return {
       inserted: out.length,
@@ -436,25 +435,23 @@ export async function createTransactionBatch(
   }
 
   try {
-    const out = await db.transaction(async (tx) => {
-      const rows: Record[] = []
-      for (const entry of parsed.entries) {
-        const result = await tx
-          .insert(records)
-          .values({
-            id: uuidv7(),
-            happenedAt: parsed.happenedAt,
-            utcOffset: parsed.utcOffset,
-            numericValue: entry.amount,
-            rawContent: null,
-            tags: tagsJSON(entry.tags),
-            objectiveContext: entry.memo,
-            aiAnalysis: null,
-          })
-          .returning()
-        rows.push(fromDB(result[0]))
+    // 批量原子：业务层经 UoW 决定事务性；rows（DB 直接映射）组装零 DB。
+    const rows: DBRow[] = parsed.entries.map((entry) => ({
+      id: uuidv7(),
+      happenedAt: parsed.happenedAt,
+      utcOffset: parsed.utcOffset,
+      numericValue: entry.amount,
+      rawContent: null,
+      tags: tagsJSON(entry.tags),
+      objectiveContext: entry.memo,
+      aiAnalysis: null,
+    }))
+    const out = await new UoW(db).do(async (q) => {
+      const res = await new RecordRepository(q).saveAll(rows)
+      if (!res.ok) {
+        throw res.error
       }
-      return rows
+      return res.records
     })
     return {
       inserted: out.length,

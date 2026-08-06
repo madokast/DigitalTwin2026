@@ -27,6 +27,12 @@ export type RecordSaveResult = {
   error: Error | null
 }
 
+export type RecordSaveAllResult = {
+  ok: boolean
+  records: Record[]
+  error: Error | null
+}
+
 export class RecordRepository {
   constructor(private q: Executor) {}
 
@@ -59,5 +65,18 @@ export class RecordRepository {
   async save(row: DBRow): Promise<RecordSaveResult> {
     const rows = await this.q.insert(schema.records).values(row).returning()
     return { ok: true, record: fromDB(rows[0]), error: null }
+  }
+
+  /** 批量 INSERT（循环复用 save 单条原语，行为与顺序确定）；事务内调用。 */
+  async saveAll(rows: DBRow[]): Promise<RecordSaveAllResult> {
+    const out: Record[] = []
+    for (const row of rows) {
+      const res = await this.save(row)
+      if (!res.ok) {
+        return { ok: false, records: [], error: res.error }
+      }
+      out.push(res.record!)
+    }
+    return { ok: true, records: out, error: null }
   }
 }

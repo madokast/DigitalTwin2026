@@ -268,7 +268,7 @@ src/lib/logapi.ts 等   业务层（Service class）
 1. **定义接口**：Go `db` 包 `Executor`/`Tx`/`TxBeginner` + `UoW.Do`；Node `src/db/uow.ts`（`Executor`/`UoW` class）。✅ 已完成（`602a41e`）
 2. **统一散落接口**：`rowQuerier` / `transitionDB` / `db.Querier` → `Executor`（纯重构，不改变行为）。✅ 已完成（`5486488` + `fcd93df`）
 3. **迁移 transition**（最小先例）：`transitionTodo` 走 `db.WithTx` + `recordrepo.Transition`/`Save`/`FindByID` 原语，fake 单测。✅ 已完成（`6c6607c`）——**暂用函数形态 `db.WithTx(ctx, q, fn)`**（Service 结构体未引入；`UoW.Do` 即 `WithTx` 的注入封装，行为一致）
-4. **迁移批量 create**（number/transaction）：`SaveAll` → **补 log/numbers 回滚测试**（继承项 2）。
+4. **迁移批量 create**（number/transaction）：`SaveAll` → **补 log/numbers 回滚测试**（继承项 2）。✅ 已完成（`SaveAll` 循环复用 `Save` 单条原语；业务层 `db.WithTx`/`UoW.do` + `SaveAll`，无手写 Begin/Commit；回滚测试：Go `number_rollback_test.go` fakeTx failOn 第 2 条 INSERT 注入错误 → 500/回滚/无半状态；Node `logapi.number-rollback.test.ts` `mockRejectedValueOnce` 同语义）。
 5. **迁移单条 create**（text/todo/bodyWeight/review）：`Save`（无事务）。
 6. **迁移 import / rename**：`Upsert` / `RenameTag`（事务）；`UpsertCounts` 移 `record` 包。
 7. **tags 增删接口**（新接口，暂停中）：`AttachTag` / `DetachTag`（CAS）——业务层零 DB 校验 → `uow.Do` → Repository 存在性/重复性/CAS（见 `docs/20260805-tags-add.md`）。

@@ -45,6 +45,25 @@ FROM records WHERE id = $1
 	return RecordFindByIDResult{OK: true, Record: record.FromDB(row)}
 }
 
+type RecordSaveAllResult struct {
+	OK      bool
+	Records []record.Record
+	Error   error
+}
+
+// SaveAll 批量 INSERT（循环复用 Save 单条原语，行为与顺序确定）；事务内调用。
+func (r *RecordRepository) SaveAll(ctx context.Context, rows []record.DBRow) RecordSaveAllResult {
+	out := make([]record.Record, 0, len(rows))
+	for _, row := range rows {
+		res := r.Save(ctx, row)
+		if !res.OK {
+			return RecordSaveAllResult{Error: res.Error}
+		}
+		out = append(out, res.Record)
+	}
+	return RecordSaveAllResult{OK: true, Records: out}
+}
+
 type RecordTransitionResult struct {
 	OK    bool
 	Error error
