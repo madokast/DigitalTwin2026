@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
-	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/numberdraft"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
@@ -25,19 +24,16 @@ func createNumberBatch(ctx context.Context, q db.TxBeginner, raw []byte) (int, [
 		return 0, nil, 400, err
 	}
 
-	// 写入意图（NewRecord）：happened_at 已由 draft 解析为 time + offset，组装值对象，零额外解析。
-	nrs := make([]record.NewRecord, 0, len(batch.Entries))
+	// 领域 Record 组装（HappenedAt = 已校验请求串；Repository 内解析落库）。
+	recs := make([]record.Record, 0, len(batch.Entries))
 	for _, e := range batch.Entries {
 		id, err := uuid.NewV7()
 		if err != nil {
 			return 0, nil, 500, err
 		}
-		nrs = append(nrs, record.NewRecord{
-			ID: id.String(),
-			HappenedAt: draft.DateTimeWithOffset{
-				Time:   batch.HappenedAt,
-				Offset: batch.UtcOffset,
-			},
+		recs = append(recs, record.Record{
+			ID:               id.String(),
+			HappenedAt:       batch.HappenedAtRaw,
 			NumericValue:     &e.NumericValue,
 			RawContent:       nil,
 			Tags:             e.Tags,
@@ -46,11 +42,11 @@ func createNumberBatch(ctx context.Context, q db.TxBeginner, raw []byte) (int, [
 		})
 	}
 
-	// 批量原子：业务层经 UoW 决定事务性；写入意图组装零 DB。
+	// 批量原子：业务层经 UoW 决定事务性；领域 Record 组装零 DB。
 	var inserted int
 	var out []record.Record
 	err = db.WithTx(ctx, q, func(q db.Executor) error {
-		res := recordrepo.Repo.SaveAll(ctx, q, nrs)
+		res := recordrepo.Repo.SaveAll(ctx, q, recs)
 		if !res.OK {
 			return res.Error
 		}

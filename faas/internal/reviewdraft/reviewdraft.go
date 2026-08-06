@@ -4,7 +4,6 @@ package reviewdraft
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
@@ -36,9 +35,9 @@ type ReviewBody struct {
 }
 
 // NormalizedReview 归一化复盘草稿（不含自动附加的 review:* tag；由组装函数负责）。
+// HappenedAtRaw 为已校验的 happened_at 请求串。
 type NormalizedReview struct {
-	HappenedAt       time.Time
-	UtcOffset        string
+	HappenedAtRaw    string
 	Cadence          string
 	RawContent       string
 	ObjectiveContext string
@@ -83,8 +82,7 @@ func ParseReview(raw []byte) (NormalizedReview, error) {
 	if !ok {
 		happenedRaw = ""
 	}
-	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedRaw)
-	if err != nil {
+	if err := draft.ValidateHappenedAt(happenedRaw); err != nil {
 		return NormalizedReview{}, err
 	}
 
@@ -117,8 +115,7 @@ func ParseReview(raw []byte) (NormalizedReview, error) {
 	}
 
 	return NormalizedReview{
-		HappenedAt:       happenedAt,
-		UtcOffset:        utcOffset,
+		HappenedAtRaw:    happenedRaw,
 		Cadence:          cadenceStr,
 		RawContent:       rawContent,
 		ObjectiveContext: objCtx,

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
@@ -44,10 +43,9 @@ var logTodoKeys = []string{
 	"ai_analysis", "tags",
 }
 
-// NormalizedTodo 校验后的待办行（落库列语义）。
+// NormalizedTodo 校验后的待办行（落库列语义）。HappenedAtRaw 为已校验的 created_at 请求串。
 type NormalizedTodo struct {
-	HappenedAt       time.Time
-	UtcOffset        string
+	HappenedAtRaw    string
 	RawContent       string
 	Tags             []string
 	ObjectiveContext string
@@ -113,10 +111,9 @@ var logTodoTransitionKeys = []string{
 
 // NormalizedTodoTransition 校验后的流转请求。
 type NormalizedTodoTransition struct {
-	ID         string
-	Target     string // TodoState 字面量
-	HappenedAt time.Time
-	UtcOffset  string
+	ID            string
+	Target        string // TodoState 字面量
+	HappenedAtRaw string
 }
 
 func isStateTag(tag string) bool {
@@ -268,16 +265,15 @@ func ParseTodoTransition(raw []byte) (NormalizedTodoTransition, error) {
 		return NormalizedTodoTransition{}, fmt.Errorf("%w", ErrInvalidTarget)
 	}
 
-	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
-	if err != nil {
+	createdAt := happenedAtString(body.HappenedAt)
+	if err := draft.ValidateHappenedAt(createdAt); err != nil {
 		return NormalizedTodoTransition{}, err
 	}
 
 	return NormalizedTodoTransition{
-		ID:         id,
-		Target:     target,
-		HappenedAt: happenedAt,
-		UtcOffset:  utcOffset,
+		ID:            id,
+		Target:        target,
+		HappenedAtRaw: createdAt,
 	}, nil
 }
 
@@ -286,17 +282,16 @@ func happenedAtString(raw any) string {
 	return s
 }
 
-func parseCreatedAt(raw any) (time.Time, string, error) {
+func parseCreatedAt(raw any) (string, error) {
 	s, ok := raw.(string)
 	if !ok || s == "" {
-		return time.Time{}, "", fmt.Errorf("missing required field: created_at")
+		return "", fmt.Errorf("missing required field: created_at")
 	}
-	t, offset, err := draft.ParseHappenedAt(s)
-	if err != nil {
+	if err := draft.ValidateHappenedAt(s); err != nil {
 		msg := strings.ReplaceAll(err.Error(), "happened_at", "created_at")
-		return time.Time{}, "", fmt.Errorf("%s", msg)
+		return "", fmt.Errorf("%s", msg)
 	}
-	return t, offset, nil
+	return s, nil
 }
 
 func parseOptionalClientTags(raw any) ([]string, error) {
@@ -352,7 +347,7 @@ func ParseTodo(raw []byte) (NormalizedTodo, error) {
 		return NormalizedTodo{}, err
 	}
 
-	happenedAt, utcOffset, err := parseCreatedAt(body.CreatedAt)
+	createdAtRaw, err := parseCreatedAt(body.CreatedAt)
 	if err != nil {
 		return NormalizedTodo{}, err
 	}
@@ -378,8 +373,7 @@ func ParseTodo(raw []byte) (NormalizedTodo, error) {
 	tagsOut = append(tagsOut, clientTags...)
 
 	return NormalizedTodo{
-		HappenedAt:       happenedAt,
-		UtcOffset:        utcOffset,
+		HappenedAtRaw:    createdAtRaw,
 		RawContent:       content,
 		Tags:             tagsOut,
 		ObjectiveContext: objCtx,

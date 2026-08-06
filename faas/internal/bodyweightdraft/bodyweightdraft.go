@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
@@ -38,10 +37,9 @@ var logBodyWeightKeys = []string{
 	"ai_analysis", "tags",
 }
 
-// NormalizedBodyWeight 校验后的体重行。
+// NormalizedBodyWeight 校验后的体重行。HappenedAtRaw 为已校验的 happened_at 请求串。
 type NormalizedBodyWeight struct {
-	HappenedAt       time.Time
-	UtcOffset        string
+	HappenedAtRaw    string
 	NumericValue     string
 	Tags             []string
 	ObjectiveContext string
@@ -144,8 +142,8 @@ func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, error) {
 		return NormalizedBodyWeight{}, err
 	}
 
-	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
-	if err != nil {
+	happenedRaw := happenedAtString(body.HappenedAt)
+	if err := draft.ValidateHappenedAt(happenedRaw); err != nil {
 		return NormalizedBodyWeight{}, err
 	}
 	numericValue, err := ParseWeightAmount(body.NumericValue)
@@ -170,8 +168,7 @@ func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, error) {
 	tagsOut = append(tagsOut, clientTags...)
 
 	return NormalizedBodyWeight{
-		HappenedAt:       happenedAt,
-		UtcOffset:        utcOffset,
+		HappenedAtRaw:    happenedRaw,
 		NumericValue:     numericValue,
 		Tags:             tagsOut,
 		ObjectiveContext: objCtx,

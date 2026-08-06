@@ -6,7 +6,6 @@ package numberdraft
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
@@ -45,11 +44,10 @@ type NormalizedNumberEntry struct {
 	Tags             []string
 }
 
-// NormalizedNumberBatch 校验后的整单。
+// NormalizedNumberBatch 校验后的整单。HappenedAtRaw 为已校验的 happened_at 请求串。
 type NormalizedNumberBatch struct {
-	HappenedAt time.Time
-	UtcOffset  string
-	Entries    []NormalizedNumberEntry
+	HappenedAtRaw string
+	Entries       []NormalizedNumberEntry
 }
 
 // parseEntry 校验单条 entry，错误带 entries[i]: 前缀。
@@ -154,8 +152,7 @@ func ParseNumberBatch(raw []byte) (NormalizedNumberBatch, error) {
 		return NormalizedNumberBatch{}, err
 	}
 	happenedRaw, _ := body.HappenedAt.(string)
-	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedRaw)
-	if err != nil {
+	if err := draft.ValidateHappenedAt(happenedRaw); err != nil {
 		return NormalizedNumberBatch{}, err
 	}
 	if body.Entries == nil {
@@ -182,8 +179,7 @@ func ParseNumberBatch(raw []byte) (NormalizedNumberBatch, error) {
 	}
 
 	return NormalizedNumberBatch{
-		HappenedAt: happenedAt,
-		UtcOffset:  utcOffset,
-		Entries:    entries,
+		HappenedAtRaw: happenedRaw,
+		Entries:       entries,
 	}, nil
 }

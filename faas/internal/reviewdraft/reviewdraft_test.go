@@ -99,8 +99,8 @@ func TestParseReviewValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Cadence != "weekly" || got.UtcOffset != "+08:00" {
-		t.Fatalf("cadence/offset: %+v", got)
+	if got.Cadence != "weekly" || got.HappenedAtRaw == "" {
+		t.Fatalf("cadence/happenedAtRaw: %+v", got)
 	}
 	if got.RawContent != "This week I slept better and finished the report." {
 		t.Fatalf("rawContent: %q", got.RawContent)

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
@@ -56,12 +55,11 @@ type NormalizedTransactionEntry struct {
 	Tags   []string
 }
 
-// NormalizedTransactionBatch 校验后的整单。
+// NormalizedTransactionBatch 校验后的整单。HappenedAtRaw 为已校验的 happened_at 请求串。
 type NormalizedTransactionBatch struct {
-	HappenedAt time.Time
-	UtcOffset  string
-	Type       string
-	Entries    []NormalizedTransactionEntry
+	HappenedAtRaw string
+	Type          string
+	Entries       []NormalizedTransactionEntry
 }
 
 // IsZeroDecimalLiteral 已通过金额正则的字面量是否为零（含 -0 / 0.00）。
@@ -242,8 +240,7 @@ func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, error) {
 		return NormalizedTransactionBatch{}, err
 	}
 	happenedRaw, _ := body.HappenedAt.(string)
-	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedRaw)
-	if err != nil {
+	if err := draft.ValidateHappenedAt(happenedRaw); err != nil {
 		return NormalizedTransactionBatch{}, err
 	}
 	typ, err := parseType(body.Type)
@@ -273,9 +270,8 @@ func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, error) {
 		entries = append(entries, ne)
 	}
 	return NormalizedTransactionBatch{
-		HappenedAt: happenedAt,
-		UtcOffset:  utcOffset,
-		Type:       typ,
-		Entries:    entries,
+		HappenedAtRaw: happenedRaw,
+		Type:          typ,
+		Entries:       entries,
 	}, nil
 }

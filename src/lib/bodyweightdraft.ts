@@ -44,8 +44,8 @@ export type LogBodyWeightBody = {
 }
 
 export type NormalizedBodyWeight = {
-  happenedAt: Date
-  utcOffset: string
+  /** 已校验的 happened_at 请求串（Repository 内解析落库） */
+  happenedAtRaw: string
   numericValue: string
   tags: string[]
   objectiveContext: string
@@ -139,6 +139,7 @@ export function parseBodyWeight(
   if ('error' in happenedResult) {
     return { error: happenedResult.error }
   }
+  const happenedAtRaw = body.happened_at as string
 
   const amount = parseWeightAmount(body.numeric_value)
   if ('error' in amount) {
@@ -167,8 +168,7 @@ export function parseBodyWeight(
   }
 
   return {
-    happenedAt: happenedResult.value,
-    utcOffset: happenedResult.utcOffset,
+    happenedAtRaw,
     numericValue: amount.value,
     tags: [RESERVED_TAG_BODY_WEIGHT, ...clientTags.value],
     objectiveContext: objCtxResult.value,

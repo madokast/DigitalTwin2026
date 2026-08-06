@@ -19,7 +19,6 @@ import {
 import {
   isValidRecordId,
   INVALID_RECORD_ID,
-  type NewRecord,
   type Record,
 } from '@/lib/record'
 import { assertNoReservedTags, firstDuplicateTag, validateTags } from '@/lib/tags'
@@ -120,15 +119,15 @@ export async function createNumberBatch(
   }
 
   try {
-    // 批量原子：业务层经 UoW 决定事务性；rows（DB 直接映射）组装零 DB。
-    const nrs: NewRecord[] = parsed.entries.map((entry) => ({
+    // 领域 Record 组装（happened_at = 已校验请求串；Repository 内解析落库）。
+    const nrs: Record[] = parsed.entries.map((entry) => ({
       id: uuidv7(),
-      happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
-      numericValue: entry.numericValue,
-      rawContent: null,
+      happened_at: parsed.happenedAtRaw,
+      numeric_value: entry.numericValue,
+      raw_content: null,
       tags: entry.tags,
-      objectiveContext: entry.objectiveContext,
-      aiAnalysis: entry.aiAnalysis,
+      objective_context: entry.objectiveContext,
+      ai_analysis: entry.aiAnalysis,
     }))
     const out = await new UoW(db).do(async (q) => {
       const res = await Repo.saveAll(q, nrs)
@@ -163,12 +162,12 @@ export async function createBodyWeight(
   try {
     const res = await Repo.save(db, {
       id: uuidv7(),
-      happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
-      numericValue: parsed.numericValue,
-      rawContent: null,
+      happened_at: parsed.happenedAtRaw,
+      numeric_value: parsed.numericValue,
+      raw_content: null,
       tags: parsed.tags,
-      objectiveContext: parsed.objectiveContext,
-      aiAnalysis: parsed.aiAnalysis,
+      objective_context: parsed.objectiveContext,
+      ai_analysis: parsed.aiAnalysis,
     })
     if (!res.ok) throw res.error
     return { record: res.record!, status: 201 }
@@ -193,12 +192,11 @@ export async function createTodo(
   try {
     const res = await Repo.save(db, {
       id: uuidv7(),
-      happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
-      numericValue: null,
-      rawContent: parsed.rawContent,
+      happened_at: parsed.happenedAtRaw,
+      raw_content: parsed.rawContent,
       tags: parsed.tags,
-      objectiveContext: parsed.objectiveContext,
-      aiAnalysis: parsed.aiAnalysis,
+      objective_context: parsed.objectiveContext,
+      ai_analysis: parsed.aiAnalysis,
     })
     if (!res.ok) throw res.error
     return { record: res.record!, status: 201 }
@@ -272,7 +270,7 @@ export async function transitionTodo(
     // 写路径：UPDATE 状态 tag + INSERT 审计，原子（业务层经 UoW 决定事务性）。
     // D7 对齐 Go（RowsAffected() != 1 → 500）：SELECT 与 UPDATE 之间记录被删的并发竞态
     // —— 影响行数 ≠ 1 时不插审计行、事务回滚，错误文案含实际行数。
-    // 审计行 happened_at 与请求一致（parse 产物 Date + offset 直接填 DBRow，零字符串往返）
+    // 审计行 happened_at 与请求一致（已校验请求串；Repository 内解析落库）
     await new UoW(db).do(async (q) => {
       const t = await Repo.transition(q, parsed.id, newTags)
       if (!t.ok) {
@@ -280,12 +278,11 @@ export async function transitionTodo(
       }
       await Repo.save(q, {
         id: uuidv7(),
-        happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
-        numericValue: null,
-        rawContent: content,
+        happened_at: parsed.happenedAtRaw,
+        raw_content: content,
         tags: [TODO_TAG_TRANSITION],
-        objectiveContext: objCtx,
-        aiAnalysis: null,
+        objective_context: objCtx,
+        ai_analysis: null,
       })
     })
 
@@ -313,6 +310,7 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
   if ('error' in happenedResult) {
     return { error: happenedResult.error, status: 400 }
   }
+  const happenedAtRaw = body.happened_at as string
 
   const rawContentResult = requireTrimmedText(body.raw_content, 'raw_content')
   if ('error' in rawContentResult) {
@@ -345,12 +343,11 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
   try {
     const res = await Repo.save(db, {
       id: uuidv7(),
-      happenedAt: { time: happenedResult.value, offset: happenedResult.utcOffset },
-      numericValue: null,
-      rawContent: rawContentResult.value,
+      happened_at: happenedAtRaw,
+      raw_content: rawContentResult.value,
       tags: tagListResult.value,
-      objectiveContext: objCtxResult.value,
-      aiAnalysis: aiAnalysis.value,
+      objective_context: objCtxResult.value,
+      ai_analysis: aiAnalysis.value,
     })
     if (!res.ok) throw res.error
     return { record: res.record!, status: 201 }
@@ -375,12 +372,11 @@ export async function createReview(
   try {
     const res = await Repo.save(db, {
       id: uuidv7(),
-      happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
-      numericValue: null,
-      rawContent: parsed.rawContent,
+      happened_at: parsed.happenedAtRaw,
+      raw_content: parsed.rawContent,
       tags: reviewTagsForCadence(parsed.cadence, parsed.tags),
-      objectiveContext: parsed.objectiveContext,
-      aiAnalysis: parsed.aiAnalysis,
+      objective_context: parsed.objectiveContext,
+      ai_analysis: parsed.aiAnalysis,
     })
     if (!res.ok) throw res.error
     return { record: res.record!, status: 201 }
@@ -405,15 +401,15 @@ export async function createTransactionBatch(
   }
 
   try {
-    // 批量原子：业务层经 UoW 决定事务性；rows（DB 直接映射）组装零 DB。
-    const nrs: NewRecord[] = parsed.entries.map((entry) => ({
+    // 领域 Record 组装（happened_at = 已校验请求串；Repository 内解析落库）。
+    const nrs: Record[] = parsed.entries.map((entry) => ({
       id: uuidv7(),
-      happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
-      numericValue: entry.amount,
-      rawContent: null,
+      happened_at: parsed.happenedAtRaw,
+      numeric_value: entry.amount,
+      raw_content: null,
       tags: entry.tags,
-      objectiveContext: entry.memo,
-      aiAnalysis: null,
+      objective_context: entry.memo,
+      ai_analysis: null,
     }))
     const out = await new UoW(db).do(async (q) => {
       const res = await Repo.saveAll(q, nrs)

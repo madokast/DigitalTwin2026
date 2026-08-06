@@ -16,8 +16,7 @@ describe('parseNumberBatch', () => {
     const parsed = parseNumberBatch(base)
     expect('error' in parsed).toBe(false)
     if ('error' in parsed) return
-    expect(parsed.happenedAt.toISOString()).toBe('2026-08-05T02:00:00.000Z')
-    expect(parsed.utcOffset).toBe('+08:00')
+    expect(parsed.happenedAtRaw).toBe(base.happened_at)
     expect(parsed.entries).toHaveLength(1)
     expect(parsed.entries[0]).toEqual({
       numericValue: '36.8',

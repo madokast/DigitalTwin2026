@@ -75,8 +75,7 @@ describe('parseReview', () => {
     const parsed = parseReview(validBase)
     expect('error' in parsed).toBe(false)
     if ('error' in parsed) return
-    expect(parsed.happenedAt).toBeInstanceOf(Date)
-    expect(parsed.utcOffset).toBe('+08:00')
+    expect(parsed.happenedAtRaw).toBe(validBase.happened_at)
     expect(parsed.cadence).toBe('weekly')
     expect(parsed.rawContent).toBe(validBase.raw_content)
     expect(parsed.objectiveContext).toBe(validBase.objective_context)

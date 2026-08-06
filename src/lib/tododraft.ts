@@ -60,8 +60,8 @@ export type LogTodoBody = {
 }
 
 export type NormalizedTodo = {
-  happenedAt: Date
-  utcOffset: string
+  /** 已校验的 created_at 请求串（Repository 内解析落库） */
+  happenedAtRaw: string
   rawContent: string
   tags: string[]
   objectiveContext: string
@@ -124,8 +124,7 @@ export type LogTodoTransitionBody = {
 export type NormalizedTodoTransition = {
   id: string
   target: TodoState
-  happenedAt: Date
-  utcOffset: string
+  happenedAtRaw: string
 }
 
 function isStateTag(tag: string): boolean {
@@ -273,15 +272,14 @@ export function parseTodoTransition(
   return {
     id: body.id,
     target: body.target as TodoState,
-    happenedAt: happened.value,
-    utcOffset: happened.utcOffset,
+    happenedAtRaw: typeof body.happened_at === 'string' ? body.happened_at : '',
   }
 }
 
-/** created_at 校验：语义同 parseHappenedAt，错误文案用 created_at */
+/** created_at 校验：语义同 parseHappenedAt，错误文案用 created_at；返回已校验请求串 */
 function parseCreatedAt(
   raw: unknown,
-): { ok: true; value: Date; utcOffset: string } | DraftValidationError {
+): { ok: true; value: string } | DraftValidationError {
   if (typeof raw !== 'string' || !raw) {
     return { error: 'missing required field: created_at' }
   }
@@ -289,7 +287,7 @@ function parseCreatedAt(
   if ('error' in result) {
     return { error: result.error.replaceAll('happened_at', 'created_at') }
   }
-  return result
+  return { ok: true, value: raw }
 }
 
 /**
@@ -373,8 +371,7 @@ export function parseTodo(
   }
 
   return {
-    happenedAt: createdResult.value,
-    utcOffset: createdResult.utcOffset,
+    happenedAtRaw: createdResult.value,
     rawContent: content,
     tags: [TODO_TAG_IN_PROGRESS, ...clientTags.value],
     objectiveContext: objCtxResult.value,

@@ -27,20 +27,12 @@ const (
 // ErrNumericValueMustBeString 在 JSON 以 number 传入 numeric_value 时返回（硬切断，不静默转 string）。
 var ErrNumericValueMustBeString = errors.New("numeric_value must be a decimal string")
 
-// DateTimeWithOffset 带偏移日期时间值对象（时间 + 录入偏移，封装成单值，业务层不接触散落的 offset）。
-type DateTimeWithOffset struct {
-	Time   time.Time
-	Offset string // 规范 utc_offset 字面量（'Z' 或 '±HH:MM'）
-}
-
-// NormalizeHappenedAt 校验 + 解析 happened_at（只此一次）：返回 DateTimeWithOffset（time + 规范 offset）
-// 供写入意图（NewRecord）使用；err 非空 = 解析失败（业务层 400）。业务层不调用 ParseHappenedAt。
-func NormalizeHappenedAt(raw string) (DateTimeWithOffset, error) {
-	t, offset, err := ParseHappenedAt(raw)
-	if err != nil {
-		return DateTimeWithOffset{}, err
-	}
-	return DateTimeWithOffset{Time: t, Offset: offset}, nil
+// ValidateHappenedAt 业务层校验 happened_at（零 DB，校验失败 → 400）：
+// 只校验不产 time/offset，构造 record.Record（HappenedAt = 已校验请求串）后由
+// Repository 内 ParseHappenedAt 落库时再次解析（接受两次解析成本，换取单一 Record 形态）。
+func ValidateHappenedAt(raw string) error {
+	_, _, err := ParseHappenedAt(raw)
+	return err
 }
 
 // ParseHappenedAt 校验 ISO 8601 且必须带显式时区（与 Next parseHappenedAt / query from|to 一致）。

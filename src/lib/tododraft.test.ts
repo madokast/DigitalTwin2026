@@ -125,7 +125,7 @@ describe('parseTodo', () => {
     expect(parsed.tags).toEqual([TODO_TAG_IN_PROGRESS, 'errand'])
     expect(parsed.objectiveContext).toBe('weekend grocery list')
     expect(parsed.aiAnalysis).toBe('need it for breakfast')
-    expect(parsed.happenedAt.toISOString()).toBe('2026-08-02T02:00:00.000Z')
+    expect(parsed.happenedAtRaw).toBe(base.created_at)
   })
 
   it('allows omitted or empty tags (only todo:in_progress)', () => {
@@ -260,7 +260,7 @@ describe('parseTodoTransition', () => {
     if ('error' in parsed) return
     expect(parsed.id).toBe(base.id)
     expect(parsed.target).toBe('completed')
-    expect(parsed.happenedAt.toISOString()).toBe('2026-08-02T04:00:00.000Z')
+    expect(parsed.happenedAtRaw).toBe(base.happened_at)
   })
 
   it('rejects missing fields / invalid target / unknown keys', () => {

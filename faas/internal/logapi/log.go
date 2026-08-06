@@ -62,7 +62,7 @@ func optionalTagList(raw any) ([]string, error) {
 	return out, nil
 }
 
-// aiAnalysisPtr draft 解析产出的 any（string | nil）→ *string（NewRecord 字段类型）。
+// aiAnalysisPtr draft 解析产出的 any（string | nil）→ *string（Record 字段类型）。
 func aiAnalysisPtr(v any) *string {
 	if s, ok := v.(string); ok {
 		return &s
@@ -83,8 +83,8 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	if err := decodeJSONBody(raw, &body); err != nil {
 		return record.Record{}, 400, err
 	}
-	dt, err := draft.NormalizeHappenedAt(happenedAtString(body.HappenedAt))
-	if err != nil {
+	happenedRaw := happenedAtString(body.HappenedAt)
+	if err := draft.ValidateHappenedAt(happenedRaw); err != nil {
 		return record.Record{}, 400, err
 	}
 	rawContent, err := draft.RequireTrimmedText(body.RawContent, "raw_content")
@@ -117,9 +117,9 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	}
 
 	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record，业务层唯一使用。
-	res := recordrepo.Repo.Save(ctx, pool, record.NewRecord{
+	res := recordrepo.Repo.Save(ctx, pool, record.Record{
 		ID:               id.String(),
-		HappenedAt:       dt,
+		HappenedAt:       happenedRaw,
 		NumericValue:     nil,
 		RawContent:       &rawContent,
 		Tags:             tagList,

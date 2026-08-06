@@ -105,9 +105,8 @@ func TestParseTodo(t *testing.T) {
 	if len(got.Tags) != 2 || got.Tags[0] != TodoTagInProgress || got.Tags[1] != "errand" {
 		t.Fatalf("tags=%v", got.Tags)
 	}
-	wantInstant := "2026-08-02T02:00:00.000Z"
-	if record.FormatHappenedAt(got.HappenedAt) != wantInstant {
-		t.Fatalf("happenedAt=%s want %s", record.FormatHappenedAt(got.HappenedAt), wantInstant)
+	if got.HappenedAtRaw != "2026-08-02T10:00:00+08:00" {
+		t.Fatalf("happenedAtRaw=%q", got.HappenedAtRaw)
 	}
 }
 
@@ -239,8 +238,8 @@ func TestParseTodoTransition(t *testing.T) {
 	if got.ID != "01900000-0000-7000-8000-000000000003" || got.Target != TodoStateCompleted {
 		t.Fatalf("got=%+v", got)
 	}
-	if record.FormatHappenedAt(got.HappenedAt) != "2026-08-02T04:00:00.000Z" {
-		t.Fatalf("happenedAt=%s", record.FormatHappenedAt(got.HappenedAt))
+	if got.HappenedAtRaw != "2026-08-02T12:00:00+08:00" {
+		t.Fatalf("happenedAtRaw=%q", got.HappenedAtRaw)
 	}
 }
 

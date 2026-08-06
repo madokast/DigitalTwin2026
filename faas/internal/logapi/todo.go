@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
-	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
@@ -29,12 +28,9 @@ func CreateTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 
 	vt := parsed.RawContent
 	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record。
-	res := recordrepo.Repo.Save(ctx, pool, record.NewRecord{
-		ID: id.String(),
-		HappenedAt: draft.DateTimeWithOffset{
-			Time:   parsed.HappenedAt,
-			Offset: parsed.UtcOffset,
-		},
+	res := recordrepo.Repo.Save(ctx, pool, record.Record{
+		ID:               id.String(),
+		HappenedAt:       parsed.HappenedAtRaw,
 		NumericValue:     nil,
 		RawContent:       &vt,
 		Tags:             parsed.Tags,
@@ -106,14 +102,11 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (Transitio
 		return TransitionResult{}, 500, err
 	}
 
-	// 审计行 happened_at 与请求一致（parse 产物 time + offset 组装值对象，零额外解析）
+	// 审计行 happened_at 与请求一致（已校验请求串；Repository 内解析落库）
 	// 写路径：UPDATE 状态 tag + INSERT 审计，原子（业务层经 UoW 决定事务性）
-	auditRec := record.NewRecord{
-		ID: auditID.String(),
-		HappenedAt: draft.DateTimeWithOffset{
-			Time:   parsed.HappenedAt,
-			Offset: parsed.UtcOffset,
-		},
+	auditRec := record.Record{
+		ID:               auditID.String(),
+		HappenedAt:       parsed.HappenedAtRaw,
 		NumericValue:     nil,
 		RawContent:       &content,
 		Tags:             []string{tododraft.TodoTagTransition},

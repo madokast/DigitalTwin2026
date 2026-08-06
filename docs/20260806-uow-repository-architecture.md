@@ -307,16 +307,14 @@ src/lib/logapi.ts 等   业务层（Service class）
 9. **Service 化（横切，2026-08-06 补充）**：业务层自由函数（logapi/importapi/exportapi/query）→ **Service struct/class 方法**，构造注入 `db` + `uow`；`db.WithTx(ctx, q, fn)` → `s.uow.Do(ctx, fn)`（Node `new UoW(db)` → 构造注入 `this.uow`）；httpx/route 装配注入 Service；测试改注入 fake uow。双端对称，一次性横切。
 10. **回归**：全量 unit + integration + lint（`npm run test:unit`、`npm run test:integration`、`go build/vet/golangci-lint`、`npm run openapi:lint`）。
 
-## 10a. 形态修订待实施（2026-08-06 定案，A/B/C/D）
+## 10a. 形态修订（2026-08-06 定案，A/B 已实施，C/D 待落地）
 
-以下四项为 2026-08-06 与业界对照后的修订决策，**已写入 §1/§2/§4/§5**，代码待落地（建议作为独立横切步骤，每步全绿）：
+- **A. Repository 形态 → 空结构体 + 单例 `Repo`，方法第一参数收执行器 `q`**（✅ 已实施 `0d52f1b`）：`recordrepo.Repo.Save(ctx, q, rec)` / WithTx 下 `recordrepo.Repo.Save(ctx, tx, rec)`；删除 `recordrepo.New(q)` 构造注入与每次现构建（Go `var Repo = &RecordRepository{}` / TS `export const Repo = new RecordRepository()`）。业界主流（方法收执行器 + 单例，sqlc 教程派）。
+- **B. happened_at 简化 → 单一 `Record` 形态**（✅ 已实施，本 commit）：删除 `NewRecord` / `DateTimeWithOffset` / `NormalizeHappenedAt`；业务层 `ValidateHappenedAt(raw) error`（校验）→ 构造 `record.Record`（`HappenedAt` 为已校验请求串，各 draft 产物暴露 `HappenedAtRaw`）→ `Save(ctx, q, rec)`；Repository 内 `ParseHappenedAt` 落库 → 返回规范化 `Record`；业务层只用返回值。**接受两次解析成本**（业务层校验解析 + Repository 落库解析），换取无双类型。
+- **C. Go 业务函数入参 → typed 请求体**（待实施）：`CreateText(ctx, pool, raw []byte)` → `CreateText(ctx, pool, body TextBody)`（typed 结构体，对齐 Node typed body）；双端请求结构同构。
+- **D. 业务函数错误 → 带 status 的 error**（待实施）：`(T, status, error)` 元组 → `(T, error)` + `StatusError{Status, Err}`（`errors.As` 取 status，Node `StatusError` class）；handler 统一映射。
 
-- **A. Repository 形态 → 空结构体 + 单例 `Repo`，方法第一参数收执行器 `q`**：`recordrepo.Repo.Save(ctx, q, rec)` / WithTx 下 `recordrepo.Repo.Save(ctx, tx, rec)`；删除 `recordrepo.New(q)` 构造注入与每次现构建（Go `var Repo = &RecordRepository{}` / TS `export const Repo = new RecordRepository()`）。业界主流（方法收执行器 + 单例，sqlc 教程派）。
-- **B. happened_at 简化 → 单一 `Record` 形态**：删除 `NewRecord` / `DateTimeWithOffset` / `NormalizeHappenedAt`；业务层 `ValidateHappenedAt(raw) error`（校验）→ 构造 `record.Record`（`HappenedAt` 为已校验请求串）→ `Save(ctx, q, rec)`；Repository 内 `ParseHappenedAt` 落库 → 返回规范化 `Record`；业务层只用返回值。**接受两次解析成本**（业务层校验解析 + Repository 落库解析），换取无双类型。
-- **C. Go 业务函数入参 → typed 请求体**：`CreateText(ctx, pool, raw []byte)` → `CreateText(ctx, pool, body TextBody)`（typed 结构体，对齐 Node typed body）；双端请求结构同构。
-- **D. 业务函数错误 → 带 status 的 error**：`(T, status, error)` 元组 → `(T, error)` + `StatusError{Status, Err}`（`errors.As` 取 status，Node `StatusError` class）；handler 统一映射。
-
-> 注：步骤 3/4/5 的代码现仍为过渡形态（`New(q)` 构造 + `NewRecord` + `(T, status, error)` 元组 + Go 收 `[]byte`）——随 A/B/C/D 落地统一到终稿形态。
+> 注：A/B 已按终稿形态落地；剩余过渡形态（`(T, status, error)` 元组 + Go 收 `[]byte`）随 C/D 落地统一。
 
 ## 11. 阶段 B（ErrInternal 防腐层，随 UoW 落地）
 

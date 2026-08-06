@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
-	"time"
 )
 
 func TestParseNumberBatchSingleEntry(t *testing.T) {
@@ -15,11 +14,8 @@ func TestParseNumberBatchSingleEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.HappenedAt.Equal(time.Date(2026, 8, 5, 2, 0, 0, 0, time.UTC)) {
-		t.Fatalf("happenedAt: %v", got.HappenedAt)
-	}
-	if got.UtcOffset != "+08:00" {
-		t.Fatalf("utcOffset: %q", got.UtcOffset)
+	if got.HappenedAtRaw != "2026-08-05T10:00:00+08:00" {
+		t.Fatalf("happenedAtRaw: %q", got.HappenedAtRaw)
 	}
 	if len(got.Entries) != 1 {
 		t.Fatalf("entries: %d", len(got.Entries))

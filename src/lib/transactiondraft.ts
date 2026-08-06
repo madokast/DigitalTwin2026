@@ -56,8 +56,8 @@ export type NormalizedTransactionEntry = {
 }
 
 export type NormalizedTransactionBatch = {
-  happenedAt: Date
-  utcOffset: string
+  /** 已校验的 happened_at 请求串（Repository 内解析落库） */
+  happenedAtRaw: string
   type: TransactionType
   entries: NormalizedTransactionEntry[]
 }
@@ -207,6 +207,7 @@ export function parseTransactionBatch(
 
   const happenedResult = parseHappenedAt(body.happened_at)
   if ('error' in happenedResult) return happenedResult
+  const happenedAtRaw = body.happened_at as string
 
   const typeResult = parseType(body.type)
   if ('error' in typeResult) return typeResult
@@ -231,8 +232,7 @@ export function parseTransactionBatch(
   }
 
   return {
-    happenedAt: happenedResult.value,
-    utcOffset: happenedResult.utcOffset,
+    happenedAtRaw,
     type: typeResult.value,
     entries,
   }

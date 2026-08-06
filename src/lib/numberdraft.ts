@@ -49,8 +49,8 @@ export type NormalizedNumberEntry = {
 }
 
 export type NormalizedNumberBatch = {
-  happenedAt: Date
-  utcOffset: string
+  /** 已校验的 happened_at 请求串（Repository 内解析落库） */
+  happenedAtRaw: string
   entries: NormalizedNumberEntry[]
 }
 
@@ -137,6 +137,7 @@ export function parseNumberBatch(
 
   const happenedResult = parseHappenedAt(body.happened_at)
   if ('error' in happenedResult) return happenedResult
+  const happenedAtRaw = body.happened_at as string
 
   if (!Array.isArray(body.entries)) {
     return { error: 'missing required field: entries (non-empty array)' }
@@ -158,8 +159,7 @@ export function parseNumberBatch(
   }
 
   return {
-    happenedAt: happenedResult.value,
-    utcOffset: happenedResult.utcOffset,
+    happenedAtRaw,
     entries,
   }
 }

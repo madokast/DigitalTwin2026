@@ -12,7 +12,8 @@
 
 import { eq } from 'drizzle-orm'
 import * as schema from '@/db/schema'
-import { fromDB, type NewRecord, type Record } from '@/lib/record'
+import { fromDB, type Record } from '@/lib/record'
+import { parseHappenedAt } from '@/lib/draft'
 import { RecordNotFoundError } from '@/lib/record/errors'
 import type { Executor } from '@/db/uow'
 
@@ -65,20 +66,25 @@ export class RecordRepository {
     return { ok: true, error: null }
   }
 
-  /** 单条 INSERT + RETURNING 完整行。nr 为写入意图（happenedAt 已由 draft 解析为 time + 规范 offset，
-   * 此处直接落库，不再解析）；返回规范化领域 Record（fromDB）——业务层唯一使用的 happened_at 来源。 */
-  async save(q: Executor, nr: NewRecord): Promise<RecordSaveResult> {
+  /** 单条 INSERT + RETURNING 完整行。rec 为领域 Record（happened_at 为业务层已校验的
+   * 请求串，Repository 内 parseHappenedAt 解析落库——接受两次解析成本）；
+   * 返回规范化领域 Record（fromDB）——业务层唯一使用的 happened_at 来源。 */
+  async save(q: Executor, rec: Record): Promise<RecordSaveResult> {
+    const happened = parseHappenedAt(rec.happened_at)
+    if ('error' in happened) {
+      return { ok: false, record: null, error: new Error(happened.error) }
+    }
     const rows = await q
       .insert(schema.records)
       .values({
-        id: nr.id,
-        happenedAt: nr.happenedAt.time,
-        utcOffset: nr.happenedAt.offset,
-        numericValue: nr.numericValue,
-        rawContent: nr.rawContent,
-        tags: JSON.stringify(nr.tags),
-        objectiveContext: nr.objectiveContext,
-        aiAnalysis: nr.aiAnalysis,
+        id: rec.id,
+        happenedAt: happened.value,
+        utcOffset: happened.utcOffset,
+        numericValue: rec.numeric_value ?? null,
+        rawContent: rec.raw_content,
+        tags: JSON.stringify(rec.tags),
+        objectiveContext: rec.objective_context,
+        aiAnalysis: rec.ai_analysis,
       })
       .returning()
     return { ok: true, record: fromDB(rows[0]), error: null }
@@ -87,10 +93,10 @@ export class RecordRepository {
   /** 批量 INSERT（循环复用 save 单条原语，行为与顺序确定）；事务内调用。
    * TODO(perf)：当前逐条 insert（N 次往返）。批量场景可优化为 drizzle 多值
    * `.values([...])` 批量插入——注意 returning 顺序不保证与输入一致，需按 id 恢复输入顺序。 */
-  async saveAll(q: Executor, nrs: NewRecord[]): Promise<RecordSaveAllResult> {
+  async saveAll(q: Executor, recs: Record[]): Promise<RecordSaveAllResult> {
     const out: Record[] = []
-    for (const nr of nrs) {
-      const res = await this.save(q, nr)
+    for (const rec of recs) {
+      const res = await this.save(q, rec)
       if (!res.ok) {
         return { ok: false, records: [], error: res.error }
       }

@@ -6,13 +6,13 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/utcoffset"
 )
 
 // Record matches Next JSON shape（snake_case HTTP JSON）。
 // Record 领域对象 = 对外 JSON 形状（happened_at 带区串、tags 数组、无隐列）。
-// Repository 返回 / 业务层消费；写路径业务层构造 NewRecord，落库后 Repository 返回本类型（规范化）。
+// Repository 返回 / 业务层消费；写路径业务层构造（HappenedAt = 已校验请求串），
+// Repository 内 ParseHappenedAt 落库后返回本类型（规范化）。
 type Record struct {
 	ID               string   `json:"id"`
 	HappenedAt       string   `json:"happened_at"`
@@ -23,21 +23,8 @@ type Record struct {
 	Tags             []string `json:"tags"`
 }
 
-// NewRecord 写入意图对象（业务层构造，Repository.Save 入参）：
-// HappenedAt 为 draft.NormalizeHappenedAt 产出的 DateTimeWithOffset（time + 规范 offset，
-// 只此一次解析；Repository 直接落库，不再解析）。领域字段（tags 数组），JSON 序列化在 Repository 内部。
-type NewRecord struct {
-	ID               string
-	HappenedAt       draft.DateTimeWithOffset
-	NumericValue     *string
-	RawContent       *string
-	Tags             []string
-	ObjectiveContext string
-	AiAnalysis       *string
-}
-
 // DBRow 数据库直接映射结构（**仅 Repository 内部使用**：Scan 产物 / FromDB 入参）：
-// utc_offset 隐列 + tags 为 DB JSON 字符串。业务层禁止接触（写路径用 NewRecord，读路径用 Record）。
+// utc_offset 隐列 + tags 为 DB JSON 字符串。业务层禁止接触。
 type DBRow struct {
 	ID               string
 	HappenedAt       time.Time

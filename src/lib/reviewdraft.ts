@@ -43,8 +43,8 @@ export type LogReviewBody = {
 }
 
 export type NormalizedReview = {
-  happenedAt: Date
-  utcOffset: string
+  /** 已校验的 happened_at 请求串（Repository 内解析落库） */
+  happenedAtRaw: string
   cadence: ReviewCadence
   rawContent: string
   objectiveContext: string
@@ -72,6 +72,7 @@ export function parseReview(
 
   const happenedResult = parseHappenedAt(body.happened_at)
   if ('error' in happenedResult) return happenedResult
+  const happenedAtRaw = body.happened_at as string
 
   if (typeof body.cadence !== 'string' || body.cadence === '') {
     return { error: MISSING_CADENCE_MESSAGE }
@@ -114,8 +115,7 @@ export function parseReview(
   }
 
   return {
-    happenedAt: happenedResult.value,
-    utcOffset: happenedResult.utcOffset,
+    happenedAtRaw,
     cadence: body.cadence as ReviewCadence,
     rawContent: rawContent.value,
     objectiveContext: objCtx.value,

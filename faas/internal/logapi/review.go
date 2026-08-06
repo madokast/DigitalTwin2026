@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/reviewdraft"
@@ -26,12 +25,9 @@ func CreateReview(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	}
 
 	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record。
-	res := recordrepo.Repo.Save(ctx, pool, record.NewRecord{
-		ID: id.String(),
-		HappenedAt: draft.DateTimeWithOffset{
-			Time:   parsed.HappenedAt,
-			Offset: parsed.UtcOffset,
-		},
+	res := recordrepo.Repo.Save(ctx, pool, record.Record{
+		ID:               id.String(),
+		HappenedAt:       parsed.HappenedAtRaw,
 		NumericValue:     nil,
 		RawContent:       &parsed.RawContent,
 		Tags:             tagList,
