@@ -103,6 +103,12 @@
 ### B2 Node 文件布局
 - 问题：`src/lib/recordrepo.ts`（Repository）？`withTx` 放哪？`Criteria` type 放哪？与 `query.ts` / `tagsdb.ts` 的关系。
 - 待决：Node 文件结构。
+- 状态：✅ **已定案**（与 Go B1 对称）：
+  - **`src/db/withTx.ts`**：新增 `withTx(fn: (q: Executor) => Promise<T>): Promise<T>` 薄包装 `db.transaction`（对称 Go `db.WithTx`；`Executor` 类型见 C1）。现状散落各业务函数的 `db.transaction(...)` 迁移至此统一形态。
+  - **`src/lib/recordrepo.ts`**：Repository + `Criteria` type + 全部 `XXXXResult`（对称 Go `recordrepo` 包）。
+  - **`src/lib/record.ts`**：领域类型 + 领域错误类（阶段 B 加 `InternalError`）。
+  - **`src/lib/tags.ts`**：已有 tags 领域（对称 Go `tags` 包）。
+  - 业务层 `query.ts` / `logapi.ts` / `importapi.ts` / `exportapi.ts` 调 `recordrepo`，与 Go 业务层 import `recordrepo` 对齐。
 
 ## C. Node 类型与测试机制
 
