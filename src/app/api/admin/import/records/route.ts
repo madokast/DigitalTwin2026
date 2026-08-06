@@ -89,13 +89,13 @@ export async function POST(request: NextRequest) {
     // commit 已成功：先构造成功 200 JSON，再 schedule Notify（对齐导出写出后 Notify）。
     const response = NextResponse.json({
       success: true,
-      inserted: result.counts.inserted,
-      updated: result.counts.updated,
-      total: result.counts.total,
+      inserted: result.inserted,
+      updated: result.updated,
+      total: result.total,
       atomic: true,
     })
     scheduleBestEffortNotify(() =>
-      notify_user(formatImportNotifyMessage(result.counts)),
+      notify_user(formatImportNotifyMessage(result)),
     )
     return response
   } catch (error) {

@@ -91,10 +91,7 @@ describe('importRecordsJsonl', () => {
   it('returns zeros for empty file and still uses one transaction', async () => {
     const mem = memoryStore()
     const result = await importRecordsJsonl('', 0, mem.store)
-    expect(result).toEqual({
-      ok: true,
-      counts: { inserted: 0, updated: 0, total: 0 },
-    })
+    expect(result).toEqual({ inserted: 0, updated: 0, total: 0 })
     expect(mem.began.n).toBe(1)
   })
 
@@ -147,10 +144,7 @@ describe('importRecordsJsonl', () => {
     })
     const text = `${sampleLine(ID1)}\n${reserved}`
     const result = await importRecordsJsonl(text, text.length, mem.store)
-    expect(result).toEqual({
-      ok: true,
-      counts: { inserted: 1, updated: 1, total: 2 },
-    })
+    expect(result).toEqual({ inserted: 1, updated: 1, total: 2 })
     expect(mem.updated).toEqual([ID1])
     expect(mem.inserted).toEqual([ID2])
   })

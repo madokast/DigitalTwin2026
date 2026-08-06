@@ -75,8 +75,8 @@ export type ImportCounts = {
   total: number
 }
 
-/** 成功结果类型（失败 throw MyError）。 */
-export type ImportResult = { ok: true; counts: ImportCounts }
+/** 成功返回类型（失败 throw MyError）。 */
+export type ImportResult = ImportCounts
 
 /** 可注入写库边界（单测）；生产走 drizzle 事务 */
 export type ImportStore = {
@@ -193,7 +193,7 @@ export async function importRecordsJsonl(
   text: string,
   fileBytes: number,
   store: ImportStore = defaultStore(),
-): Promise<{ ok: true; counts: ImportCounts }> {
+): Promise<ImportCounts> {
   if (fileBytes > MAX_IMPORT_FILE_BYTES) {
     throw newValidation(IMPORT_LIMITS_ERROR)
   }
@@ -248,7 +248,7 @@ export async function importRecordsJsonl(
       } satisfies ImportCounts
     })
 
-    return { ok: true, counts }
+    return counts
   } catch (err) {
     if (err instanceof MyError) {
       throw err
