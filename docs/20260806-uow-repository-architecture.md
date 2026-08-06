@@ -157,21 +157,26 @@ export class RecordConflictError extends Error {}
 // 阶段 B：export class InternalError extends Error {}（随 Repository 引入，不 throw，放 res.error）
 ```
 
-**每方法专属 `XXXXResult`**（拒绝泛型；Go/Node 同名同构；`error` 字段是领域错误对象，`null` = 成功；Node **不 throw**）。**领域对象 = 对外 JSON 形状** `record.Record`（`happened_at` 带区串）——本系统时间轴操作（排序/比较/区间）全在 Repository SQL 内，业务层只消费带区串，无需 `time.Time`；**持久化转换**（带区串 ↔ 瞬间 + 隐列 `utc_offset`）在 Repository 内部收敛（Go `draft.ParseHappenedAt` / `record.FromDB`；Node `new Date` / `extractUtcOffsetLiteral` / `fromDB`），隐列不出领域对象：
+**每方法专属 `XXXXResult`**（拒绝泛型；Go/Node 同名同构；`error` 字段是领域错误对象，`null` = 成功；Node **不 throw**）。**双结构**：
+- **`record.Record`（领域 = 对外 JSON 形状）**：`happened_at` 带区串、tags 数组、无隐列——业务层/响应；本系统时间轴操作全在 Repository SQL 内，业务层只消费带区串。
+- **`record.DBRow`（数据库直接映射）**：`HappenedAt time.Time` + `UtcOffset` + `Tags string`（DB JSON 字符串）——写路径入参 / Scan 产物；业务层 parse 请求的产物（time.Time + offset）直接填充，**零字符串往返**；SQL 直接消费。
+- 转换仅一处：`FromDB(DBRow) → Record`（瞬间 + 隐列 → 带区串；tags JSON → 数组），Repository 读路径调用。
 
 ```go
 type RecordFindByIDResult struct {
 	OK     bool
-	Record record.Record // 对外形状：HappenedAt 为带区 ISO；隐列在 Repository 内部
+	Record record.Record // 领域 = 对外形状：HappenedAt 带区串；隐列在 DBRow
 	Error  error         // 领域哨兵；nil = 成功
 }
+// Save(ctx, row record.DBRow) RecordSaveResult —— 写路径收 DB 映射，返回领域 Record（FromDB）
 ```
 ```ts
 export type RecordFindByIDResult = {
 	ok: boolean
-	record: Record | null // 对外形状：happened_at 带区串
+	record: Record | null // 领域 = 对外形状：happened_at 带区串
 	error: Error | null   // 领域错误实例；null = 成功
 }
+// save(row: DBRow) → Promise<RecordSaveResult> —— 写路径收 DB 映射，返回领域 Record（fromDB）
 ```
 
 **status 映射**（业务层，A2 风格）：先 `err == nil` 快速返回成功；`switch errors.Is(err, ...)`（Node `instanceof`）；`default` = 未知错误 = 漏了 case 需补代码（暂 500 并留注释）。**400 校验错误发生在事务外（零 DB）**，直接给 status，无需领域分类。

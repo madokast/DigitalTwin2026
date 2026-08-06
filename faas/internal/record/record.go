@@ -10,7 +10,7 @@ import (
 )
 
 // Record matches Next JSON shape（snake_case HTTP JSON）。
-// Record 领域对象 = 对外 JSON 形状（时间轴操作全在 Repository SQL 内，业务层只消费带区串）。
+// Record 领域对象 = 对外 JSON 形状（happened_at 带区串、tags 数组、无隐列）。
 type Record struct {
 	ID               string   `json:"id"`
 	HappenedAt       string   `json:"happened_at"`
@@ -19,6 +19,19 @@ type Record struct {
 	ObjectiveContext string   `json:"objective_context"`
 	AiAnalysis       *string  `json:"ai_analysis"`
 	Tags             []string `json:"tags"`
+}
+
+// DBRow 数据库直接映射结构（写路径入参 / Scan 产物）：utc_offset 隐列 + tags 为 DB JSON 字符串。
+// 业务层 parse 请求的产物（time.Time + offset）直接填充，零字符串往返。
+type DBRow struct {
+	ID               string
+	HappenedAt       time.Time
+	UtcOffset        string
+	NumericValue     *string
+	RawContent       *string
+	Tags             string
+	ObjectiveContext string
+	AiAnalysis       *string
 }
 
 // ParseTagsField DB text 列 → tags 数组；chk_tags 保证非空 JSON 数组形，
@@ -47,31 +60,22 @@ func FormatHappenedAt(t time.Time) string {
 	return t.UTC().Format("2006-01-02T15:04:05.000Z")
 }
 
-// FromDB DB 行（Scan 结果）→ Record：持久化转换（瞬间 + 隐列 → 带区串）在 record 包收敛，
-// Repository / 读路径调用。utc_offset 隐列不出 Record（领域对象 = 对外形状）。
-func FromDB(
-	id string,
-	happenedAt time.Time,
-	utcOffset string,
-	numericValue *string,
-	rawContent *string,
-	tags string,
-	objectiveContext string,
-	aiAnalysis *string,
-) Record {
-	formatted, err := utcoffset.FormatHappenedAt(happenedAt, utcOffset)
+// FromDB DB 行（Scan 结果）→ 领域 Record：唯一转换点（瞬间 + 隐列 → 带区串；tags JSON → 数组）。
+// Repository / 读路径调用。
+func FromDB(row DBRow) Record {
+	formatted, err := utcoffset.FormatHappenedAt(row.HappenedAt, row.UtcOffset)
 	if err != nil {
 		// 隐列损坏时仍可序列化；正常路径有 DB CHECK + 写入校验
-		formatted = FormatHappenedAt(happenedAt)
+		formatted = FormatHappenedAt(row.HappenedAt)
 	}
 	return Record{
-		ID:               id,
+		ID:               row.ID,
 		HappenedAt:       formatted,
-		NumericValue:     numericValue,
-		RawContent:       rawContent,
-		Tags:             ParseTagsField(tags),
-		ObjectiveContext: objectiveContext,
-		AiAnalysis:       aiAnalysis,
+		NumericValue:     row.NumericValue,
+		RawContent:       row.RawContent,
+		Tags:             ParseTagsField(row.Tags),
+		ObjectiveContext: row.ObjectiveContext,
+		AiAnalysis:       row.AiAnalysis,
 	}
 }
 

@@ -6,8 +6,7 @@
 
 import { eq } from 'drizzle-orm'
 import * as schema from '@/db/schema'
-import { fromDB, type Record } from '@/lib/record'
-import { extractUtcOffsetLiteral } from '@/lib/utcoffset'
+import { fromDB, type DBRow, type Record } from '@/lib/record'
 import { RecordNotFoundError } from '@/lib/record/errors'
 import type { Executor } from '@/db/uow'
 
@@ -56,23 +55,9 @@ export class RecordRepository {
     return { ok: true, error: null }
   }
 
-  /** 单条 INSERT + RETURNING 完整行（rec 为对外形状；持久化转换：带区串 → 瞬间 + 隐列，在此内部）。 */
-  async save(rec: Record): Promise<RecordSaveResult> {
-    const offset = extractUtcOffsetLiteral(rec.happened_at)
-    const utcOffset = 'ok' in offset ? offset.value : 'Z'
-    const rows = await this.q
-      .insert(schema.records)
-      .values({
-        id: rec.id,
-        happenedAt: new Date(rec.happened_at),
-        utcOffset,
-        numericValue: rec.numeric_value ?? null,
-        rawContent: rec.raw_content,
-        tags: JSON.stringify(rec.tags),
-        objectiveContext: rec.objective_context,
-        aiAnalysis: rec.ai_analysis,
-      })
-      .returning()
+  /** 单条 INSERT + RETURNING 完整行（row 为 DB 直接映射，SQL 直接消费，零时间字符串转换；返回领域 Record）。 */
+  async save(row: DBRow): Promise<RecordSaveResult> {
+    const rows = await this.q.insert(schema.records).values(row).returning()
     return { ok: true, record: fromDB(rows[0]), error: null }
   }
 }

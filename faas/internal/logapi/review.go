@@ -18,18 +18,22 @@ func CreateReview(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	}
 
 	tagList := reviewdraft.ReviewTagsForCadence(parsed.Cadence, parsed.Tags)
-
+	tagsJSON, err := record.TagsJSON(tagList)
+	if err != nil {
+		return record.Record{}, 500, err
+	}
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, 500, err
 	}
 
-	rec, err := insertReturning(ctx, pool, record.Record{
+	rec, err := insertReturning(ctx, pool, record.DBRow{
 		ID:               id.String(),
-		HappenedAt:       formatHappenedAt(parsed.HappenedAt, parsed.UtcOffset),
+		HappenedAt:       parsed.HappenedAt,
+		UtcOffset:        parsed.UtcOffset,
 		NumericValue:     nil,
 		RawContent:       &parsed.RawContent,
-		Tags:             tagList,
+		Tags:             tagsJSON,
 		ObjectiveContext: parsed.ObjectiveContext,
 		AiAnalysis:       aiAnalysisPtr(parsed.AiAnalysis),
 	})

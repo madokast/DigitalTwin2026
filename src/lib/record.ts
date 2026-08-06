@@ -14,6 +14,19 @@ export type Record = {
   ai_analysis: string | null
 }
 
+/** 数据库直接映射结构（写路径入参 / drizzle 行）：utc_offset 隐列 + tags 为 DB JSON 字符串。
+ * 业务层 parse 请求的产物（Date + offset）直接填充，零字符串往返。与 Go `record.DBRow` 同构。 */
+export type DBRow = {
+  id: string
+  happenedAt: Date
+  utcOffset: string
+  numericValue: string | null
+  rawContent: string | null
+  tags: string
+  objectiveContext: string
+  aiAnalysis: string | null
+}
+
 /**
  * 一律 UTC Z（无 offset）。**仅**作隐列损坏时的 FromDB 回退；
  * 生产读路径必须用 `fromDB` / `utcoffset.formatHappenedAt(instant, utc_offset)`。
@@ -30,17 +43,8 @@ export function formatHappenedAt(value: Date | string): string {
   return d.toISOString()
 }
 
-/** drizzle 行（tags 为 DB JSON 字符串）→ 领域 Record（对外形状）：持久化转换在此收敛（与 Go FromDB 对称）。 */
-export function fromDB(row: {
-  id: string
-  happenedAt: Date
-  utcOffset: string
-  numericValue: string | null
-  rawContent: string | null
-  tags: string
-  objectiveContext: string
-  aiAnalysis: string | null
-}): Record {
+/** drizzle 行 / DBRow → 领域 Record：唯一转换点（瞬间 + 隐列 → 带区串；tags JSON → 数组）。与 Go `FromDB` 对称。 */
+export function fromDB(row: DBRow): Record {
   return {
     id: row.id,
     happened_at: formatWithUtcOffset(row.happenedAt, row.utcOffset),

@@ -3,7 +3,6 @@ package logapi
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -12,7 +11,6 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
-	"github.com/mdk/digitaltwin2026/faas/internal/utcoffset"
 )
 
 type TextBody struct {
@@ -64,7 +62,7 @@ func optionalTagList(raw any) ([]string, error) {
 	return out, nil
 }
 
-// aiAnalysisPtr draft 解析产出的 any（string | nil）→ *string（领域对象字段类型）。
+// aiAnalysisPtr draft 解析产出的 any（string | nil）→ *string（DBRow 字段类型）。
 func aiAnalysisPtr(v any) *string {
 	if s, ok := v.(string); ok {
 		return &s
@@ -72,45 +70,25 @@ func aiAnalysisPtr(v any) *string {
 	return nil
 }
 
-// formatHappenedAt draft 解析产物（绝对瞬间 + offset 字面量）→ 带区串（领域对象 = 对外形状）。
-func formatHappenedAt(t time.Time, offset string) string {
-	s, err := utcoffset.FormatHappenedAt(t, offset)
-	if err != nil {
-		return record.FormatHappenedAt(t)
-	}
-	return s
-}
-
-// insertReturning 单条 INSERT + RETURNING 完整行（rec 为对外形状，持久化转换在此内部）。q 满足 db.Executor。
+// insertReturning 单条 INSERT + RETURNING 完整行（row 为 DB 直接映射，SQL 直接消费；返回领域 Record）。
 func insertReturning(
 	ctx context.Context,
 	q db.Executor,
-	rec record.Record,
+	row record.DBRow,
 ) (record.Record, error) {
-	happenedAt, utcOffset, err := draft.ParseHappenedAt(rec.HappenedAt)
-	if err != nil {
-		return record.Record{}, err
-	}
-	tagsJSON, err := record.TagsJSON(rec.Tags)
-	if err != nil {
-		return record.Record{}, err
-	}
-	var (
-		outID, outTags, outObj, outOffset string
-		outHappened                       time.Time
-		outNum, outText, outSubj          *string
-	)
-	err = q.QueryRow(ctx, `
+	var out record.DBRow
+	err := q.QueryRow(ctx, `
 INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
 RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags
-`, rec.ID, happenedAt, utcOffset, rec.NumericValue, rec.RawContent, rec.ObjectiveContext, rec.AiAnalysis, tagsJSON).Scan(
-		&outID, &outHappened, &outOffset, &outNum, &outText, &outObj, &outSubj, &outTags,
+`, row.ID, row.HappenedAt, row.UtcOffset, row.NumericValue, row.RawContent, row.ObjectiveContext, row.AiAnalysis, row.Tags).Scan(
+		&out.ID, &out.HappenedAt, &out.UtcOffset, &out.NumericValue,
+		&out.RawContent, &out.ObjectiveContext, &out.AiAnalysis, &out.Tags,
 	)
 	if err != nil {
 		return record.Record{}, err
 	}
-	return record.FromDB(outID, outHappened, outOffset, outNum, outText, outTags, outObj, outSubj), nil
+	return record.FromDB(out), nil
 }
 
 func decodeJSONBody(raw []byte, dest any) error {
@@ -154,17 +132,22 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 		return record.Record{}, 400, err
 	}
 
+	tagsJSON, err := record.TagsJSON(tagList)
+	if err != nil {
+		return record.Record{}, 500, err
+	}
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, 500, err
 	}
 
-	rec, err := insertReturning(ctx, pool, record.Record{
+	rec, err := insertReturning(ctx, pool, record.DBRow{
 		ID:               id.String(),
-		HappenedAt:       formatHappenedAt(happenedAt, utcOffset),
+		HappenedAt:       happenedAt,
+		UtcOffset:        utcOffset,
 		NumericValue:     nil,
 		RawContent:       &rawContent,
-		Tags:             tagList,
+		Tags:             tagsJSON,
 		ObjectiveContext: objCtx,
 		AiAnalysis:       subj,
 	})

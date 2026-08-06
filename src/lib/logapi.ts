@@ -8,7 +8,6 @@ import { UoW } from '@/db/uow'
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
-import { formatHappenedAt } from '@/lib/utcoffset'
 import { RecordRepository } from '@/lib/recordrepo'
 import { RecordNotFoundError } from '@/lib/record/errors'
 import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
@@ -302,7 +301,7 @@ export async function transitionTodo(
     // 写路径：UPDATE 状态 tag + INSERT 审计，原子（业务层经 UoW 决定事务性）。
     // D7 对齐 Go（RowsAffected() != 1 → 500）：SELECT 与 UPDATE 之间记录被删的并发竞态
     // —— 影响行数 ≠ 1 时不插审计行、事务回滚，错误文案含实际行数。
-    // 审计行 happened_at 与请求一致（带区串；领域对象 = 对外形状，组装在业务层）
+    // 审计行 happened_at 与请求一致（parse 产物 Date + offset 直接填 DBRow，零字符串往返）
     await new UoW(db).do(async (q) => {
       const txRepo = new RecordRepository(q)
       const t = await txRepo.transition(parsed.id, newTags)
@@ -311,12 +310,13 @@ export async function transitionTodo(
       }
       await txRepo.save({
         id: uuidv7(),
-        happened_at: formatHappenedAt(parsed.happenedAt, parsed.utcOffset),
-        numeric_value: undefined,
-        raw_content: content,
-        tags: [TODO_TAG_TRANSITION],
-        objective_context: objCtx,
-        ai_analysis: null,
+        happenedAt: parsed.happenedAt,
+        utcOffset: parsed.utcOffset,
+        numericValue: null,
+        rawContent: content,
+        tags: JSON.stringify([TODO_TAG_TRANSITION]),
+        objectiveContext: objCtx,
+        aiAnalysis: null,
       })
     })
 

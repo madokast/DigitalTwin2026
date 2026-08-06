@@ -11,7 +11,6 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
-	"github.com/mdk/digitaltwin2026/faas/internal/utcoffset"
 )
 
 // CreateTodo 与 Next createTodo 对齐：解析委托 tododraft，落库强制含 todo:in_progress。
@@ -22,18 +21,23 @@ func CreateTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 		return record.Record{}, 400, err
 	}
 
+	tagsJSON, err := record.TagsJSON(parsed.Tags)
+	if err != nil {
+		return record.Record{}, 500, err
+	}
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, 500, err
 	}
 
 	vt := parsed.RawContent
-	rec, err := insertReturning(ctx, pool, record.Record{
+	rec, err := insertReturning(ctx, pool, record.DBRow{
 		ID:               id.String(),
-		HappenedAt:       formatHappenedAt(parsed.HappenedAt, parsed.UtcOffset),
+		HappenedAt:       parsed.HappenedAt,
+		UtcOffset:        parsed.UtcOffset,
 		NumericValue:     nil,
 		RawContent:       &vt,
-		Tags:             parsed.Tags,
+		Tags:             tagsJSON,
 		ObjectiveContext: parsed.ObjectiveContext,
 		AiAnalysis:       aiAnalysisPtr(parsed.AiAnalysis),
 	})
@@ -102,18 +106,19 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (Transitio
 		return TransitionResult{}, 500, err
 	}
 
-	// 审计行 happened_at 与请求一致（带区串；领域对象 = 对外形状，组装在业务层）
-	auditHappenedAt, err := utcoffset.FormatHappenedAt(parsed.HappenedAt, parsed.UtcOffset)
+	// 审计行 happened_at 与请求一致（parse 产物 time.Time + offset 直接填 DBRow，零字符串往返）
+	auditTagsJSON, err := record.TagsJSON([]string{tododraft.TodoTagTransition})
 	if err != nil {
 		return TransitionResult{}, 500, err
 	}
 	// 写路径：UPDATE 状态 tag + INSERT 审计，原子（业务层经 UoW 决定事务性）
-	auditRec := record.Record{
+	auditRec := record.DBRow{
 		ID:               auditID.String(),
-		HappenedAt:       auditHappenedAt,
+		HappenedAt:       parsed.HappenedAt,
+		UtcOffset:        parsed.UtcOffset,
 		NumericValue:     nil,
 		RawContent:       &content,
-		Tags:             []string{tododraft.TodoTagTransition},
+		Tags:             auditTagsJSON,
 		ObjectiveContext: objCtx,
 		AiAnalysis:       nil,
 	}

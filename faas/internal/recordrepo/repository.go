@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
-	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 )
 
@@ -28,18 +26,15 @@ type RecordFindByIDResult struct {
 	Error  error // 领域哨兵；nil = 成功
 }
 
-// FindByID 按 id 查完整行（持久化转换：瞬间 + 隐列 → 带区串，在 record.FromDB 收敛）；未找到 → record.ErrNotFound。
+// FindByID 按 id 查完整行：Scan → DBRow → FromDB（唯一转换点）→ 领域 Record；未找到 → record.ErrNotFound。
 func (r *RecordRepository) FindByID(ctx context.Context, id string) RecordFindByIDResult {
-	var (
-		outID, outTags, outObj, outOffset string
-		outHappened                       time.Time
-		outNum, outText, outSubj          *string
-	)
+	var row record.DBRow
 	err := r.q.QueryRow(ctx, `
 SELECT id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags
 FROM records WHERE id = $1
 `, id).Scan(
-		&outID, &outHappened, &outOffset, &outNum, &outText, &outObj, &outSubj, &outTags,
+		&row.ID, &row.HappenedAt, &row.UtcOffset, &row.NumericValue,
+		&row.RawContent, &row.ObjectiveContext, &row.AiAnalysis, &row.Tags,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return RecordFindByIDResult{Error: fmt.Errorf("record %s not found: %w", id, record.ErrNotFound)}
@@ -47,10 +42,7 @@ FROM records WHERE id = $1
 	if err != nil {
 		return RecordFindByIDResult{Error: err}
 	}
-	return RecordFindByIDResult{
-		OK:     true,
-		Record: record.FromDB(outID, outHappened, outOffset, outNum, outText, outTags, outObj, outSubj),
-	}
+	return RecordFindByIDResult{OK: true, Record: record.FromDB(row)}
 }
 
 type RecordTransitionResult struct {
@@ -81,34 +73,20 @@ type RecordSaveResult struct {
 	Error  error
 }
 
-// Save 单条 INSERT + RETURNING 完整行。rec.HappenedAt 为带区 ISO（领域对象 = 对外形状），
-// 持久化转换（带区串 → 瞬间 + 隐列）在此内部完成（draft.ParseHappenedAt）。
-func (r *RecordRepository) Save(ctx context.Context, rec record.Record) RecordSaveResult {
-	happenedAt, utcOffset, err := draft.ParseHappenedAt(rec.HappenedAt)
-	if err != nil {
-		return RecordSaveResult{Error: err}
-	}
-	tagsJSON, err := record.TagsJSON(rec.Tags)
-	if err != nil {
-		return RecordSaveResult{Error: err}
-	}
-	var (
-		outID, outTags, outObj, outOffset string
-		outHappened                       time.Time
-		outNum, outText, outSubj          *string
-	)
-	err = r.q.QueryRow(ctx, `
+// Save 单条 INSERT + RETURNING 完整行。row 为 DB 直接映射（time.Time + utc_offset + tags JSON 字符串），
+// SQL 直接消费，零时间字符串转换；返回领域 Record（FromDB）。
+func (r *RecordRepository) Save(ctx context.Context, row record.DBRow) RecordSaveResult {
+	var out record.DBRow
+	err := r.q.QueryRow(ctx, `
 INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
 RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags
-`, rec.ID, happenedAt, utcOffset, rec.NumericValue, rec.RawContent, rec.ObjectiveContext, rec.AiAnalysis, tagsJSON).Scan(
-		&outID, &outHappened, &outOffset, &outNum, &outText, &outObj, &outSubj, &outTags,
+`, row.ID, row.HappenedAt, row.UtcOffset, row.NumericValue, row.RawContent, row.ObjectiveContext, row.AiAnalysis, row.Tags).Scan(
+		&out.ID, &out.HappenedAt, &out.UtcOffset, &out.NumericValue,
+		&out.RawContent, &out.ObjectiveContext, &out.AiAnalysis, &out.Tags,
 	)
 	if err != nil {
 		return RecordSaveResult{Error: err}
 	}
-	return RecordSaveResult{
-		OK:     true,
-		Record: record.FromDB(outID, outHappened, outOffset, outNum, outText, outTags, outObj, outSubj),
-	}
+	return RecordSaveResult{OK: true, Record: record.FromDB(out)}
 }
