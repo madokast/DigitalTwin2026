@@ -79,7 +79,7 @@ func TestParseTransactionBatchRejectsMissingType(t *testing.T) {
 
 func TestParseTransactionBatchSharedMoneyAmountFixtures(t *testing.T) {
 	cases := loadMoneyAmountCases(t)
-	if cases.InvalidAmountError != ErrInvalidAmount.Error() {
+	if cases.InvalidAmountError != ErrInvalidAmount {
 		t.Fatalf("fixture invalidAmountError %q != const %q", cases.InvalidAmountError, ErrInvalidAmount)
 	}
 	for _, c := range cases.Accept {

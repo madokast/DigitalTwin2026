@@ -12,15 +12,15 @@ func TestRejectUnknownObjectKeys(t *testing.T) {
 	if err := jsonutil.RejectUnknownObjectKeys([]byte(`{"a":1}`), allowed); err != nil {
 		t.Fatal(err)
 	}
-	err := jsonutil.RejectUnknownObjectKeys([]byte(`{"a":1,"z":9}`), allowed)
-	if err == nil || !strings.HasPrefix(err.Error(), jsonutil.UnknownJSONKeyPrefix) {
-		t.Fatalf("got %v", err)
+	me := jsonutil.RejectUnknownObjectKeys([]byte(`{"a":1,"z":9}`), allowed)
+	if me == nil || !strings.HasPrefix(me.Message, jsonutil.UnknownJSONKeyPrefix) {
+		t.Fatalf("got %v", me)
 	}
-	if err.Error() != jsonutil.UnknownJSONKeyPrefix+"z" {
-		t.Fatalf("got %q", err.Error())
+	if me.Message != jsonutil.UnknownJSONKeyPrefix+"z" {
+		t.Fatalf("got %q", me.Message)
 	}
-	err = jsonutil.RejectUnknownObjectKeys([]byte(`[]`), allowed)
-	if err != jsonutil.ErrBodyMustBeObject {
-		t.Fatalf("got %v", err)
+	me = jsonutil.RejectUnknownObjectKeys([]byte(`[]`), allowed)
+	if me == nil || me.Message != jsonutil.ErrBodyMustBeObject {
+		t.Fatalf("got %v", me)
 	}
 }

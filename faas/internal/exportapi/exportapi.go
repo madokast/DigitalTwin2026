@@ -22,8 +22,8 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/recordjsonl"
 )
 
-// ErrExportLimitError 与 Next EXPORT_LIMIT_ERROR 同文案。
-var ErrExportLimitError = errors.New("limit must be an integer between 1 and 1000")
+// ErrExportLimitError 与 Next EXPORT_LIMIT_ERROR 同文案（数据/格式问题 → 400）。
+const ErrExportLimitError = "limit must be an integer between 1 and 1000"
 
 // ErrExportFromNotFound 与 Next EXPORT_FROM_NOT_FOUND 同文案。
 var ErrExportFromNotFound = errors.New("export from id not found")
@@ -36,18 +36,18 @@ type ParsedExport struct {
 	Limit int
 }
 
-func parseRequiredLimit(raw string) (int, error) {
+func parseRequiredLimit(raw string) (int, *myerr.MyError) {
 	if raw == "" || !digitsOnly.MatchString(raw) {
-		return 0, ErrExportLimitError
+		return 0, myerr.NewValidation(ErrExportLimitError)
 	}
 	n, err := strconv.Atoi(raw)
 	if err != nil || n < 1 || n > 1000 {
-		return 0, ErrExportLimitError
+		return 0, myerr.NewValidation(ErrExportLimitError)
 	}
 	// 与 Next Number.MAX_SAFE_INTEGER 对齐
 	const maxSafeInt = 9007199254740991
 	if n > maxSafeInt {
-		return 0, ErrExportLimitError
+		return 0, myerr.NewValidation(ErrExportLimitError)
 	}
 	return n, nil
 }
@@ -55,9 +55,9 @@ func parseRequiredLimit(raw string) (int, error) {
 // ParseExportRecordsParams 解析导出 query；失败可映射为 400。
 // ParseExportRecordsParams 校验导出参数（400 类 myerr）；from 不存在由 FetchExportRecords 返 404。
 func ParseExportRecordsParams(q url.Values) (*ParsedExport, *myerr.MyError) {
-	limit, err := parseRequiredLimit(q.Get("limit"))
-	if err != nil {
-		return nil, myerr.NewValidation(err.Error())
+	limit, me := parseRequiredLimit(q.Get("limit"))
+	if me != nil {
+		return nil, me
 	}
 	from := q.Get("from")
 	if from == "" {

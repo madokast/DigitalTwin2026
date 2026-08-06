@@ -48,9 +48,9 @@ FROM records WHERE id = $1
 // Transition 只 UPDATE tags（WHERE id）；RowsAffected != 1 → 内部错误（D7：并发竞态文案含实际行数）。
 // 领域规则（四态/审计/组装）在业务层；审计行由业务层调 Save 插入。nil = 成功。
 func (r *RecordRepository) Transition(ctx context.Context, q db.Executor, id string, tags []string) *myerr.MyError {
-	tagsJSON, err := record.TagsJSON(tags)
-	if err != nil {
-		return myerr.NewInternal(err)
+	tagsJSON, me := record.TagsJSON(tags)
+	if me != nil {
+		return me
 	}
 	ct, err := q.Exec(ctx, `UPDATE records SET tags = $1 WHERE id = $2`, tagsJSON, id)
 	if err != nil {
@@ -66,16 +66,17 @@ func (r *RecordRepository) Transition(ctx context.Context, q db.Executor, id str
 // 请求串，Repository 内 ParseHappenedAt 解析落库——接受两次解析成本）；
 // 返回规范化领域 Record（FromDB）——业务层唯一使用的 happened_at 来源。
 func (r *RecordRepository) Save(ctx context.Context, q db.Executor, rec record.Record) (record.Record, *myerr.MyError) {
-	happenedAt, utcOffset, err := draft.ParseHappenedAt(rec.HappenedAt)
-	if err != nil {
-		return record.Record{}, myerr.NewInternal(err)
+	happenedAt, utcOffset, me := draft.ParseHappenedAt(rec.HappenedAt)
+	if me != nil {
+		// 数据/格式问题 → 400 透传（业务层已校验，不可达防御；非第三方库错误）
+		return record.Record{}, me
 	}
-	tagsJSON, err := record.TagsJSON(rec.Tags)
-	if err != nil {
-		return record.Record{}, myerr.NewInternal(err)
+	tagsJSON, me := record.TagsJSON(rec.Tags)
+	if me != nil {
+		return record.Record{}, me
 	}
 	var out record.DBRow
-	err = q.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
 RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags

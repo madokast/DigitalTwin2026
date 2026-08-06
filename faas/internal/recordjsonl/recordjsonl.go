@@ -8,6 +8,7 @@ import (
 
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/utcoffset"
@@ -64,13 +65,14 @@ func FormatLineError(message string, lineNumber int) string {
 	return message
 }
 
-func wrapErr(message string, lineNumber int) error {
-	return fmt.Errorf("%s", FormatLineError(message, lineNumber))
+func wrapErr(message string, lineNumber int) *myerr.MyError {
+	// 行格式错误 = 数据/格式问题 → 400（import 请求内容错误）
+	return myerr.NewValidation(FormatLineError(message, lineNumber))
 }
 
 // ParseLine 解析一行 JSONL（可含前导 BOM；首尾空白 trim）。
 // lineNumber：传 >=1 时错误带 `line N: ` 前缀；传 0 表示不带行号。
-func ParseLine(rawLine string, lineNumber int) (*Row, error) {
+func ParseLine(rawLine string, lineNumber int) (*Row, *myerr.MyError) {
 	line := strings.TrimPrefix(rawLine, utf8BOM)
 	line = strings.TrimSpace(line)
 	if line == "" {
@@ -78,16 +80,16 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	}
 
 	raw := []byte(line)
-	if err := jsonutil.RejectUnknownObjectKeys(raw, RecordJSONLKeys); err != nil {
-		msg := err.Error()
-		if msg == jsonutil.ErrInvalidJSONBody.Error() {
+	if me := jsonutil.RejectUnknownObjectKeys(raw, RecordJSONLKeys); me != nil {
+		msg := me.Message
+		if msg == jsonutil.ErrInvalidJSONBody {
 			msg = InvalidJSONLine
 		}
 		return nil, wrapErr(msg, lineNumber)
 	}
 
 	var m map[string]any
-	if err := jsonutil.DecodeUseNumber(raw, &m); err != nil {
+	if me := jsonutil.DecodeUseNumber(raw, &m); me != nil {
 		return nil, wrapErr(InvalidJSONLine, lineNumber)
 	}
 
@@ -107,14 +109,14 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	}
 
 	happenedRaw, _ := m["happened_at"].(string)
-	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedRaw)
-	if err != nil {
-		return nil, wrapErr(err.Error(), lineNumber)
+	happenedAt, utcOffset, me := draft.ParseHappenedAt(happenedRaw)
+	if me != nil {
+		return nil, wrapErr(me.Message, lineNumber)
 	}
 
-	numericValue, err := draft.ParseNumericValue(m["numeric_value"])
-	if err != nil {
-		return nil, wrapErr(err.Error(), lineNumber)
+	numericValue, me := draft.ParseNumericValue(m["numeric_value"])
+	if me != nil {
+		return nil, wrapErr(me.Message, lineNumber)
 	}
 
 	var rawContent *string
@@ -123,9 +125,9 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 		if !ok {
 			return nil, wrapErr("invalid raw_content", lineNumber)
 		}
-		t, err := draft.RequireTrimmedText(s, "raw_content")
-		if err != nil {
-			return nil, wrapErr(err.Error(), lineNumber)
+		t, me := draft.RequireTrimmedText(s, "raw_content")
+		if me != nil {
+			return nil, wrapErr(me.Message, lineNumber)
 		}
 		rawContent = &t
 	}
@@ -159,14 +161,14 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 	}
 	// 故意不调用 AssertNoReservedTags（见包注释）
 
-	objCtx, err := draft.RequireTrimmedText(m["objective_context"], "objective_context")
-	if err != nil {
-		return nil, wrapErr(err.Error(), lineNumber)
+	objCtx, me := draft.RequireTrimmedText(m["objective_context"], "objective_context")
+	if me != nil {
+		return nil, wrapErr(me.Message, lineNumber)
 	}
 
-	aiAnalysis, err := draft.OptionalTrimmedNullable(m["ai_analysis"], "ai_analysis")
-	if err != nil {
-		return nil, wrapErr(err.Error(), lineNumber)
+	aiAnalysis, me := draft.OptionalTrimmedNullable(m["ai_analysis"], "ai_analysis")
+	if me != nil {
+		return nil, wrapErr(me.Message, lineNumber)
 	}
 
 	return &Row{
@@ -183,7 +185,7 @@ func ParseLine(rawLine string, lineNumber int) (*Row, error) {
 
 // SerializeLine 领域行 → 一行 JSONL（无尾换行；happened_at 按 utc_offset 带区；tags 数组）。
 // 键序固定，与 Next serializeLine 一致。
-func SerializeLine(row *Row) (string, error) {
+func SerializeLine(row *Row) (string, *myerr.MyError) {
 	happenedAt, err := utcoffset.FormatHappenedAt(row.HappenedAt, row.UtcOffset)
 	if err != nil {
 		// 隐列损坏时仍可序列化；正常路径有写入校验
@@ -202,7 +204,7 @@ func SerializeLine(row *Row) (string, error) {
 }
 
 // SerializeRecord 已是 API Record 形状时直接序列化（导出路径）。
-func SerializeRecord(rec record.Record) (string, error) {
+func SerializeRecord(rec record.Record) (string, *myerr.MyError) {
 	// 用手写 map 保键序（encoding/json 对 struct 按字段声明序，与 Next 对象字面量一致）
 	b, err := json.Marshal(orderedRecord{
 		ID:               rec.ID,
@@ -214,7 +216,8 @@ func SerializeRecord(rec record.Record) (string, error) {
 		AiAnalysis:       rec.AiAnalysis,
 	})
 	if err != nil {
-		return "", err
+		// 数据/格式问题 → 400（非第三方库错误）
+		return "", myerr.NewValidation(err.Error())
 	}
 	return string(b), nil
 }

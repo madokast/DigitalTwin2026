@@ -90,7 +90,7 @@ func TestCreateTransactionBatchRejectsZeroAmount(t *testing.T) {
 	if err == nil {
 		t.Fatal("want error")
 	}
-	want := "entries[0]: " + transactiondraft.ErrInvalidAmount.Error()
+	want := "entries[0]: " + transactiondraft.ErrInvalidAmount
 	if err.Error() != want {
 		t.Fatalf("err=%v", err)
 	}

@@ -2,12 +2,12 @@
 package tododraft
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 )
@@ -238,37 +238,37 @@ func isValidTodoState(s string) bool {
 }
 
 // ParseTodoTransition 校验 transition 请求体。
-func ParseTodoTransition(raw []byte) (NormalizedTodoTransition, error) {
-	if err := jsonutil.RejectUnknownObjectKeys(raw, logTodoTransitionKeys); err != nil {
-		return NormalizedTodoTransition{}, err
+func ParseTodoTransition(raw []byte) (NormalizedTodoTransition, *myerr.MyError) {
+	if me := jsonutil.RejectUnknownObjectKeys(raw, logTodoTransitionKeys); me != nil {
+		return NormalizedTodoTransition{}, me
 	}
 	var body LogTodoTransitionBody
-	if err := jsonutil.DecodeUseNumber(raw, &body); err != nil {
-		return NormalizedTodoTransition{}, err
+	if me := jsonutil.DecodeUseNumber(raw, &body); me != nil {
+		return NormalizedTodoTransition{}, me
 	}
 
 	id, ok := body.ID.(string)
 	if !ok || id == "" {
-		return NormalizedTodoTransition{}, fmt.Errorf("missing required field: id")
+		return NormalizedTodoTransition{}, myerr.NewValidation("missing required field: id")
 	}
 
 	if body.Target == nil {
-		return NormalizedTodoTransition{}, fmt.Errorf("missing required field: target")
+		return NormalizedTodoTransition{}, myerr.NewValidation("missing required field: target")
 	}
 	target, ok := body.Target.(string)
 	if !ok || target == "" {
 		if !ok {
-			return NormalizedTodoTransition{}, errors.New(ErrInvalidTarget)
+			return NormalizedTodoTransition{}, myerr.NewValidation(ErrInvalidTarget)
 		}
-		return NormalizedTodoTransition{}, fmt.Errorf("missing required field: target")
+		return NormalizedTodoTransition{}, myerr.NewValidation("missing required field: target")
 	}
 	if !isValidTodoState(target) {
-		return NormalizedTodoTransition{}, errors.New(ErrInvalidTarget)
+		return NormalizedTodoTransition{}, myerr.NewValidation(ErrInvalidTarget)
 	}
 
 	createdAt := happenedAtString(body.HappenedAt)
-	if err := draft.ValidateHappenedAt(createdAt); err != nil {
-		return NormalizedTodoTransition{}, err
+	if me := draft.ValidateHappenedAt(createdAt); me != nil {
+		return NormalizedTodoTransition{}, me
 	}
 
 	return NormalizedTodoTransition{
@@ -283,19 +283,19 @@ func happenedAtString(raw any) string {
 	return s
 }
 
-func parseCreatedAt(raw any) (string, error) {
+func parseCreatedAt(raw any) (string, *myerr.MyError) {
 	s, ok := raw.(string)
 	if !ok || s == "" {
-		return "", fmt.Errorf("missing required field: created_at")
+		return "", myerr.NewValidation("missing required field: created_at")
 	}
-	if err := draft.ValidateHappenedAt(s); err != nil {
-		msg := strings.ReplaceAll(err.Error(), "happened_at", "created_at")
-		return "", fmt.Errorf("%s", msg)
+	if me := draft.ValidateHappenedAt(s); me != nil {
+		msg := strings.ReplaceAll(me.Message, "happened_at", "created_at")
+		return "", myerr.NewValidation(msg)
 	}
 	return s, nil
 }
 
-func parseOptionalClientTags(raw any) ([]string, error) {
+func parseOptionalClientTags(raw any) ([]string, *myerr.MyError) {
 	if raw == nil {
 		return []string{}, nil
 	}
@@ -307,7 +307,7 @@ func parseOptionalClientTags(raw any) ([]string, error) {
 				tagList[i] = t
 			}
 		} else {
-			return nil, fmt.Errorf("tags must be an array of strings")
+			return nil, myerr.NewValidation("tags must be an array of strings")
 		}
 	}
 	if len(tagList) == 0 {
@@ -317,56 +317,56 @@ func parseOptionalClientTags(raw any) ([]string, error) {
 	for _, item := range tagList {
 		s, ok := item.(string)
 		if !ok {
-			return nil, fmt.Errorf("tags must be an array of strings")
+			return nil, myerr.NewValidation("tags must be an array of strings")
 		}
 		out = append(out, s)
 	}
 	for _, tag := range out {
 		if !tags.IsValidTag(tag) {
-			return nil, fmt.Errorf(
+			return nil, myerr.NewValidation(fmt.Sprintf(
 				`invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number`,
 				tag,
-			)
+			))
 		}
 	}
 	if rv := tags.AssertNoReservedTags(out); !rv.Valid {
-		return nil, fmt.Errorf("%s", rv.Error)
+		return nil, myerr.NewValidation(rv.Error)
 	}
 	if dup := tags.FirstDuplicateTag(out); dup != "" {
-		return nil, fmt.Errorf("duplicate tag \"%s\"", dup)
+		return nil, myerr.NewValidation(fmt.Sprintf("duplicate tag \"%s\"", dup))
 	}
 	return out, nil
 }
 
 // ParseTodo 校验整单待办创建请求；落库 tags = [todo:in_progress, ...clientTags]。
-func ParseTodo(raw []byte) (NormalizedTodo, error) {
-	if err := jsonutil.RejectUnknownObjectKeys(raw, logTodoKeys); err != nil {
-		return NormalizedTodo{}, err
+func ParseTodo(raw []byte) (NormalizedTodo, *myerr.MyError) {
+	if me := jsonutil.RejectUnknownObjectKeys(raw, logTodoKeys); me != nil {
+		return NormalizedTodo{}, me
 	}
 	var body LogTodoBody
-	if err := jsonutil.DecodeUseNumber(raw, &body); err != nil {
-		return NormalizedTodo{}, err
+	if me := jsonutil.DecodeUseNumber(raw, &body); me != nil {
+		return NormalizedTodo{}, me
 	}
 
-	createdAtRaw, err := parseCreatedAt(body.CreatedAt)
-	if err != nil {
-		return NormalizedTodo{}, err
+	createdAtRaw, me := parseCreatedAt(body.CreatedAt)
+	if me != nil {
+		return NormalizedTodo{}, me
 	}
-	content, err := draft.RequireTrimmedText(body.Content, "content")
-	if err != nil {
-		return NormalizedTodo{}, err
+	content, me := draft.RequireTrimmedText(body.Content, "content")
+	if me != nil {
+		return NormalizedTodo{}, me
 	}
-	objCtx, err := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
-	if err != nil {
-		return NormalizedTodo{}, err
+	objCtx, me := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
+	if me != nil {
+		return NormalizedTodo{}, me
 	}
-	subj, err := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
-	if err != nil {
-		return NormalizedTodo{}, err
+	subj, me := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
+	if me != nil {
+		return NormalizedTodo{}, me
 	}
-	clientTags, err := parseOptionalClientTags(body.Tags)
-	if err != nil {
-		return NormalizedTodo{}, err
+	clientTags, me := parseOptionalClientTags(body.Tags)
+	if me != nil {
+		return NormalizedTodo{}, me
 	}
 
 	tagsOut := make([]string, 0, 1+len(clientTags))

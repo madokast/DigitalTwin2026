@@ -32,8 +32,8 @@ const ReservedTagReview = "review"
 // （端点改名/新增不会过时；与 TS RESERVED_TAG_HINT 同句）。
 const reservedTagHint = "use the dedicated log API for this record type"
 
-// ErrTagsNotJSONArray 与 TS TAGS_NOT_JSON_ARRAY 同文案：根不是 JSON 数组。
-var ErrTagsNotJSONArray = errors.New("tags field is not a JSON array")
+// ErrTagsNotJSONArray 与 TS TAGS_NOT_JSON_ARRAY 同文案：根不是 JSON 数组（DB 脏数据 → 500）。
+const ErrTagsNotJSONArray = "tags field is not a JSON array"
 
 // TransactionEntryTypeTag 组装落库用类型 tag。
 func TransactionEntryTypeTag(typ string) string {
@@ -121,15 +121,15 @@ func ValidateRename(from, to string) ValidationResult {
 	return ValidationResult{Valid: true}
 }
 
-// parseTagsJSONArray 解析 records.tags；非法 JSON 返回 err；根非数组返回 ErrTagsNotJSONArray。
-func parseTagsJSONArray(tagsJSON string) ([]any, error) {
+// parseTagsJSONArray 解析 records.tags；非法 JSON / 根非数组 = DB 脏数据（内部错误 500，非客户端请求问题）。
+func parseTagsJSONArray(tagsJSON string) ([]any, *myerr.MyError) {
 	var raw any
 	if err := json.Unmarshal([]byte(tagsJSON), &raw); err != nil {
-		return nil, err
+		return nil, myerr.NewInternal(err)
 	}
 	arr, ok := raw.([]any)
 	if !ok {
-		return nil, ErrTagsNotJSONArray
+		return nil, myerr.NewInternal(errors.New(ErrTagsNotJSONArray))
 	}
 	return arr, nil
 }
@@ -143,12 +143,12 @@ type TagCount struct {
 // AggregateTagCounts 汇总 tag 出现次数，按「计数降序、同名 tag 升序」返回。
 // prefix 非空时仅保留 strings.HasPrefix(tag, prefix) 的 tag（真前缀，自动补全语义）。
 // 非法 JSON / 非数组返回 error（HTTP 映射 500）。
-func AggregateTagCounts(tagFields []string, prefix string) ([]TagCount, error) {
+func AggregateTagCounts(tagFields []string, prefix string) ([]TagCount, *myerr.MyError) {
 	counts := map[string]int{}
 	for _, field := range tagFields {
-		parsed, err := parseTagsJSONArray(field)
-		if err != nil {
-			return nil, err
+		parsed, me := parseTagsJSONArray(field)
+		if me != nil {
+			return nil, me
 		}
 		for _, item := range parsed {
 			tag, ok := item.(string)
@@ -228,9 +228,9 @@ func renameAcrossQuerier(ctx context.Context, q db.Executor, from, to string) (i
 
 	updated := 0
 	for _, r := range list {
-		next, ok, err := RenameTagInTagsJSON(r.tags, from, to)
-		if err != nil {
-			return 0, myerr.NewInternal(err)
+		next, ok, me := RenameTagInTagsJSON(r.tags, from, to)
+		if me != nil {
+			return 0, me
 		}
 		if !ok {
 			continue
@@ -246,10 +246,10 @@ func renameAcrossQuerier(ctx context.Context, q db.Executor, from, to string) (i
 // RenameTagInTagsJSON renames from→to in a tags JSON array.
 // Returns ("", false) when from is absent; dedupes keeping first occurrence order.
 // 非法 JSON / 非数组返回 error。
-func RenameTagInTagsJSON(tagsJSON, from, to string) (string, bool, error) {
-	parsed, err := parseTagsJSONArray(tagsJSON)
-	if err != nil {
-		return "", false, err
+func RenameTagInTagsJSON(tagsJSON, from, to string) (string, bool, *myerr.MyError) {
+	parsed, me := parseTagsJSONArray(tagsJSON)
+	if me != nil {
+		return "", false, me
 	}
 
 	found := false
@@ -278,7 +278,8 @@ func RenameTagInTagsJSON(tagsJSON, from, to string) (string, bool, error) {
 	}
 	b, err := json.Marshal(next)
 	if err != nil {
-		return "", false, err
+		// 数据/格式问题 → 400（非第三方库错误）
+		return "", false, myerr.NewValidation(err.Error())
 	}
 	return string(b), true, nil
 }

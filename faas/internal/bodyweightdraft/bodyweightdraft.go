@@ -3,7 +3,6 @@ package bodyweightdraft
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/transactiondraft"
 )
@@ -62,29 +62,29 @@ func WeightCentsInRange(normalized2 string) bool {
 }
 
 // ParseWeightAmount 解析体重 numeric_value（trim 后校验；存 trim 后值）。
-func ParseWeightAmount(raw any) (string, error) {
+func ParseWeightAmount(raw any) (string, *myerr.MyError) {
 	if raw == nil {
-		return "", fmt.Errorf("missing required field: numeric_value")
+		return "", myerr.NewValidation("missing required field: numeric_value")
 	}
 	switch v := raw.(type) {
 	case string:
 		trimmed := strings.TrimSpace(v)
 		if !weightAmountPattern.MatchString(trimmed) {
-			return "", errors.New(ErrInvalidWeight)
+			return "", myerr.NewValidation(ErrInvalidWeight)
 		}
 		stored := transactiondraft.NormalizeMoneyAmount(trimmed)
 		if !WeightCentsInRange(stored) {
-			return "", errors.New(ErrInvalidWeight)
+			return "", myerr.NewValidation(ErrInvalidWeight)
 		}
 		return stored, nil
 	case float64, json.Number:
-		return "", errors.New(draft.ErrNumericValueMustBeString)
+		return "", myerr.NewValidation(draft.ErrNumericValueMustBeString)
 	default:
-		return "", errors.New(ErrInvalidWeight)
+		return "", myerr.NewValidation(ErrInvalidWeight)
 	}
 }
 
-func parseOptionalClientTags(raw any) ([]string, error) {
+func parseOptionalClientTags(raw any) ([]string, *myerr.MyError) {
 	if raw == nil {
 		return []string{}, nil
 	}
@@ -96,7 +96,7 @@ func parseOptionalClientTags(raw any) ([]string, error) {
 				tagList[i] = t
 			}
 		} else {
-			return nil, fmt.Errorf("tags must be an array of strings")
+			return nil, myerr.NewValidation("tags must be an array of strings")
 		}
 	}
 	if len(tagList) == 0 {
@@ -106,23 +106,23 @@ func parseOptionalClientTags(raw any) ([]string, error) {
 	for _, item := range tagList {
 		s, ok := item.(string)
 		if !ok {
-			return nil, fmt.Errorf("tags must be an array of strings")
+			return nil, myerr.NewValidation("tags must be an array of strings")
 		}
 		out = append(out, s)
 	}
 	for _, tag := range out {
 		if !tags.IsValidTag(tag) {
-			return nil, fmt.Errorf(
+			return nil, myerr.NewValidation(fmt.Sprintf(
 				`invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number`,
 				tag,
-			)
+			))
 		}
 	}
 	if rv := tags.AssertNoReservedTags(out); !rv.Valid {
-		return nil, fmt.Errorf("%s", rv.Error)
+		return nil, myerr.NewValidation(rv.Error)
 	}
 	if dup := tags.FirstDuplicateTag(out); dup != "" {
-		return nil, fmt.Errorf("duplicate tag \"%s\"", dup)
+		return nil, myerr.NewValidation(fmt.Sprintf("duplicate tag \"%s\"", dup))
 	}
 	return out, nil
 }
@@ -133,34 +133,34 @@ func happenedAtString(raw any) string {
 }
 
 // ParseBodyWeight 校验整单体重请求；落库 tags = [body:weight, ...clientTags]。
-func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, error) {
-	if err := jsonutil.RejectUnknownObjectKeys(raw, logBodyWeightKeys); err != nil {
-		return NormalizedBodyWeight{}, err
+func ParseBodyWeight(raw []byte) (NormalizedBodyWeight, *myerr.MyError) {
+	if me := jsonutil.RejectUnknownObjectKeys(raw, logBodyWeightKeys); me != nil {
+		return NormalizedBodyWeight{}, me
 	}
 	var body LogBodyWeightBody
-	if err := jsonutil.DecodeUseNumber(raw, &body); err != nil {
-		return NormalizedBodyWeight{}, err
+	if me := jsonutil.DecodeUseNumber(raw, &body); me != nil {
+		return NormalizedBodyWeight{}, me
 	}
 
 	happenedRaw := happenedAtString(body.HappenedAt)
-	if err := draft.ValidateHappenedAt(happenedRaw); err != nil {
-		return NormalizedBodyWeight{}, err
+	if me := draft.ValidateHappenedAt(happenedRaw); me != nil {
+		return NormalizedBodyWeight{}, me
 	}
-	numericValue, err := ParseWeightAmount(body.NumericValue)
-	if err != nil {
-		return NormalizedBodyWeight{}, err
+	numericValue, me := ParseWeightAmount(body.NumericValue)
+	if me != nil {
+		return NormalizedBodyWeight{}, me
 	}
-	objCtx, err := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
-	if err != nil {
-		return NormalizedBodyWeight{}, err
+	objCtx, me := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
+	if me != nil {
+		return NormalizedBodyWeight{}, me
 	}
-	subj, err := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
-	if err != nil {
-		return NormalizedBodyWeight{}, err
+	subj, me := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
+	if me != nil {
+		return NormalizedBodyWeight{}, me
 	}
-	clientTags, err := parseOptionalClientTags(body.Tags)
-	if err != nil {
-		return NormalizedBodyWeight{}, err
+	clientTags, me := parseOptionalClientTags(body.Tags)
+	if me != nil {
+		return NormalizedBodyWeight{}, me
 	}
 
 	tagsOut := make([]string, 0, 1+len(clientTags))

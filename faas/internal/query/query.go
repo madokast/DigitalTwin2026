@@ -3,6 +3,7 @@ package query
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -393,9 +394,9 @@ func FetchTagCounts(ctx context.Context, pool *pgxpool.Pool, prefix string) ([]t
 	if err := rows.Err(); err != nil {
 		return nil, myerr.NewInternal(err)
 	}
-	counts, err := tags.AggregateTagCounts(fields, prefix)
-	if err != nil {
-		return nil, myerr.NewInternal(err)
+	counts, me := tags.AggregateTagCounts(fields, prefix)
+	if me != nil {
+		return nil, me
 	}
 	return counts, nil
 }
@@ -635,7 +636,7 @@ func AggregateTransactionsSummary(rows []TransactionsSummaryRow, fromRaw, toRaw 
 		}
 		arr, ok := parsed.([]any)
 		if !ok {
-			return nil, myerr.NewInternal(tags.ErrTagsNotJSONArray)
+			return nil, myerr.NewInternal(errors.New(tags.ErrTagsNotJSONArray))
 		}
 		tagList := make([]string, 0, len(arr))
 		for _, item := range arr {

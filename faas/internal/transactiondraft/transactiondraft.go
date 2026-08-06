@@ -3,13 +3,13 @@ package transactiondraft
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 )
 
@@ -20,9 +20,9 @@ var segmentPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 // 金额形态：可选负号、整数至多 12 位或至多两位小数；禁 +、空格、残缺点、前导零；绝对值 ≤ 999999999999.99
 var moneyAmountPattern = regexp.MustCompile(`^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$`)
 
-var (
+const (
 	ErrAmountMustBeString = "amount must be a decimal string"
-	ErrInvalidAmount      = errors.New("invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5")
+	ErrInvalidAmount      = "invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5"
 )
 
 // TransactionEntryInput 单条 entry 原始输入（any：字段级校验文案与 Next 对齐）。
@@ -138,61 +138,61 @@ func NormalizeMoneyAmount(s string) string {
 	return intPart + "." + fracPart
 }
 
-func parseType(raw any) (string, error) {
+func parseType(raw any) (string, *myerr.MyError) {
 	if raw == nil || raw == "" {
-		return "", fmt.Errorf("missing required field: type")
+		return "", myerr.NewValidation("missing required field: type")
 	}
 	s, ok := raw.(string)
 	if !ok || (s != "income" && s != "expense") {
-		return "", fmt.Errorf(`type must be "income" or "expense"`)
+		return "", myerr.NewValidation(`type must be "income" or "expense"`)
 	}
 	return s, nil
 }
 
-func parseAmount(raw any) (string, error) {
+func parseAmount(raw any) (string, *myerr.MyError) {
 	if raw == nil {
-		return "", fmt.Errorf("missing required field: amount")
+		return "", myerr.NewValidation("missing required field: amount")
 	}
 	switch v := raw.(type) {
 	case string:
 		trimmed := strings.TrimSpace(v)
 		if !moneyAmountPattern.MatchString(trimmed) {
-			return "", fmt.Errorf("%w", ErrInvalidAmount)
+			return "", myerr.NewValidation(ErrInvalidAmount)
 		}
 		if IsZeroDecimalLiteral(trimmed) {
-			return "", fmt.Errorf("%w", ErrInvalidAmount)
+			return "", myerr.NewValidation(ErrInvalidAmount)
 		}
 		return NormalizeMoneyAmount(trimmed), nil
 	case float64, json.Number:
-		return "", errors.New(ErrAmountMustBeString)
+		return "", myerr.NewValidation(ErrAmountMustBeString)
 	default:
-		return "", fmt.Errorf("%w", ErrInvalidAmount)
+		return "", myerr.NewValidation(ErrInvalidAmount)
 	}
 }
 
-func parseSegment(raw any, field string) (string, error) {
+func parseSegment(raw any, field string) (string, *myerr.MyError) {
 	s, ok := raw.(string)
 	if !ok || s == "" {
-		return "", fmt.Errorf("missing required field: %s", field)
+		return "", myerr.NewValidation(fmt.Sprintf("missing required field: %s", field))
 	}
 	// 仅 ASCII 空白（与 Next /[ \t\n\r]/ 一致；不用 unicode.IsSpace）
 	if strings.ContainsAny(s, " \t\n\r") || strings.Contains(s, ":") || !segmentPattern.MatchString(s) {
-		return "", fmt.Errorf("invalid %s: must be a single identifier without spaces or colons", field)
+		return "", myerr.NewValidation(fmt.Sprintf("invalid %s: must be a single identifier without spaces or colons", field))
 	}
 	return s, nil
 }
 
-func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, error) {
+func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, *myerr.MyError) {
 	prefix := fmt.Sprintf("entries[%d]: ", index)
 	if raw == nil {
-		return NormalizedTransactionEntry{}, fmt.Errorf("entries[%d] must be an object", index)
+		return NormalizedTransactionEntry{}, myerr.NewValidation(fmt.Sprintf("entries[%d] must be an object", index))
 	}
 	m, ok := raw.(map[string]any)
 	if !ok {
-		return NormalizedTransactionEntry{}, fmt.Errorf("entries[%d] must be an object", index)
+		return NormalizedTransactionEntry{}, myerr.NewValidation(fmt.Sprintf("entries[%d] must be an object", index))
 	}
-	if err := jsonutil.RejectUnknownMapKeys(m, transactionEntryKeys, prefix); err != nil {
-		return NormalizedTransactionEntry{}, err
+	if me := jsonutil.RejectUnknownMapKeys(m, transactionEntryKeys, prefix); me != nil {
+		return NormalizedTransactionEntry{}, me
 	}
 	entry := TransactionEntryInput{
 		Amount:      m["amount"],
@@ -200,25 +200,25 @@ func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, err
 		Category:    m["category"],
 		Subcategory: m["subcategory"],
 	}
-	amount, err := parseAmount(entry.Amount)
-	if err != nil {
-		return NormalizedTransactionEntry{}, fmt.Errorf("%s%w", prefix, err)
+	amount, me := parseAmount(entry.Amount)
+	if me != nil {
+		return NormalizedTransactionEntry{}, myerr.NewValidation(fmt.Sprintf("%s%s", prefix, me.Message))
 	}
-	memo, err := draft.RequireTrimmedText(entry.Memo, "memo")
-	if err != nil {
-		return NormalizedTransactionEntry{}, fmt.Errorf("%s%w", prefix, err)
+	memo, me := draft.RequireTrimmedText(entry.Memo, "memo")
+	if me != nil {
+		return NormalizedTransactionEntry{}, myerr.NewValidation(fmt.Sprintf("%s%s", prefix, me.Message))
 	}
-	category, err := parseSegment(entry.Category, "category")
-	if err != nil {
-		return NormalizedTransactionEntry{}, fmt.Errorf("%s%w", prefix, err)
+	category, me := parseSegment(entry.Category, "category")
+	if me != nil {
+		return NormalizedTransactionEntry{}, myerr.NewValidation(fmt.Sprintf("%s%s", prefix, me.Message))
 	}
-	subcategory, err := parseSegment(entry.Subcategory, "subcategory")
-	if err != nil {
-		return NormalizedTransactionEntry{}, fmt.Errorf("%s%w", prefix, err)
+	subcategory, me := parseSegment(entry.Subcategory, "subcategory")
+	if me != nil {
+		return NormalizedTransactionEntry{}, myerr.NewValidation(fmt.Sprintf("%s%s", prefix, me.Message))
 	}
 	composite := category + ":" + subcategory
 	if !tags.IsValidTag(composite) {
-		return NormalizedTransactionEntry{}, fmt.Errorf("%sinvalid category/subcategory combination", prefix)
+		return NormalizedTransactionEntry{}, myerr.NewValidation(fmt.Sprintf("%sinvalid category/subcategory combination", prefix))
 	}
 	// 语义：type + 正 amount = 正常；type + 负 amount = 该类型冲销。
 	// 整单共用 type；落库 tags 含 transaction_entry:{type}。
@@ -231,41 +231,41 @@ func parseEntry(raw any, index int, typ string) (NormalizedTransactionEntry, err
 
 // ParseTransactionBatch 解析 POST /api/log/transactions body（含 UseNumber JSON 解码）。
 // 必填顶层 type（income|expense）；entries 长度 1..Max；amount 经 MoneyAmount（含绝对值上限）校验后规范为两位小数。
-func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, error) {
-	if err := jsonutil.RejectUnknownObjectKeys(raw, logTransactionsKeys); err != nil {
-		return NormalizedTransactionBatch{}, err
+func ParseTransactionBatch(raw []byte) (NormalizedTransactionBatch, *myerr.MyError) {
+	if me := jsonutil.RejectUnknownObjectKeys(raw, logTransactionsKeys); me != nil {
+		return NormalizedTransactionBatch{}, me
 	}
 	var body LogTransactionsBody
-	if err := jsonutil.DecodeUseNumber(raw, &body); err != nil {
-		return NormalizedTransactionBatch{}, err
+	if me := jsonutil.DecodeUseNumber(raw, &body); me != nil {
+		return NormalizedTransactionBatch{}, me
 	}
 	happenedRaw, _ := body.HappenedAt.(string)
-	if err := draft.ValidateHappenedAt(happenedRaw); err != nil {
-		return NormalizedTransactionBatch{}, err
+	if me := draft.ValidateHappenedAt(happenedRaw); me != nil {
+		return NormalizedTransactionBatch{}, me
 	}
-	typ, err := parseType(body.Type)
-	if err != nil {
-		return NormalizedTransactionBatch{}, err
+	typ, me := parseType(body.Type)
+	if me != nil {
+		return NormalizedTransactionBatch{}, me
 	}
 	if body.Entries == nil {
-		return NormalizedTransactionBatch{}, fmt.Errorf("missing required field: entries (non-empty array)")
+		return NormalizedTransactionBatch{}, myerr.NewValidation("missing required field: entries (non-empty array)")
 	}
 	entryList, ok := body.Entries.([]any)
 	if !ok {
-		return NormalizedTransactionBatch{}, fmt.Errorf("missing required field: entries (non-empty array)")
+		return NormalizedTransactionBatch{}, myerr.NewValidation("missing required field: entries (non-empty array)")
 	}
 	if len(entryList) == 0 {
-		return NormalizedTransactionBatch{}, fmt.Errorf("entries must be a non-empty array")
+		return NormalizedTransactionBatch{}, myerr.NewValidation("entries must be a non-empty array")
 	}
 	if len(entryList) > MaxTransactionEntries {
-		return NormalizedTransactionBatch{}, fmt.Errorf("entries must contain at most %d items", MaxTransactionEntries)
+		return NormalizedTransactionBatch{}, myerr.NewValidation(fmt.Sprintf("entries must contain at most %d items", MaxTransactionEntries))
 	}
 
 	entries := make([]NormalizedTransactionEntry, 0, len(entryList))
 	for i, e := range entryList {
-		ne, err := parseEntry(e, i, typ)
-		if err != nil {
-			return NormalizedTransactionBatch{}, err
+		ne, me := parseEntry(e, i, typ)
+		if me != nil {
+			return NormalizedTransactionBatch{}, me
 		}
 		entries = append(entries, ne)
 	}

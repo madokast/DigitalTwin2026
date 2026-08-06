@@ -199,9 +199,9 @@ func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	batch, err := numberdraft.ParseNumberBatch(raw)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	batch, me := numberdraft.ParseNumberBatch(raw)
+	if me != nil {
+		writeErr(w, me, "Error creating number records")
 		return
 	}
 	inserted, recs, me := logapi.CreateNumberBatch(r.Context(), s.Pool, batch)
@@ -221,9 +221,9 @@ func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	parsed, err := bodyweightdraft.ParseBodyWeight(raw)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	parsed, me := bodyweightdraft.ParseBodyWeight(raw)
+	if me != nil {
+		writeErr(w, me, "Error creating body weight record")
 		return
 	}
 	rec, me := logapi.CreateBodyWeight(r.Context(), s.Pool, parsed)
@@ -240,9 +240,9 @@ func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	parsed, err := tododraft.ParseTodo(raw)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	parsed, me := tododraft.ParseTodo(raw)
+	if me != nil {
+		writeErr(w, me, "Error creating to-do record")
 		return
 	}
 	rec, me := logapi.CreateTodo(r.Context(), s.Pool, parsed)
@@ -259,20 +259,20 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	parsed, err := tododraft.ParseTodoTransition(raw)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	parsed, me := tododraft.ParseTodoTransition(raw)
+	if me != nil {
+		writeErr(w, me, "Error transitioning to-do")
 		return
 	}
 	var result logapi.TransitionResult
-	var me *myerr.MyError
+	var me2 *myerr.MyError
 	if s.TransitionTodo != nil {
-		result, me = s.TransitionTodo(r.Context(), s.Pool, parsed)
+		result, me2 = s.TransitionTodo(r.Context(), s.Pool, parsed)
 	} else {
-		result, me = logapi.TransitionTodo(r.Context(), s.Pool, parsed)
+		result, me2 = logapi.TransitionTodo(r.Context(), s.Pool, parsed)
 	}
-	if me != nil {
-		writeErr(w, me, "Error transitioning to-do")
+	if me2 != nil {
+		writeErr(w, me2, "Error transitioning to-do")
 		return
 	}
 	// D6：恰好一次 notify，正文 = objective_context 句 + ": " + 原文
@@ -296,9 +296,9 @@ func (s *Server) handleLogReview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	parsed, err := reviewdraft.ParseReview(raw)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	parsed, me := reviewdraft.ParseReview(raw)
+	if me != nil {
+		writeErr(w, me, "Error creating review record")
 		return
 	}
 	rec, me := logapi.CreateReview(r.Context(), s.Pool, parsed)
@@ -315,9 +315,9 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	body, err := logapi.ParseTextBody(raw)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	body, me := logapi.ParseTextBody(raw)
+	if me != nil {
+		writeErr(w, me, "Error creating text record")
 		return
 	}
 	rec, me := logapi.CreateText(r.Context(), s.Pool, body)
@@ -334,9 +334,9 @@ func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	batch, err := transactiondraft.ParseTransactionBatch(raw)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	batch, me := transactiondraft.ParseTransactionBatch(raw)
+	if me != nil {
+		writeErr(w, me, "Error creating transaction records")
 		return
 	}
 	inserted, batchType, sum, recs, me := logapi.CreateTransactionBatch(r.Context(), s.Pool, batch)
@@ -368,8 +368,8 @@ func (s *Server) handleTelegramProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err == nil && len(raw) > 0 {
-		if err := jsonutil.RejectUnknownObjectKeys(raw, []string{"text"}); err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
+		if me := jsonutil.RejectUnknownObjectKeys(raw, []string{"text"}); me != nil {
+			writeErr(w, me, "notify")
 			return
 		}
 		var body struct {
@@ -403,8 +403,8 @@ func (s *Server) handleQqbotProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err == nil && len(raw) > 0 {
-		if err := jsonutil.RejectUnknownObjectKeys(raw, []string{"text"}); err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
+		if me := jsonutil.RejectUnknownObjectKeys(raw, []string{"text"}); me != nil {
+			writeErr(w, me, "notify")
 			return
 		}
 		var body struct {
@@ -458,9 +458,9 @@ func (s *Server) notify() *notify.Notifier {
 }
 
 func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
-	parsed, err := query.ParseRecordQueryParams(r.URL.Query())
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	parsed, me := query.ParseRecordQueryParams(r.URL.Query())
+	if me != nil {
+		writeErr(w, me, "query records")
 		return
 	}
 	result, me := query.FetchFilteredRecords(r.Context(), s.Pool, parsed)
@@ -528,9 +528,9 @@ func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTransactionsSummary(w http.ResponseWriter, r *http.Request) {
-	parsed, err := query.ParseTransactionsSummaryParams(r.URL.Query())
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	parsed, me := query.ParseTransactionsSummaryParams(r.URL.Query())
+	if me != nil {
+		writeErr(w, me, "query transaction summary")
 		return
 	}
 	result, err := query.FetchTransactionsSummary(
@@ -548,8 +548,8 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := jsonutil.RejectUnknownObjectKeys(raw, []string{"from", "to"}); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	if me := jsonutil.RejectUnknownObjectKeys(raw, []string{"from", "to"}); me != nil {
+		writeErr(w, me, "rename tags")
 		return
 	}
 	// any 字段：与 Next 对齐，非 string from/to 走 validateRename，而非 Invalid JSON body
@@ -583,20 +583,20 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
-	parsed, err := exportapi.ParseExportRecordsParams(r.URL.Query())
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	parsed, me := exportapi.ParseExportRecordsParams(r.URL.Query())
+	if me != nil {
+		writeErr(w, me, "export records")
 		return
 	}
 	var recs []record.Record
-	var me *myerr.MyError
+	var me2 *myerr.MyError
 	if s.FetchExportRecords != nil {
-		recs, me = s.FetchExportRecords(r.Context(), s.Pool, parsed)
+		recs, me2 = s.FetchExportRecords(r.Context(), s.Pool, parsed)
 	} else {
-		recs, me = exportapi.FetchExportRecords(r.Context(), s.Pool, parsed)
+		recs, me2 = exportapi.FetchExportRecords(r.Context(), s.Pool, parsed)
 	}
-	if me != nil {
-		writeErr(w, me, "Error exporting records")
+	if me2 != nil {
+		writeErr(w, me2, "Error exporting records")
 		return
 	}
 	body, serr := exportapi.BuildExportNdjson(recs)

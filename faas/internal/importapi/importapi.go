@@ -140,9 +140,9 @@ func importTextInTx(ctx context.Context, tx pgx.Tx, text string) (Counts, *myerr
 			return Counts{}, myerr.NewValidation(ErrImportLimitsError.Error())
 		}
 
-		row, err := recordjsonl.ParseLine(line, physicalLine)
-		if err != nil {
-			return Counts{}, myerr.NewValidation(err.Error())
+		row, me := recordjsonl.ParseLine(line, physicalLine)
+		if me != nil {
+			return Counts{}, me
 		}
 		if _, ok := seen[row.ID]; ok {
 			return Counts{}, myerr.NewValidation(FormatDuplicateIDError(row.ID, physicalLine))
@@ -184,12 +184,12 @@ func rowExists(ctx context.Context, q interface {
 	return exists, nil
 }
 
-func insertRow(ctx context.Context, tx pgx.Tx, row *recordjsonl.Row) error {
-	tagsJSON, err := record.TagsJSON(row.Tags)
-	if err != nil {
-		return myerr.NewInternal(err)
+func insertRow(ctx context.Context, tx pgx.Tx, row *recordjsonl.Row) *myerr.MyError {
+	tagsJSON, me := record.TagsJSON(row.Tags)
+	if me != nil {
+		return me
 	}
-	_, err = tx.Exec(ctx, `
+	_, err := tx.Exec(ctx, `
 INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
 `, row.ID, row.HappenedAt, row.UtcOffset, row.NumericValue, row.RawContent, tagsJSON, row.ObjectiveContext, row.AiAnalysis)
@@ -199,12 +199,12 @@ VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
 	return nil
 }
 
-func updateRow(ctx context.Context, tx pgx.Tx, row *recordjsonl.Row) error {
-	tagsJSON, err := record.TagsJSON(row.Tags)
-	if err != nil {
-		return myerr.NewInternal(err)
+func updateRow(ctx context.Context, tx pgx.Tx, row *recordjsonl.Row) *myerr.MyError {
+	tagsJSON, me := record.TagsJSON(row.Tags)
+	if me != nil {
+		return me
 	}
-	_, err = tx.Exec(ctx, `
+	_, err := tx.Exec(ctx, `
 UPDATE records SET
   happened_at = $1,
   utc_offset = $2,

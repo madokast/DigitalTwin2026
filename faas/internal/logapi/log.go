@@ -29,13 +29,13 @@ var logTextKeys = []string{
 
 // ParseTextBody 纯解析（reject unknown keys + decode，不校验语义）：route 层调用，
 // 产出的 typed body 传给 CreateText（业务层校验 + 落库）。
-func ParseTextBody(raw []byte) (TextBody, error) {
+func ParseTextBody(raw []byte) (TextBody, *myerr.MyError) {
 	var body TextBody
-	if err := jsonutil.RejectUnknownObjectKeys(raw, logTextKeys); err != nil {
-		return TextBody{}, err
+	if me := jsonutil.RejectUnknownObjectKeys(raw, logTextKeys); me != nil {
+		return TextBody{}, me
 	}
-	if err := jsonutil.DecodeUseNumber(raw, &body); err != nil {
-		return TextBody{}, err
+	if me := jsonutil.DecodeUseNumber(raw, &body); me != nil {
+		return TextBody{}, me
 	}
 	return body, nil
 }
@@ -47,7 +47,7 @@ func happenedAtString(raw any) string {
 
 // optionalTagList 与 Next createNumber/createText：省略 / null / [] → []；
 // 非数组或元素非 string → tags must be an array of strings（与 Next draft 一致）。
-func optionalTagList(raw any) ([]string, error) {
+func optionalTagList(raw any) ([]string, *myerr.MyError) {
 	if raw == nil {
 		return []string{}, nil
 	}
@@ -59,19 +59,19 @@ func optionalTagList(raw any) ([]string, error) {
 				tagList[i] = t
 			}
 		} else {
-			return nil, fmt.Errorf("tags must be an array of strings")
+			return nil, myerr.NewValidation("tags must be an array of strings")
 		}
 	}
 	out := make([]string, 0, len(tagList))
 	for _, item := range tagList {
 		s, ok := item.(string)
 		if !ok {
-			return nil, fmt.Errorf("tags must be an array of strings")
+			return nil, myerr.NewValidation("tags must be an array of strings")
 		}
 		out = append(out, s)
 	}
 	if dup := tags.FirstDuplicateTag(out); dup != "" {
-		return nil, fmt.Errorf("duplicate tag \"%s\"", dup)
+		return nil, myerr.NewValidation(fmt.Sprintf("duplicate tag \"%s\"", dup))
 	}
 	return out, nil
 }
@@ -80,16 +80,16 @@ func optionalTagList(raw any) ([]string, error) {
 // reject unknown keys + decode）；业务层只做字段校验与落库。
 func CreateText(ctx context.Context, pool *pgxpool.Pool, body TextBody) (record.Record, *myerr.MyError) {
 	happenedRaw := happenedAtString(body.HappenedAt)
-	if err := draft.ValidateHappenedAt(happenedRaw); err != nil {
-		return record.Record{}, myerr.NewValidation(err.Error())
+	if me := draft.ValidateHappenedAt(happenedRaw); me != nil {
+		return record.Record{}, me
 	}
-	rawContent, err := draft.RequireTrimmedText(body.RawContent, "raw_content")
-	if err != nil {
-		return record.Record{}, myerr.NewValidation(err.Error())
+	rawContent, me := draft.RequireTrimmedText(body.RawContent, "raw_content")
+	if me != nil {
+		return record.Record{}, me
 	}
-	tagList, err := optionalTagList(body.Tags)
-	if err != nil {
-		return record.Record{}, myerr.NewValidation(err.Error())
+	tagList, me := optionalTagList(body.Tags)
+	if me != nil {
+		return record.Record{}, me
 	}
 	tv := tags.ValidateTags(tagList)
 	if !tv.Valid {
@@ -98,13 +98,13 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, body TextBody) (record.
 	if rv := tags.AssertNoReservedTags(tagList); !rv.Valid {
 		return record.Record{}, myerr.NewValidation(rv.Error)
 	}
-	objCtx, err := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
-	if err != nil {
-		return record.Record{}, myerr.NewValidation(err.Error())
+	objCtx, me := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
+	if me != nil {
+		return record.Record{}, me
 	}
-	subj, err := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
-	if err != nil {
-		return record.Record{}, myerr.NewValidation(err.Error())
+	subj, me := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
+	if me != nil {
+		return record.Record{}, me
 	}
 
 	id, err := uuid.NewV7()

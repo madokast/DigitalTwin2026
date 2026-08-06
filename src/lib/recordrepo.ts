@@ -17,7 +17,7 @@ import { eq } from 'drizzle-orm'
 import * as schema from '@/db/schema'
 import { fromDB, type Record } from '@/lib/record'
 import { parseHappenedAt } from '@/lib/draft'
-import { newInternal, newNotFound } from '@/lib/myerr'
+import { newInternal, newNotFound, newValidation } from '@/lib/myerr'
 import type { Executor } from '@/db/uow'
 
 export class RecordRepository {
@@ -62,7 +62,8 @@ export class RecordRepository {
   async save(q: Executor, rec: Record): Promise<Record> {
     const happened = parseHappenedAt(rec.happened_at)
     if ('error' in happened) {
-      throw newInternal(new Error(happened.error))
+      // 数据/格式问题 → 400（非第三方库错误；业务层已校验，不可达防御）
+      throw newValidation(happened.error)
     }
     let rows: typeof schema.records.$inferSelect[]
     try {

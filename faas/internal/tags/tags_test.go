@@ -2,8 +2,8 @@ package tags
 
 import (
 	"encoding/json"
-	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -247,13 +247,13 @@ func TestAggregateTagCountsPrefixTreatsStarLiterally(t *testing.T) {
 }
 
 func TestAggregateTagCountsDirtyJSON(t *testing.T) {
-	if _, err := AggregateTagCounts([]string{`not-json`}, ""); err == nil {
+	if _, me := AggregateTagCounts([]string{`not-json`}, ""); me == nil {
 		t.Fatal("expected invalid JSON error")
 	}
 	for _, field := range []string{`{}`, `null`, `"weight"`} {
-		_, err := AggregateTagCounts([]string{field}, "")
-		if !errors.Is(err, ErrTagsNotJSONArray) {
-			t.Fatalf("%q: want ErrTagsNotJSONArray, got %v", field, err)
+		_, me := AggregateTagCounts([]string{field}, "")
+		if me == nil || me.Status != 500 || !strings.Contains(me.Message, ErrTagsNotJSONArray) {
+			t.Fatalf("%q: want 500 ErrTagsNotJSONArray, got %v", field, me)
 		}
 	}
 }
@@ -287,17 +287,17 @@ func TestRenameTagInTagsJSON(t *testing.T) {
 }
 
 func TestRenameTagInTagsJSONDirty(t *testing.T) {
-	_, _, err := RenameTagInTagsJSON(`{`, "a", "b")
-	if err == nil {
+	_, _, me := RenameTagInTagsJSON(`{`, "a", "b")
+	if me == nil {
 		t.Fatal("expected invalid JSON error")
 	}
-	_, _, err = RenameTagInTagsJSON(`{}`, "a", "b")
-	if !errors.Is(err, ErrTagsNotJSONArray) {
-		t.Fatalf("got %v", err)
+	_, _, me = RenameTagInTagsJSON(`{}`, "a", "b")
+	if me == nil || me.Status != 500 || !strings.Contains(me.Message, ErrTagsNotJSONArray) {
+		t.Fatalf("got %v", me)
 	}
-	_, _, err = RenameTagInTagsJSON(`null`, "a", "b")
-	if !errors.Is(err, ErrTagsNotJSONArray) {
-		t.Fatalf("null: got %v", err)
+	_, _, me = RenameTagInTagsJSON(`null`, "a", "b")
+	if me == nil || me.Status != 500 || !strings.Contains(me.Message, ErrTagsNotJSONArray) {
+		t.Fatalf("null: got %v", me)
 	}
 }
 
@@ -335,9 +335,9 @@ func TestValidateRename(t *testing.T) {
 // 生产 RenameAcrossRecords 另包事务 + advisory lock。
 // 此处保留纯逻辑契约：脏 JSON 与 RenameTagInTagsJSON 对齐。
 func TestRenameAcrossRecordsPureLogicContract(t *testing.T) {
-	_, _, err := RenameTagInTagsJSON(`{"not":"array"}`, "a", "b")
-	if !errors.Is(err, ErrTagsNotJSONArray) {
-		t.Fatalf("dirty row must abort rename: %v", err)
+	_, _, me := RenameTagInTagsJSON(`{"not":"array"}`, "a", "b")
+	if me == nil || me.Status != 500 || !strings.Contains(me.Message, ErrTagsNotJSONArray) {
+		t.Fatalf("dirty row must abort rename: %v", me)
 	}
 }
 

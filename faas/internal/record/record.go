@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/utcoffset"
 )
 
@@ -81,10 +82,11 @@ func FromDB(row DBRow) Record {
 	}
 }
 
-func TagsJSON(tags []string) (string, error) {
+func TagsJSON(tags []string) (string, *myerr.MyError) {
 	b, err := json.Marshal(tags)
 	if err != nil {
-		return "", err
+		// 数据/格式问题 → 400（非第三方库错误；对 []string 理论不可达）
+		return "", myerr.NewValidation(err.Error())
 	}
 	return string(b), nil
 }

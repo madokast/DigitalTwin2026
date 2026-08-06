@@ -11,19 +11,19 @@ import (
 
 func TestParseExportRecordsParams(t *testing.T) {
 	_, err := ParseExportRecordsParams(url.Values{})
-	if err == nil || err.Error() != ErrExportLimitError.Error() {
+	if err == nil || err.Error() != ErrExportLimitError {
 		t.Fatalf("missing limit: %v", err)
 	}
 	_, err = ParseExportRecordsParams(url.Values{"limit": {"0"}})
-	if err == nil || err.Error() != ErrExportLimitError.Error() {
+	if err == nil || err.Error() != ErrExportLimitError {
 		t.Fatalf("limit 0: %v", err)
 	}
 	_, err = ParseExportRecordsParams(url.Values{"limit": {"1001"}})
-	if err == nil || err.Error() != ErrExportLimitError.Error() {
+	if err == nil || err.Error() != ErrExportLimitError {
 		t.Fatalf("limit 1001: %v", err)
 	}
 	_, err = ParseExportRecordsParams(url.Values{"limit": {"abc"}})
-	if err == nil || err.Error() != ErrExportLimitError.Error() {
+	if err == nil || err.Error() != ErrExportLimitError {
 		t.Fatalf("limit abc: %v", err)
 	}
 

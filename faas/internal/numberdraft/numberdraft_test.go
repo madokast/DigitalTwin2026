@@ -162,9 +162,9 @@ func TestParseNumberBatchOversized(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ParseNumberBatch(raw)
-	if err == nil || err.Error() != "entries must contain at most 100 items" {
-		t.Fatalf("oversized: got %v", err)
+	_, me := ParseNumberBatch(raw)
+	if me == nil || me.Message != "entries must contain at most 100 items" {
+		t.Fatalf("oversized: got %v", me)
 	}
 }
 
