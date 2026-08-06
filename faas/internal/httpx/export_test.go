@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/exportapi"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 )
 
@@ -72,7 +73,7 @@ func TestExportRecordsNotifyOnEmptySuccess(t *testing.T) {
 func TestExportRecordsNoNotifyWhenWriteFails(t *testing.T) {
 	var notified []string
 	srv := testServer()
-	srv.FetchExportRecords = func(_ context.Context, _ *pgxpool.Pool, _ *exportapi.ParsedExport) ([]record.Record, error) {
+	srv.FetchExportRecords = func(_ context.Context, _ *pgxpool.Pool, _ *exportapi.ParsedExport) ([]record.Record, *myerr.MyError) {
 		return []record.Record{}, nil
 	}
 	srv.NotifyUser = func(text string) {

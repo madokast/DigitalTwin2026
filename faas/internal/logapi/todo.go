@@ -15,7 +15,7 @@ import (
 // CreateTodo 与 Next createTodo 对齐：落库强制含 todo:in_progress。
 // 收 typed 产物（route 层经 tododraft.ParseTodo 解析校验）。
 // 返回内部 Record；HTTP 层再用 tododraft.ToTodoRecordJSON 变形响应。
-func CreateTodo(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodo) (record.Record, error) {
+func CreateTodo(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodo) (record.Record, *myerr.MyError) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, myerr.NewInternal(err)
@@ -49,11 +49,11 @@ type TransitionResult struct {
 // TransitionTodo 与 Next transitionTodo 对齐：同事务 UPDATE 状态 tag + INSERT 审计。
 // 收 typed 产物（route 层经 tododraft.ParseTodoTransition 解析校验）。
 // pool 经 db.NewPoolTxBeginner 适配为 TxBeginner；单测直接调 transitionTodo 注入 fake。
-func TransitionTodo(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodoTransition) (TransitionResult, error) {
+func TransitionTodo(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodoTransition) (TransitionResult, *myerr.MyError) {
 	return transitionTodo(ctx, db.NewPoolTxBeginner(pool), parsed)
 }
 
-func transitionTodo(ctx context.Context, q db.TxBeginner, parsed tododraft.NormalizedTodoTransition) (TransitionResult, error) {
+func transitionTodo(ctx context.Context, q db.TxBeginner, parsed tododraft.NormalizedTodoTransition) (TransitionResult, *myerr.MyError) {
 	if !record.IsValidID(parsed.ID) {
 		return TransitionResult{}, myerr.NewValidation(record.ErrInvalidID.Error())
 	}
@@ -62,7 +62,7 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, parsed tododraft.Norma
 	res := recordrepo.Repo.FindByID(ctx, q, parsed.ID)
 	if !res.OK {
 		// 404 文案映射为待办专属（契约）；其余（驱动错误）透传 myerr 500
-		if me, ok := res.Error.(*myerr.MyError); ok && me.Status == 404 {
+		if res.Error.Status == 404 {
 			return TransitionResult{}, myerr.NewNotFound(tododraft.ErrTodoNotFound.Error())
 		}
 		return TransitionResult{}, res.Error
@@ -104,7 +104,7 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, parsed tododraft.Norma
 		ObjectiveContext: objCtx,
 		AiAnalysis:       nil,
 	}
-	err = db.WithTx(ctx, q, func(q db.Executor) error {
+	me := db.WithTx(ctx, q, func(q db.Executor) *myerr.MyError {
 		tRes := recordrepo.Repo.Transition(ctx, q, todoRec.ID, newTags)
 		if !tRes.OK {
 			return tRes.Error
@@ -115,8 +115,8 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, parsed tododraft.Norma
 		}
 		return nil
 	})
-	if err != nil {
-		return TransitionResult{}, err
+	if me != nil {
+		return TransitionResult{}, me
 	}
 
 	return TransitionResult{

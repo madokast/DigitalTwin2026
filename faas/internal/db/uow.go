@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 )
 
 // txAdapter 包装 pgx.Tx 为自定义 Tx（pgx 类型不出 db 包；Begin 返回类型不协变的适配层）。
@@ -67,20 +68,24 @@ func NewUoW(pool *pgxpool.Pool) *UoW {
 }
 
 // WithTx 闭包式事务（函数形态，接受任意 TxBeginner——测试可注入 fake）：
-// fn 返回 nil → Commit；返回 error → Rollback 并透传。fn 收到的 q 满足 Executor。
-func WithTx(ctx context.Context, b TxBeginner, fn func(q Executor) error) error {
+// fn 返回 nil → Commit；返回 *MyError → Rollback 并透传。fn 收到的 q 满足 Executor。
+// 第三方驱动错误（Begin/Commit）在此统一包装为 myerr.NewInternal（决策 D）。
+func WithTx(ctx context.Context, b TxBeginner, fn func(q Executor) *myerr.MyError) *myerr.MyError {
 	tx, err := b.Begin(ctx)
 	if err != nil {
-		return err
+		return myerr.NewInternal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := fn(tx); err != nil {
-		return err
+	if me := fn(tx); me != nil {
+		return me
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return myerr.NewInternal(err)
+	}
+	return nil
 }
 
 // Do UoW 对象形态的 WithTx（Service 构造注入 UoW 后调用）。
-func (u *UoW) Do(ctx context.Context, fn func(q Executor) error) error {
+func (u *UoW) Do(ctx context.Context, fn func(q Executor) *myerr.MyError) *myerr.MyError {
 	return WithTx(ctx, u.pool, fn)
 }

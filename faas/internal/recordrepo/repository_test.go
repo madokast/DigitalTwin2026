@@ -10,7 +10,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 )
 
 type fakeRow struct {
@@ -71,12 +70,11 @@ func TestFindByIDNotFound(t *testing.T) {
 	if res.OK {
 		t.Fatal("want not found")
 	}
-	me, ok := res.Error.(*myerr.MyError)
-	if !ok || me.Status != 404 {
+	if res.Error.Status != 404 {
 		t.Fatalf("err %v, want myerr 404", res.Error)
 	}
-	if !strings.Contains(me.Message, "not found") {
-		t.Fatalf("msg %q", me.Message)
+	if !strings.Contains(res.Error.Message, "not found") {
+		t.Fatalf("msg %q", res.Error.Message)
 	}
 }
 
@@ -86,12 +84,11 @@ func TestFindByIDDriverErrorInternal(t *testing.T) {
 	if res.OK {
 		t.Fatal("want error")
 	}
-	me, ok := res.Error.(*myerr.MyError)
-	if !ok || me.Status != 500 {
+	if res.Error.Status != 500 {
 		t.Fatalf("err %v, want myerr 500", res.Error)
 	}
-	if !strings.Contains(me.Message, `ERROR: relation "records" does not exist (SQLSTATE 42P01)`) {
-		t.Fatalf("driver message not embedded: %q", me.Message)
+	if !strings.Contains(res.Error.Message, `ERROR: relation "records" does not exist (SQLSTATE 42P01)`) {
+		t.Fatalf("driver message not embedded: %q", res.Error.Message)
 	}
 }
 
@@ -101,11 +98,10 @@ func TestTransitionAffectedNotOne(t *testing.T) {
 	if res.OK {
 		t.Fatal("want error for rowsAffected != 1")
 	}
-	me, ok := res.Error.(*myerr.MyError)
-	if !ok || me.Status != 500 {
+	if res.Error.Status != 500 {
 		t.Fatalf("err %v, want myerr 500", res.Error)
 	}
-	if !strings.Contains(me.Message, "todo update affected 2 rows") {
+	if !strings.Contains(res.Error.Message, "todo update affected 2 rows") {
 		t.Fatalf("err %v", res.Error)
 	}
 	if len(f.execSQL) != 1 || !strings.Contains(f.execSQL[0], "UPDATE records SET tags") {

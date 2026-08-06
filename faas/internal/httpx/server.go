@@ -51,11 +51,11 @@ type Server struct {
 	Qqbot    *qqbot.Sender
 	Notify   *notify.Notifier
 	// TransitionTodo 可选；nil → logapi.TransitionTodo（单测注入成功/域错误结果，无需真实数据库）。
-	TransitionTodo func(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodoTransition) (logapi.TransitionResult, error)
+	TransitionTodo func(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodoTransition) (logapi.TransitionResult, *myerr.MyError)
 	// NotifyUser 可选；非 nil 时同步调用（单测 spy）；nil → go notify().NotifyUser（生产路径）。
 	NotifyUser func(text string)
 	// FetchExportRecords 可选；nil → exportapi.FetchExportRecords（单测注入空页，无需真实数据库）。
-	FetchExportRecords func(ctx context.Context, pool *pgxpool.Pool, p *exportapi.ParsedExport) ([]record.Record, error)
+	FetchExportRecords func(ctx context.Context, pool *pgxpool.Pool, p *exportapi.ParsedExport) ([]record.Record, *myerr.MyError)
 }
 
 func NewServer(pool *pgxpool.Pool, tokens auth.Tokens) *Server {
@@ -208,9 +208,9 @@ func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	inserted, recs, err := logapi.CreateNumberBatch(r.Context(), s.Pool, batch)
-	if err != nil {
-		writeErr(w, err, "Error creating number records")
+	inserted, recs, me := logapi.CreateNumberBatch(r.Context(), s.Pool, batch)
+	if me != nil {
+		writeErr(w, me, "Error creating number records")
 		return
 	}
 	// INSERT 成功后异步 best-effort notify（整批一条摘要），不阻塞写响应。
@@ -230,9 +230,9 @@ func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	rec, err := logapi.CreateBodyWeight(r.Context(), s.Pool, parsed)
-	if err != nil {
-		writeErr(w, err, "Error creating body weight record")
+	rec, me := logapi.CreateBodyWeight(r.Context(), s.Pool, parsed)
+	if me != nil {
+		writeErr(w, me, "Error creating body weight record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
@@ -249,9 +249,9 @@ func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	rec, err := logapi.CreateTodo(r.Context(), s.Pool, parsed)
-	if err != nil {
-		writeErr(w, err, "Error creating to-do record")
+	rec, me := logapi.CreateTodo(r.Context(), s.Pool, parsed)
+	if me != nil {
+		writeErr(w, me, "Error creating to-do record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
@@ -269,13 +269,14 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var result logapi.TransitionResult
+	var me *myerr.MyError
 	if s.TransitionTodo != nil {
-		result, err = s.TransitionTodo(r.Context(), s.Pool, parsed)
+		result, me = s.TransitionTodo(r.Context(), s.Pool, parsed)
 	} else {
-		result, err = logapi.TransitionTodo(r.Context(), s.Pool, parsed)
+		result, me = logapi.TransitionTodo(r.Context(), s.Pool, parsed)
 	}
-	if err != nil {
-		writeErr(w, err, "Error transitioning to-do")
+	if me != nil {
+		writeErr(w, me, "Error transitioning to-do")
 		return
 	}
 	// D6：恰好一次 notify，正文 = objective_context 句 + ": " + 原文
@@ -304,9 +305,9 @@ func (s *Server) handleLogReview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	rec, err := logapi.CreateReview(r.Context(), s.Pool, parsed)
-	if err != nil {
-		writeErr(w, err, "Error creating review record")
+	rec, me := logapi.CreateReview(r.Context(), s.Pool, parsed)
+	if me != nil {
+		writeErr(w, me, "Error creating review record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
@@ -323,9 +324,9 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	rec, err := logapi.CreateText(r.Context(), s.Pool, body)
-	if err != nil {
-		writeErr(w, err, "Error creating text record")
+	rec, me := logapi.CreateText(r.Context(), s.Pool, body)
+	if me != nil {
+		writeErr(w, me, "Error creating text record")
 		return
 	}
 	go s.notify().NotifyRecordInserted(rec)
@@ -342,9 +343,9 @@ func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	inserted, batchType, sum, recs, err := logapi.CreateTransactionBatch(r.Context(), s.Pool, batch)
-	if err != nil {
-		writeErr(w, err, "Error creating transaction records")
+	inserted, batchType, sum, recs, me := logapi.CreateTransactionBatch(r.Context(), s.Pool, batch)
+	if me != nil {
+		writeErr(w, me, "Error creating transaction records")
 		return
 	}
 	go s.notify().NotifyTransactionBatchInserted(recs)
@@ -466,9 +467,9 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	result, err := query.FetchFilteredRecords(r.Context(), s.Pool, parsed)
-	if err != nil {
-		writeErr(w, err, "query records")
+	result, me := query.FetchFilteredRecords(r.Context(), s.Pool, parsed)
+	if me != nil {
+		writeErr(w, me, "query records")
 		return
 	}
 	writeJSON(w, http.StatusOK, QuerySuccess{
@@ -592,18 +593,19 @@ func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var recs []record.Record
+	var me *myerr.MyError
 	if s.FetchExportRecords != nil {
-		recs, err = s.FetchExportRecords(r.Context(), s.Pool, parsed)
+		recs, me = s.FetchExportRecords(r.Context(), s.Pool, parsed)
 	} else {
-		recs, err = exportapi.FetchExportRecords(r.Context(), s.Pool, parsed)
+		recs, me = exportapi.FetchExportRecords(r.Context(), s.Pool, parsed)
 	}
-	if err != nil {
-		writeErr(w, err, "Error exporting records")
+	if me != nil {
+		writeErr(w, me, "Error exporting records")
 		return
 	}
-	body, err := exportapi.BuildExportNdjson(recs)
-	if err != nil {
-		writeErr(w, err, "serialize export ndjson")
+	body, serr := exportapi.BuildExportNdjson(recs)
+	if serr != nil {
+		writeErr(w, serr, "serialize export ndjson")
 		return
 	}
 	now := s.Now()
@@ -696,9 +698,9 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	counts, err := importapi.ImportRecordsJSONL(r.Context(), s.Pool, strings.NewReader(string(fileRaw)))
-	if err != nil {
-		writeErr(w, err, "import records")
+	counts, me := importapi.ImportRecordsJSONL(r.Context(), s.Pool, strings.NewReader(string(fileRaw)))
+	if me != nil {
+		writeErr(w, me, "import records")
 		return
 	}
 

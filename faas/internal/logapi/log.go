@@ -78,7 +78,7 @@ func optionalTagList(raw any) ([]string, error) {
 
 // CreateText 与 Next createText 对齐：校验 + INSERT。收 typed 请求体（route 层已
 // reject unknown keys + decode）；业务层只做字段校验与落库。
-func CreateText(ctx context.Context, pool *pgxpool.Pool, body TextBody) (record.Record, error) {
+func CreateText(ctx context.Context, pool *pgxpool.Pool, body TextBody) (record.Record, *myerr.MyError) {
 	happenedRaw := happenedAtString(body.HappenedAt)
 	if err := draft.ValidateHappenedAt(happenedRaw); err != nil {
 		return record.Record{}, myerr.NewValidation(err.Error())

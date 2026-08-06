@@ -18,7 +18,7 @@ func TestCreateTextTypeMismatchMessages(t *testing.T) {
 	}
 	_, err = CreateText(context.Background(), nil, body)
 	assertMyStatus(t, err, 400)
-	if err == nil || err.Error() != "missing required field: raw_content" {
+	if err.Error() != "missing required field: raw_content" {
 		t.Fatalf("err=%v", err)
 	}
 }

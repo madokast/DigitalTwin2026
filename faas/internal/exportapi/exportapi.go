@@ -54,7 +54,7 @@ func parseRequiredLimit(raw string) (int, error) {
 
 // ParseExportRecordsParams 解析导出 query；失败可映射为 400。
 // ParseExportRecordsParams 校验导出参数（400 类 myerr）；from 不存在由 FetchExportRecords 返 404。
-func ParseExportRecordsParams(q url.Values) (*ParsedExport, error) {
+func ParseExportRecordsParams(q url.Values) (*ParsedExport, *myerr.MyError) {
 	limit, err := parseRequiredLimit(q.Get("limit"))
 	if err != nil {
 		return nil, myerr.NewValidation(err.Error())
@@ -73,7 +73,7 @@ const selectCols = `id, happened_at, utc_offset, numeric_value, raw_content, tag
 
 // FetchExportRecords 有 from 时先确认存在，再 id >= from ORDER BY id ASC LIMIT。
 // from 不存在 → myerr 404。
-func FetchExportRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedExport) ([]record.Record, error) {
+func FetchExportRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedExport) ([]record.Record, *myerr.MyError) {
 	if p.From != "" {
 		var exists bool
 		err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM records WHERE id = $1)`, p.From).Scan(&exists)

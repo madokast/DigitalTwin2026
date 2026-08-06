@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 )
 
 // fakeTx 可控事务：记录 Commit/Rollback 调用，满足自定义 Tx（5 方法）。
@@ -60,7 +61,7 @@ func TestUoWDoCommitsOnNilError(t *testing.T) {
 	u := &UoW{pool: &fakeBeginner{tx: tx}}
 
 	fnCalled := false
-	err := u.Do(context.Background(), func(q Executor) error {
+	err := u.Do(context.Background(), func(q Executor) *myerr.MyError {
 		fnCalled = true
 		if q == nil {
 			t.Fatalf("fn received nil executor")
@@ -83,10 +84,10 @@ func TestUoWDoRollsBackOnError(t *testing.T) {
 	u := &UoW{pool: &fakeBeginner{tx: tx}}
 
 	wantErr := errors.New("injected failure")
-	err := u.Do(context.Background(), func(q Executor) error {
-		return wantErr
+	err := u.Do(context.Background(), func(q Executor) *myerr.MyError {
+		return myerr.NewInternal(wantErr)
 	})
-	if !errors.Is(err, wantErr) {
+	if err == nil || err.Message != "*errors.errorString: injected failure" {
 		t.Fatalf("Do error %v, want %v", err, wantErr)
 	}
 	if tx.committed {
@@ -102,11 +103,11 @@ func TestUoWDoBeginFailureSkipsFn(t *testing.T) {
 	u := &UoW{pool: &fakeBeginner{beginErr: beginErr}}
 
 	fnCalled := false
-	err := u.Do(context.Background(), func(q Executor) error {
+	err := u.Do(context.Background(), func(q Executor) *myerr.MyError {
 		fnCalled = true
 		return nil
 	})
-	if !errors.Is(err, beginErr) {
+	if err == nil || err.Message != "*errors.errorString: begin failed" {
 		t.Fatalf("Do error %v, want %v", err, beginErr)
 	}
 	if fnCalled {

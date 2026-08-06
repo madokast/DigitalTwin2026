@@ -29,7 +29,7 @@ var Repo = &RecordRepository{}
 type RecordFindByIDResult struct {
 	OK     bool
 	Record record.Record
-	Error  error // 领域哨兵；nil = 成功
+	Error  *myerr.MyError // nil = 成功
 }
 
 // FindByID 按 id 查完整行：Scan → DBRow → FromDB（唯一转换点）→ 领域 Record；未找到 → myerr 404。
@@ -54,12 +54,12 @@ FROM records WHERE id = $1
 type RecordSaveAllResult struct {
 	OK      bool
 	Records []record.Record
-	Error   error
+	Error   *myerr.MyError
 }
 
 type RecordTransitionResult struct {
 	OK    bool
-	Error error
+	Error *myerr.MyError
 }
 
 // Transition 只 UPDATE tags（WHERE id）；RowsAffected != 1 → 内部错误（D7：并发竞态文案含实际行数）。
@@ -82,7 +82,7 @@ func (r *RecordRepository) Transition(ctx context.Context, q db.Executor, id str
 type RecordSaveResult struct {
 	OK     bool
 	Record record.Record
-	Error  error
+	Error  *myerr.MyError
 }
 
 // Save 单条 INSERT + RETURNING 完整行。rec 为领域 Record（HappenedAt 为业务层已校验的

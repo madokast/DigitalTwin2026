@@ -13,7 +13,7 @@ import (
 
 // CreateBodyWeight 与 Next createBodyWeight 对齐：落库强制含 body:weight。
 // 收 typed 产物（route 层经 bodyweightdraft.ParseBodyWeight 解析校验）。
-func CreateBodyWeight(ctx context.Context, pool *pgxpool.Pool, parsed bodyweightdraft.NormalizedBodyWeight) (record.Record, error) {
+func CreateBodyWeight(ctx context.Context, pool *pgxpool.Pool, parsed bodyweightdraft.NormalizedBodyWeight) (record.Record, *myerr.MyError) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, myerr.NewInternal(err)

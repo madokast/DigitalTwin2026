@@ -80,7 +80,7 @@ func IsAcceptedImportFilePart(contentType, filename string) bool {
 
 // ImportRecordsJSONL 读 file part（≤4MiB）后单事务逐行 upsert。
 // 不把整文件解析成 []Record；空内容 → 全 0。
-func ImportRecordsJSONL(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (Counts, error) {
+func ImportRecordsJSONL(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (Counts, *myerr.MyError) {
 	raw, err := io.ReadAll(io.LimitReader(r, int64(MaxImportFileBytes)+1))
 	if err != nil {
 		return Counts{}, myerr.NewInternal(err)
@@ -95,9 +95,9 @@ func ImportRecordsJSONL(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (C
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	counts, err := importTextInTx(ctx, tx, string(raw))
-	if err != nil {
-		return Counts{}, err
+	counts, me := importTextInTx(ctx, tx, string(raw))
+	if me != nil {
+		return Counts{}, me
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Counts{}, myerr.NewInternal(err)
@@ -106,14 +106,14 @@ func ImportRecordsJSONL(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (C
 }
 
 // ImportRecordsJSONLTx 同语义，使用已有 tx（单测注入假 tx / 真实 tx）。
-func ImportRecordsJSONLTx(ctx context.Context, tx pgx.Tx, text string, fileBytes int) (Counts, error) {
+func ImportRecordsJSONLTx(ctx context.Context, tx pgx.Tx, text string, fileBytes int) (Counts, *myerr.MyError) {
 	if fileBytes > MaxImportFileBytes {
 		return Counts{}, myerr.NewValidation(ErrImportLimitsError.Error())
 	}
 	return importTextInTx(ctx, tx, text)
 }
 
-func importTextInTx(ctx context.Context, tx pgx.Tx, text string) (Counts, error) {
+func importTextInTx(ctx context.Context, tx pgx.Tx, text string) (Counts, *myerr.MyError) {
 	var (
 		inserted, updated int
 		seen              = make(map[string]struct{})
@@ -149,9 +149,9 @@ func importTextInTx(ctx context.Context, tx pgx.Tx, text string) (Counts, error)
 		}
 		seen[row.ID] = struct{}{}
 
-		exists, err := rowExists(ctx, tx, row.ID)
-		if err != nil {
-			return Counts{}, myerr.NewInternal(err)
+		exists, me := rowExists(ctx, tx, row.ID)
+		if me != nil {
+			return Counts{}, me
 		}
 		if exists {
 			if err := updateRow(ctx, tx, row); err != nil {
@@ -175,10 +175,13 @@ func importTextInTx(ctx context.Context, tx pgx.Tx, text string) (Counts, error)
 
 func rowExists(ctx context.Context, q interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}, id string) (bool, error) {
+}, id string) (bool, *myerr.MyError) {
 	var exists bool
 	err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM records WHERE id = $1)`, id).Scan(&exists)
-	return exists, err
+	if err != nil {
+		return exists, myerr.NewInternal(err)
+	}
+	return exists, nil
 }
 
 func insertRow(ctx context.Context, tx pgx.Tx, row *recordjsonl.Row) error {

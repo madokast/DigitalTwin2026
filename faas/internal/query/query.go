@@ -76,7 +76,7 @@ func orderByRecordsList(sortBy, sortOrder string) string {
 	return " ORDER BY " + RecordsOrderBySql(sortBy, sortOrder)
 }
 
-func parsePositiveInt(raw string, fallback int) (int, error) {
+func parsePositiveInt(raw string, fallback int) (int, *myerr.MyError) {
 	if raw == "" {
 		return fallback, nil
 	}
@@ -95,7 +95,7 @@ func parsePositiveInt(raw string, fallback int) (int, error) {
 	return n, nil
 }
 
-func parseIsoDate(raw, label string) (*time.Time, error) {
+func parseIsoDate(raw, label string) (*time.Time, *myerr.MyError) {
 	if raw == "" {
 		return nil, nil
 	}
@@ -109,7 +109,7 @@ func parseIsoDate(raw, label string) (*time.Time, error) {
 	return &t, nil
 }
 
-func ParseRecordQueryParams(q url.Values) (*ParsedQuery, error) {
+func ParseRecordQueryParams(q url.Values) (*ParsedQuery, *myerr.MyError) {
 	page, err := parsePositiveInt(q.Get("page"), 1)
 	if err != nil {
 		return nil, myerr.NewValidation("page must be a positive integer")
@@ -354,7 +354,7 @@ type SummaryResult struct {
 	TZ    string `json:"tz"`
 }
 
-func FetchSummary(ctx context.Context, pool *pgxpool.Pool, tz string, now time.Time) (*SummaryResult, error) {
+func FetchSummary(ctx context.Context, pool *pgxpool.Pool, tz string, now time.Time) (*SummaryResult, *myerr.MyError) {
 	if !timeutil.IsValidTimeZone(tz) {
 		return nil, myerr.NewValidation("query parameter tz must be a valid IANA time zone")
 	}
@@ -365,35 +365,39 @@ func FetchSummary(ctx context.Context, pool *pgxpool.Pool, tz string, now time.T
 
 	var total, today int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM records`).Scan(&total); err != nil {
-		return nil, err
+		return nil, myerr.NewInternal(err)
 	}
 	if err := pool.QueryRow(ctx,
 		`SELECT count(*) FROM records WHERE happened_at >= $1 AND happened_at < $2`,
 		start, end,
 	).Scan(&today); err != nil {
-		return nil, err
+		return nil, myerr.NewInternal(err)
 	}
 	return &SummaryResult{Total: total, Today: today, TZ: tz}, nil
 }
 
-func FetchTagCounts(ctx context.Context, pool *pgxpool.Pool, prefix string) ([]tags.TagCount, error) {
+func FetchTagCounts(ctx context.Context, pool *pgxpool.Pool, prefix string) ([]tags.TagCount, *myerr.MyError) {
 	rows, err := pool.Query(ctx, `SELECT tags FROM records`)
 	if err != nil {
-		return nil, err
+		return nil, myerr.NewInternal(err)
 	}
 	defer rows.Close()
 	var fields []string
 	for rows.Next() {
 		var t string
 		if err := rows.Scan(&t); err != nil {
-			return nil, err
+			return nil, myerr.NewInternal(err)
 		}
 		fields = append(fields, t)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, myerr.NewInternal(err)
 	}
-	return tags.AggregateTagCounts(fields, prefix)
+	counts, err := tags.AggregateTagCounts(fields, prefix)
+	if err != nil {
+		return nil, myerr.NewInternal(err)
+	}
+	return counts, nil
 }
 
 // --- GET /api/query/transactions/summary ---

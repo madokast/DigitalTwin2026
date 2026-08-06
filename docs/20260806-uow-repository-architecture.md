@@ -283,7 +283,7 @@ src/lib/logapi.ts 等   业务层（Service class）
 | 环节 | Go | Node |
 |---|---|---|
 | 执行器 | `Executor`（+ `Tx` / `TxBeginner`） | `Executor = PostgresJsDatabase<typeof schema> \| DbTransaction`（无 Tx/TxBeginner——drizzle 已封装事务边界） |
-| UoW | `db.UoW`，`Do(ctx, fn(q Executor))` | `UoW` class，`do(fn(q: Executor))`（包装 `db.transaction`） |
+| UoW | `db.UoW`，`Do(ctx, fn(q Executor) *myerr.MyError) *myerr.MyError`（Begin/Commit 驱动错误统一 NewInternal） | `UoW` class，`do(fn(q: Executor))`（包装 `db.transaction`；闭包 throw MyError） |
 | 事务边界 | **Service 方法内部**（业务层决定用不用事务） | 同左（模块级 db 单例） |
 | Service | struct + 方法，构造注入 `db` + `uow` | class + 方法，构造注入 `db` + `uow` |
 | Repository | **空结构体 + 包级单例 `Repo`，方法第一参数收执行器 `q`** | **空结构体 + 模块级单例 `Repo`，方法第一参数收执行器 `q`** |
