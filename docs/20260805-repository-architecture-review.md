@@ -156,7 +156,7 @@
   ```
   - **`hint` 不进 Criteria**（响应辅助，parse 时产出、随响应返回，仅业务层）。
   - **校验归属**：现有 `ParseRecordQueryParams`（双端）保留在业务层，产出**已校验**的 `Criteria`；Repository 不重复校验（假定入参合法）。
-  - Go `query.ParsedQuery` 与 Node `ParsedQuery` 迁移时演化为 `recordrepo.Criteria`（Node 端把 `conditions`（drizzle SQL）拆回原始字段——Repository 不接触 SQL 层条件构建，由业务层把 Criteria 转 drizzle 条件，见 D3）。
+  - Go `query.ParsedQuery` 与 Node `ParsedQuery` 迁移时演化为 `recordrepo.Criteria`（Node 端把 `conditions`（drizzle SQL）拆回原始字段；**Criteria → 条件构建在 Repository 内部**，见 D3）。
 
 ### D2 upsert（import）幂等 / 错误归属
 - 问题：import 是 insert-or-update by id，含「batch 内重复 id → 400 `line 2: duplicate record id`」。此重复检测在业务层还是 Repository？`Upsert` 是否含冲突检测？
@@ -170,6 +170,10 @@
 ### D3 读路径 SQL 策略（双端是否同构）
 - 问题：Go 全部 raw SQL；Node 现在用 drizzle query builder。Repository 双端「方法名对齐」但 SQL 实现策略是否要求同构？`EscapeLikePattern` 等共享 util 放哪？
 - 待决：SQL 层策略。
+- 状态：✅ **已定案**——**双端不强制 SQL 层同构**：
+  - Go Repository 用 **raw SQL**；Node Repository 用 **drizzle builder**。仅保证**方法名对齐 + 行为一致**（like 转义 / 排序 / 分页 / 时区语义 / id 精确命中）。
+  - **Criteria → SQL/条件构建在 Repository 内部**（Repository 职责：从领域 Criteria 产出 SQL；业务层只传已校验 Criteria，不接触 SQL）。
+  - **SQL util 随 Repository 移动**：`EscapeLikePattern`、tag 族通配判定、`recordsOrderBySql` 从 `query` 包迁至 Go `recordrepo` 包（Node 对称放 `recordrepo.ts`）——`recordrepo` 不可 import `query`（业务层调 repo，反之成环）。业务层 query 不再直接构建 SQL 条件。
 
 ## E. 风险确认
 
