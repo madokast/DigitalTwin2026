@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { errorResponse, routeError } from '@/lib/httperror'
 import { createTodo } from '@/lib/logapi'
-import type { LogTodoBody } from '@/lib/tododraft'
+import { parseTodo } from '@/lib/tododraft'
 import { toTodoRecordJson } from '@/lib/tododraft'
 import { readJsonBody } from '@/lib/httpjson'
 import {
@@ -16,7 +16,12 @@ export async function POST(request: NextRequest) {
       return errorResponse(parsed.error, parsed.status)
     }
 
-    const result = await createTodo(parsed.value as LogTodoBody)
+    const todo = parseTodo(parsed.value)
+    if ('error' in todo) {
+      return errorResponse(todo.error, 400)
+    }
+
+    const result = await createTodo(todo)
     
     scheduleBestEffortNotify(() => notifyRecordInserted(result))
 

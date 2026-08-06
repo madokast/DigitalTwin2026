@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { errorResponse, routeError } from '@/lib/httperror'
 import { readJsonBody } from '@/lib/httpjson'
-import { createText, type TextBody } from '@/lib/logapi'
+import { createText, parseTextBody } from '@/lib/logapi'
 import {
   notifyRecordInserted,
   scheduleBestEffortNotify,
@@ -14,7 +14,12 @@ export async function POST(request: NextRequest) {
       return errorResponse(parsed.error, parsed.status)
     }
 
-    const result = await createText(parsed.value as TextBody)
+    const body = parseTextBody(parsed.value)
+    if ('error' in body) {
+      return errorResponse(body.error, 400)
+    }
+
+    const result = await createText(body)
     
     // 响应写出后再通知，避免渠道阻塞 201；失败不影响已成功写入
     scheduleBestEffortNotify(() => notifyRecordInserted(result))

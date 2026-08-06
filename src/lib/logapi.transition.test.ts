@@ -59,10 +59,10 @@ import {
 } from '@/lib/tododraft'
 
 const todoId = '01900000-0000-7000-8000-000000000003'
-const body = {
+const parsed = {
   id: todoId,
   target: 'completed' as const,
-  happened_at: '2026-08-02T12:00:00+08:00',
+  happenedAtRaw: '2026-08-02T12:00:00+08:00',
 }
 
 function todoRow(tags: string, rawContent = 'Buy milk') {
@@ -95,13 +95,13 @@ beforeEach(() => {
 describe('transitionTodo domain errors (mocked db)', () => {
   it('returns to-do not found when row missing', async () => {
     limit.mockResolvedValueOnce([])
-    await expect(transitionTodo(body)).rejects.toMatchObject({ status: 404, message: ERR_TODO_NOT_FOUND })
+    await expect(transitionTodo(parsed)).rejects.toMatchObject({ status: 404, message: ERR_TODO_NOT_FOUND })
     expect(transaction).not.toHaveBeenCalled()
   })
 
   it('returns record is not a to-do for plain text row', async () => {
     limit.mockResolvedValueOnce([todoRow(JSON.stringify(['note']), 'plain note')])
-    await expect(transitionTodo(body)).rejects.toMatchObject({ status: 400, message: ERR_NOT_A_TODO })
+    await expect(transitionTodo(parsed)).rejects.toMatchObject({ status: 400, message: ERR_NOT_A_TODO })
     expect(transaction).not.toHaveBeenCalled()
   })
 
@@ -109,7 +109,7 @@ describe('transitionTodo domain errors (mocked db)', () => {
     limit.mockResolvedValueOnce([
       todoRow(JSON.stringify(['todo:transition']), 'Buy milk'),
     ])
-    await expect(transitionTodo(body)).rejects.toMatchObject({ status: 400, message: ERR_AUDIT_TRANSITION })
+    await expect(transitionTodo(parsed)).rejects.toMatchObject({ status: 400, message: ERR_AUDIT_TRANSITION })
     expect(transaction).not.toHaveBeenCalled()
   })
 
@@ -117,7 +117,7 @@ describe('transitionTodo domain errors (mocked db)', () => {
     limit.mockResolvedValueOnce([
       todoRow(JSON.stringify(['todo:completed', 'errand'])),
     ])
-    await expect(transitionTodo(body)).rejects.toMatchObject({ status: 400, message: ERR_ALREADY_TARGET })
+    await expect(transitionTodo(parsed)).rejects.toMatchObject({ status: 400, message: ERR_ALREADY_TARGET })
     expect(transaction).not.toHaveBeenCalled()
   })
 })
@@ -138,7 +138,7 @@ describe('transitionTodo success (mocked db)', () => {
       todoId,
       '2026-08-02T02:00:00.000Z',
     )
-    const result = await transitionTodo(body)
+    const result = await transitionTodo(parsed)
     expect(result).toEqual({
       id: todoId,
       from: 'in_progress',
@@ -170,7 +170,7 @@ describe('transitionTodo mid-transaction failure (mocked db)', () => {
     ])
     txReturning.mockRejectedValueOnce(new Error('audit insert failed'))
 
-    await expect(transitionTodo(body)).rejects.toMatchObject({
+    await expect(transitionTodo(parsed)).rejects.toMatchObject({
       status: 500,
       message: expect.stringContaining('audit insert failed'),
     })
@@ -194,7 +194,7 @@ describe('transitionTodo UPDATE affected rows race (D7)', () => {
     ])
     txTransitionReturning.mockResolvedValueOnce([])
 
-    await expect(transitionTodo(body)).rejects.toMatchObject({ status: 500, message: expect.stringContaining('todo update affected 0 rows') })
+    await expect(transitionTodo(parsed)).rejects.toMatchObject({ status: 500, message: expect.stringContaining('todo update affected 0 rows') })
     expect(txUpdate).toHaveBeenCalled()
     expect(txInsert).not.toHaveBeenCalled()
   })

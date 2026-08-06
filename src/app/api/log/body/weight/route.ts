@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { errorResponse, routeError } from '@/lib/httperror'
 import { createBodyWeight } from '@/lib/logapi'
-import type { LogBodyWeightBody } from '@/lib/bodyweightdraft'
+import { parseBodyWeight } from '@/lib/bodyweightdraft'
 import { readJsonBody } from '@/lib/httpjson'
 import {
   notifyRecordInserted,
@@ -15,7 +15,12 @@ export async function POST(request: NextRequest) {
       return errorResponse(parsed.error, parsed.status)
     }
 
-    const result = await createBodyWeight(parsed.value as LogBodyWeightBody)
+    const bw = parseBodyWeight(parsed.value)
+    if ('error' in bw) {
+      return errorResponse(bw.error, 400)
+    }
+
+    const result = await createBodyWeight(bw)
     
     scheduleBestEffortNotify(() => notifyRecordInserted(result))
 

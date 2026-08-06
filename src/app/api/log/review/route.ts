@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { errorResponse, routeError } from '@/lib/httperror'
 import { readJsonBody } from '@/lib/httpjson'
 import { createReview } from '@/lib/logapi'
+import { parseReview } from '@/lib/reviewdraft'
 import {
   notifyRecordInserted,
   scheduleBestEffortNotify,
@@ -14,7 +15,12 @@ export async function POST(request: NextRequest) {
       return errorResponse(parsed.error, parsed.status)
     }
 
-    const result = await createReview(parsed.value)
+    const review = parseReview(parsed.value)
+    if ('error' in review) {
+      return errorResponse(review.error, 400)
+    }
+
+    const result = await createReview(review)
     
     // 响应写出后再通知，避免渠道阻塞 201；失败不影响已成功写入
     scheduleBestEffortNotify(() => notifyRecordInserted(result))

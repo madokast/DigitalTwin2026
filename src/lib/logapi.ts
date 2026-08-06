@@ -7,7 +7,7 @@ import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { Repo } from '@/lib/recordrepo'
 import { MyError, newNotFound, newValidation } from '@/lib/myerr'
-import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
+import type { NormalizedBodyWeight } from '@/lib/bodyweightdraft'
 import {
   optionalTrimmedNullable,
   parseHappenedAt,
@@ -27,22 +27,16 @@ import {
   ERR_NOT_A_TODO,
   ERR_TODO_NOT_FOUND,
   isTodoAuditRecordTags,
-  parseTodo,
-  parseTodoTransition,
   replaceTodoStateInTags,
   TODO_TAG_TRANSITION,
   todoStateFromTags,
-  type LogTodoBody,
-  type LogTodoTransitionBody,
+  type NormalizedTodo,
+  type NormalizedTodoTransition,
   type TodoState,
 } from '@/lib/tododraft'
-import { parseNumberBatch } from '@/lib/numberdraft'
-import { parseTransactionBatch, sumMoneyAmounts, type TransactionType } from '@/lib/transactiondraft'
-import {
-  parseReview,
-  reviewTagsForCadence,
-  type LogReviewBody,
-} from '@/lib/reviewdraft'
+import type { NormalizedNumberBatch } from '@/lib/numberdraft'
+import { sumMoneyAmounts, type NormalizedTransactionBatch, type TransactionType } from '@/lib/transactiondraft'
+import { reviewTagsForCadence, type NormalizedReview } from '@/lib/reviewdraft'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
 
 export const LOG_TEXT_KEYS = [
@@ -97,15 +91,8 @@ export type CreateNumberBatchOk = {
  * 落库：numeric_value → numeric_value；memo → objective_context；raw_content = NULL。
  */
 export async function createNumberBatch(
-  body: unknown,
+  parsed: NormalizedNumberBatch,
 ): Promise<CreateNumberBatchOk> {
-  const parsed = parseNumberBatch(
-    body as Parameters<typeof parseNumberBatch>[0],
-  )
-  if ('error' in parsed) {
-    throw newValidation(parsed.error)
-  }
-
   // 领域 Record 组装（happened_at = 已校验请求串；Repository 内解析落库）。
   const nrs: Record[] = parsed.entries.map((entry) => ({
     id: uuidv7(),
@@ -130,13 +117,8 @@ export async function createNumberBatch(
  * 解析委托 `parseBodyWeight`，落库强制含 `body:weight`。
  */
 export async function createBodyWeight(
-  body: LogBodyWeightBody,
+  parsed: NormalizedBodyWeight,
 ): Promise<Record> {
-  const parsed = parseBodyWeight(body)
-  if ('error' in parsed) {
-    throw newValidation(parsed.error)
-  }
-
   return Repo.save(db, {
     id: uuidv7(),
     happened_at: parsed.happenedAtRaw,
@@ -153,13 +135,8 @@ export async function createBodyWeight(
  * 解析委托 `parseTodo`，落库强制含 `todo:in_progress`；返回内部 Record（HTTP 层再变形）。
  */
 export async function createTodo(
-  body: LogTodoBody,
+  parsed: NormalizedTodo,
 ): Promise<Record> {
-  const parsed = parseTodo(body)
-  if ('error' in parsed) {
-    throw newValidation(parsed.error)
-  }
-
   return Repo.save(db, {
     id: uuidv7(),
     happened_at: parsed.happenedAtRaw,
@@ -181,12 +158,8 @@ export type TransitionTodoOk = {
  * 与 Go `logapi.TransitionTodo` 对齐：同事务 UPDATE 状态 tag + INSERT 审计。
  */
 export async function transitionTodo(
-  body: LogTodoTransitionBody,
+  parsed: NormalizedTodoTransition,
 ): Promise<TransitionTodoOk> {
-  const parsed = parseTodoTransition(body)
-  if ('error' in parsed) {
-    throw newValidation(parsed.error)
-  }
   if (!isValidRecordId(parsed.id)) {
     throw newValidation(INVALID_RECORD_ID)
   }
@@ -253,13 +226,19 @@ export async function transitionTodo(
     }
 }
 
+/** 与 Go `logapi.ParseTextBody` 对齐（route 层调用）：reject unknown keys，纯解析不校验语义。 */
+export function parseTextBody(
+  raw: unknown,
+): TextBody | { error: string } {
+  const unknown = rejectUnknownKeys(raw, LOG_TEXT_KEYS)
+  if (unknown) {
+    return { error: unknown.error }
+  }
+  return raw as TextBody
+}
+
 /** 与 Go `logapi.CreateText` 对齐：校验 + INSERT */
 export async function createText(body: TextBody): Promise<Record> {
-  const unknown = rejectUnknownKeys(body, LOG_TEXT_KEYS)
-  if (unknown) {
-    throw newValidation(unknown.error)
-  }
-
   const happenedResult = parseHappenedAt(body.happened_at)
   if ('error' in happenedResult) {
     throw newValidation(happenedResult.error)
@@ -309,13 +288,8 @@ export async function createText(body: TextBody): Promise<Record> {
  * 落库 tags = `[review:{cadence}, ...clientTags]`（自动附加，客户端不得传 `review:*`）。
  */
 export async function createReview(
-  body: unknown,
+  parsed: NormalizedReview,
 ): Promise<Record> {
-  const parsed = parseReview(body as LogReviewBody)
-  if ('error' in parsed) {
-    throw newValidation(parsed.error)
-  }
-
   return Repo.save(db, {
     id: uuidv7(),
     happened_at: parsed.happenedAtRaw,
@@ -331,15 +305,8 @@ export async function createReview(
  * 解析委托 `parseTransactionBatch`，整单事务写入。
  */
 export async function createTransactionBatch(
-  body: unknown,
+  parsed: NormalizedTransactionBatch,
 ): Promise<CreateBatchOk> {
-  const parsed = parseTransactionBatch(
-    body as Parameters<typeof parseTransactionBatch>[0],
-  )
-  if ('error' in parsed) {
-    throw newValidation(parsed.error)
-  }
-
   // 领域 Record 组装（happened_at = 已校验请求串；Repository 内解析落库）。
   const nrs: Record[] = parsed.entries.map((entry) => ({
     id: uuidv7(),

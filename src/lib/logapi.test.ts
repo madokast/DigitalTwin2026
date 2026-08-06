@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { NUMERIC_VALUE_MUST_BE_STRING } from '@/lib/draft'
-import {
-  createNumberBatch,
-  createText,
-  createTransactionBatch,
-} from '@/lib/logapi'
+import { createText } from '@/lib/logapi'
 import { reservedTagError } from '@/lib/tags'
-import { AMOUNT_MUST_BE_STRING, INVALID_AMOUNT } from '@/lib/transactiondraft'
 
 /** 决策 D：业务函数失败 throw MyError（status + message）。 */
 const rejects = async (
@@ -109,132 +104,6 @@ describe('createText', () => {
       }),
       400,
       'missing required field: raw_content',
-    )
-  })
-})
-
-describe('createTransactionBatch', () => {
-  it('rejects empty entries', async () => {
-    await rejects(
-      createTransactionBatch({
-        happened_at: '2026-08-01T12:30:00+08:00',
-        type: 'expense',
-        entries: [],
-      }),
-      400,
-      'entries must be a non-empty array',
-    )
-  })
-
-  it('rejects JSON number amount', async () => {
-    await rejects(
-      createTransactionBatch({
-        happened_at: '2026-08-01T12:30:00+08:00',
-        type: 'expense',
-        entries: [
-          {
-            amount: 25,
-            memo: 'x',
-            category: 'food',
-            subcategory: 'lunch',
-          },
-        ],
-      }),
-      400,
-      expect.stringContaining(AMOUNT_MUST_BE_STRING),
-    )
-  })
-
-  it('rejects missing type', async () => {
-    await rejects(
-      createTransactionBatch({
-        happened_at: '2026-08-01T12:30:00+08:00',
-        entries: [
-          {
-            amount: '25.00',
-            memo: 'x',
-            category: 'food',
-            subcategory: 'lunch',
-          },
-        ],
-      }),
-      400,
-      'missing required field: type',
-    )
-  })
-
-  it('rejects zero amount', async () => {
-    await rejects(
-      createTransactionBatch({
-        happened_at: '2026-08-01T12:30:00+08:00',
-        type: 'income',
-        entries: [
-          {
-            amount: '0.00',
-            memo: 'x',
-            category: 'food',
-            subcategory: 'lunch',
-          },
-        ],
-      }),
-      400,
-      `entries[0]: ${INVALID_AMOUNT}`,
-    )
-  })
-})
-
-describe('createNumberBatch', () => {
-  it('rejects empty entries', async () => {
-    await rejects(
-      createNumberBatch({
-        happened_at: '2026-08-05T10:00:00+08:00',
-        entries: [],
-      }),
-      400,
-      'entries must be a non-empty array',
-    )
-  })
-
-  it('rejects missing happened_at', async () => {
-    await rejects(
-      createNumberBatch({
-        entries: [{ numeric_value: '1', memo: 'x' }],
-      }),
-      400,
-      'missing required field: happened_at',
-    )
-  })
-
-  it('rejects missing numeric_value with index prefix', async () => {
-    await rejects(
-      createNumberBatch({
-        happened_at: '2026-08-05T10:00:00+08:00',
-        entries: [{ memo: 'x' }],
-      }),
-      400,
-      'entries[0]: missing required field: numeric_value',
-    )
-  })
-
-  it('rejects JSON number numeric_value', async () => {
-    await rejects(
-      createNumberBatch({
-        happened_at: '2026-08-05T10:00:00+08:00',
-        entries: [{ numeric_value: 36.8, memo: 'x' }],
-      }),
-      400,
-      expect.stringContaining(NUMERIC_VALUE_MUST_BE_STRING),
-    )
-  })
-
-  it('rejects reserved tag with index prefix', async () => {
-    await rejects(
-      createNumberBatch({
-        happened_at: '2026-08-05T10:00:00+08:00',
-        entries: [{ numeric_value: '1', memo: 'x', tags: ['body:weight'] }],
-      }),
-      400,
-      `entries[0]: ${reservedTagError('body:weight')}`,
     )
   })
 })

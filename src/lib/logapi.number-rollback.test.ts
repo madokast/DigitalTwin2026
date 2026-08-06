@@ -36,11 +36,11 @@ vi.mock('@/db', () => ({
 
 import { createNumberBatch } from '@/lib/logapi'
 
-const body = {
-  happened_at: '2026-08-02T12:00:00+08:00',
+const parsed = {
+  happenedAtRaw: '2026-08-02T12:00:00+08:00',
   entries: [
-    { numeric_value: '42.5', memo: 'first' },
-    { numeric_value: '7.0', memo: 'second' },
+    { numericValue: '42.5', objectiveContext: 'first', tags: [], aiAnalysis: null },
+    { numericValue: '7.0', objectiveContext: 'second', tags: [], aiAnalysis: null },
   ],
 }
 
@@ -67,7 +67,7 @@ describe('createNumberBatch rollback (mocked db)', () => {
       ])
       .mockRejectedValueOnce(new Error('injected insert failure'))
 
-    await expect(createNumberBatch(body)).rejects.toMatchObject({
+    await expect(createNumberBatch(parsed)).rejects.toMatchObject({
       status: 500,
       message: expect.stringContaining('injected insert failure'),
     })
@@ -76,7 +76,7 @@ describe('createNumberBatch rollback (mocked db)', () => {
   })
 
   it('returns inserted records on success', async () => {
-    const result = await createNumberBatch(body)
+    const result = await createNumberBatch(parsed)
     expect(result.inserted).toBe(2)
     expect(result.records).toHaveLength(2)
   })
