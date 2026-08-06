@@ -95,14 +95,16 @@ type Tx interface { // pgx.Tx 满足
 	Commit(ctx context.Context) error
 	Rollback(ctx context.Context) error
 }
-type TxBeginner interface { // *pgxpool.Pool 与 pgx.Tx（savepoint）满足
+type TxBeginner interface { // *pgxpool.Pool（经 NewPoolTxBeginner 适配）与 pgx.Tx（savepoint，同上适配）满足
 	Executor
-	Begin(ctx context.Context) (pgx.Tx, error) // 返回具体 pgx.Tx（Go 接口方法返回类型不协变）；pgx.Tx 满足 Tx
+	Begin(ctx context.Context) (Tx, error) // 返回自定义 Tx——Go 接口方法返回类型不协变，db 包内部
+	// 用 txAdapter{pgx.Tx} 适配（pgx 类型不出 db 包）；测试 fake 只需实现 5 个方法
 }
 
-// UoW：事务机制封装（begin / rollback / commit），业务层只调 Do
+// db 包内部：txAdapter 包装 pgx.Tx；poolTxBeginner 包装 *pgxpool.Pool；导出 NewPoolTxBeginner(pool)（nil→nil）。
+// UoW 事务机制封装（begin / rollback / commit），业务层只调 Do：
 type UoW struct{ pool TxBeginner }
-func NewUoW(pool TxBeginner) *UoW
+func NewUoW(pool *pgxpool.Pool) *UoW // 内部 NewPoolTxBeginner；测试同包直接 &UoW{pool: fake}
 func (u *UoW) Do(ctx context.Context, fn func(q Executor) error) error {
 	tx, err := u.pool.Begin(ctx)
 	if err != nil {

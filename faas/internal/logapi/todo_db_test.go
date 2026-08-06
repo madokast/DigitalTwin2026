@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/mdk/digitaltwin2026/faas/internal/db"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
 
@@ -94,26 +95,6 @@ func (t *fakeTx) Rollback(context.Context) error {
 	return nil
 }
 
-// 以下 stub 满足 pgx.Tx（transitionTodo 不用，panic 暴露误用）
-func (t *fakeTx) Begin(context.Context) (pgx.Tx, error) {
-	panic("Begin not used by transitionTodo")
-}
-func (t *fakeTx) CopyFrom(context.Context, pgx.Identifier, []string, pgx.CopyFromSource) (int64, error) {
-	panic("CopyFrom not used by transitionTodo")
-}
-func (t *fakeTx) SendBatch(context.Context, *pgx.Batch) pgx.BatchResults {
-	panic("SendBatch not used by transitionTodo")
-}
-func (t *fakeTx) LargeObjects() pgx.LargeObjects {
-	panic("LargeObjects not used by transitionTodo")
-}
-func (t *fakeTx) Prepare(context.Context, string, string) (*pgconn.StatementDescription, error) {
-	panic("Prepare not used by transitionTodo")
-}
-func (t *fakeTx) Conn() *pgx.Conn {
-	panic("Conn not used by transitionTodo")
-}
-
 type fakeTransitionDB struct {
 	selectRow *fakeRow
 	tx        *fakeTx
@@ -136,7 +117,7 @@ func (f *fakeTransitionDB) Query(context.Context, string, ...any) (pgx.Rows, err
 	panic("Query not used by transitionTodo")
 }
 
-func (f *fakeTransitionDB) Begin(context.Context) (pgx.Tx, error) {
+func (f *fakeTransitionDB) Begin(context.Context) (db.Tx, error) {
 	if f.beginErr != nil {
 		return nil, f.beginErr
 	}

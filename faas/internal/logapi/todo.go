@@ -67,9 +67,9 @@ func parseTagsList(tagsJSON string) ([]string, error) {
 }
 
 // TransitionTodo 与 Next transitionTodo 对齐：同事务 UPDATE 状态 tag + INSERT 审计。
-// pool 满足 db.TxBeginner（*pgxpool.Pool 天然满足）；单测直接调 transitionTodo 注入 fake。
+// pool 经 db.NewPoolTxBeginner 适配为 TxBeginner；单测直接调 transitionTodo 注入 fake。
 func TransitionTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (TransitionResult, int, error) {
-	return transitionTodo(ctx, pool, raw)
+	return transitionTodo(ctx, db.NewPoolTxBeginner(pool), raw)
 }
 
 func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (TransitionResult, int, error) {
