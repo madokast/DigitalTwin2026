@@ -153,11 +153,11 @@ export function errorMessage(error: unknown): string {
    - **阶段 B（UoW 落地时）**：引入 `ErrInternal` 类 + Repository 层吸收三方库错误（防腐层）——`writeInternalError` 消失。与 Node 端「`InternalError` 类推迟」决策对称。
 2. **statusOf 已否决（方案 A 定案）**：status 来源保持 A2 定案——业务函数显式返回 `(T, status, error)`，handler 用业务函数给的 status。**不引入** statusOf 统一映射（双端对称：Node `Result.status` 亦保留）。领域错误分类（400/404/409/500）在业务函数内完成。
 3. **`ErrInternal` 错误链保留**：`InternalError` 存原始 `err` + 实现 `Unwrap()`（返回原 err）——`Error()` 返回原文，`errors.As` 命中 `InternalError`，底层链仍可 `errors.Is` 穿透（如判 SQLSTATE）。**不**只存 `message` 断链。
-4. **`writeLogOrError` 删除（已定案）**：拆为独立日志方法 `logResponseError(status int, logMsg string, err error)`（仅 `status >= 500` 时 `slog.Error(logMsg, "err", err)`）+ 调用者显式 `writeError(w, status, err.Error())`。handler 出错分支显式组合：
+4. **`writeLogOrError` 删除（已定案）**：拆为独立日志方法 `logResponseError(status int, logMsg string, err error)`（仅 `status >= 500` 时 `slog.Error(logMsg, "err", err)`）+ 调用者显式 `writeError(w, status, errorDetail(err))`。handler 出错分支显式组合：
    ```go
    if err != nil {
    	logResponseError(status, "Error creating number records", err)
-   	writeError(w, status, err.Error())
+   	writeError(w, status, errorDetail(err))
    	return
    }
    ```
