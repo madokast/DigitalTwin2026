@@ -115,6 +115,18 @@
 ### C1 withTx 与执行器类型约束
 - 问题：drizzle `db`（PgDatabase）与 `tx`（PgTransaction）类型不同但方法集相同；`withTx(db, fn)` 中 `fn` 收到的 `q` 类型如何表达（泛型 `DbQueryable`？）；业务函数收执行器的 TS 类型怎么写。
 - 待决：Node 类型方案。
+- 状态：✅ **已定案**（已实测 typecheck）：
+  - `src/db/withTx.ts` 定义：
+    ```ts
+    export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+    export type Executor = PostgresJsDatabase<typeof schema> | DbTransaction
+    export async function withTx<T>(fn: (q: Executor) => Promise<T>): Promise<T> {
+      return db.transaction(fn)
+    }
+    ```
+  - `DbTransaction` 从实际 `db.transaction` 回调提取（**不**手写 `PgTransaction` 4 泛型参数）。
+  - `Executor` union 已验证 `select` / `update` / `execute` 链全 typecheck（`inArray` 等运算符用 drizzle 函数、非列方法）。
+  - Repository 方法收 `q: Executor`；业务函数**不**传执行器参数（Node 无 Tx/TxBeginner 分离，`withTx` 走模块级 db 单例）——与 Go 收 `TxBeginner` 的差异为框架差异（A1 注），非不一致。
 
 ### C2 Node 单测的 fake 注入机制
 - 问题：Go 有接口注入先例；Node 现在单测靠 `vi.mock('@/db')`？事务回滚测试（继承项 2 双端）Node 侧如何 fake `db.transaction` 使其失败回滚？
