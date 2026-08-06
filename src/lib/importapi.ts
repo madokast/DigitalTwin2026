@@ -6,8 +6,7 @@
  * 成功 commit + Notify；失败 rollback、不 Notify。勿接 `readJsonBody`（须 bypass 256KiB）。
  */
 
-import { logger } from './logger'
-import { newInternal, newValidation, MyError } from './myerr'
+import { newValidation, MyError } from './myerr'
 import { eq } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
@@ -198,8 +197,7 @@ export async function importRecordsJsonl(
     throw newValidation(IMPORT_LIMITS_ERROR)
   }
 
-  try {
-    const counts = await store.begin(async (tx) => {
+  const counts = await store.begin(async (tx) => {
       let inserted = 0
       let updated = 0
       const seen = new Set<string>()
@@ -248,12 +246,5 @@ export async function importRecordsJsonl(
       } satisfies ImportCounts
     })
 
-    return counts
-  } catch (err) {
-    if (err instanceof MyError) {
-      throw err
-    }
-    logger.error({ err }, 'import records')
-    throw newInternal(err)
-  }
+  return counts
 }

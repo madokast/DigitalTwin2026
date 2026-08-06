@@ -44,7 +44,6 @@ beforeEach(() => {
     void task()
   })
   transitionTodo.mockResolvedValue({
-    status: 200,
     id: todoId,
     from: 'in_progress',
     to: 'completed',

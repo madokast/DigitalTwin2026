@@ -47,7 +47,6 @@ beforeEach(() => {
   scheduleBestEffortNotify.mockReset()
   notifyNumberBatchInserted.mockReset()
   createNumberBatch.mockResolvedValue({
-    status: 201,
     inserted: 1,
     records: [sampleRecord],
   })
