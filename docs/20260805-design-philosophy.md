@@ -19,6 +19,15 @@
   - 前端不做任何写操作（见 §1），杜绝「人绕过 AI」的变更来源。
   - 删除/编辑/补 tag 等写能力是给 AI 的 API，前端无入口。
 
+### 2.1 推论：错误信息透传（AI 诊断权）
+
+- **AI 是全权操作者，有权看到实际发生的错误**——系统实际存在的错误信息（DB 空间满、连接超限、查询失败的具体 message / SQLSTATE）不应被替换成固定文案（如 `Internal server error`）吞掉；否则 AI 无从诊断、无法对症行动，违背「AI 全权操作」前提。
+- 推论：
+  - 500 等内部错误的响应 `detail` 应**透传实际错误信息**，而非固定文案。
+  - 现有行为「错误进日志但响应换固定文案」（`writeInternalError` 丢弃 err；`TestWriteInternalErrorNeverExposesDetails` 守卫）**违反本原则**，需改造为透传（双端对齐、契约 / OpenAPI 同步、守卫测试改造）。
+  - 日志（slog/pino）仍保留，但**不能以「已记日志」为理由剥夺 AI 的诊断信息**。
+- 安全让位于 AI 全权操作：个人系统 + AI 唯一操作者，内部错误信息（表名 / SQLSTATE）不构成威胁；若未来暴露给外部再评估。
+
 ## 3. 放开「AI 不能修改」原则
 
 - **推翻** `docs/20260805-status-analysis.md` §1 记录的「PATCH 编辑 API 彻底删除」——该决策基于「日志不应编辑」的旧假设；新形态下 AI 可修改数据。
@@ -77,6 +86,7 @@
 
 ## 6. 待办（据此调整）
 
+- 错误透传改造：`writeInternalError` 透传 err 而非固定 `Internal server error`；双端对齐 + OpenAPI `InternalError` + 守卫测试 `TestWriteInternalErrorNeverExposesDetails` 改造（见 §2.1）。
 - 前端写 UI 清理：settings 的 token 配置、tags 页 rename 等写入口是否保留（前端只读 → 应移除或置灰）——另行评估。
 - tags 编辑接口（add/remove）实现——见 `docs/20260805-tags-add.md`。
 - tag 归一化 normalize 实现（替换 rename）——见 `docs/20260805-tag-design.md`。
