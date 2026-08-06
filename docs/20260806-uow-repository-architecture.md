@@ -97,7 +97,7 @@ type Tx interface { // pgx.Tx 满足
 }
 type TxBeginner interface { // *pgxpool.Pool 与 pgx.Tx（savepoint）满足
 	Executor
-	Begin(ctx context.Context) (Tx, error)
+	Begin(ctx context.Context) (pgx.Tx, error) // 返回具体 pgx.Tx（Go 接口方法返回类型不协变）；pgx.Tx 满足 Tx
 }
 
 // UoW：事务机制封装（begin / rollback / commit），业务层只调 Do
