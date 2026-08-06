@@ -178,11 +178,11 @@ func TestSendMessageTransportError(t *testing.T) {
 		APIBases: []string{"http://example.invalid"},
 		Getenv:   configuredGetenv,
 	}
-	err := s.SendMessage("x")
-	if err == nil || err.Error() != ErrTransportFailedMessage.Error() {
-		t.Fatalf("err: %v", err)
+	me := s.SendMessage("x")
+	if me == nil || me.Status != 500 || !strings.Contains(me.Message, ErrTransportFailedMessage) {
+		t.Fatalf("err: %v", me)
 	}
-	if strings.Contains(err.Error(), "sec-1") {
+	if strings.Contains(me.Message, "sec-1") {
 		t.Fatal("must not leak secret")
 	}
 }
@@ -205,9 +205,9 @@ func TestSendMessageBothBasesFail(t *testing.T) {
 		APIBases:   []string{failSrv.URL, failSrv.URL},
 		Getenv:     configuredGetenv,
 	}
-	err := s.SendMessage("x")
-	if err == nil || err.Error() != "QQ Bot sendMessage failed: invalid openid" {
-		t.Fatalf("err: %v", err)
+	me := s.SendMessage("x")
+	if me == nil || me.Status != 500 || !strings.Contains(me.Message, "QQ Bot sendMessage failed: invalid openid") {
+		t.Fatalf("err: %v", me)
 	}
 }
 

@@ -158,9 +158,9 @@ func TestSendMessageTransportErrorFixedMessage(t *testing.T) {
 			return ""
 		},
 	}
-	err := s.SendMessage("x")
-	if err == nil || err.Error() != ErrTransportFailedMessage.Error() {
-		t.Fatalf("err: %v", err)
+	me := s.SendMessage("x")
+	if me == nil || me.Status != 500 || !strings.Contains(me.Message, ErrTransportFailedMessage) {
+		t.Fatalf("err: %v", me)
 	}
 }
 

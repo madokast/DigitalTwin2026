@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
@@ -149,19 +150,19 @@ func (n *Notifier) NotifyUser(text string) {
 
 	type task struct {
 		name string
-		run  func() error
+		run  func() *myerr.MyError
 	}
 	var tasks []task
 	if tgCfg.Configured() {
 		tasks = append(tasks, task{
 			name: "Telegram",
-			run:  func() error { return tg.SendMessage(text) },
+			run:  func() *myerr.MyError { return tg.SendMessage(text) },
 		})
 	}
 	if qqCfg.Configured() {
 		tasks = append(tasks, task{
 			name: "QQ Bot",
-			run:  func() error { return qq.SendMessage(text) },
+			run:  func() *myerr.MyError { return qq.SendMessage(text) },
 		})
 	}
 	if len(tasks) == 0 {

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 )
@@ -20,7 +21,7 @@ import (
 const HTTPTimeout = 15 * time.Second
 
 // ErrTransportFailedMessage 与 Next TELEGRAM_TRANSPORT_FAILED 同文案（超时/网络等）。
-var ErrTransportFailedMessage = errors.New("telegram sendMessage failed: request failed")
+const ErrTransportFailedMessage = "telegram sendMessage failed: request failed"
 
 // Config 为非空 token + user id 才算 configured。
 type Config struct {
@@ -131,10 +132,11 @@ type apiResponse struct {
 }
 
 // SendMessage 调用 Bot API sendMessage。
-func (s *Sender) SendMessage(text string) error {
+// 错误语义：配置缺失 / 数据问题 → 400；外部 API / 网络失败 → 500（NewInternal）。
+func (s *Sender) SendMessage(text string) *myerr.MyError {
 	cfg := LoadConfig(s.getenv())
 	if !cfg.Configured() {
-		return fmt.Errorf("%s", ConfigError(cfg))
+		return myerr.NewValidation(ConfigError(cfg))
 	}
 
 	payload, err := json.Marshal(sendBody{
@@ -143,19 +145,19 @@ func (s *Sender) SendMessage(text string) error {
 		DisableWebPagePreview: true,
 	})
 	if err != nil {
-		return fmt.Errorf("%w", ErrTransportFailedMessage)
+		return myerr.NewValidation(err.Error())
 	}
 
 	url := fmt.Sprintf("%s/bot%s/sendMessage", s.apiBase(), cfg.Token)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
-		return fmt.Errorf("%w", ErrTransportFailedMessage)
+		return myerr.NewInternal(errors.New(ErrTransportFailedMessage))
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := s.client().Do(req)
 	if err != nil {
-		return fmt.Errorf("%w", ErrTransportFailedMessage)
+		return myerr.NewInternal(errors.New(ErrTransportFailedMessage))
 	}
 	defer res.Body.Close()
 
@@ -169,7 +171,7 @@ func (s *Sender) SendMessage(text string) error {
 	if reason == "" {
 		reason = fmt.Sprintf("HTTP %d", res.StatusCode)
 	}
-	return fmt.Errorf("telegram sendMessage failed: %s", reason)
+	return myerr.NewInternal(fmt.Errorf("telegram sendMessage failed: %s", reason))
 }
 
 // FormatTransactionBatchMessage 整单摘要。

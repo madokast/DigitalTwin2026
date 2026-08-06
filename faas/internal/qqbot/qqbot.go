@@ -14,13 +14,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 )
 
 // HTTPTimeout 与 Next QQBOT_HTTP_TIMEOUT_MS（15s）对齐。
 const HTTPTimeout = 15 * time.Second
 
 // ErrTransportFailedMessage 与 Next QQBOT_TRANSPORT_FAILED 同文案（超时/网络等）。
-var ErrTransportFailedMessage = errors.New("QQ Bot sendMessage failed: request failed")
+const ErrTransportFailedMessage = "QQ Bot sendMessage failed: request failed"
 
 const defaultTokenURL = "https://bots.qq.com/app/getAppAccessToken"
 
@@ -192,23 +194,24 @@ func parseExpiresIn(v any) int {
 	return 0
 }
 
-func (s *Sender) fetchAccessToken(cfg Config) (string, error) {
+// fetchAccessToken 外部 OAuth 换取 access_token。错误语义：外部 API / 网络失败 → 500。
+func (s *Sender) fetchAccessToken(cfg Config) (string, *myerr.MyError) {
 	payload, err := json.Marshal(map[string]string{
 		"appId":        cfg.AppID,
 		"clientSecret": cfg.AppSecret,
 	})
 	if err != nil {
-		return "", fmt.Errorf("%w", ErrTransportFailedMessage)
+		return "", myerr.NewValidation(err.Error())
 	}
 	req, err := http.NewRequest(http.MethodPost, s.tokenURL(), bytes.NewReader(payload))
 	if err != nil {
-		return "", fmt.Errorf("%w", ErrTransportFailedMessage)
+		return "", myerr.NewInternal(errors.New(ErrTransportFailedMessage))
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := s.client().Do(req)
 	if err != nil {
-		return "", fmt.Errorf("%w", ErrTransportFailedMessage)
+		return "", myerr.NewInternal(errors.New(ErrTransportFailedMessage))
 	}
 	defer res.Body.Close()
 
@@ -223,13 +226,13 @@ func (s *Sender) fetchAccessToken(cfg Config) (string, error) {
 		if reason == "" {
 			reason = fmt.Sprintf("HTTP %d", res.StatusCode)
 		}
-		return "", fmt.Errorf("QQ Bot getAppAccessToken failed: %s", reason)
+		return "", myerr.NewInternal(fmt.Errorf("QQ Bot getAppAccessToken failed: %s", reason))
 	}
 	s.storeToken(parsed.AccessToken, parseExpiresIn(parsed.ExpiresIn))
 	return parsed.AccessToken, nil
 }
 
-func (s *Sender) resolveAccessToken(cfg Config) (string, error) {
+func (s *Sender) resolveAccessToken(cfg Config) (string, *myerr.MyError) {
 	if tok := s.cachedTokenValid(); tok != "" {
 		return tok, nil
 	}
@@ -259,19 +262,19 @@ func readSendErrorReason(status int, raw []byte) string {
 }
 
 // SendMessage 主动 C2C 文本（无 msg_id）；双 API base 依次尝试。
-// 错误英文不含 appSecret / access_token。
-func (s *Sender) SendMessage(text string) error {
+// 错误英文不含 appSecret / access_token。错误语义：配置缺失 / 数据问题 → 400；外部失败 → 500。
+func (s *Sender) SendMessage(text string) *myerr.MyError {
 	cfg := LoadConfig(s.getenv())
 	if !cfg.Configured() {
-		return fmt.Errorf("%s", ConfigError(cfg))
+		return myerr.NewValidation(ConfigError(cfg))
 	}
 
-	token, err := s.resolveAccessToken(cfg)
-	if err != nil {
-		return err
+	token, me := s.resolveAccessToken(cfg)
+	if me != nil {
+		return me
 	}
 	if token == "" {
-		return fmt.Errorf("%w", ErrTransportFailedMessage)
+		return myerr.NewInternal(errors.New(ErrTransportFailedMessage))
 	}
 
 	path := "/v2/users/" + url.PathEscape(cfg.UserOpenID) + "/messages"
@@ -280,7 +283,7 @@ func (s *Sender) SendMessage(text string) error {
 		"msg_type": 0,
 	})
 	if err != nil {
-		return fmt.Errorf("%w", ErrTransportFailedMessage)
+		return myerr.NewValidation(err.Error())
 	}
 
 	lastErr := "send failed"
@@ -305,7 +308,7 @@ func (s *Sender) SendMessage(text string) error {
 		}
 		lastErr = readSendErrorReason(res.StatusCode, raw)
 	}
-	return fmt.Errorf("QQ Bot sendMessage failed: %s", lastErr)
+	return myerr.NewInternal(fmt.Errorf("QQ Bot sendMessage failed: %s", lastErr))
 }
 
 // Default 进程级默认 Sender（生产路径）。
