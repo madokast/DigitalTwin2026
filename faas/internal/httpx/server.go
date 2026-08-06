@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"mime"
@@ -138,9 +139,17 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	writeEncoded(w, status, "application/json", body)
 }
 
-func writeInternalError(w http.ResponseWriter, _ error) {
-	// 与 Next 对齐：500 恒为固定英文；细节只由调用方 log，禁止 EXPOSE_ERRORS 回传客户端
-	writeError(w, http.StatusInternalServerError, "Internal server error")
+func writeInternalError(w http.ResponseWriter, err error) {
+	// 透传实际错误（设计哲学 §2.1：AI 诊断权）；空 message 以类型名兜底
+	writeError(w, http.StatusInternalServerError, errorDetail(err))
+}
+
+// errorDetail：错误 detail 字符串。err.Error() 为空时以 %T 类型名兜底（非 nil error 永不为空）。
+func errorDetail(err error) string {
+	if msg := err.Error(); msg != "" {
+		return msg
+	}
+	return fmt.Sprintf("%T", err)
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

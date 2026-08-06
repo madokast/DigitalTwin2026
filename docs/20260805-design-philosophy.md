@@ -86,7 +86,7 @@
 
 ## 6. 待办（据此调整）
 
-- 错误透传改造：`writeInternalError` 透传 err 而非固定 `Internal server error`；双端对齐 + OpenAPI `InternalError` + 守卫测试 `TestWriteInternalErrorNeverExposesDetails` 改造（见 §2.1）。
+- 错误透传改造：`writeInternalError` 透传 err 而非固定 `Internal server error`（见 §2.1）。**Go 阶段 A 已落地**（透传 + `errorDetail` %T 兜底 + 守卫测试 `TestWriteInternalErrorTransmitsDetail` 反转 + OpenAPI/AGENTS 同步）；Node 阶段 A（`errorMessage` helper + 各 catch 透传）与阶段 B（`ErrInternal`/`InternalError` 防腐层，随 UoW）待实施——细节见 `docs/20260806-internal-error-transparency.md`。
 - 前端写 UI 清理：settings 的 token 配置、tags 页 rename 等写入口是否保留（前端只读 → 应移除或置灰）——另行评估。
 - tags 编辑接口（add/remove）实现——见 `docs/20260805-tags-add.md`。
 - tag 归一化 normalize 实现（替换 rename）——见 `docs/20260805-tag-design.md`。

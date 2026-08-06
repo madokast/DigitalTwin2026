@@ -1034,8 +1034,8 @@ func TestWriteJSONDoesNotHTMLEscape(t *testing.T) {
 	}
 }
 
-func TestWriteInternalErrorNeverExposesDetails(t *testing.T) {
-	t.Setenv("EXPOSE_ERRORS", "1")
+func TestWriteInternalErrorTransmitsDetail(t *testing.T) {
+	// 内部错误透传：500 detail = 实际错误 message（设计哲学 §2.1，AI 诊断权）
 	rr := httptest.NewRecorder()
 	writeInternalError(rr, errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`))
 	if rr.Code != 500 {
@@ -1045,7 +1045,23 @@ func TestWriteInternalErrorNeverExposesDetails(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body["detail"] != "Internal server error" {
-		t.Fatalf("leaked internal detail: %q", body["detail"])
+	if body["detail"] != `ERROR: relation "records" does not exist (SQLSTATE 42P01)` {
+		t.Fatalf("detail not transmitted: %q", body["detail"])
+	}
+}
+
+func TestWriteInternalErrorEmptyMessageUsesTypeName(t *testing.T) {
+	// 空 message 兜底：%T 类型名（永不为空）
+	rr := httptest.NewRecorder()
+	writeInternalError(rr, errors.New(""))
+	if rr.Code != 500 {
+		t.Fatalf("status %d", rr.Code)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["detail"] != "*errors.errorString" {
+		t.Fatalf("type-name fallback missing: %q", body["detail"])
 	}
 }

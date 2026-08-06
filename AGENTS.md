@@ -18,7 +18,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 内部 TS/Go **变量名、Drizzle 属性、struct 字段名**可仍用惯用 camelCase / PascalCase；**仅序列化到 JSON/JSONL 的键**必须 snake。Go 用 `json:"happened_at"`；TS 组装响应对象时用 snake 键字面量（或显式 serializer），禁止 `JSON.stringify` 直接 dump Drizzle 行导致驼峰漏网。
 - 查询串参数与 JSON 键对齐时也用 snake（如 `page_size`）；错误文案里的字段名与契约键一致。
 - **错误响应一律 RFC 9457 problem+json**：形状 `{success: false, title, status, detail}`（key 顺序固定），Content-Type `application/problem+json`；`title` 用标准 HTTP reason phrase（Go `statusTitle` 413 特例 `Payload Too Large`，Node 标准库天然一致）；`detail` 承载具体文案。契约见 [`docs/20260805-error-response-shape.md`](docs/20260805-error-response-shape.md)。
-- **错误文案（API `detail` 字段）一律小写开头、双端逐字一致**（如 `missing required field: memo`；例外：`Unknown JSON key`、`Internal server error` 固定文案）。staticcheck ST1005 作为守卫拦截新的大写错误文案。
+- **错误文案（API `detail` 字段）一律小写开头、双端逐字一致**（如 `missing required field: memo`；例外：`Unknown JSON key` 固定前缀）。「双端逐字一致」仅约束**我们写的契约文案**（400/404/409/413/502 等业务错误）；**500 透传驱动错误**（pgx / postgres.js 原生 message）双端各自真实、不强求一致——统一才是信息丢失。staticcheck ST1005 作为守卫拦截新的大写错误文案（透传的动态 500 detail 不受静态守卫约束）。
 
 # 复盘 API
 

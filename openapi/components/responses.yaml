@@ -52,7 +52,7 @@ InternalError:
         success: false
         title: Internal Server Error
         status: 500
-        detail: Internal server error
+        detail: 'ERROR: relation "records" does not exist (SQLSTATE 42P01)'
 BadGateway:
   description: Upstream chat API call failed
   content:

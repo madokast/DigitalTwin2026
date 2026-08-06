@@ -27,11 +27,11 @@
 
 - **Go 错误消息 = API 契约文案**：`writeError(w, status, err.Error())` 直接输出 Go error 为 HTTP `error` 字段，Node 端**逐字一致**。
 - **契约文案已标准化为小写开头**（ST1005 改造，见「§7 探测结果」）：所有错误文案首字母小写（`Missing required field` → `missing required field`），双端同步。**新增错误文案必须小写开头 + 双端逐字一致**（staticcheck ST1005 作为守卫拦截新的大写文案）。
-- 例外（保持大写，staticcheck 不报）：`Unknown JSON key`（常量前缀）、`Internal server error`（固定 500 文案）——双端各自一致即可。
+- 例外（保持大写，staticcheck 不报）：`Unknown JSON key`（常量前缀）——双端各自一致即可。
 - `%w` 改造 **只改机制**：`%s`→`%w`、string 常量→`errors.New`（**同文案**）——**文案字符串逐字不动**。
 - 区分两类错误：
   - **契约错误（400/404/409）**：`writeError` 输出 `err.Error()` → 文案锁定，只改 wrap 机制。
-  - **内部错误（500）**：`writeInternalError` 忽略 err（客户端只见固定 `Internal server error`）→ 内部 err 可自由 `%w` 增强日志，不影响契约。
+  - **内部错误（500）**：`writeInternalError` 透传 `errorDetail(err)`（客户端见实际错误，AI 诊断权）→ 500 detail 非契约文案（驱动 message 双端各自真实），可自由 `%w` 增强日志。
 
 ### 影响面
 
