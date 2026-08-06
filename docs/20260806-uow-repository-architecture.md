@@ -225,7 +225,7 @@ func (s *Service) GetUser(ctx context.Context, req GetUserRequest) (*User, error
 | 9 | `attachTag` | `AttachTag(ctx, q, rec, tag) RecordAttachTagResult` | 同左 | **CAS**（WHERE 含旧 tags）；`rec` 自带旧 tags（业务层 `FindByID` 预读）；返回新 record，业务层 diff 得 `changed` |
 | 10 | `detachTag` | `DetachTag(ctx, q, rec, tag) RecordDetachTagResult` | 同左 | 同上 |
 | 11 | `transition` | `Transition(ctx, q, id, tags []string) RecordTransitionResult` | 同左 | **只 UPDATE tags**（A5：领域服务编排 + Repository 原语）；`RowsAffected != 1` → 内部错误（阶段 B 用 `ErrInternal`）；审计行 INSERT **复用 `save`** |
-| 12 | `listIDAndTags` / `updateTags` | `ListIDAndTags(ctx, q) ([]RecordIDTags, *MyError)` / `UpdateTags(ctx, q, id, tagsJSON string) *MyError` | 2026-08-06 定案（**原语分离**）：repo 只给「读 id+tags / 写 tags」原语；**读改写循环、脏数据→500、计数、`pg_advisory_xact_lock`、事务全部留在业务层**（tags.go `renameAcrossQuerier` 的循环不变，假执行器单测形态保留）；**`UpdateTags` 收 `tagsJSON string`**（业务层 `RenameTagInTagsJSON` 手上即是完整 JSON 串，零转换；不强制 `[]string` 往返） |
+| 12 | `renameTag` | `RenameTag(ctx, q db.Executor, from, to string) (int, *MyError)` | **整体原语（2026-08-06 二次定案，替代原语分离）**：事务内分页循环；**q 必须为事务**——内部 `q.(db.Tx)` 断言，不通过直接 panic（编程错误）；分页**复用 `findByCriteria`**（`Criteria{Tags: [from], PageSize: 100 写死, SortBy: id}`，OFFSET 分页——并发写下有跳行/漏改边界，尽力而为可接受）；每行变换（`to ∈ tags` → 移除 from，否则 from 原位 → to，数组逻辑）→ `record.TagsJSON` → 逐个 UPDATE；**事务由业务层 uow.Do 开**（tags.go `RenameAcrossRecords`：advisory lock + uow → repo），任何 DB 错误 500 + 整单回滚 |
 
 - **第一参数一律是执行器 `q`**（非事务 `pool` / `db`，或事务 `tx`——无「有的收 pool 有的收 tx」割裂）；方法挂在包级单例 `Repo` 上（Go `recordrepo.Repo.Save(ctx, q, ...)` / TS `Repo.save(q, ...)`）；Go PascalCase / Node camelCase，**词干一致**。
 - 复合领域操作（saveAll / upsert / attachTag / detachTag / transition / renameTag）由业务层 `s.uow.Do` 包裹，Repository 内不出现 `Begin`/`Commit`。
@@ -301,7 +301,7 @@ src/lib/logapi.ts 等   业务层（Service class）
 3. **迁移 transition**（最小先例）：`transitionTodo` 走 `db.WithTx` + `recordrepo.Transition`/`Save`/`FindByID` 原语，fake 单测。✅ 已完成（`6c6607c`）——**暂用函数形态 `db.WithTx(ctx, q, fn)`**（Service 结构体未引入；`UoW.Do` 即 `WithTx` 的注入封装，行为一致）
 4. **迁移批量 create**（number/transaction）：`SaveAll` → **补 log/numbers 回滚测试**（继承项 2）。✅ 已完成（`SaveAll` 循环复用 `Save` 单条原语；业务层 `db.WithTx`/`UoW.do` + `SaveAll`，无手写 Begin/Commit；回滚测试：Go `number_rollback_test.go` fakeTx failOn 第 2 条 INSERT 注入错误 → 500/回滚/无半状态；Node `logapi.number-rollback.test.ts` `mockRejectedValueOnce` 同语义）。
 5. **迁移单条 create**（text/todo/bodyWeight/review）：`Save`（无事务）。
-6. **迁移 import / rename**（✅ 设计定案 2026-08-06，见 §10b 步骤 2）：`Exists` / `Insert` / `Update` + `ListIDAndTags` / `UpdateTags` 原语（双端对称）；`ImportCounts` 移 `record` 包。
+6. **迁移 import / rename**（✅ 设计定案 2026-08-06，见 §10b 步骤 2）：先建 `FindByCriteria`（renameTag 复用，依赖顺序二次定案）→ `Exists` / `Insert` / `Update` + `RenameTag` 原语（双端对称）；`ImportCounts` 移 `record` 包。
 7. **tags 增删接口**（新接口，暂停中）：`AttachTag` / `DetachTag`（CAS）——业务层零 DB 校验 → `uow.Do` → Repository 存在性/重复性/CAS（见 `docs/20260805-tags-add.md`）。
 8. **迁移读路径**（query/export/stats/summary/tags）：`FindByCriteria` / `FindByCursor` / `Count` / `CountTags`（fake executor 单测查询条件）。
 9. **Service 化（横切，2026-08-06 补充）**：业务层自由函数（logapi/importapi/exportapi/query）→ **Service struct/class 方法**，构造注入 `db` + `uow`；`db.WithTx(ctx, q, fn)` → `s.uow.Do(ctx, fn)`（Node `new UoW(db)` → 构造注入 `this.uow`）；httpx/route 装配注入 Service；测试改注入 fake uow。双端对称，一次性横切。
@@ -326,16 +326,17 @@ src/lib/logapi.ts 等   业务层（Service class）
    - Go `writeErr` 的 `errors.As` → 直接断言：MyError 无 Unwrap（决策 D），As 永不命中链，只是断言。**倾向签名直接收紧 `writeErr(w, me *myerr.MyError, ...)`**（全 16 个调用点已传 *MyError，编译期保证，删兜底分支）；Node `routeError` 保留 `unknown` 兜底（JS 无编译期保证，框架差异可接受）。
 2. **UoW 步骤 6：迁移 import / rename**——写路径最后一块手写 SQL：`recordrepo` 加原语（双端对称）；`ImportCounts` 移 `record` 包；importapi / tagsdb / tags.go 瘦身。**设计定案（2026-08-06 讨论）**：
    - **import 用 `Exists` / `Insert` / `Update` 三原语，保守复刻（行为零变化）**。否决 `INSERT ... ON CONFLICT DO UPDATE` + `xmax` 计数技巧：**并发同 id 时唯一索引拦截 → 500 整单回滚是正确的失败语义**——它明确告诉操作者两个导入文件数据源重叠、导入失败；ON CONFLICT 静默覆盖会掩盖这一事实（第二个导入者以为已更新，实际数据源冲突被吞掉）。「改成事务」亦不能解决：import 现已是单事务，竞态是 check-then-act（READ COMMITTED 下两事务的 `EXISTS` 互不可见、均 false → 双 INSERT → 唯一索引拦后者），事务只保原子性、不提供「先查后写」的互斥；SERIALIZABLE 也只是把 500 换成 40001 序列化失败，同样是失败。**竞态 500 = 特性，保留**。
-   - **rename 用原语分离**：repo 只给 `ListIDAndTags` / `UpdateTags`；读改写循环、脏数据→500、计数、`pg_advisory_xact_lock`、事务全部留在业务层（tags.go）——事务边界本就是业务层职责，且 tags_db_test 的假执行器测试形态不变。
+   - **rename 用整体原语（2026-08-06 二次定案，替代原语分离）**：业务层（tags.go）`ValidateRename`（from/to 合法 + 非保留 tag → 400，零 DB）→ `RenameAcrossRecords`：advisory lock + `uow.Do` 开事务 → `repo.RenameTag(ctx, tx, from, to)`（整体原语，事务内分页循环，见 §5 #12）；任何 DB 错误 500 + 整单回滚。
    - **原语入参收领域 `record.Record`**（与 `Save` 一致）：import 行 → `Record` 转换后入 repo；`Update` 全列覆盖，utc_offset 由 repo 内 `ParseHappenedAt(rec.HappenedAt)` 重解析（§4 两次解析成本原则）。
    - **实施细节定案（2026-08-06 追加）**：
      1. **计数命名统一为 `ImportCounts`**（Go `record.ImportCounts` / Node `ImportCounts`）——双端词干一致；`UpsertCounts` 为旧误名，全文档清除。
-     2. **`UpdateTags` 收 `tagsJSON string`** 非 `[]string`（§5 #12 已同步）：业务层 `RenameTagInTagsJSON` 手上即是完整 JSON 串，零转换。
+     2. **`RenameTag` 的 q 必须为事务**（二次定案）：收 `db.Executor`，内部 `q.(db.Tx)` 断言不通过直接 panic（编程错误，漏包 uow 即 panic）；Node 对称：`UoW.do` 闭包参数收紧为 `DbTransaction`，`renameTag(q: DbTransaction, ...)`（编译期保证，无需运行时检测——框架差异）。
      3. **import DB 单测**：现状零 DB 单测（`insertRow`/`updateRow` 收 `pgx.Tx` 具体类型无法 fake）；迁移后新增——repo 三原语 fake 单测（SQL 断言 + 行为）、import 循环两分支（exists → update / 不存在 → insert）；Node `ImportTx` 接口保留（测试注入不变），defaultStore 内联 drizzle 改调 Repo 方法。
      4. **`Update` 补 `::timestamptz` cast**：现状 `updateRow` 无 cast（insert 有），迁移时统一（行为等价）。
      5. **row → Record 转换**：`recordjsonl` 包加导出转换函数（Go `ToDomainRecord` / Node 对称），importapi 调用；`UtcOffset` 丢弃、repo 内重解析。
      6. **`ImportRecordsJSONLTx` 双入口保留**：Tx 版供单测注入 / 步骤 9 Service 化后内部复用，只换内部原语。
-3. **UoW 步骤 8：迁移读路径**——query/export/stats/summary/tags 的散落 SELECT 收进 `recordrepo`（`FindByCriteria` / `FindByCursor` / `Count` / `CountTags`，fake executor 单测查询条件），query.go 瘦身。**设计定案（2026-08-06 讨论）**：
+     7. **依赖顺序调整（二次定案）**：`RenameTag` 复用 `findByCriteria`，故**步骤 6 先建 `findByCriteria`**（从 query.go `FetchFilteredRecords` 迁移 Criteria + 分页 + tag 过滤），`RenameTag` 与步骤 8 共用；步骤 8 再把 query.go 其余调用迁入。
+3. **UoW 步骤 8：迁移读路径**——query/export/stats/summary/tags 的散落 SELECT 收进 `recordrepo`（`FindByCriteria` 已在步骤 6 建立 / `FindByCursor` / `Count` / `CountTags`，fake executor 单测查询条件），query.go 瘦身。**设计定案（2026-08-06 讨论）**：
    - **summary 复用 `FindByCriteria`，无新原语**：`FetchTransactionsSummary` 的「区间 + income OR expense LIKE」查询 → `Criteria{From, To, Tags: ["transaction_entry:*"]}` 单族通配。等价性：`X:*` 族通配即 `tags LIKE '%"X:%'`（与 `buildWhere` 现实现同形），单条件覆盖 income/expense 两前缀、无 OR 问题（一条记录只有一个 transaction_entry 前缀）；多余的 transaction_entry 行由业务层 `classifyEntryType` 精确 tag 分类自然跳过 → **聚合结果与现状等价**。业务层取回 `[]record.Record` 后聚合循环不变。
    - **否决的候选**：FindInRange 通用区间原语（多拉全列行 + 业务层内存 LIKE 过滤，无必要）；专用事务行原语（repo 耦合 transaction 常量）；`Criteria.Tags` 改 OR / 加 `TagsAny`（破坏列表 AND 语义 / 污染契约）。
    - **条件构建迁入**：`buildWhere` / `orderByRecordsList` / `EscapeLikePattern` / 族通配判定迁 repo（§5 D3 已定案）；fake executor 单测断言查询条件（Go 断言 SQL 与参数 / Node vi.mock drizzle builder 链）。
