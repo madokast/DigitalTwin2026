@@ -2,6 +2,11 @@
  * RecordRepository：唯一聚合根的持久化（领域语义方法，内部 SQL）。
  * 构造注入 Executor（非事务 db / 事务 tx 调用形态一致）；无状态，每次现构建。
  * 与 Go `faas/internal/recordrepo` 同构（方法名 camelCase / Go PascalCase，词干一致）。
+ *
+ * 硬约束：本文件禁止开事务。方法只消费构造注入的 Executor——业务层 UoW 传入的
+ * tx（事务内）或非事务 db（直连），绝不调 db.transaction / begin / commit / rollback。
+ * 事务边界是业务层 UoW 的职责（`new UoW(db).do(fn)`）；业务层需要多方法同事务时，
+ * 在 do 闭包内用同一个 q（= tx）依次调用本文件方法，原子性由业务层这一个事务保证。
  */
 
 import { eq } from 'drizzle-orm'

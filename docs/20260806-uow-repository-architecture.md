@@ -18,7 +18,7 @@
 | **UnitOfWork（UoW）** | 事务边界：`begin / rollback / commit` 机制封装 | 构造注入的事务起点 |
 
 - **业务层不得直接发 SQL**——写路径与读路径全部经 `RecordRepository`（Service 持有的 `db` 仅作执行器源传给 repo / UoW）。
-- **UoW 在业务层，不在 Repository**（DDD 规范：事务边界是 UoW 的职责）。
+- **UoW 在业务层，不在 Repository**（DDD 规范：事务边界是 UoW 的职责）。**硬约束：Repository 内禁止开事务**——方法只消费构造注入的 `Executor`（业务层 UoW 传入的 tx 或非事务 pool），绝不调用 `Begin`/`Commit`/`Rollback`；业务层需多方法同事务时，在 `uow.Do` 闭包内用同一个 `q`（= tx）依次调用 repo 方法，原子性由业务层这一个事务保证。
 
 ## 2. 形态（双端一致，2026-08-06 定案）
 

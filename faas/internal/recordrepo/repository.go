@@ -1,3 +1,9 @@
+// Package recordrepo 提供唯一聚合根 Record 的持久化（领域语义方法，内部写 SQL）。
+//
+// 硬约束：本包禁止开事务。Repository 方法只消费构造注入的 Executor——业务层 UoW
+// 传入的 tx（事务内）或非事务 pool（直连），绝不调用 Begin/Commit/Rollback。
+// 事务边界是业务层 UoW 的职责（db.WithTx）；业务层需要多方法同事务时，在 uow.Do
+// 闭包内用同一个 q（= tx）依次调用本包方法，原子性由业务层这一个事务保证。
 package recordrepo
 
 import (
