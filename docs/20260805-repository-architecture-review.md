@@ -16,14 +16,14 @@
 - 问题：`WithTx` 要 fake（注入假事务测回滚），必须对「开事务」抽象化——pool 要作为 `TxBeginner` 接口注入。但 `Executor` 无 `Begin`，`WithTx` 又收具体 `*pgxpool.Pool`，单测无法替代事务起点。**核心动机（log/numbers 回滚测试）无法达成**。
 - 参考：现有 `transitionDB{QueryRow; Begin}` + `poolAdapter` 正是把 `Begin` 抽象化（`todo_db_test.go` 假实现）——统一时须保留此能力。
 - 待决：`Executor` 是否并入 `Begin`（成为 `TxBeginner`），或 `WithTx` 独立收 `TxBeginner` 接口。
-- 状态：✅ **已定案**——Go 拆三层接口：`Executor`（QueryRow/Exec/Query）+ `Tx`（+Commit/Rollback）+ `TxBeginner`（+Begin）；**`WithTx(ctx, q TxBeginner, fn func(tx db.Tx) error)`** 闭包式 UoW——**事务起点（TxBeginner）只有编排层（handler / 业务编排者）见，业务层不见**；`Server.Pool` 字段由 `*pgxpool.Pool` 放宽为 `db.TxBeginner`（`NewServer` 仍收 `*pgxpool.Pool`，自动满足）；Node 侧 `Executor` type（与 Go 同名）+ `withTx(fn)` 薄包装 `db.transaction`（Node 无 Tx/TxBeginner——drizzle 已封装事务边界）。注入机制差异（Go 接口 / Node `vi.mock` 模块）为框架差异，非不一致。**分层强约束**：业务层禁止调用 `Executor` 的 SQL 方法，`Executor` 仅 Repository 内部使用，业务层只用领域方法（`repo.SaveAll(q, ...)`）。**业务层只见 `Executor`**：非事务 = `pool`，事务 = `tx`（WithTx 闭包内注入），`repo.xxx(ctx, q, ...)` 对两者调用形态一致。
+- 状态：✅ **已定案**——Go 拆三层接口：`Executor`（QueryRow/Exec/Query）+ `Tx`（+Commit/Rollback）+ `TxBeginner`（+Begin）；**`WithTx(ctx, q TxBeginner, fn func(tx db.Tx) error)`** 闭包式 UoW——**业务层持有事务起点（`TxBeginner` 作 UoW 入参），但 begin/commit/rollback 机制全由 UoW 封装，业务层不碰**（2026-08-06 修订：事务边界在业务层内部，非 handler 编排）；`Server.Pool` 字段由 `*pgxpool.Pool` 放宽为 `db.TxBeginner`（`NewServer` 仍收 `*pgxpool.Pool`，自动满足）；Node 侧 `Executor` type（与 Go 同名）+ `withTx(fn)` 薄包装 `db.transaction`（Node 无 Tx/TxBeginner——drizzle 已封装事务边界，业务函数内部调用）。注入机制差异（Go 接口 / Node `vi.mock` 模块）为框架差异，非不一致。**分层强约束**：业务层禁止调用 `Executor` 的 SQL 方法，`Executor` 仅 Repository 内部使用，业务层只用领域方法（`repo.SaveAll(q, ...)`）。
 - 完整代码参考：[`docs/20260805-uow-repository-reference.md`](20260805-uow-repository-reference.md)（接口定义 / 实际实现封装 / 业务层 / handler / 装配 / 双端 fake 与回滚测试）
 
 ### A2【阻塞】`WithTx` 的错误映射（回调返回 `error`，业务层需要 HTTP status）
 - 现状：业务函数返回 `(T, status, error)`（如 `(Record, int, error)`）；`WithTx` 回调 `fn func(q Executor) error` 只有 error。
 - 问题：事务内错误如何转 HTTP status？404 / 409 / 400 是业务语义，500 是事务失败。若 `WithTx` 只回 `error`，业务层拿不到 status。
 - 待决：`WithTx` 签名是否 `func(q Executor) (int, error)`？或错误走 sentinel + 统一映射？
-- 状态：✅ **已定案**——`WithTx` 保持纯事务机制（`fn func(tx db.Tx) error`，**不含 HTTP**）；Repository 方法返回**领域错误**（`record.ErrNotFound` / `record.ErrConflict` 等）；**业务函数签名保持 `(T, status, error)`、统一收 `db.Executor`**，status 在业务函数内 `switch errors.Is` 映射（`err == nil` 快速返回）。多语句操作由编排层 `WithTx` 包业务函数（闭包捕获 result/status，业务函数收 `tx`），`WithTx` 遇 `err != nil` 回滚。400 校验错误发生在事务外（零 DB），直接 `return ..., 400, err`（现状不变，无需领域分类）。**错误处理风格约定**：先 `if err == nil` 快速返回成功；`switch` 所有 case 用 `errors.Is`；`default` = 未知错误 = 漏了 case 需补代码（暂映射 500 并留注释）。参考代码见 [`docs/20260805-uow-repository-reference.md`](20260805-uow-repository-reference.md)「领域错误映射」。
+- 状态：✅ **已定案**——`WithTx` 保持纯事务机制（`fn func(tx db.Tx) error`，**不含 HTTP**）；Repository 方法返回**领域错误**（`record.ErrNotFound` / `record.ErrConflict` 等）；**业务函数签名保持 `(T, status, error)`、统一收 `db.TxBeginner`**，status 在业务函数内 `switch errors.Is` 映射（`err == nil` 快速返回）。多语句操作由业务函数内部 `WithTx` 包（事务边界在业务层，UoW 封装机制），`WithTx` 遇 `err != nil` 回滚。400 校验错误发生在事务外（零 DB），直接 `return ..., 400, err`（现状不变，无需领域分类）。**错误处理风格约定**：先 `if err == nil` 快速返回成功；`switch` 所有 case 用 `errors.Is`；`default` = 未知错误 = 漏了 case 需补代码（暂映射 500 并留注释）。参考代码见 [`docs/20260805-uow-repository-reference.md`](20260805-uow-repository-reference.md)「领域错误映射」。
 
 ### A3【阻塞】Repository 方法签名 / 返回类型未定义
 - 现状：方法集只有名称与入参（`Save(ctx, q, record)` 等），**无返回类型**。
@@ -71,10 +71,11 @@
 - 现状：业务函数收 `*pgxpool.Pool`（`CreateTodo(ctx, pool, raw)`）；httpx 直接调用；transition 用 `TransitionTodo` 字段注入（httpx 层）。
 - 问题：迁移后业务函数收 `Executor` 还是收 `pool` 内部 `WithTx`？httpx 层如何保持可注入（`TransitionTodo` 字段签名是否变）？写路径「业务层开 WithTx」与「业务函数收 Executor（上层已开事务）」两种形态取哪种？现有 `CreateTodo` 单条 INSERT 是否需要事务（无多语句，可无事务）？
 - 待决：逐业务函数定签名 + httpx 注入点。
-- 状态：✅ **已定案**——**业务层统一只见 `Executor`，按调用点分两种形态**（A1 修订：`WithTx(ctx, q TxBeginner, fn func(tx db.Tx) error)`，事务起点仅编排层见）：
-  - **单条 INSERT（无多语句，如 `CreateTodo`、单条 Save）**：**不走事务**，handler 直接调业务函数（传 `s.Pool`，`*pgxpool.Pool` 满足 `Executor`），内部 `repo.Save(ctx, q, rec)`。无事务即无可回滚，回滚测试不覆盖此形态。
-  - **多语句 / 原子性需求（SaveAll、import upsert、tags 编辑、transition）**：**编排层（handler）`db.WithTx(ctx, s.Pool, func(tx db.Tx) error {...})`** 包业务函数；业务函数收 `db.Executor`（= `tx`），返回 `(T, status, error)`，闭包捕获 result/status 供 handler 组响应，`WithTx` 遇 `err != nil` 回滚。
-  - 两种形态业务函数签名均统一 `(ctx, q db.Executor, ...) (T, status, error)`（A2）——业务函数**不区分** Executor 与 Tx。
+- 状态：✅ **已定案（2026-08-06 修订：业务层内部调 UoW，非 handler 编排）**——**业务层决定「用不用事务」，UoW 负责 begin/commit/rollback 机制**：
+  - **业务函数统一收 `db.TxBeginner`**（事务起点 = `s.Pool`），handler 统一传 `s.Pool`、无样板。
+  - **多语句 / 原子性需求（SaveAll、import upsert、tags 编辑、transition）**：业务函数内部 `db.WithTx(ctx, q, func(tx db.Tx) error {...})`（A1 闭包，UoW 封装机制），闭包内 `recordRepo.xxx(ctx, tx, ...)`，事务外 `errors.Is` 映射 status（A2）。
+  - **单条 INSERT（无多语句，如 `CreateTodo`、单条 Save）**：**不走事务**，业务函数内部直接 `recordRepo.Save(ctx, q, rec)`（`TxBeginner` 内嵌 `Executor`，`q` 直接当执行器用）。无事务即无可回滚，回滚测试不覆盖此形态。
+  - 两种形态业务函数签名均统一 `(ctx, q db.TxBeginner, ...) (T, status, error)`（A2）——**业务层持有事务起点（作 UoW 入参），但不碰 begin/commit/rollback 机制**。
   - **httpx 注入点**：`Server.TransitionTodo` 字段 pool 参数 `*pgxpool.Pool` → `db.TxBeginner`（与 `Server.Pool` 放宽同步）；httpx 测试 fake 注入方式不变。
 
 ### A5【阻塞】transition 的领域服务 vs Repository 边界
