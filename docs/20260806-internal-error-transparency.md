@@ -61,9 +61,9 @@ if body["detail"] != "Internal server error" { t.Fatalf("leaked internal detail"
 
 ```
 三方库错误（pgx / postgres.js）
-  → Repository 层吸收，包装为领域错误 ErrInternal{ message: 原始 err 内容 }   ← 防腐层（唯一碰 SQL 的层）
+  → Repository 层吸收，包装为领域错误 ErrInternal（保留原始 err，Unwrap 保链）   ← 防腐层（唯一碰 SQL 的层）
   → 业务层 / handler：所有错误都是领域错误，status 由业务函数显式返回（A2 定案，无 statusOf）
-  → handler：writeError(w, status, err.Error())   ← 无 writeInternalError
+  → handler：logResponseError(status, logMsg, err) + writeError(w, status, errorDetail(err))   ← 无 writeInternalError
 ```
 
 | 领域错误 | status |
@@ -115,7 +115,7 @@ if err != nil {
 2. **Node**：见 §3.5（双端对称，但当前无 Repository 层，见下）。
 3. **守卫测试反转**：`TestWriteInternalErrorNeverExposesDetails` → 验证 500 + detail 透传。
 4. **OpenAPI** `InternalError` example 更新（示意透传具体错误）。
-5. **AGENTS**：错误文案规范移除 `Internal server error` 固定例外的适用面；「双端逐字一致」适用范围明确为仅契约文案（我们写的），透传驱动错误不在其内。
+5. **AGENTS**：移除 `Internal server error` 固定文案例外（500 detail 不再固定，空 message 时以 `%T` 类型名兜底）；「双端逐字一致」适用范围明确为仅契约文案（我们写的），透传驱动错误不在其内。
 6. **双端 message 差异**：接受（pgx vs postgres.js 格式不同），不强求统一——统一才是信息丢失。
 
 ### 3.5 Node 形态（当前阶段）
