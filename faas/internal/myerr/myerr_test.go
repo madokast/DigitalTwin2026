@@ -50,3 +50,15 @@ func TestNewInternalEmptyMessage(t *testing.T) {
 		t.Fatalf("empty fallback: %q", me.Message)
 	}
 }
+
+func TestNewInternalShortCircuitsMyError(t *testing.T) {
+	// 防呆：误传 *MyError 原样返回，不双重包装（describe 不污染文案）
+	orig := NewValidation("missing required field: raw_content")
+	me := NewInternal(orig)
+	if me != orig {
+		t.Fatalf("expected same pointer, got %v", me)
+	}
+	if me.Message != "missing required field: raw_content" {
+		t.Fatalf("message polluted: %q", me.Message)
+	}
+}

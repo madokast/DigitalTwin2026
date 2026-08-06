@@ -31,9 +31,12 @@ export const newValidation = (msg: string): MyError => new MyError(400, msg)
 export const newConflict = (msg: string): MyError => new MyError(409, msg)
 
 /** 500（驱动错误等内部错误）：describe 拼 "类型名: 消息"（空消息 → 仅类型名，永不为空）。
- * 吸收原 httperror.errorMessage 的兜底职责；500 detail 透传驱动消息供 AI 诊断。 */
-export const newInternal = (cause: unknown): MyError =>
-  new MyError(500, describe(cause))
+ * 吸收原 httperror.errorMessage 的兜底职责；500 detail 透传驱动消息供 AI 诊断。
+ * 防呆：cause 已是 MyError（误传）→ 原样返回，杜绝双重包装（describe 再烙一层类型名污染文案）。 */
+export const newInternal = (cause: unknown): MyError => {
+  if (cause instanceof MyError) return cause
+  return new MyError(500, describe(cause))
+}
 
 function describe(cause: unknown): string {
   const name = cause instanceof Error ? cause.constructor.name : typeof cause

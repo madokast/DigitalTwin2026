@@ -29,7 +29,11 @@ func NewConflict(msg string) *MyError { return &MyError{Status: 409, Message: ms
 
 // NewInternal 500（驱动错误等内部错误）：describe 拼 "类型名: 消息"（空消息 → 仅类型名，永不为空）。
 // 吸收原 httpx.errorDetail；500 detail 透传驱动消息供 AI 诊断。
+// 防呆：cause 已是 *MyError（误传）→ 原样返回，杜绝双重包装（describe 再烙一层类型名污染文案）。
 func NewInternal(cause error) *MyError {
+	if me, ok := cause.(*MyError); ok {
+		return me
+	}
 	return &MyError{Status: 500, Message: describe(cause)}
 }
 
