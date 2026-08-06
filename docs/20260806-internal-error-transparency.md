@@ -145,6 +145,14 @@ export function errorMessage(error: unknown): string {
 
 - **`InternalError` 类留到 UoW 落地时引入**（与 Repository 一起）：届时 `class InternalError extends Error` 与 Go `ErrInternal` 对称，Repository 吸收三方库错误，业务层 `instanceof InternalError` → 500。当前 Result 已带 status，无判别需求，引入类纯为铺路——故推迟。
 
+**Node 改动清单（当前阶段）**：
+1. 新增 `src/lib/errors.ts`：`errorMessage(error: unknown): string` helper（`error instanceof Error ? error.message : String(error)`）。
+2. `logapi.ts` / `importapi.ts`：9 处 `{ error: 'Internal server error', status: 500 }` → `{ error: errorMessage(error), status: 500 }`。
+3. 各 route `catch`：约 20 处 `errorResponse('Internal server error', 500)` → `errorResponse(errorMessage(error), 500)`。
+   - **注意区分**：仅 500 通用 catch 透传；`catch` 无参数分支（如 telegram/qqbot 畸形 JSON → 400 业务错误）不属于本改造。
+4. **测试**：mock 单测可断言精确 message（mock `new Error('injected')` → detail `'injected'`）；真 DB 集成测试放宽为 `status=500` / `detail` 非空（不断言具体值）。
+5. `InternalError` 类推迟（UoW 落地时与 Repository 一起引入，见上）。
+
 ## 4. 待验证 / 风险
 
 - **Go pgx vs Node postgres.js 实际错误 message 差异**：实施时对比（如 `relation ... does not exist`、`disk full` 在两端的实际输出），确认透传后 detail 形态。
