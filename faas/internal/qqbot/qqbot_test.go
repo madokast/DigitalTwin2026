@@ -214,7 +214,7 @@ func TestSendMessageBothBasesFail(t *testing.T) {
 func TestSendMessageNotConfigured(t *testing.T) {
 	s := &Sender{Getenv: func(string) string { return "" }}
 	err := s.SendMessage("x")
-	if err == nil || !strings.Contains(err.Error(), "QQBOT_APP_ID") {
+	if err == nil || !strings.Contains(err.Message, "QQBOT_APP_ID") {
 		t.Fatalf("err: %v", err)
 	}
 }

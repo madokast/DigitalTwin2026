@@ -164,7 +164,7 @@ func writeErr(w http.ResponseWriter, me *myerr.MyError, logMsg string) {
 	} else {
 		slog.Info(logMsg, "err", me)
 	}
-	writeError(w, me.Status, me.Error())
+	writeError(w, me.Status, me.Message)
 }
 
 func readBody(r *http.Request) ([]byte, error) {
@@ -382,8 +382,8 @@ func (s *Server) handleTelegramProbe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := s.telegram().SendMessage(text); err != nil {
-		writeError(w, 502, err.Error())
+	if me := s.telegram().SendMessage(text); me != nil {
+		writeError(w, 502, me.Message)
 		return
 	}
 	writeJSON(w, http.StatusOK, SuccessOnly{Success: true})
@@ -417,8 +417,8 @@ func (s *Server) handleQqbotProbe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := s.qqbot().SendMessage(text); err != nil {
-		writeError(w, 502, err.Error())
+	if me := s.qqbot().SendMessage(text); me != nil {
+		writeError(w, 502, me.Message)
 		return
 	}
 	writeJSON(w, http.StatusOK, SuccessOnly{Success: true})

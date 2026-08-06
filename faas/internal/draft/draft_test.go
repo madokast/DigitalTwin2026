@@ -33,23 +33,23 @@ func loadDecimalStringCases(t *testing.T) decimalStringCases {
 }
 
 func TestRequireTrimmedTextAndOptionalTrimmedNullable(t *testing.T) {
-	if _, err := RequireTrimmedText("", "raw_content"); err == nil || err.Error() != "missing required field: raw_content" {
-		t.Fatalf("empty: %v", err)
+	if _, me := RequireTrimmedText("", "raw_content"); me == nil || me.Message != "missing required field: raw_content" {
+		t.Fatalf("empty: %v", me)
 	}
-	if _, err := RequireTrimmedText("   ", "raw_content"); err == nil || err.Error() != "raw_content must not be blank" {
-		t.Fatalf("blank: %v", err)
+	if _, me := RequireTrimmedText("   ", "raw_content"); me == nil || me.Message != "raw_content must not be blank" {
+		t.Fatalf("blank: %v", me)
 	}
-	if v, err := RequireTrimmedText("  ok  ", "raw_content"); err != nil || v != "ok" {
-		t.Fatalf("trim: (%q, %v)", v, err)
+	if v, me := RequireTrimmedText("  ok  ", "raw_content"); me != nil || v != "ok" {
+		t.Fatalf("trim: (%q, %v)", v, me)
 	}
-	if v, err := OptionalTrimmedNullable(nil, "ai_analysis"); err != nil || v != nil {
-		t.Fatalf("nil: (%v, %v)", v, err)
+	if v, me := OptionalTrimmedNullable(nil, "ai_analysis"); me != nil || v != nil {
+		t.Fatalf("nil: (%v, %v)", v, me)
 	}
-	if _, err := OptionalTrimmedNullable("", "ai_analysis"); err == nil || err.Error() != "ai_analysis must not be blank" {
-		t.Fatalf("empty: %v", err)
+	if _, me := OptionalTrimmedNullable("", "ai_analysis"); me == nil || me.Message != "ai_analysis must not be blank" {
+		t.Fatalf("empty: %v", me)
 	}
-	if v, err := OptionalTrimmedNullable("  ok  ", "ai_analysis"); err != nil || v == nil || *v != "ok" {
-		t.Fatalf("trim: (%v, %v)", v, err)
+	if v, me := OptionalTrimmedNullable("  ok  ", "ai_analysis"); me != nil || v == nil || *v != "ok" {
+		t.Fatalf("trim: (%v, %v)", v, me)
 	}
 }
 
@@ -78,7 +78,7 @@ func TestParseHappenedAt(t *testing.T) {
 	}
 	for _, raw := range []string{"2026-07-30", "2026-07-30T08:00:00"} {
 		_, _, err := ParseHappenedAt(raw)
-		if err == nil || err.Error() != "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)" {
+		if err == nil || err.Message != "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)" {
 			t.Fatalf("%q: got %v", raw, err)
 		}
 	}
@@ -90,7 +90,7 @@ func TestParseHappenedAt(t *testing.T) {
 		"2026-07-30T8:00:00Z",
 	} {
 		_, _, err := ParseHappenedAt(raw)
-		if err == nil || err.Error() != "invalid happened_at datetime" {
+		if err == nil || err.Message != "invalid happened_at datetime" {
 			t.Fatalf("%q: got %v", raw, err)
 		}
 	}
@@ -108,10 +108,10 @@ func TestValidateDecimalStringSharedFixtures(t *testing.T) {
 		}
 	}
 	for _, bad := range cases.Reject {
-		if err := ValidateDecimalString(bad); err == nil || err.Error() != "invalid numeric_value" {
+		if err := ValidateDecimalString(bad); err == nil || err.Message != "invalid numeric_value" {
 			t.Fatalf("reject ValidateDecimalString %q: %v", bad, err)
 		}
-		if _, err := ParseNumericValue(bad); err == nil || err.Error() != "invalid numeric_value" {
+		if _, err := ParseNumericValue(bad); err == nil || err.Message != "invalid numeric_value" {
 			t.Fatalf("reject ParseNumericValue %q: %v", bad, err)
 		}
 	}
@@ -126,7 +126,7 @@ func TestParseNumericValueBlankAndJSONNumber(t *testing.T) {
 	if err != nil || got != nil {
 		t.Fatalf("blank: %#v %v", got, err)
 	}
-	if _, err := ParseNumericValue(float64(75.5)); err == nil || err.Error() != ErrNumericValueMustBeString {
+	if _, err := ParseNumericValue(float64(75.5)); err == nil || err.Message != ErrNumericValueMustBeString {
 		t.Fatalf("float64: %v", err)
 	}
 }

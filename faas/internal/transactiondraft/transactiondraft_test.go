@@ -48,7 +48,7 @@ func loadMoneyAmountCases(t *testing.T) moneyAmountCases {
 func TestParseTransactionBatchRejectsEmptyEntries(t *testing.T) {
 	raw := []byte(`{"happened_at":"2026-08-01T12:30:00+08:00","type":"expense","entries":[]}`)
 	_, err := ParseTransactionBatch(raw)
-	if err == nil || err.Error() != "entries must be a non-empty array" {
+	if err == nil || err.Message != "entries must be a non-empty array" {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -61,7 +61,7 @@ func TestParseTransactionBatchRejectsJSONNumberAmount(t *testing.T) {
 	}`)
 	_, err := ParseTransactionBatch(raw)
 	want := "entries[0]: " + ErrAmountMustBeString
-	if err == nil || err.Error() != want {
+	if err == nil || err.Message != want {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -72,7 +72,7 @@ func TestParseTransactionBatchRejectsMissingType(t *testing.T) {
 		"entries": [{"amount": "25.00", "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
 	_, err := ParseTransactionBatch(raw)
-	if err == nil || err.Error() != "missing required field: type" {
+	if err == nil || err.Message != "missing required field: type" {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -104,7 +104,7 @@ func TestParseTransactionBatchSharedMoneyAmountFixtures(t *testing.T) {
 		}`)
 		_, err := ParseTransactionBatch(raw)
 		want := "entries[0]: " + c.Error
-		if err == nil || err.Error() != want {
+		if err == nil || err.Message != want {
 			t.Fatalf("reject %q: err=%v want %q", c.Input, err, want)
 		}
 	}
@@ -169,7 +169,7 @@ func TestParseTransactionBatchRejectsBadCategory(t *testing.T) {
 			"entries": [{"amount": "25.00", "memo": "x", "category": "` + cat + `", "subcategory": "lunch"}]
 		}`)
 		_, err := ParseTransactionBatch(raw)
-		if err == nil || !strings.Contains(err.Error(), "invalid category") {
+		if err == nil || !strings.Contains(err.Message, "invalid category") {
 			t.Fatalf("category %q: err=%v", cat, err)
 		}
 	}

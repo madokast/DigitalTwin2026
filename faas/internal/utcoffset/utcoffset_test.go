@@ -53,8 +53,8 @@ func TestExtractUtcOffsetLiteral(t *testing.T) {
 				if err == nil {
 					t.Fatalf("want error %q, got %q", *c.Error, got)
 				}
-				if err.Error() != *c.Error {
-					t.Fatalf("error: got %q want %q", err.Error(), *c.Error)
+				if err.Message != *c.Error {
+					t.Fatalf("error: got %q want %q", err.Message, *c.Error)
 				}
 				return
 			}

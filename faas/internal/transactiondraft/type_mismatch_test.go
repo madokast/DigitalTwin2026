@@ -13,7 +13,7 @@ func TestParseTransactionBatchTypeMismatchMessages(t *testing.T) {
 	}
 	for _, c := range cases {
 		_, err := ParseTransactionBatch([]byte(c.raw))
-		if err == nil || err.Error() != c.want {
+		if err == nil || err.Message != c.want {
 			t.Fatalf("%s: err=%v want %q", c.raw, err, c.want)
 		}
 	}

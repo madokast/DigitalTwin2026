@@ -32,7 +32,7 @@ func TestParseRecordQueryParamsErrors(t *testing.T) {
 		t.Fatal("pageSize 101")
 	}
 	_, err = ParseRecordQueryParams(url.Values{"from": {"2026-07-30T00:00:00"}})
-	if err == nil || err.Error() == "" {
+	if err == nil || err.Message == "" {
 		t.Fatal("from without tz")
 	}
 	// 超大整数：拒绝 Number 精度丢失 / Atoi 溢出边界之上的值（与 Next MAX_SAFE_INTEGER 对齐）
@@ -42,12 +42,12 @@ func TestParseRecordQueryParamsErrors(t *testing.T) {
 		"999999999999999999999999", // 远超 int64
 	} {
 		_, err = ParseRecordQueryParams(url.Values{"page": {raw}})
-		if err == nil || err.Error() != "page must be a positive integer" {
+		if err == nil || err.Message != "page must be a positive integer" {
 			t.Fatalf("page %q: got %v", raw, err)
 		}
 	}
 	_, err = ParseRecordQueryParams(url.Values{"id": {"not-a-uuid"}})
-	if err == nil || err.Error() != "invalid record id" {
+	if err == nil || err.Message != "invalid record id" {
 		t.Fatalf("bad id: %v", err)
 	}
 	for _, id := range []string{
@@ -55,7 +55,7 @@ func TestParseRecordQueryParamsErrors(t *testing.T) {
 		"01234567-89ab-cdef-0123-456789abcdef",
 	} {
 		_, err = ParseRecordQueryParams(url.Values{"id": {id}})
-		if err == nil || err.Error() != "invalid record id" {
+		if err == nil || err.Message != "invalid record id" {
 			t.Fatalf("id %q: got %v", id, err)
 		}
 	}
@@ -146,7 +146,7 @@ func TestParseRecordQueryParamsTagCasesSharedFixture(t *testing.T) {
 				t.Fatalf("%s pattern: got %#v want %q", c.Name, args, c.Pattern)
 			}
 		} else {
-			if err == nil || err.Error() != c.Error {
+			if err == nil || err.Message != c.Error {
 				t.Fatalf("%s: got %v want %q", c.Name, err, c.Error)
 			}
 		}

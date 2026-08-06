@@ -154,22 +154,22 @@ func TestParseLineInvalid(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error")
 			}
-			if err.Error() != c.Error {
-				t.Fatalf("got %q want %q", err.Error(), c.Error)
+			if err.Message != c.Error {
+				t.Fatalf("got %q want %q", err.Message, c.Error)
 			}
 		})
 	}
 
 	w := cases.WithLineNumber
 	_, err := ParseLine(w.Line, w.LineNumber)
-	if err == nil || err.Error() != w.Error {
+	if err == nil || err.Message != w.Error {
 		t.Fatalf("line number wrap: got %v want %q", err, w.Error)
 	}
 
-	if _, err := ParseLine("", 0); err == nil || err.Error() != InvalidJSONLine {
+	if _, err := ParseLine("", 0); err == nil || err.Message != InvalidJSONLine {
 		t.Fatalf("empty: %v", err)
 	}
-	if _, err := ParseLine("   ", 0); err == nil || err.Error() != InvalidJSONLine {
+	if _, err := ParseLine("   ", 0); err == nil || err.Message != InvalidJSONLine {
 		t.Fatalf("blank: %v", err)
 	}
 }

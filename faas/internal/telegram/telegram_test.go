@@ -137,7 +137,7 @@ func TestSendMessageSuccessAndFailure(t *testing.T) {
 	s.APIBase = failSrv.URL
 	s.HTTPClient = failSrv.Client()
 	err := s.SendMessage("x")
-	if err == nil || !strings.Contains(err.Error(), "chat not found") {
+	if err == nil || !strings.Contains(err.Message, "chat not found") {
 		t.Fatalf("err: %v", err)
 	}
 }

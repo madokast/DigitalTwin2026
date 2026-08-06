@@ -11,19 +11,19 @@ import (
 
 func TestParseExportRecordsParams(t *testing.T) {
 	_, err := ParseExportRecordsParams(url.Values{})
-	if err == nil || err.Error() != ErrExportLimitError {
+	if err == nil || err.Message != ErrExportLimitError {
 		t.Fatalf("missing limit: %v", err)
 	}
 	_, err = ParseExportRecordsParams(url.Values{"limit": {"0"}})
-	if err == nil || err.Error() != ErrExportLimitError {
+	if err == nil || err.Message != ErrExportLimitError {
 		t.Fatalf("limit 0: %v", err)
 	}
 	_, err = ParseExportRecordsParams(url.Values{"limit": {"1001"}})
-	if err == nil || err.Error() != ErrExportLimitError {
+	if err == nil || err.Message != ErrExportLimitError {
 		t.Fatalf("limit 1001: %v", err)
 	}
 	_, err = ParseExportRecordsParams(url.Values{"limit": {"abc"}})
-	if err == nil || err.Error() != ErrExportLimitError {
+	if err == nil || err.Message != ErrExportLimitError {
 		t.Fatalf("limit abc: %v", err)
 	}
 
@@ -33,7 +33,7 @@ func TestParseExportRecordsParams(t *testing.T) {
 	}
 
 	_, err = ParseExportRecordsParams(url.Values{"from": {"not-a-uuid"}, "limit": {"10"}})
-	if err == nil || err.Error() != record.ErrInvalidID {
+	if err == nil || err.Message != record.ErrInvalidID {
 		t.Fatalf("invalid from: %v", err)
 	}
 

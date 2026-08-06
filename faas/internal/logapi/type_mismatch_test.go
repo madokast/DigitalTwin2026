@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/bodyweightdraft"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
@@ -18,7 +19,7 @@ func TestCreateTextTypeMismatchMessages(t *testing.T) {
 	}
 	_, err = CreateText(context.Background(), nil, body)
 	assertMyStatus(t, err, 400)
-	if err.Error() != "missing required field: raw_content" {
+	if err.Message != "missing required field: raw_content" {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -31,7 +32,7 @@ func TestCreateBodyWeightRejectsJSONNumber(t *testing.T) {
 		"objective_context": "x"
 	}`)
 	_, err := bodyweightdraft.ParseBodyWeight(raw)
-	if err == nil || err.Error() != "numeric_value must be a decimal string" {
+	if err == nil || err.Message != "numeric_value must be a decimal string" {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -57,7 +58,7 @@ func TestCreateTodoRejects(t *testing.T) {
 	}
 	for _, c := range cases {
 		_, err := tododraft.ParseTodo([]byte(c.raw))
-		if err == nil || err.Error() != c.want {
+		if err == nil || err.Message != c.want {
 			t.Fatalf("%s: err=%v want %q", c.raw, err, c.want)
 		}
 	}
@@ -87,20 +88,20 @@ func TestTransitionTodoRejectsValidation(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		var err error
+		var me *myerr.MyError
 		if c.want == record.ErrInvalidID {
 			parsed, perr := tododraft.ParseTodoTransition([]byte(c.raw))
 			if perr != nil {
 				t.Fatalf("%s: parse: %v", c.raw, perr)
 			}
-			_, err = TransitionTodo(context.Background(), nil, parsed)
-			assertMyStatus(t, err, 400)
+			_, me = TransitionTodo(context.Background(), nil, parsed)
+			assertMyStatus(t, me, 400)
 		} else {
-			// route 层 draft 解析错误：裸 error（非 myerr），直接断言文案
-			_, err = tododraft.ParseTodoTransition([]byte(c.raw))
+			// route 层 draft 解析错误（myerr 400），直接断言文案
+			_, me = tododraft.ParseTodoTransition([]byte(c.raw))
 		}
-		if err == nil || err.Error() != c.want {
-			t.Fatalf("%s: err=%v want %q", c.raw, err, c.want)
+		if me == nil || me.Message != c.want {
+			t.Fatalf("%s: err=%v want %q", c.raw, me, c.want)
 		}
 	}
 }

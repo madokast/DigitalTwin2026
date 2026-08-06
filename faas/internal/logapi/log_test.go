@@ -25,7 +25,7 @@ func TestCreateTextRejectsReservedTag(t *testing.T) {
 	_, err = CreateText(context.Background(), nil, body)
 	assertMyStatus(t, err, 400)
 	want := tags.ReservedTagError("transaction_entry")
-	if err.Error() != want {
+	if err.Message != want {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -44,7 +44,7 @@ func TestCreateTextRejectsTodoReservedTag(t *testing.T) {
 	_, err = CreateText(context.Background(), nil, body)
 	assertMyStatus(t, err, 400)
 	want := tags.ReservedTagError("todo:in_progress")
-	if err.Error() != want {
+	if err.Message != want {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -52,7 +52,7 @@ func TestCreateTextRejectsTodoReservedTag(t *testing.T) {
 func TestCreateTransactionBatchRejectsEmptyEntries(t *testing.T) {
 	raw := []byte(`{"happened_at":"2026-08-01T12:30:00+08:00","type":"expense","entries":[]}`)
 	_, err := transactiondraft.ParseTransactionBatch(raw)
-	if err == nil || err.Error() != "entries must be a non-empty array" {
+	if err == nil || err.Message != "entries must be a non-empty array" {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -64,7 +64,7 @@ func TestCreateTransactionBatchRejectsJSONNumberAmount(t *testing.T) {
 		"entries": [{"amount": 25, "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
 	_, err := transactiondraft.ParseTransactionBatch(raw)
-	if err == nil || !strings.Contains(err.Error(), transactiondraft.ErrAmountMustBeString) {
+	if err == nil || !strings.Contains(err.Message, transactiondraft.ErrAmountMustBeString) {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -75,7 +75,7 @@ func TestCreateTransactionBatchRejectsMissingType(t *testing.T) {
 		"entries": [{"amount": "25.00", "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
 	_, err := transactiondraft.ParseTransactionBatch(raw)
-	if err == nil || err.Error() != "missing required field: type" {
+	if err == nil || err.Message != "missing required field: type" {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -91,7 +91,7 @@ func TestCreateTransactionBatchRejectsZeroAmount(t *testing.T) {
 		t.Fatal("want error")
 	}
 	want := "entries[0]: " + transactiondraft.ErrInvalidAmount
-	if err.Error() != want {
+	if err.Message != want {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -102,14 +102,14 @@ func TestOptionalAiAnalysis(t *testing.T) {
 	if v, err := draft.OptionalTrimmedNullable(nil, "ai_analysis"); err != nil || v != nil {
 		t.Fatalf("nil: got (%v, %v)", v, err)
 	}
-	if v, err := draft.OptionalTrimmedNullable("", "ai_analysis"); err == nil || err.Error() != "ai_analysis must not be blank" {
+	if v, err := draft.OptionalTrimmedNullable("", "ai_analysis"); err == nil || err.Message != "ai_analysis must not be blank" {
 		t.Fatalf("empty: got (%v, %v)", v, err)
 	}
 	if v, err := draft.OptionalTrimmedNullable("  ok  ", "ai_analysis"); err != nil || v == nil || *v != "ok" {
 		t.Fatalf("string: got (%v, %v)", v, err)
 	}
 	for _, bad := range []any{1, true, []any{}, map[string]any{}} {
-		if _, err := draft.OptionalTrimmedNullable(bad, "ai_analysis"); err == nil || err.Error() != "invalid ai_analysis" {
+		if _, err := draft.OptionalTrimmedNullable(bad, "ai_analysis"); err == nil || err.Message != "invalid ai_analysis" {
 			t.Fatalf("%v: want Invalid ai_analysis, got %v", bad, err)
 		}
 	}
@@ -154,7 +154,7 @@ func TestCreateNumberBatchValidation(t *testing.T) {
 	}
 	for _, c := range cases {
 		_, err := numberdraft.ParseNumberBatch([]byte(c.raw))
-		if err == nil || err.Error() != c.want {
+		if err == nil || err.Message != c.want {
 			t.Fatalf("%s: got %v want %q", c.name, err, c.want)
 		}
 	}
@@ -173,7 +173,7 @@ func TestCreateTextRejectsDuplicateTags(t *testing.T) {
 	}
 	_, err = CreateText(context.Background(), nil, body)
 	assertMyStatus(t, err, 400)
-	if err.Error() != `duplicate tag "study"` {
+	if err.Message != `duplicate tag "study"` {
 		t.Fatalf("err=%v", err)
 	}
 }

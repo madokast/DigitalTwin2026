@@ -161,7 +161,7 @@ func TestParseTodoRejects(t *testing.T) {
 	}
 	for _, tc := range cases {
 		_, err := ParseTodo([]byte(tc.raw))
-		if err == nil || err.Error() != tc.want {
+		if err == nil || err.Message != tc.want {
 			t.Fatalf("raw=%s err=%v want=%q", tc.raw, err, tc.want)
 		}
 	}
@@ -271,7 +271,7 @@ func TestParseTodoTransitionRejects(t *testing.T) {
 	}
 	for _, tc := range cases {
 		_, err := ParseTodoTransition([]byte(tc.raw))
-		if err == nil || err.Error() != tc.want {
+		if err == nil || err.Message != tc.want {
 			t.Fatalf("raw=%s err=%v want=%q", tc.raw, err, tc.want)
 		}
 	}
@@ -285,7 +285,7 @@ func TestParseTodoRejectsDuplicateTags(t *testing.T) {
 		"tags": ["errand", "errand"]
 	}`)
 	_, err := ParseTodo(raw)
-	if err == nil || err.Error() != `duplicate tag "errand"` {
+	if err == nil || err.Message != `duplicate tag "errand"` {
 		t.Fatalf("err: %v", err)
 	}
 }

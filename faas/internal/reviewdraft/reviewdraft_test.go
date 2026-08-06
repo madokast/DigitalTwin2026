@@ -75,7 +75,7 @@ func TestCadenceFixtures(t *testing.T) {
 		}
 		b, _ := json.Marshal(body)
 		_, err := ParseReview(b)
-		if err == nil || err.Error() != ErrMissingCadenceMessage {
+		if err == nil || err.Message != ErrMissingCadenceMessage {
 			t.Fatalf("missing %#v: got %v", raw, err)
 		}
 	}
@@ -88,7 +88,7 @@ func TestCadenceFixtures(t *testing.T) {
 		}
 		b, _ := json.Marshal(body)
 		_, err := ParseReview(b)
-		if err == nil || err.Error() != ErrInvalidCadenceMessage {
+		if err == nil || err.Message != ErrInvalidCadenceMessage {
 			t.Fatalf("invalid %q: got %v", raw, err)
 		}
 	}
@@ -156,7 +156,7 @@ func TestParseReviewRejectsBlank(t *testing.T) {
 		}
 		b, _ := json.Marshal(body)
 		_, err := ParseReview(b)
-		if err == nil || err.Error() != tc.want {
+		if err == nil || err.Message != tc.want {
 			t.Fatalf("%s=%q: got %v want %q", tc.key, tc.value, err, tc.want)
 		}
 	}
@@ -173,7 +173,7 @@ func TestParseReviewRejectsUnknownKeys(t *testing.T) {
 		}
 		b, _ := json.Marshal(body)
 		_, err := ParseReview(b)
-		if err == nil || err.Error() != "Unknown JSON key: "+key {
+		if err == nil || err.Message != "Unknown JSON key: "+key {
 			t.Fatalf("%s: got %v", key, err)
 		}
 	}
@@ -190,7 +190,7 @@ func TestParseReviewRejectsReservedTag(t *testing.T) {
 		}
 		b, _ := json.Marshal(body)
 		_, err := ParseReview(b)
-		if err == nil || err.Error() == "" {
+		if err == nil || err.Message == "" {
 			t.Fatalf("%s: expected reserved rejection", tag)
 		}
 	}
@@ -215,7 +215,7 @@ func TestParseReviewRejectsDuplicateTags(t *testing.T) {
 		"tags": ["work", "work"]
 	}`)
 	_, err := ParseReview(raw)
-	if err == nil || err.Error() != `duplicate tag "work"` {
+	if err == nil || err.Message != `duplicate tag "work"` {
 		t.Fatalf("err: %v", err)
 	}
 }

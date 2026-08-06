@@ -731,7 +731,7 @@ func TestSummaryErrorClassification(t *testing.T) {
 		if rr.Code != tc.status {
 			t.Fatalf("%s: status %d want %d", tc.name, rr.Code, tc.status)
 		}
-		assertProblemDetailContains(t, rr, tc.me.Error())
+		assertProblemDetailContains(t, rr, tc.me.Message)
 	}
 }
 

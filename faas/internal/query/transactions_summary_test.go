@@ -62,7 +62,7 @@ func TestParseTransactionsSummaryParamsSharedFixtures(t *testing.T) {
 				q.Set(k, v)
 			}
 			_, err := ParseTransactionsSummaryParams(q)
-			if err == nil || err.Error() != tc.Error {
+			if err == nil || err.Message != tc.Error {
 				t.Fatalf("got %v want %q", err, tc.Error)
 			}
 		})

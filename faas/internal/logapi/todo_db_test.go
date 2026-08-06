@@ -217,7 +217,7 @@ func TestTransitionTodo_fourDomainErrors(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			_, err := transitionTodo(context.Background(), c.db, todoParsed)
 			assertMyStatus(t, err, c.status)
-			if err == nil || err.Error() != c.want {
+			if err == nil || err.Message != c.want {
 				t.Fatalf("err=%v want %q", err, c.want)
 			}
 			if c.db.tx != nil && c.db.tx.commitN != 0 {
@@ -236,7 +236,7 @@ func TestTransitionTodo_updateAffectedNotOne(t *testing.T) {
 	}
 	_, err := transitionTodo(context.Background(), fdb, todoParsed)
 	assertMyStatus(t, err, 500)
-	if err == nil || !strings.Contains(err.Error(), "todo update affected 2 rows") {
+	if err == nil || !strings.Contains(err.Message, "todo update affected 2 rows") {
 		t.Fatalf("err=%v", err)
 	}
 	if fdb.tx.commitN != 0 {
@@ -318,7 +318,7 @@ func TestTransitionTodo_updateOkInsertFailRollsBack(t *testing.T) {
 
 	_, err := transitionTodo(context.Background(), db, todoParsed)
 	assertMyStatus(t, err, 500)
-	if err == nil || !strings.Contains(err.Error(), "audit insert failed") {
+	if err == nil || !strings.Contains(err.Message, "audit insert failed") {
 		t.Fatalf("err=%v want audit insert failure", err)
 	}
 	if len(tx.execSQL) != 1 || !strings.Contains(tx.execSQL[0], "UPDATE records SET tags") {

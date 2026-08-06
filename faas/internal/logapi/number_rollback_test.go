@@ -100,7 +100,7 @@ func TestCreateNumberBatchRollsBackOnInsertFailure(t *testing.T) {
 
 	inserted, recs, err := createNumberBatch(context.Background(), q, numberBatchParsed)
 	assertMyStatus(t, err, 500)
-	if err == nil || !strings.Contains(err.Error(), "injected insert failure") {
+	if err == nil || !strings.Contains(err.Message, "injected insert failure") {
 		t.Fatalf("err=%v", err)
 	}
 	if inserted != 0 || len(recs) != 0 {

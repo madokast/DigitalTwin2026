@@ -143,7 +143,7 @@ func TestParseNumberBatchErrors(t *testing.T) {
 	}
 	for _, c := range cases {
 		_, err := ParseNumberBatch([]byte(c.raw))
-		if err == nil || err.Error() != c.want {
+		if err == nil || err.Message != c.want {
 			t.Fatalf("%s: got %v want %q", c.name, err, c.want)
 		}
 	}
@@ -199,7 +199,7 @@ func TestParseNumberBatchDuplicateTags(t *testing.T) {
 		"happened_at":"2026-08-05T10:00:00+08:00",
 		"entries":[{"numeric_value":"1","memo":"x","tags":["a","b","a"]}]
 	}`))
-	if err == nil || err.Error() != `entries[0]: duplicate tag "a"` {
+	if err == nil || err.Message != `entries[0]: duplicate tag "a"` {
 		t.Fatalf("err: %v", err)
 	}
 }

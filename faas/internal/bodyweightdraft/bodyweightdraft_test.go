@@ -62,12 +62,12 @@ func TestParseWeightAmountSharedFixtures(t *testing.T) {
 	}
 	for _, tc := range cases.Reject {
 		_, err := ParseWeightAmount(tc.Input)
-		if err == nil || err.Error() != tc.Error {
+		if err == nil || err.Message != tc.Error {
 			t.Fatalf("reject %q: err=%v want=%q", tc.Input, err, tc.Error)
 		}
 	}
 	_, err := ParseWeightAmount(float64(75.5))
-	if err == nil || err.Error() != draft.ErrNumericValueMustBeString {
+	if err == nil || err.Message != draft.ErrNumericValueMustBeString {
 		t.Fatalf("JSON number: err=%v", err)
 	}
 }
@@ -119,7 +119,7 @@ func TestParseBodyWeightRejectsReservedClientTag(t *testing.T) {
 	}`)
 	_, err := ParseBodyWeight(raw)
 	want := tags.ReservedTagError("body:weight")
-	if err == nil || err.Error() != want {
+	if err == nil || err.Message != want {
 		t.Fatalf("err=%v want=%q", err, want)
 	}
 }
@@ -132,7 +132,7 @@ func TestParseBodyWeightRejectsDuplicateClientTag(t *testing.T) {
 		"tags": ["morning", "morning"]
 	}`)
 	_, err := ParseBodyWeight(raw)
-	if err == nil || err.Error() != `duplicate tag "morning"` {
+	if err == nil || err.Message != `duplicate tag "morning"` {
 		t.Fatalf("err: %v", err)
 	}
 }
