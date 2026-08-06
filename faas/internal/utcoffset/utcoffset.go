@@ -3,11 +3,12 @@
 package utcoffset
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 )
 
 // 与 draft / query 一致：Z / ±HH:MM / ±HHMM
@@ -15,17 +16,17 @@ var isoTZSuffix = regexp.MustCompile(`(?i)(Z|[+-]\d{2}:?\d{2})$`)
 
 var canonicalOffset = regexp.MustCompile(`^[+-]\d{2}:\d{2}$`)
 
-var errMissingTZ = errors.New("happened_at must be ISO 8601 with timezone (Z or ±HH:MM)")
+const ErrMissingTZ = "happened_at must be ISO 8601 with timezone (Z or ±HH:MM)"
 
 // ExtractUtcOffsetLiteral 从带区 ISO 末尾拆出时区后缀并规范成入库形：Z 或 ±HH:MM。
 // Z/z → Z；+0800 → +08:00；不把 Z 与 +00:00 互相折叠。
-func ExtractUtcOffsetLiteral(raw string) (string, error) {
+func ExtractUtcOffsetLiteral(raw string) (string, *myerr.MyError) {
 	if raw == "" {
-		return "", fmt.Errorf("%w", errMissingTZ)
+		return "", myerr.NewValidation(ErrMissingTZ)
 	}
 	loc := isoTZSuffix.FindStringIndex(raw)
 	if loc == nil {
-		return "", fmt.Errorf("%w", errMissingTZ)
+		return "", myerr.NewValidation(ErrMissingTZ)
 	}
 	suffix := raw[loc[0]:loc[1]]
 	return NormalizeUtcOffsetSuffix(suffix), nil
@@ -45,12 +46,12 @@ func NormalizeUtcOffsetSuffix(suffix string) string {
 
 // FormatHappenedAt 瞬间 + 隐列 utc_offset → 带区 ISO（毫秒三位）。
 // Z → …Z；+00:00 → …+00:00（不折叠）。
-func FormatHappenedAt(instant time.Time, utcOffset string) (string, error) {
+func FormatHappenedAt(instant time.Time, utcOffset string) (string, *myerr.MyError) {
 	if utcOffset == "Z" {
 		return instant.UTC().Format("2006-01-02T15:04:05.000Z"), nil
 	}
 	if !canonicalOffset.MatchString(utcOffset) {
-		return "", fmt.Errorf("invalid utc_offset: %s", utcOffset)
+		return "", myerr.NewValidation(fmt.Sprintf("invalid utc_offset: %s", utcOffset))
 	}
 	sign := 1
 	if utcOffset[0] == '-' {
@@ -58,11 +59,11 @@ func FormatHappenedAt(instant time.Time, utcOffset string) (string, error) {
 	}
 	hours, err := strconv.Atoi(utcOffset[1:3])
 	if err != nil {
-		return "", fmt.Errorf("invalid utc_offset: %s", utcOffset)
+		return "", myerr.NewValidation(fmt.Sprintf("invalid utc_offset: %s", utcOffset))
 	}
 	minutes, err := strconv.Atoi(utcOffset[4:6])
 	if err != nil {
-		return "", fmt.Errorf("invalid utc_offset: %s", utcOffset)
+		return "", myerr.NewValidation(fmt.Sprintf("invalid utc_offset: %s", utcOffset))
 	}
 	secondsEast := sign * (hours*3600 + minutes*60)
 	// FixedZone 名为空时 Format 仍用数字 offset；用字面量作名便于调试。

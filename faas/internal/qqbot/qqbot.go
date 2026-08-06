@@ -4,7 +4,6 @@ package qqbot
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -205,13 +204,13 @@ func (s *Sender) fetchAccessToken(cfg Config) (string, *myerr.MyError) {
 	}
 	req, err := http.NewRequest(http.MethodPost, s.tokenURL(), bytes.NewReader(payload))
 	if err != nil {
-		return "", myerr.NewInternal(errors.New(ErrTransportFailedMessage))
+		return "", myerr.NewInternalMsg(ErrTransportFailedMessage)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := s.client().Do(req)
 	if err != nil {
-		return "", myerr.NewInternal(errors.New(ErrTransportFailedMessage))
+		return "", myerr.NewInternalMsg(ErrTransportFailedMessage)
 	}
 	defer res.Body.Close()
 
@@ -274,7 +273,7 @@ func (s *Sender) SendMessage(text string) *myerr.MyError {
 		return me
 	}
 	if token == "" {
-		return myerr.NewInternal(errors.New(ErrTransportFailedMessage))
+		return myerr.NewInternalMsg(ErrTransportFailedMessage)
 	}
 
 	path := "/v2/users/" + url.PathEscape(cfg.UserOpenID) + "/messages"

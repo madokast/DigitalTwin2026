@@ -2,7 +2,6 @@ package record
 
 import (
 	"encoding/json"
-	"errors"
 	"regexp"
 	"time"
 
@@ -91,8 +90,8 @@ func TagsJSON(tags []string) (string, *myerr.MyError) {
 	return string(b), nil
 }
 
-// ErrInvalidID 与 TS INVALID_RECORD_ID 同文案：非 UUID → 400，避免 PG 类型错误变 500。
-var ErrInvalidID = errors.New("invalid record id")
+// ErrInvalidID 与 TS INVALID_RECORD_ID 同文案：非 UUID → 400，避免 PG 类型错误变 500（文案常量）。
+const ErrInvalidID = "invalid record id"
 
 // 与 npm `uuid` validate 所用正则一致（version [1-8]、variant [89ab]，另允 nil / max UUID）。
 // 不用 google/uuid.Parse：它会接受非法 version/variant，导致与 Next 400 分歧。

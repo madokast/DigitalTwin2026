@@ -48,9 +48,9 @@ func ParseHappenedAt(raw string) (time.Time, string, *myerr.MyError) {
 	if err != nil {
 		return time.Time{}, "", myerr.NewValidation("invalid happened_at datetime")
 	}
-	offset, err := utcoffset.ExtractUtcOffsetLiteral(raw)
-	if err != nil {
-		return time.Time{}, "", myerr.NewValidation(err.Error())
+	offset, me := utcoffset.ExtractUtcOffsetLiteral(raw)
+	if me != nil {
+		return time.Time{}, "", me
 	}
 	return happenedAt, offset, nil
 }

@@ -27,6 +27,10 @@ func NewValidation(msg string) *MyError { return &MyError{Status: 400, Message: 
 // NewConflict 409（唯一约束冲突 / 重名等；暂未使用）。
 func NewConflict(msg string) *MyError { return &MyError{Status: 409, Message: msg} }
 
+// NewInternalMsg 500 固定文案（非驱动错误：外部服务失败等已知原因，无需 describe 烙类型名——
+// 避免 `*errors.errorString: <文案>` 的噪音前缀）。语义仍为「第三方/外部失败」。
+func NewInternalMsg(msg string) *MyError { return &MyError{Status: 500, Message: msg} }
+
 // NewServiceUnavailable 503（健康探测等「服务暂不可用」；非客户端请求问题）。
 func NewServiceUnavailable(msg string) *MyError { return &MyError{Status: 503, Message: msg} }
 

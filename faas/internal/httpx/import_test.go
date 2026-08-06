@@ -84,7 +84,7 @@ func TestImportRecordsMultipartValidation(t *testing.T) {
 	}
 	var errBody map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &errBody)
-	if errBody["detail"] != importapi.ErrMultipartContentType.Error() {
+	if errBody["detail"] != importapi.ErrMultipartContentType {
 		t.Fatalf("json error %v", errBody)
 	}
 
@@ -102,7 +102,7 @@ func TestImportRecordsMultipartValidation(t *testing.T) {
 		t.Fatalf("missing status %d body %s", rr2.Code, rr2.Body.String())
 	}
 	_ = json.Unmarshal(rr2.Body.Bytes(), &errBody)
-	if errBody["detail"] != importapi.ErrMultipartRequired.Error() {
+	if errBody["detail"] != importapi.ErrMultipartRequired {
 		t.Fatalf("missing error %v", errBody)
 	}
 
@@ -117,7 +117,7 @@ func TestImportRecordsMultipartValidation(t *testing.T) {
 		t.Fatalf("multi status %d", rr3.Code)
 	}
 	_ = json.Unmarshal(rr3.Body.Bytes(), &errBody)
-	if errBody["detail"] != importapi.ErrMultipartMultipleFile.Error() {
+	if errBody["detail"] != importapi.ErrMultipartMultipleFile {
 		t.Fatalf("multi error %v", errBody)
 	}
 
@@ -132,7 +132,7 @@ func TestImportRecordsMultipartValidation(t *testing.T) {
 		t.Fatalf("ctype status %d", rr4.Code)
 	}
 	_ = json.Unmarshal(rr4.Body.Bytes(), &errBody)
-	if errBody["detail"] != importapi.ErrUnsupportedFileContentType.Error() {
+	if errBody["detail"] != importapi.ErrUnsupportedFileContentType {
 		t.Fatalf("ctype error %v", errBody)
 	}
 }
@@ -155,7 +155,7 @@ func TestImportRecordsDoesNotUseMaxBodyGate(t *testing.T) {
 	}
 	var errBody map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &errBody)
-	if errBody["detail"] != importapi.ErrImportLimitsError.Error() {
+	if errBody["detail"] != importapi.ErrImportLimitsError {
 		t.Fatalf("error %v", errBody)
 	}
 	if errBody["detail"] == httpx.BodyTooLargeMessage {
@@ -195,7 +195,7 @@ func TestImportRecordsRejectsOversizedNonFilePart(t *testing.T) {
 	}
 	var errBody map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &errBody)
-	if errBody["detail"] != importapi.ErrMultipartPartTooLarge.Error() {
+	if errBody["detail"] != importapi.ErrMultipartPartTooLarge {
 		t.Fatalf("error %v", errBody)
 	}
 }
@@ -219,7 +219,7 @@ func TestImportRecordsTextPartNamedFile(t *testing.T) {
 	}
 	var errBody map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &errBody)
-	if errBody["detail"] != importapi.ErrUnsupportedFileContentType.Error() {
+	if errBody["detail"] != importapi.ErrUnsupportedFileContentType {
 		t.Fatalf("error %v", errBody)
 	}
 }

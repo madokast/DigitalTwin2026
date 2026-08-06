@@ -626,12 +626,12 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 	ct := r.Header.Get("Content-Type")
 	mediatype, params, err := mime.ParseMediaType(ct)
 	if err != nil || !strings.EqualFold(mediatype, "multipart/form-data") {
-		writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType.Error())
+		writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType)
 		return
 	}
 	boundary := params["boundary"]
 	if boundary == "" {
-		writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType.Error())
+		writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType)
 		return
 	}
 
@@ -648,7 +648,7 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		if err != nil {
-			writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType.Error())
+			writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType)
 			return
 		}
 		if part.FormName() != "file" {
@@ -656,11 +656,11 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 			n, copyErr := io.Copy(io.Discard, io.LimitReader(part, int64(importapi.MaxImportFileBytes)+1))
 			_ = part.Close()
 			if copyErr != nil {
-				writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType.Error())
+				writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType)
 				return
 			}
 			if n > int64(importapi.MaxImportFileBytes) {
-				writeError(w, http.StatusBadRequest, importapi.ErrMultipartPartTooLarge.Error())
+				writeError(w, http.StatusBadRequest, importapi.ErrMultipartPartTooLarge)
 				return
 			}
 			continue
@@ -668,7 +668,7 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		fileCount++
 		if fileCount > 1 {
 			_ = part.Close()
-			writeError(w, http.StatusBadRequest, importapi.ErrMultipartMultipleFile.Error())
+			writeError(w, http.StatusBadRequest, importapi.ErrMultipartMultipleFile)
 			return
 		}
 		filename = filepath.Base(part.FileName())
@@ -677,20 +677,20 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		fileRaw, err = io.ReadAll(io.LimitReader(part, int64(importapi.MaxImportFileBytes)+1))
 		_ = part.Close()
 		if err != nil {
-			writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType.Error())
+			writeError(w, http.StatusBadRequest, importapi.ErrMultipartContentType)
 			return
 		}
 	}
 	if fileCount == 0 {
-		writeError(w, http.StatusBadRequest, importapi.ErrMultipartRequired.Error())
+		writeError(w, http.StatusBadRequest, importapi.ErrMultipartRequired)
 		return
 	}
 	if !importapi.IsAcceptedImportFilePart(partCT, filename) {
-		writeError(w, http.StatusBadRequest, importapi.ErrUnsupportedFileContentType.Error())
+		writeError(w, http.StatusBadRequest, importapi.ErrUnsupportedFileContentType)
 		return
 	}
 	if len(fileRaw) > importapi.MaxImportFileBytes {
-		writeError(w, http.StatusBadRequest, importapi.ErrImportLimitsError.Error())
+		writeError(w, http.StatusBadRequest, importapi.ErrImportLimitsError)
 		return
 	}
 

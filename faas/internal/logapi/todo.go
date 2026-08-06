@@ -55,7 +55,7 @@ func TransitionTodo(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.No
 
 func transitionTodo(ctx context.Context, q db.TxBeginner, parsed tododraft.NormalizedTodoTransition) (TransitionResult, *myerr.MyError) {
 	if !record.IsValidID(parsed.ID) {
-		return TransitionResult{}, myerr.NewValidation(record.ErrInvalidID.Error())
+		return TransitionResult{}, myerr.NewValidation(record.ErrInvalidID)
 	}
 
 	// 预读（非 CAS：只用于判断与组装，放事务外，事务持有时间最短）

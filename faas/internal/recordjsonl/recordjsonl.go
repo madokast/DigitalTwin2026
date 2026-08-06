@@ -105,7 +105,7 @@ func ParseLine(rawLine string, lineNumber int) (*Row, *myerr.MyError) {
 
 	id, ok := m["id"].(string)
 	if !ok || id == "" || !record.IsValidID(id) {
-		return nil, wrapErr(record.ErrInvalidID.Error(), lineNumber)
+		return nil, wrapErr(record.ErrInvalidID, lineNumber)
 	}
 
 	happenedRaw, _ := m["happened_at"].(string)

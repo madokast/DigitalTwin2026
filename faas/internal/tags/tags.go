@@ -3,7 +3,6 @@ package tags
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -129,7 +128,7 @@ func parseTagsJSONArray(tagsJSON string) ([]any, *myerr.MyError) {
 	}
 	arr, ok := raw.([]any)
 	if !ok {
-		return nil, myerr.NewInternal(errors.New(ErrTagsNotJSONArray))
+		return nil, myerr.NewInternalMsg(ErrTagsNotJSONArray)
 	}
 	return arr, nil
 }

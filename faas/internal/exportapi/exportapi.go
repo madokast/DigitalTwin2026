@@ -7,7 +7,6 @@ package exportapi
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -25,8 +24,8 @@ import (
 // ErrExportLimitError 与 Next EXPORT_LIMIT_ERROR 同文案（数据/格式问题 → 400）。
 const ErrExportLimitError = "limit must be an integer between 1 and 1000"
 
-// ErrExportFromNotFound 与 Next EXPORT_FROM_NOT_FOUND 同文案。
-var ErrExportFromNotFound = errors.New("export from id not found")
+// ErrExportFromNotFound 与 Next EXPORT_FROM_NOT_FOUND 同文案（文案常量）。
+const ErrExportFromNotFound = "export from id not found"
 
 var digitsOnly = regexp.MustCompile(`^\d+$`)
 
@@ -64,7 +63,7 @@ func ParseExportRecordsParams(q url.Values) (*ParsedExport, *myerr.MyError) {
 		return &ParsedExport{From: "", Limit: limit}, nil
 	}
 	if !record.IsValidID(from) {
-		return nil, myerr.NewValidation(record.ErrInvalidID.Error())
+		return nil, myerr.NewValidation(record.ErrInvalidID)
 	}
 	return &ParsedExport{From: from, Limit: limit}, nil
 }
@@ -81,7 +80,7 @@ func FetchExportRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedExport
 			return nil, myerr.NewInternal(err)
 		}
 		if !exists {
-			return nil, myerr.NewNotFound(ErrExportFromNotFound.Error())
+			return nil, myerr.NewNotFound(ErrExportFromNotFound)
 		}
 	}
 

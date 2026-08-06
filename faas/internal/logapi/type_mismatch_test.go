@@ -83,12 +83,12 @@ func TestTransitionTodoRejectsValidation(t *testing.T) {
 		},
 		{
 			`{"id":"not-a-uuid","target":"completed","happened_at":"2026-08-02T12:00:00+08:00"}`,
-			record.ErrInvalidID.Error(),
+			record.ErrInvalidID,
 		},
 	}
 	for _, c := range cases {
 		var err error
-		if c.want == record.ErrInvalidID.Error() {
+		if c.want == record.ErrInvalidID {
 			parsed, perr := tododraft.ParseTodoTransition([]byte(c.raw))
 			if perr != nil {
 				t.Fatalf("%s: parse: %v", c.raw, perr)

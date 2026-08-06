@@ -7,7 +7,6 @@ package importapi
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -25,27 +24,23 @@ const MaxImportLines = 1000
 // MaxImportFileBytes file part 原始字节上限 4 MiB。
 const MaxImportFileBytes = 4 * 1024 * 1024
 
-// ErrImportLimitsError 与 Next IMPORT_LIMITS_ERROR 同文案。
-var ErrImportLimitsError = errors.New("import exceeds limits (max 1000 lines or 4 MiB); split the file")
+// ErrImportLimitsError 与 Next IMPORT_LIMITS_ERROR 同文案（文案常量，非哨兵）。
+const ErrImportLimitsError = "import exceeds limits (max 1000 lines or 4 MiB); split the file"
 
 // ErrMultipartRequired 与 Next MULTIPART_FILE_REQUIRED 同文案。
-var ErrMultipartRequired = errors.New(`multipart form field "file" is required`)
+const ErrMultipartRequired = `multipart form field "file" is required`
 
 // ErrMultipartMultipleFile 与 Next MULTIPART_MULTIPLE_FILE 同文案。
-var ErrMultipartMultipleFile = errors.New(`multipart must contain exactly one "file" part`)
+const ErrMultipartMultipleFile = `multipart must contain exactly one "file" part`
 
 // ErrMultipartContentType 与 Next MULTIPART_CONTENT_TYPE 同文案。
-var ErrMultipartContentType = errors.New("expected Content-Type multipart/form-data")
+const ErrMultipartContentType = "expected Content-Type multipart/form-data"
 
 // ErrUnsupportedFileContentType 与 Next UNSUPPORTED_FILE_CONTENT_TYPE 同文案。
-var ErrUnsupportedFileContentType = errors.New(
-	"unsupported file Content-Type; use application/x-ndjson, application/jsonl, or application/octet-stream with a .jsonl filename",
-)
+const ErrUnsupportedFileContentType = "unsupported file Content-Type; use application/x-ndjson, application/jsonl, or application/octet-stream with a .jsonl filename"
 
 // ErrMultipartPartTooLarge 非 file part 丢弃超限（与 MaxImportFileBytes 同量级）。
-var ErrMultipartPartTooLarge = errors.New(
-	"multipart non-file part exceeds size limit (max 4 MiB)",
-)
+const ErrMultipartPartTooLarge = "multipart non-file part exceeds size limit (max 4 MiB)"
 
 // Counts 成功计数（与 Next ImportCounts 对齐）。
 type Counts struct {
@@ -86,7 +81,7 @@ func ImportRecordsJSONL(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (C
 		return Counts{}, myerr.NewInternal(err)
 	}
 	if len(raw) > MaxImportFileBytes {
-		return Counts{}, myerr.NewValidation(ErrImportLimitsError.Error())
+		return Counts{}, myerr.NewValidation(ErrImportLimitsError)
 	}
 
 	tx, err := pool.Begin(ctx)
@@ -108,7 +103,7 @@ func ImportRecordsJSONL(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (C
 // ImportRecordsJSONLTx 同语义，使用已有 tx（单测注入假 tx / 真实 tx）。
 func ImportRecordsJSONLTx(ctx context.Context, tx pgx.Tx, text string, fileBytes int) (Counts, *myerr.MyError) {
 	if fileBytes > MaxImportFileBytes {
-		return Counts{}, myerr.NewValidation(ErrImportLimitsError.Error())
+		return Counts{}, myerr.NewValidation(ErrImportLimitsError)
 	}
 	return importTextInTx(ctx, tx, text)
 }
@@ -137,7 +132,7 @@ func importTextInTx(ctx context.Context, tx pgx.Tx, text string) (Counts, *myerr
 		}
 		nonEmpty++
 		if nonEmpty > MaxImportLines {
-			return Counts{}, myerr.NewValidation(ErrImportLimitsError.Error())
+			return Counts{}, myerr.NewValidation(ErrImportLimitsError)
 		}
 
 		row, me := recordjsonl.ParseLine(line, physicalLine)

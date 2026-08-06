@@ -295,7 +295,7 @@ func TestImportRecordsRejectsMissingOrMalformedBoundary(t *testing.T) {
 		if rr.Code != 400 {
 			t.Fatalf("Content-Type %q: status %d body %s", ct, rr.Code, rr.Body.String())
 		}
-		assertProblemDetail(t, rr, importapi.ErrMultipartContentType.Error())
+		assertProblemDetail(t, rr, importapi.ErrMultipartContentType)
 	}
 }
 

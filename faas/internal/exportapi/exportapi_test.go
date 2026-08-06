@@ -33,7 +33,7 @@ func TestParseExportRecordsParams(t *testing.T) {
 	}
 
 	_, err = ParseExportRecordsParams(url.Values{"from": {"not-a-uuid"}, "limit": {"10"}})
-	if err == nil || err.Error() != record.ErrInvalidID.Error() {
+	if err == nil || err.Error() != record.ErrInvalidID {
 		t.Fatalf("invalid from: %v", err)
 	}
 
@@ -88,7 +88,7 @@ func TestBuildExportNdjsonAndFilename(t *testing.T) {
 	if got := FormatExportNotifyMessage(3, rec.ID, 50); got != "Exported 3 records (from 01900000-0000-7000-8000-000000000001, limit 50)" {
 		t.Fatalf("notify from: %s", got)
 	}
-	if ErrExportFromNotFound.Error() != "export from id not found" {
+	if ErrExportFromNotFound != "export from id not found" {
 		t.Fatal(ErrExportFromNotFound)
 	}
 }

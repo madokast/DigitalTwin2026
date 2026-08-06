@@ -90,9 +90,9 @@ func TestFormatHappenedAt(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse instant: %v", err)
 			}
-			got, err := FormatHappenedAt(instant, c.UtcOffset)
-			if err != nil {
-				t.Fatalf("FormatHappenedAt: %v", err)
+			got, me := FormatHappenedAt(instant, c.UtcOffset)
+			if me != nil {
+				t.Fatalf("FormatHappenedAt: %v", me)
 			}
 			if got != c.Want {
 				t.Fatalf("got %q want %q", got, c.Want)
@@ -121,9 +121,9 @@ func TestExtractThenFormatRoundTrip(t *testing.T) {
 		"2026-08-03T08:00:00-0430",
 	}
 	for _, raw := range samples {
-		offset, err := ExtractUtcOffsetLiteral(raw)
-		if err != nil {
-			t.Fatalf("%q extract: %v", raw, err)
+		offset, me := ExtractUtcOffsetLiteral(raw)
+		if me != nil {
+			t.Fatalf("%q extract: %v", raw, me)
 		}
 		// 与 Next expandCompactOffset 对齐后再 Parse
 		expanded := raw
@@ -140,9 +140,9 @@ func TestExtractThenFormatRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%q parse: %v", raw, err)
 		}
-		formatted, err := FormatHappenedAt(instant, offset)
-		if err != nil {
-			t.Fatalf("%q format: %v", raw, err)
+		formatted, me := FormatHappenedAt(instant, offset)
+		if me != nil {
+			t.Fatalf("%q format: %v", raw, me)
 		}
 		if len(formatted) < len(offset) || formatted[len(formatted)-len(offset):] != offset {
 			t.Fatalf("%q: formatted %q does not end with %q", raw, formatted, offset)

@@ -3,7 +3,6 @@ package query
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -168,7 +167,7 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, *myerr.MyError) {
 
 	id := q.Get("id")
 	if id != "" && !record.IsValidID(id) {
-		return nil, myerr.NewValidation(record.ErrInvalidID.Error())
+		return nil, myerr.NewValidation(record.ErrInvalidID)
 	}
 
 	return &ParsedQuery{
@@ -636,7 +635,7 @@ func AggregateTransactionsSummary(rows []TransactionsSummaryRow, fromRaw, toRaw 
 		}
 		arr, ok := parsed.([]any)
 		if !ok {
-			return nil, myerr.NewInternal(errors.New(tags.ErrTagsNotJSONArray))
+			return nil, myerr.NewInternalMsg(tags.ErrTagsNotJSONArray)
 		}
 		tagList := make([]string, 0, len(arr))
 		for _, item := range arr {

@@ -4,7 +4,6 @@ package telegram
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -151,13 +150,13 @@ func (s *Sender) SendMessage(text string) *myerr.MyError {
 	url := fmt.Sprintf("%s/bot%s/sendMessage", s.apiBase(), cfg.Token)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
-		return myerr.NewInternal(errors.New(ErrTransportFailedMessage))
+		return myerr.NewInternalMsg(ErrTransportFailedMessage)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := s.client().Do(req)
 	if err != nil {
-		return myerr.NewInternal(errors.New(ErrTransportFailedMessage))
+		return myerr.NewInternalMsg(ErrTransportFailedMessage)
 	}
 	defer res.Body.Close()
 
