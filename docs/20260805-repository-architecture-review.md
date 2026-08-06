@@ -52,13 +52,14 @@
 **待定点（5 个，逐个讨论后更新状态）**：
 
 1. **`findByCriteria` 的 total**：query 端点需 `total`（COUNT）。A) `findByCriteria` 内部 COUNT+SELECT 一次返回 `(records, total)`（现状单次函数）；B) 返回 records，业务层再 `count(c)` 两次调用（方法语义单一）。
+   - 状态：✅ **已定案（方案 B）**——`FindByCriteria` 只返回 `[]record.Record`；业务层（query handler）再调 `Count(q, c)` 取 total（签名表 #5 保持）。**不需要事务**：query 读路径无写、无 UoW；默认 `READ COMMITTED` 下同一事务内两条语句也各取快照、不保证一致（要一致须 REPEATABLE READ）；分页 total 与当前页的轻微竞态业界普遍接受——保持现状直连 pool 两次独立查询。
 2. **`findInRange` 语义模糊**：summary（happened_at 区间**计数**）与 export（**id 游标分页**）语义完全不同。是否拆成：summary 用 `count(criteria 带区间)`、export 用独立 `findByCursor(q, from, limit)`？`findInRange` 是否从方法集移除？
 3. **Node 领域错误表达**：Go 用 `record.ErrNotFound` sentinel + `errors.Is`；Node 对称方案 = throw 领域错误类 + `instanceof`（`RecordNotFoundError` / `RecordConflictError`），业务层 catch 分类——但改变 Node 现状「返回 Result 对象不 throw」惯例。是否引入？或 Node 用 `null` / Result？
 - 状态：✅ **已定案**——error 字段承载**领域错误对象**（Go `error` 哨兵 / Node `Error` 实例，`null` = 成功），**非字符串**。DDD Error 一套（双端对称）：message 固定（`record not found`、`record tags changed concurrently, retry`）或运行时拼接（`fmt.Errorf("record %s not found: %w", id, record.ErrNotFound)` / `new RecordNotFoundError(\`record ${id} not found\`)`）。**Node 不 throw**——Repository 返回 `XXXXResult`，错误实例放 `res.error` 字段。Service 层判断：Go `errors.Is(res.Error, record.ErrNotFound)`、Node `res.error instanceof RecordNotFoundError` → 带 status，message 透传 detail。每方法专属 `XXXXResult`（拒绝泛型，Go/Node 同名同构，含 `ok` + 业务字段 + `error`）。未知错误 = default 分支 = 漏 case 需补代码。
 4. **`Counts` 类型归属**：`UpsertCounts{Inserted,Updated,Total}` 现在在 `importapi` 包，Repository 要用——是否移到 `record` 包（聚合根类型）？
 5. **`transition`**：等 A5 定案后补。
 
-- 状态：⏳ 讨论中（待定点 1-4 逐个讨论定案；5 等 A5）
+- 状态：⏳ 讨论中（待定点 1、3 已定案；2、4 逐个讨论；5 等 A5）
 
 ### A4【阻塞】业务函数签名变更与接口注入点
 - 现状：业务函数收 `*pgxpool.Pool`（`CreateTodo(ctx, pool, raw)`）；httpx 直接调用；transition 用 `TransitionTodo` 字段注入（httpx 层）。
