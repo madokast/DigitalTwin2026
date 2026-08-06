@@ -117,7 +117,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	}
 
 	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record，业务层唯一使用。
-	res := recordrepo.New(pool).Save(ctx, record.NewRecord{
+	res := recordrepo.Repo.Save(ctx, pool, record.NewRecord{
 		ID:               id.String(),
 		HappenedAt:       dt,
 		NumericValue:     nil,

@@ -50,7 +50,7 @@ func createNumberBatch(ctx context.Context, q db.TxBeginner, raw []byte) (int, [
 	var inserted int
 	var out []record.Record
 	err = db.WithTx(ctx, q, func(q db.Executor) error {
-		res := recordrepo.New(q).SaveAll(ctx, nrs)
+		res := recordrepo.Repo.SaveAll(ctx, q, nrs)
 		if !res.OK {
 			return res.Error
 		}

@@ -23,7 +23,7 @@
 
 ## 2. 形态（双端一致，2026-08-06 定案 + 修订）
 
-**Service 结构体 / class + 依赖注入**；**Repository 无状态、包级函数（方法收执行器 `q`）**；**事务边界在 Service 方法内部**（UoW 封装机制）；**业务函数收 typed 请求体、返回 `(T, error)`**（错误带 status，§4）。
+**Service 结构体 / class + 依赖注入**；**Repository 空结构体 + 单例 `Repo`，方法显式收执行器 `q`**；**事务边界在 Service 方法内部**（UoW 封装机制）；**业务函数收 typed 请求体、返回 `(T, error)`**（错误带 status，§4）。
 
 ```go
 // Go（faas/internal/logapi/service.go 等）
@@ -32,9 +32,9 @@ type Service struct {
 	uow *db.UoW       // 事务源
 }
 
-// 单条（无事务）：pool 当执行器传给 repo 包级函数
+// 单条（无事务）：pool 当执行器传给 Repo 方法
 func (s *Service) GetUser(ctx context.Context, req GetUserRequest) (*User, error) {
-	res := recordrepo.FindByID(ctx, s.db, req.ID)   // ← q 为方法/函数参数
+	res := recordrepo.Repo.FindByID(ctx, s.db, req.ID)   // ← q 显式传参
 	if !res.OK {
 		return nil, statusError(http.StatusNotFound, res.Error)  // 领域错误 → 带 status
 	}
@@ -44,10 +44,10 @@ func (s *Service) GetUser(ctx context.Context, req GetUserRequest) (*User, error
 // 多语句（事务）：UoW 包，闭包内 q = tx
 func (s *Service) Transfer(ctx context.Context, req TransferRequest) error {
 	return s.uow.Do(ctx, func(q db.Executor) error {
-		if err := recordrepo.DecreaseBalance(ctx, q, req.FromID, req.Amount); err != nil {
+		if err := recordrepo.Repo.Transition(ctx, q, req.FromID, req.Tags); err != nil {
 			return err
 		}
-		return recordrepo.IncreaseBalance(ctx, q, req.ToID, req.Amount)  // ← 同一个 q = tx
+		return recordrepo.Repo.Save(ctx, q, req.Audit)  // ← 同一个 q = tx
 	})
 }
 ```
@@ -57,9 +57,9 @@ func (s *Service) Transfer(ctx context.Context, req TransferRequest) error {
 class Service {
   constructor(private db: Db, private uow: UoW) {}
 
-  // 单条（无事务）：db 当执行器传 repo 模块级函数
+  // 单条（无事务）：db 当执行器传 Repo 方法
   async getUser(req: GetUserRequest): Promise<User | null> {
-    const res = await recordrepo.findById(this.db, req.id)
+    const res = await recordrepo.Repo.findById(this.db, req.id)
     if (!res.ok) throw new StatusError(httpStatus.NOT_FOUND, res.error)
     return res.record
   }
@@ -67,15 +67,15 @@ class Service {
   // 多语句（事务）
   async transfer(req: TransferRequest): Promise<void> {
     return this.uow.do(async (q) => {
-      await recordrepo.decreaseBalance(q, req.fromID, req.amount)
-      await recordrepo.increaseBalance(q, req.toID, req.amount)  // ← 同一个 q = tx
+      await recordrepo.Repo.transition(q, req.fromID, req.tags)
+      await recordrepo.Repo.save(q, req.audit)  // ← 同一个 q = tx
     })
   }
 }
 ```
 
 **要点**：
-- **Repository 包级函数 / 模块级函数，第一参数一律收执行器 `q`**（`recordrepo.Save(ctx, q, rec)`；WithTx 下 `recordrepo.Save(ctx, tx, rec)`）——不构造注入、不每次 `New(q)`。
+- **Repository 空结构体 + 单例 `Repo`（Go `var Repo = &RecordRepository{}` / TS `export const Repo = new RecordRepository()`），方法第一参数一律显式收执行器 `q`**（`recordrepo.Repo.Save(ctx, q, rec)`；WithTx 下 `recordrepo.Repo.Save(ctx, tx, rec)`）——不构造注入、不每次 `New(q)`。
 - **业务函数收 typed 请求体**（`GetUserRequest` 等，双端同构），Go 不再收 `raw []byte`（对齐 Node typed body）。
 - Service 方法内部决定「用不用事务」：单条直接传 `s.db`；多语句 `s.uow.Do` 包，闭包内传 `tx`（两者都满足 `Executor`）。
 - **预读位置按业务语义**：CAS 操作（attachTag/detachTag——旧 tags 参与写 WHERE）预读**必须在同一事务**；非 CAS（transition——预读只用于判断与组装）预读**在事务外**，准备好才开事务，事务持有时间最短。
@@ -210,7 +210,7 @@ func (s *Service) GetUser(ctx context.Context, req GetUserRequest) (*User, error
 - **status 来源**：领域错误（ErrNotFound→404 等）由业务层 `errors.Is`（Node `instanceof`）映射为 `StatusError`；透传的驱动错误（500）包成 `StatusError{500, err}`（阶段 B 用 `ErrInternal` 领域化）。
 - `default` = 未知错误 = 漏了 case 需补代码（暂 500 并留注释）。
 
-## 5. Repository 方法签名表（**包级 / 模块级函数，第一参数一律收执行器 `q`**）
+## 5. Repository 方法签名表（**空结构体 + 单例 `Repo`，方法第一参数一律收执行器 `q`**）
 
 | # | 方法 | Go | Node | 说明（定案） |
 |---|---|---|---|---|
@@ -227,7 +227,7 @@ func (s *Service) GetUser(ctx context.Context, req GetUserRequest) (*User, error
 | 11 | `transition` | `Transition(ctx, q, id, tags []string) RecordTransitionResult` | 同左 | **只 UPDATE tags**（A5：领域服务编排 + Repository 原语）；`RowsAffected != 1` → 内部错误（阶段 B 用 `ErrInternal`）；审计行 INSERT **复用 `save`** |
 | 12 | `renameTag` | `RenameTag(ctx, q, from, to) RecordRenameTagResult` | 同左 | 全表改名，事务内 |
 
-- **第一参数一律是执行器 `q`**（非事务 `pool` / `db`，或事务 `tx`——无「有的收 pool 有的收 tx」割裂）；Go PascalCase / Node camelCase，**词干一致**。
+- **第一参数一律是执行器 `q`**（非事务 `pool` / `db`，或事务 `tx`——无「有的收 pool 有的收 tx」割裂）；方法挂在包级单例 `Repo` 上（Go `recordrepo.Repo.Save(ctx, q, ...)` / TS `Repo.save(q, ...)`）；Go PascalCase / Node camelCase，**词干一致**。
 - 复合领域操作（saveAll / upsert / attachTag / detachTag / transition / renameTag）由业务层 `s.uow.Do` 包裹，Repository 内不出现 `Begin`/`Commit`。
 - todo 变形、summary 聚合等**领域逻辑留在业务层**，Repository 只读写原始行；tags 保留前缀 / 合法性校验在**业务层零 DB**。
 
@@ -286,13 +286,13 @@ src/lib/logapi.ts 等   业务层（Service class）
 | UoW | `db.UoW`，`Do(ctx, fn(q Executor))` | `UoW` class，`do(fn(q: Executor))`（包装 `db.transaction`） |
 | 事务边界 | **Service 方法内部**（业务层决定用不用事务） | 同左（模块级 db 单例） |
 | Service | struct + 方法，构造注入 `db` + `uow` | class + 方法，构造注入 `db` + `uow` |
-| Repository | **包级函数，第一参数收执行器 `q`** | **模块级函数，第一参数收执行器 `q`** |
+| Repository | **空结构体 + 包级单例 `Repo`，方法第一参数收执行器 `q`** | **空结构体 + 模块级单例 `Repo`，方法第一参数收执行器 `q`** |
 | 业务函数入参 | **typed 请求体**（对齐 Node） | typed 请求体 |
 | 业务函数返回 | `(T, error)`，status 由 `StatusError` 携带 | `Promise<(T, StatusError)>` 或 throw StatusError |
 | 执行器来源 | 调用方传参（Go 接口） | 调用方传参（模块 mock） |
 | 测试 | fake Executor / TxBeginner / UoW | `vi.mock('@/db')` |
 
-**行为同构（事务边界在业务层、repo 函数收执行器参数、领域错误 + XXXXResult、StatusError 错误、typed 入参、预读位置按语义）**；注入机制差异（Go 接口 / Node 模块 mock）为框架差异，非不一致。
+**行为同构（事务边界在业务层、repo 单例方法显式收执行器参数、领域错误 + XXXXResult、StatusError 错误、typed 入参、预读位置按语义）**；注入机制差异（Go 接口 / Node 模块 mock）为框架差异，非不一致。
 
 ## 10. 迁移步骤（E1 定案：逐个迁移、每步全绿提交）
 
@@ -311,7 +311,7 @@ src/lib/logapi.ts 等   业务层（Service class）
 
 以下四项为 2026-08-06 与业界对照后的修订决策，**已写入 §1/§2/§4/§5**，代码待落地（建议作为独立横切步骤，每步全绿）：
 
-- **A. Repository 形态 → 包级函数收执行器 `q`**：`recordrepo.Save(ctx, q, rec)` / WithTx 下 `recordrepo.Save(ctx, tx, rec)`；删除 `recordrepo.New(q)` 构造注入与每次现构建（双端：Go 包级函数 / Node 模块级函数）。业界主流（方法收执行器，sqlc 教程派）。
+- **A. Repository 形态 → 空结构体 + 单例 `Repo`，方法第一参数收执行器 `q`**：`recordrepo.Repo.Save(ctx, q, rec)` / WithTx 下 `recordrepo.Repo.Save(ctx, tx, rec)`；删除 `recordrepo.New(q)` 构造注入与每次现构建（Go `var Repo = &RecordRepository{}` / TS `export const Repo = new RecordRepository()`）。业界主流（方法收执行器 + 单例，sqlc 教程派）。
 - **B. happened_at 简化 → 单一 `Record` 形态**：删除 `NewRecord` / `DateTimeWithOffset` / `NormalizeHappenedAt`；业务层 `ValidateHappenedAt(raw) error`（校验）→ 构造 `record.Record`（`HappenedAt` 为已校验请求串）→ `Save(ctx, q, rec)`；Repository 内 `ParseHappenedAt` 落库 → 返回规范化 `Record`；业务层只用返回值。**接受两次解析成本**（业务层校验解析 + Repository 落库解析），换取无双类型。
 - **C. Go 业务函数入参 → typed 请求体**：`CreateText(ctx, pool, raw []byte)` → `CreateText(ctx, pool, body TextBody)`（typed 结构体，对齐 Node typed body）；双端请求结构同构。
 - **D. 业务函数错误 → 带 status 的 error**：`(T, status, error)` 元组 → `(T, error)` + `StatusError{Status, Err}`（`errors.As` 取 status，Node `StatusError` class）；handler 统一映射。

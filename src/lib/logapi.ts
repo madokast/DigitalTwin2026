@@ -7,7 +7,7 @@ import { errorMessage } from './httperror'
 import { UoW } from '@/db/uow'
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
-import { RecordRepository } from '@/lib/recordrepo'
+import { Repo } from '@/lib/recordrepo'
 import { RecordNotFoundError } from '@/lib/record/errors'
 import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
 import {
@@ -131,7 +131,7 @@ export async function createNumberBatch(
       aiAnalysis: entry.aiAnalysis,
     }))
     const out = await new UoW(db).do(async (q) => {
-      const res = await new RecordRepository(q).saveAll(nrs)
+      const res = await Repo.saveAll(q, nrs)
       if (!res.ok) {
         throw res.error
       }
@@ -161,7 +161,7 @@ export async function createBodyWeight(
   }
 
   try {
-    const res = await new RecordRepository(db).save({
+    const res = await Repo.save(db, {
       id: uuidv7(),
       happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
       numericValue: parsed.numericValue,
@@ -191,7 +191,7 @@ export async function createTodo(
   }
 
   try {
-    const res = await new RecordRepository(db).save({
+    const res = await Repo.save(db, {
       id: uuidv7(),
       happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
       numericValue: null,
@@ -233,8 +233,7 @@ export async function transitionTodo(
 
   try {
     // 预读（非 CAS：只用于判断与组装，事务外，事务持有时间最短）
-    const repo = new RecordRepository(db)
-    const found = await repo.findById(parsed.id)
+    const found = await Repo.findById(db, parsed.id)
     if (!found.ok) {
       if (found.error instanceof RecordNotFoundError) {
         return { error: ERR_TODO_NOT_FOUND, status: 404 }
@@ -275,12 +274,11 @@ export async function transitionTodo(
     // —— 影响行数 ≠ 1 时不插审计行、事务回滚，错误文案含实际行数。
     // 审计行 happened_at 与请求一致（parse 产物 Date + offset 直接填 DBRow，零字符串往返）
     await new UoW(db).do(async (q) => {
-      const txRepo = new RecordRepository(q)
-      const t = await txRepo.transition(parsed.id, newTags)
+      const t = await Repo.transition(q, parsed.id, newTags)
       if (!t.ok) {
         throw t.error
       }
-      await txRepo.save({
+      await Repo.save(q, {
         id: uuidv7(),
         happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
         numericValue: null,
@@ -345,7 +343,7 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
   }
 
   try {
-    const res = await new RecordRepository(db).save({
+    const res = await Repo.save(db, {
       id: uuidv7(),
       happenedAt: { time: happenedResult.value, offset: happenedResult.utcOffset },
       numericValue: null,
@@ -375,7 +373,7 @@ export async function createReview(
   }
 
   try {
-    const res = await new RecordRepository(db).save({
+    const res = await Repo.save(db, {
       id: uuidv7(),
       happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
       numericValue: null,
@@ -418,7 +416,7 @@ export async function createTransactionBatch(
       aiAnalysis: null,
     }))
     const out = await new UoW(db).do(async (q) => {
-      const res = await new RecordRepository(q).saveAll(nrs)
+      const res = await Repo.saveAll(q, nrs)
       if (!res.ok) {
         throw res.error
       }

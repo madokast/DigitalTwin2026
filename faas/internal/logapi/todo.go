@@ -29,7 +29,7 @@ func CreateTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 
 	vt := parsed.RawContent
 	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record。
-	res := recordrepo.New(pool).Save(ctx, record.NewRecord{
+	res := recordrepo.Repo.Save(ctx, pool, record.NewRecord{
 		ID: id.String(),
 		HappenedAt: draft.DateTimeWithOffset{
 			Time:   parsed.HappenedAt,
@@ -71,7 +71,7 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (Transitio
 	}
 
 	// 预读（非 CAS：只用于判断与组装，放事务外，事务持有时间最短）
-	res := recordrepo.New(q).FindByID(ctx, parsed.ID)
+	res := recordrepo.Repo.FindByID(ctx, q, parsed.ID)
 	if !res.OK {
 		switch {
 		case errors.Is(res.Error, record.ErrNotFound):
@@ -121,12 +121,11 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (Transitio
 		AiAnalysis:       nil,
 	}
 	err = db.WithTx(ctx, q, func(q db.Executor) error {
-		repo := recordrepo.New(q)
-		tRes := repo.Transition(ctx, todoRec.ID, newTags)
+		tRes := recordrepo.Repo.Transition(ctx, q, todoRec.ID, newTags)
 		if !tRes.OK {
 			return tRes.Error
 		}
-		aRes := repo.Save(ctx, auditRec)
+		aRes := recordrepo.Repo.Save(ctx, q, auditRec)
 		if !aRes.OK {
 			return fmt.Errorf("insert todo audit: %w", aRes.Error)
 		}

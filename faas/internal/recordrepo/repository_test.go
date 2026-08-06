@@ -66,8 +66,8 @@ func (f *fakeExecutor) Query(context.Context, string, ...any) (pgx.Rows, error) 
 }
 
 func TestFindByIDNotFound(t *testing.T) {
-	r := New(&fakeExecutor{row: &fakeRow{err: pgx.ErrNoRows}})
-	res := r.FindByID(context.Background(), "01900000-0000-7000-8000-000000000003")
+	f := &fakeExecutor{row: &fakeRow{err: pgx.ErrNoRows}}
+	res := Repo.FindByID(context.Background(), f, "01900000-0000-7000-8000-000000000003")
 	if res.OK {
 		t.Fatal("want not found")
 	}
@@ -78,8 +78,7 @@ func TestFindByIDNotFound(t *testing.T) {
 
 func TestTransitionAffectedNotOne(t *testing.T) {
 	f := &fakeExecutor{rowsAff: 2}
-	r := New(f)
-	res := r.Transition(context.Background(), "id", []string{"todo:completed"})
+	res := Repo.Transition(context.Background(), f, "id", []string{"todo:completed"})
 	if res.OK {
 		t.Fatal("want error for rowsAffected != 1")
 	}
