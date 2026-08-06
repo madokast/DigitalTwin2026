@@ -94,6 +94,11 @@
 ### B1【阻塞】Go 包位置（Executor / RecordRepository / Criteria）
 - 问题：`Executor` 放 `db` 包（替换 `db.Querier`）还是新包？`RecordRepository` 新 `recordrepo` 包？`Criteria` 放 `recordrepo` 还是 `query` 包？`db` 包是否被业务层 import（现有 logapi import `db.Querier` 于 tags.go）？循环依赖风险（`recordrepo` → `record` + `tags`；`query` → `recordrepo`）。
 - 待决：包结构图。
+- 状态：✅ **已定案**：
+  - **`Executor` / `Tx` / `TxBeginner` → `db` 包**（替换现有 `db.Querier`——同方法集，改名统一为 `Executor`，`Querier` 名废弃）。
+  - **`RecordRepository` → 新包 `faas/internal/recordrepo/`**（含 `Criteria` 与全部 `XXXXResult`）。
+  - **`Criteria` → `recordrepo` 包**（Repository 查询 API 契约；不可放 `query`——`query` 业务函数 import `recordrepo`，反放则成环）。
+  - 依赖图（无环）：`db`、`record`、`tags` 为底层；`recordrepo → db, record, tags`；业务层（`query`/`logapi`/`importapi`/`exportapi`）→ `recordrepo, db, record`。业务层 import `db`（`TxBeginner`/`WithTx`）与 `recordrepo`（repo 实例）均为合理依赖。
 
 ### B2 Node 文件布局
 - 问题：`src/lib/recordrepo.ts`（Repository）？`withTx` 放哪？`Criteria` type 放哪？与 `query.ts` / `tagsdb.ts` 的关系。
