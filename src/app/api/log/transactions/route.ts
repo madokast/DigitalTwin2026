@@ -1,6 +1,5 @@
-import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { errorMessage, errorResponse } from '@/lib/httperror'
+import { errorResponse, routeError } from '@/lib/httperror'
 import { readJsonBody } from '@/lib/httpjson'
 import { createTransactionBatch } from '@/lib/logapi'
 import {
@@ -19,10 +18,7 @@ export async function POST(request: NextRequest) {
     const result = await createTransactionBatch(
       parsed.value as LogTransactionsBody,
     )
-    if ('error' in result) {
-      return errorResponse(result.error, result.status)
-    }
-
+    
     scheduleBestEffortNotify(() =>
       notifyTransactionBatchInserted(result.records),
     )
@@ -38,7 +34,6 @@ export async function POST(request: NextRequest) {
       { status: result.status },
     )
   } catch (error) {
-    logger.error({ err: error }, 'Error creating transaction records')
-    return errorResponse(errorMessage(error), 500)
+    return routeError(error, 'Error creating transaction records')
   }
 }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { newValidation } from '@/lib/myerr'
 
 const createNumberBatch = vi.fn()
 const scheduleBestEffortNotify = vi.fn()
@@ -68,10 +69,7 @@ describe('POST /api/log/numbers notify schedule', () => {
   })
 
   it('does not schedule notify when create fails', async () => {
-    createNumberBatch.mockResolvedValue({
-      error: 'entries must be a non-empty array',
-      status: 400,
-    })
+    createNumberBatch.mockRejectedValue(newValidation('entries must be a non-empty array'))
     const res = await POST(post({ ...validBody, entries: [] }))
     expect(res.status).toBe(400)
     expect(scheduleBestEffortNotify).not.toHaveBeenCalled()

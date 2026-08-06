@@ -1,6 +1,5 @@
-import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { errorMessage, errorResponse } from '@/lib/httperror'
+import { errorResponse, routeError } from '@/lib/httperror'
 import {
   fetchFilteredRecords,
   parseRecordQueryParams,
@@ -30,7 +29,6 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(body)
   } catch (error) {
-    logger.error({ err: error }, 'query records')
-    return errorResponse(errorMessage(error), 500)
+    return routeError(error, 'query records')
   }
 }

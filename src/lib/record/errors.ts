@@ -1,6 +1,3 @@
-/** 领域错误类（终稿 §4）：Repository 返回、业务层 instanceof 映射 status；不 throw，放 res.error。
- * 阶段 B 追加 InternalError（吸收三方库错误）。 */
-
-export class RecordNotFoundError extends Error {}
-
-export class RecordConflictError extends Error {}
+// 领域错误类曾定义于此（RecordNotFoundError / RecordConflictError）；决策 D（myerr 统一错误模块）后
+// 领域错误改由 myerr.newNotFound / newConflict 携带 status 直接抛出，本文件已无引用。
+// 见 docs/20260806-myerr-error-module.md。

@@ -7,7 +7,7 @@
  */
 
 import { logger } from './logger'
-import { errorMessage } from './httperror'
+import { newInternal, newValidation, MyError } from './myerr'
 import { eq } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
@@ -75,9 +75,8 @@ export type ImportCounts = {
   total: number
 }
 
-export type ImportResult =
-  | { ok: true; counts: ImportCounts }
-  | { ok: false; error: string; status: number }
+/** 成功结果类型（失败 throw MyError）。 */
+export type ImportResult = { ok: true; counts: ImportCounts }
 
 /** 可注入写库边界（单测）；生产走 drizzle 事务 */
 export type ImportStore = {
@@ -185,15 +184,6 @@ function defaultStore(): ImportStore {
     },
   }
 }
-
-class ImportDomainError extends Error {
-  status: number
-  constructor(message: string, status: number) {
-    super(message)
-    this.status = status
-  }
-}
-
 /**
  * 从已读入的 UTF-8 JSONL 文本做单事务逐行 upsert（有界缓冲，非 HTTP chunk 流）。
  * `fileBytes` 为 file part 原始字节数（超限直接 400）。
@@ -203,9 +193,9 @@ export async function importRecordsJsonl(
   text: string,
   fileBytes: number,
   store: ImportStore = defaultStore(),
-): Promise<ImportResult> {
+): Promise<{ ok: true; counts: ImportCounts }> {
   if (fileBytes > MAX_IMPORT_FILE_BYTES) {
-    return { ok: false, error: IMPORT_LIMITS_ERROR, status: 400 }
+    throw newValidation(IMPORT_LIMITS_ERROR)
   }
 
   try {
@@ -228,19 +218,16 @@ export async function importRecordsJsonl(
         }
         nonEmpty += 1
         if (nonEmpty > MAX_IMPORT_LINES) {
-          throw new ImportDomainError(IMPORT_LIMITS_ERROR, 400)
+          throw newValidation(IMPORT_LIMITS_ERROR)
         }
 
         const parsed = parseLine(line, physicalLine)
         if ('error' in parsed) {
-          throw new ImportDomainError(parsed.error, 400)
+          throw newValidation(parsed.error)
         }
 
         if (seen.has(parsed.id)) {
-          throw new ImportDomainError(
-            duplicateIdError(parsed.id, physicalLine),
-            400,
-          )
+          throw newValidation(duplicateIdError(parsed.id, physicalLine))
         }
         seen.add(parsed.id)
 
@@ -263,10 +250,10 @@ export async function importRecordsJsonl(
 
     return { ok: true, counts }
   } catch (err) {
-    if (err instanceof ImportDomainError) {
-      return { ok: false, error: err.message, status: err.status }
+    if (err instanceof MyError) {
+      throw err
     }
     logger.error({ err }, 'import records')
-    return { ok: false, error: errorMessage(err), status: 500 }
+    throw newInternal(err)
   }
 }

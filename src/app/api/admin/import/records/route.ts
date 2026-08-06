@@ -4,8 +4,7 @@
  * AdminToken（proxy）；multipart `file`；bypass readJsonBody / 256KiB 门闸。
  */
 
-import { logger } from '@/lib/logger'
-import { errorMessage, errorResponse } from '@/lib/httperror'
+import { errorResponse, routeError } from '@/lib/httperror'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   extractMultipartBoundary,
@@ -86,9 +85,6 @@ export async function POST(request: NextRequest) {
     const text = await file.text()
 
     const result = await importRecordsJsonl(text, fileBytes)
-    if (!result.ok) {
-      return errorResponse(result.error, result.status)
-    }
 
     // commit 已成功：先构造成功 200 JSON，再 schedule Notify（对齐导出写出后 Notify）。
     const response = NextResponse.json({
@@ -103,7 +99,6 @@ export async function POST(request: NextRequest) {
     )
     return response
   } catch (error) {
-    logger.error({ err: error }, 'Error importing records')
-    return errorResponse(errorMessage(error), 500)
+    return routeError(error, 'import records')
   }
 }

@@ -94,19 +94,13 @@ beforeEach(() => {
 describe('transitionTodo domain errors (mocked db)', () => {
   it('returns to-do not found when row missing', async () => {
     limit.mockResolvedValueOnce([])
-    await expect(transitionTodo(body)).resolves.toEqual({
-      error: ERR_TODO_NOT_FOUND,
-      status: 404,
-    })
+    await expect(transitionTodo(body)).rejects.toMatchObject({ status: 404, message: ERR_TODO_NOT_FOUND })
     expect(transaction).not.toHaveBeenCalled()
   })
 
   it('returns record is not a to-do for plain text row', async () => {
     limit.mockResolvedValueOnce([todoRow(JSON.stringify(['note']), 'plain note')])
-    await expect(transitionTodo(body)).resolves.toEqual({
-      error: ERR_NOT_A_TODO,
-      status: 400,
-    })
+    await expect(transitionTodo(body)).rejects.toMatchObject({ status: 400, message: ERR_NOT_A_TODO })
     expect(transaction).not.toHaveBeenCalled()
   })
 
@@ -114,10 +108,7 @@ describe('transitionTodo domain errors (mocked db)', () => {
     limit.mockResolvedValueOnce([
       todoRow(JSON.stringify(['todo:transition']), 'Buy milk'),
     ])
-    await expect(transitionTodo(body)).resolves.toEqual({
-      error: ERR_AUDIT_TRANSITION,
-      status: 400,
-    })
+    await expect(transitionTodo(body)).rejects.toMatchObject({ status: 400, message: ERR_AUDIT_TRANSITION })
     expect(transaction).not.toHaveBeenCalled()
   })
 
@@ -125,10 +116,7 @@ describe('transitionTodo domain errors (mocked db)', () => {
     limit.mockResolvedValueOnce([
       todoRow(JSON.stringify(['todo:completed', 'errand'])),
     ])
-    await expect(transitionTodo(body)).resolves.toEqual({
-      error: ERR_ALREADY_TARGET,
-      status: 400,
-    })
+    await expect(transitionTodo(body)).rejects.toMatchObject({ status: 400, message: ERR_ALREADY_TARGET })
     expect(transaction).not.toHaveBeenCalled()
   })
 })
@@ -182,14 +170,10 @@ describe('transitionTodo mid-transaction failure (mocked db)', () => {
     ])
     txReturning.mockRejectedValueOnce(new Error('audit insert failed'))
 
-    const result = await transitionTodo(body)
-    expect(result).toEqual({
-      error: 'audit insert failed',
+    await expect(transitionTodo(body)).rejects.toMatchObject({
       status: 500,
+      message: expect.stringContaining('audit insert failed'),
     })
-    expect(result).not.toHaveProperty('id')
-    expect(result).not.toHaveProperty('from')
-    expect(result).not.toHaveProperty('todoAuditNotifyText')
     expect(transaction).toHaveBeenCalledTimes(1)
     expect(txUpdate).toHaveBeenCalled()
     expect(txSet).toHaveBeenCalled()
@@ -210,10 +194,7 @@ describe('transitionTodo UPDATE affected rows race (D7)', () => {
     ])
     txWhere.mockResolvedValueOnce({ count: 0 })
 
-    await expect(transitionTodo(body)).resolves.toEqual({
-      error: 'todo update affected 0 rows',
-      status: 500,
-    })
+    await expect(transitionTodo(body)).rejects.toMatchObject({ status: 500, message: expect.stringContaining('todo update affected 0 rows') })
     expect(txUpdate).toHaveBeenCalled()
     expect(txInsert).not.toHaveBeenCalled()
   })

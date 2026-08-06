@@ -1,6 +1,5 @@
-import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { errorMessage, errorResponse } from '@/lib/httperror'
+import { errorResponse, routeError } from '@/lib/httperror'
 import { readJsonBody } from '@/lib/httpjson'
 import { createReview } from '@/lib/logapi'
 import {
@@ -16,10 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await createReview(parsed.value)
-    if ('error' in result) {
-      return errorResponse(result.error, result.status)
-    }
-
+    
     // 响应写出后再通知，避免渠道阻塞 201；失败不影响已成功写入
     scheduleBestEffortNotify(() => notifyRecordInserted(result.record))
 
@@ -28,7 +24,6 @@ export async function POST(request: NextRequest) {
       { status: result.status },
     )
   } catch (error) {
-    logger.error({ err: error }, 'Error creating review record')
-    return errorResponse(errorMessage(error), 500)
+    return routeError(error, 'Error creating review record')
   }
 }

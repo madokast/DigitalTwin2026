@@ -1,6 +1,5 @@
-import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { errorMessage, errorResponse } from '@/lib/httperror'
+import { errorResponse, routeError } from '@/lib/httperror'
 import { createTodo } from '@/lib/logapi'
 import type { LogTodoBody } from '@/lib/tododraft'
 import { toTodoRecordJson } from '@/lib/tododraft'
@@ -18,10 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await createTodo(parsed.value as LogTodoBody)
-    if ('error' in result) {
-      return errorResponse(result.error, result.status)
-    }
-
+    
     scheduleBestEffortNotify(() => notifyRecordInserted(result.record))
 
     return NextResponse.json(
@@ -29,7 +25,6 @@ export async function POST(request: NextRequest) {
       { status: result.status },
     )
   } catch (error) {
-    logger.error({ err: error }, 'Error creating to-do record')
-    return errorResponse(errorMessage(error), 500)
+    return routeError(error, 'Error creating to-do record')
   }
 }

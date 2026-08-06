@@ -1,6 +1,5 @@
-import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { errorMessage, errorResponse } from '@/lib/httperror'
+import { errorResponse, routeError } from '@/lib/httperror'
 import { readJsonBody } from '@/lib/httpjson'
 import { validateRename } from '@/lib/tags'
 import { renameAcrossRecords } from '@/lib/tagsdb'
@@ -36,7 +35,6 @@ export async function POST(request: NextRequest) {
       updated,
     })
   } catch (error) {
-    logger.error({ err: error }, 'rename tags')
-    return errorResponse(errorMessage(error), 500)
+    return routeError(error, 'rename tags')
   }
 }

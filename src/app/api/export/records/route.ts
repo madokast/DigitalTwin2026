@@ -1,6 +1,5 @@
-import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { errorMessage, errorResponse } from '@/lib/httperror'
+import { errorResponse, routeError } from '@/lib/httperror'
 import {
   buildExportNdjson,
   exportContentDisposition,
@@ -18,9 +17,6 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await fetchExportRecords(parsed)
-    if ('error' in result) {
-      return errorResponse(result.error, result.status)
-    }
 
     // 校验/查库已完成；有界组 NDJSON（≤1000 行）后构造响应。
     // Notify 仅在成功响应构造之后调度（对齐 §4.5：写出失败不 Notify）。
@@ -43,7 +39,6 @@ export async function GET(request: NextRequest) {
     scheduleBestEffortNotify(() => notify_user(notifyText))
     return response
   } catch (error) {
-    logger.error({ err: error }, 'export records')
-    return errorResponse(errorMessage(error), 500)
+    return routeError(error, 'export records')
   }
 }

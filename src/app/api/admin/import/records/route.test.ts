@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { newValidation } from '@/lib/myerr'
 
 const importRecordsJsonl = vi.fn()
 const formatImportNotifyMessage = vi.fn()
@@ -99,11 +100,7 @@ describe('POST /api/admin/import/records notify schedule', () => {
   })
 
   it('does not schedule notify on domain error', async () => {
-    importRecordsJsonl.mockResolvedValue({
-      ok: false,
-      error: 'line 1: invalid JSON line',
-      status: 400,
-    })
+    importRecordsJsonl.mockRejectedValue(newValidation('line 1: invalid JSON line'))
     const res = await POST(multipartRequest('{bad}'))
     expect(res.status).toBe(400)
     expect(scheduleBestEffortNotify).not.toHaveBeenCalled()

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { newNotFound } from '@/lib/myerr'
 
 const parseExportRecordsParams = vi.fn()
 const fetchExportRecords = vi.fn()
@@ -101,10 +102,7 @@ describe('GET /api/export/records notify schedule', () => {
       from: '01900000-0000-7000-8000-000000000099',
       limit: 10,
     })
-    fetchExportRecords.mockResolvedValue({
-      error: 'export from id not found',
-      status: 404,
-    })
+    fetchExportRecords.mockRejectedValue(newNotFound('export from id not found'))
     const res = await GET(
       get(
         'http://localhost/api/export/records?from=01900000-0000-7000-8000-000000000099&limit=10',

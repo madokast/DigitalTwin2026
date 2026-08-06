@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { MyError, newNotFound, newValidation } from '@/lib/myerr'
 
 const transitionTodo = vi.fn()
 const scheduleBestEffortNotify = vi.fn()
@@ -74,10 +75,9 @@ describe('POST /api/log/todo/transition', () => {
   })
 
   it('returns 400 for unknown suppress_notification key before transition', async () => {
-    transitionTodo.mockResolvedValue({
-      error: 'Unknown JSON key: suppress_notification',
-      status: 400,
-    })
+    transitionTodo.mockRejectedValue(
+      newValidation('Unknown JSON key: suppress_notification'),
+    )
     const res = await POST(
       post({ ...validBody, suppress_notification: true }),
     )
@@ -99,7 +99,11 @@ describe('POST /api/log/todo/transition', () => {
       { error: 'to-do is already in target state', status: 400 },
     ] as const
     for (const c of cases) {
-      transitionTodo.mockResolvedValueOnce({ error: c.error, status: c.status })
+      transitionTodo.mockRejectedValueOnce(
+        c.status === 404
+          ? newNotFound(c.error)
+          : new MyError(c.status, c.error),
+      )
       const res = await POST(post(validBody))
       expect(res.status).toBe(c.status)
       await expect(res.json()).resolves.toEqual({

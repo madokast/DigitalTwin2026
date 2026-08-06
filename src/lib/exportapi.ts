@@ -9,6 +9,7 @@
 import { asc, eq, gte } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
+import { newNotFound } from '@/lib/myerr'
 import {
   fromDB,
   INVALID_RECORD_ID,
@@ -32,9 +33,7 @@ export type ParsedExport = {
 
 export type ParseExportError = { error: string }
 
-export type FetchExportResult =
-  | { records: DomainRecord[]; status: 200 }
-  | { error: string; status: number }
+export type FetchExportResult = { records: DomainRecord[]; status: 200 }
 
 function parseRequiredLimit(raw: string | null): number | null {
   if (raw === null || raw === '') return null
@@ -68,7 +67,7 @@ export function parseExportRecordsParams(
 
 /**
  * 有 from 时先确认该 id 存在，再 `id >= from` + `ORDER BY id ASC` + LIMIT。
- * 无 from：全表按 id ASC 取 limit 行（空库 → 0 行）。
+ * 无 from：全表按 id ASC 取 limit 行（空库 → 0 行）。from 不存在 → throw myerr 404。
  */
 export async function fetchExportRecords(
   parsed: ParsedExport,
@@ -80,7 +79,7 @@ export async function fetchExportRecords(
       .where(eq(records.id, parsed.from))
       .limit(1)
     if (existing.length === 0) {
-      return { error: EXPORT_FROM_NOT_FOUND, status: 404 }
+      throw newNotFound(EXPORT_FROM_NOT_FOUND)
     }
   }
 

@@ -1,5 +1,7 @@
 import http from 'node:http'
 import { NextResponse } from 'next/server'
+import { logger } from './logger'
+import { MyError, newInternal } from './myerr'
 
 // statusTitle 返回 HTTP 标准 reason phrase。
 // Node 标准库 http.STATUS_CODES 已含 RFC 9110 新名（如 413 → "Payload Too Large"），无需 413 特例
@@ -42,4 +44,23 @@ export function errorResponse(
     status,
     headers: { 'content-type': 'application/problem+json' },
   })
+}
+
+// routeError route catch 统一错误出口（决策 D，与 Go httpx.writeErr 同构）。
+// MyError → 按 status 分级日志（>=500 error，<500 info）+ 原样响应；
+// 非 MyError（漏包装）→ 500 兜底（describe 类型名 + 消息）。
+export function routeError(
+  error: unknown,
+  logMsg: string,
+): NextResponse<ErrorResponse> {
+  if (error instanceof MyError) {
+    if (error.status >= 500) {
+      logger.error({ err: error }, logMsg)
+    } else {
+      logger.info({ err: error }, logMsg)
+    }
+    return errorResponse(error.message, error.status)
+  }
+  logger.error({ err: error }, logMsg)
+  return errorResponse(newInternal(error).message, 500)
 }

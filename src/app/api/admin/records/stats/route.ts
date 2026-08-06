@@ -1,6 +1,5 @@
-import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { errorMessage, errorResponse } from '@/lib/httperror'
+import { errorResponse, routeError } from '@/lib/httperror'
 import { fetchSummary } from '@/lib/query'
 
 export async function GET(request: NextRequest) {
@@ -18,7 +17,6 @@ export async function GET(request: NextRequest) {
       tz: result.tz,
     })
   } catch (error) {
-    logger.error({ err: error }, 'query summary')
-    return errorResponse(errorMessage(error), 500)
+    return routeError(error, 'query summary')
   }
 }

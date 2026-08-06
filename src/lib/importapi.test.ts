@@ -100,12 +100,9 @@ describe('importRecordsJsonl', () => {
 
   it('rejects oversize file bytes before parse', async () => {
     const mem = memoryStore()
-    const result = await importRecordsJsonl('x', MAX_IMPORT_FILE_BYTES + 1, mem.store)
-    expect(result).toEqual({
-      ok: false,
-      error: IMPORT_LIMITS_ERROR,
-      status: 400,
-    })
+    await expect(
+      importRecordsJsonl('x', MAX_IMPORT_FILE_BYTES + 1, mem.store),
+    ).rejects.toMatchObject({ status: 400, message: IMPORT_LIMITS_ERROR })
     expect(mem.began.n).toBe(0)
   })
 
@@ -117,34 +114,23 @@ describe('importRecordsJsonl', () => {
       lines.push(sampleLine(id))
     }
     const text = lines.join('\n')
-    const result = await importRecordsJsonl(text, text.length, mem.store)
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.error).toBe(IMPORT_LIMITS_ERROR)
-      expect(result.status).toBe(400)
-    }
+    await expect(
+      importRecordsJsonl(text, text.length, mem.store),
+    ).rejects.toMatchObject({ status: 400, message: IMPORT_LIMITS_ERROR })
   })
 
   it('rejects duplicate ids with uuid and line number', async () => {
     const mem = memoryStore()
     const text = `${sampleLine(ID1)}\n${sampleLine(ID1)}`
-    const result = await importRecordsJsonl(text, text.length, mem.store)
-    expect(result).toEqual({
-      ok: false,
-      error: `line 2: duplicate record id ${ID1}`,
-      status: 400,
-    })
+    await expect(importRecordsJsonl(text, text.length, mem.store)).rejects
+      .toMatchObject({ status: 400, message: `line 2: duplicate record id ${ID1}` })
   })
 
   it('rejects line-level parse errors with line prefix', async () => {
     const mem = memoryStore()
     const text = `${sampleLine(ID1)}\n{not-json}`
-    const result = await importRecordsJsonl(text, text.length, mem.store)
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.error).toBe('line 2: invalid JSON line')
-      expect(result.status).toBe(400)
-    }
+    await expect(importRecordsJsonl(text, text.length, mem.store)).rejects
+      .toMatchObject({ status: 400, message: 'line 2: invalid JSON line' })
   })
 
   it('inserts new and updates existing; allows reserved tags', async () => {
@@ -187,8 +173,9 @@ describe('importRecordsJsonl', () => {
       },
     }
     const text = `${sampleLine(ID1)}\n{bad}`
-    const result = await importRecordsJsonl(text, text.length, store)
-    expect(result.ok).toBe(false)
+    await expect(
+      importRecordsJsonl(text, text.length, store),
+    ).rejects.toMatchObject({ status: 400, message: 'line 2: invalid JSON line' })
     expect(insert).not.toHaveBeenCalled()
   })
 })

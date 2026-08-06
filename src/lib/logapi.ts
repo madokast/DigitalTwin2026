@@ -3,17 +3,15 @@
  * Telegram 不在此包——由 HTTP route 在成功后 best-effort 调用。
  */
 import { logger } from './logger'
-import { errorMessage } from './httperror'
 import { UoW } from '@/db/uow'
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { Repo } from '@/lib/recordrepo'
-import { RecordNotFoundError } from '@/lib/record/errors'
+import { MyError, newInternal, newNotFound, newValidation } from '@/lib/myerr'
 import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
 import {
   optionalTrimmedNullable,
   parseHappenedAt,
-  parseNumericValue,
   requireTrimmedText,
 } from '@/lib/draft'
 import {
@@ -64,11 +62,8 @@ export type TextBody = {
   tags?: unknown
 }
 
-export type LogApiError = { error: string; status: number }
-
 export type CreateRecordOk = { record: Record; status: 201 }
-export type CreateRecordResult = CreateRecordOk | LogApiError
-
+export type CreateRecordResult = CreateRecordOk
 export type CreateBatchOk = {
   inserted: number
   type: TransactionType
@@ -76,7 +71,7 @@ export type CreateBatchOk = {
   records: Record[]
   status: 201
 }
-export type CreateBatchResult = CreateBatchOk | LogApiError
+export type CreateBatchResult = CreateBatchOk
 
 /** tags optional：省略 / null / [] → []；非数组或元素非 string → 400 */
 function optionalTagList(raw: unknown): { value: string[] } | { error: string } {
@@ -101,7 +96,7 @@ export type CreateNumberBatchOk = {
   records: Record[]
   status: 201
 }
-export type CreateNumberBatchResult = CreateNumberBatchOk | LogApiError
+export type CreateNumberBatchResult = CreateNumberBatchOk
 
 /**
  * 与 Go `logapi.CreateNumberBatch` 对齐：
@@ -115,7 +110,7 @@ export async function createNumberBatch(
     body as Parameters<typeof parseNumberBatch>[0],
   )
   if ('error' in parsed) {
-    return { error: parsed.error, status: 400 }
+    throw newValidation(parsed.error)
   }
 
   try {
@@ -142,8 +137,9 @@ export async function createNumberBatch(
       status: 201,
     }
   } catch (err) {
+    if (err instanceof MyError) throw err
     logger.error({ err }, 'Error creating number records')
-    return { error: errorMessage(err), status: 500 }
+    throw newInternal(err)
   }
 }
 
@@ -156,7 +152,7 @@ export async function createBodyWeight(
 ): Promise<CreateRecordResult> {
   const parsed = parseBodyWeight(body)
   if ('error' in parsed) {
-    return { error: parsed.error, status: 400 }
+    throw newValidation(parsed.error)
   }
 
   try {
@@ -172,8 +168,9 @@ export async function createBodyWeight(
     if (!res.ok) throw res.error
     return { record: res.record!, status: 201 }
   } catch (err) {
+    if (err instanceof MyError) throw err
     logger.error({ err }, 'Error creating body weight record')
-    return { error: errorMessage(err), status: 500 }
+    throw newInternal(err)
   }
 }
 
@@ -186,7 +183,7 @@ export async function createTodo(
 ): Promise<CreateRecordResult> {
   const parsed = parseTodo(body)
   if ('error' in parsed) {
-    return { error: parsed.error, status: 400 }
+    throw newValidation(parsed.error)
   }
 
   try {
@@ -201,8 +198,9 @@ export async function createTodo(
     if (!res.ok) throw res.error
     return { record: res.record!, status: 201 }
   } catch (err) {
+    if (err instanceof MyError) throw err
     logger.error({ err }, 'Error creating to-do record')
-    return { error: errorMessage(err), status: 500 }
+    throw newInternal(err)
   }
 }
 
@@ -213,7 +211,7 @@ export type TransitionTodoOk = {
   todoAuditNotifyText: string
   status: 200
 }
-export type TransitionTodoResult = TransitionTodoOk | LogApiError
+export type TransitionTodoResult = TransitionTodoOk
 
 /**
  * 与 Go `logapi.TransitionTodo` 对齐：同事务 UPDATE 状态 tag + INSERT 审计。
@@ -223,34 +221,34 @@ export async function transitionTodo(
 ): Promise<TransitionTodoResult> {
   const parsed = parseTodoTransition(body)
   if ('error' in parsed) {
-    return { error: parsed.error, status: 400 }
+    throw newValidation(parsed.error)
   }
   if (!isValidRecordId(parsed.id)) {
-    return { error: INVALID_RECORD_ID, status: 400 }
+    throw newValidation(INVALID_RECORD_ID)
   }
 
   try {
     // 预读（非 CAS：只用于判断与组装，事务外，事务持有时间最短）
     const found = await Repo.findById(db, parsed.id)
     if (!found.ok) {
-      if (found.error instanceof RecordNotFoundError) {
-        return { error: ERR_TODO_NOT_FOUND, status: 404 }
+      if (found.error?.status === 404) {
+        throw newNotFound(ERR_TODO_NOT_FOUND)
       }
-      return { error: errorMessage(found.error), status: 500 }
+      throw found.error ?? newInternal(new Error('findById failed'))
     }
 
     const todoRec = found.record!
     const tagList = todoRec.tags
 
     if (isTodoAuditRecordTags(tagList)) {
-      return { error: ERR_AUDIT_TRANSITION, status: 400 }
+      throw newValidation(ERR_AUDIT_TRANSITION)
     }
     const from = todoStateFromTags(tagList)
     if (!from) {
-      return { error: ERR_NOT_A_TODO, status: 400 }
+      throw newValidation(ERR_NOT_A_TODO)
     }
     if (from === parsed.target) {
-      return { error: ERR_ALREADY_TARGET, status: 400 }
+      throw newValidation(ERR_ALREADY_TARGET)
     }
 
     const content = todoRec.raw_content ?? ''
@@ -294,8 +292,9 @@ export async function transitionTodo(
       status: 200,
     }
   } catch (err) {
+    if (err instanceof MyError) throw err
     logger.error({ err }, 'Error transitioning to-do')
-    return { error: errorMessage(err), status: 500 }
+    throw newInternal(err)
   }
 }
 
@@ -303,41 +302,41 @@ export async function transitionTodo(
 export async function createText(body: TextBody): Promise<CreateRecordResult> {
   const unknown = rejectUnknownKeys(body, LOG_TEXT_KEYS)
   if (unknown) {
-    return { error: unknown.error, status: 400 }
+    throw newValidation(unknown.error)
   }
 
   const happenedResult = parseHappenedAt(body.happened_at)
   if ('error' in happenedResult) {
-    return { error: happenedResult.error, status: 400 }
+    throw newValidation(happenedResult.error)
   }
   const happenedAtRaw = body.happened_at as string
 
   const rawContentResult = requireTrimmedText(body.raw_content, 'raw_content')
   if ('error' in rawContentResult) {
-    return { error: rawContentResult.error, status: 400 }
+    throw newValidation(rawContentResult.error)
   }
 
   const tagListResult = optionalTagList(body.tags)
   if ('error' in tagListResult) {
-    return { error: tagListResult.error, status: 400 }
+    throw newValidation(tagListResult.error)
   }
   const tagsValidation = validateTags(tagListResult.value)
   if (!tagsValidation.valid) {
-    return { error: tagsValidation.error!, status: 400 }
+    throw newValidation(tagsValidation.error!)
   }
   const reserved = assertNoReservedTags(tagListResult.value)
   if (!reserved.valid) {
-    return { error: reserved.error!, status: 400 }
+    throw newValidation(reserved.error!)
   }
 
   const objCtxResult = requireTrimmedText(body.objective_context, 'objective_context')
   if ('error' in objCtxResult) {
-    return { error: objCtxResult.error, status: 400 }
+    throw newValidation(objCtxResult.error)
   }
 
   const aiAnalysis = optionalTrimmedNullable(body.ai_analysis, 'ai_analysis')
   if ('error' in aiAnalysis) {
-    return { error: aiAnalysis.error, status: 400 }
+    throw newValidation(aiAnalysis.error)
   }
 
   try {
@@ -352,8 +351,9 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     if (!res.ok) throw res.error
     return { record: res.record!, status: 201 }
   } catch (err) {
+    if (err instanceof MyError) throw err
     logger.error({ err }, 'Error creating text record')
-    return { error: errorMessage(err), status: 500 }
+    throw newInternal(err)
   }
 }
 
@@ -366,7 +366,7 @@ export async function createReview(
 ): Promise<CreateRecordResult> {
   const parsed = parseReview(body as LogReviewBody)
   if ('error' in parsed) {
-    return { error: parsed.error, status: 400 }
+    throw newValidation(parsed.error)
   }
 
   try {
@@ -381,8 +381,9 @@ export async function createReview(
     if (!res.ok) throw res.error
     return { record: res.record!, status: 201 }
   } catch (err) {
+    if (err instanceof MyError) throw err
     logger.error({ err }, 'Error creating review record')
-    return { error: errorMessage(err), status: 500 }
+    throw newInternal(err)
   }
 }
 
@@ -397,7 +398,7 @@ export async function createTransactionBatch(
     body as Parameters<typeof parseTransactionBatch>[0],
   )
   if ('error' in parsed) {
-    return { error: parsed.error, status: 400 }
+    throw newValidation(parsed.error)
   }
 
   try {
@@ -426,7 +427,8 @@ export async function createTransactionBatch(
       status: 201,
     }
   } catch (err) {
+    if (err instanceof MyError) throw err
     logger.error({ err }, 'Error creating transaction records')
-    return { error: errorMessage(err), status: 500 }
+    throw newInternal(err)
   }
 }

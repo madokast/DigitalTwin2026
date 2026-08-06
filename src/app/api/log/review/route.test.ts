@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { newValidation } from '@/lib/myerr'
 
 const createReview = vi.fn()
 const scheduleBestEffortNotify = vi.fn()
@@ -59,10 +60,7 @@ describe('POST /api/log/review notify schedule', () => {
   })
 
   it('does not schedule notify when create fails', async () => {
-    createReview.mockResolvedValue({
-      error: 'Unknown JSON key: numeric_value',
-      status: 400,
-    })
+    createReview.mockRejectedValue(newValidation('Unknown JSON key: numeric_value'))
     const res = await POST(post({ ...validBody, numeric_value: '1' }))
     expect(res.status).toBe(400)
     expect(scheduleBestEffortNotify).not.toHaveBeenCalled()

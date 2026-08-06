@@ -67,10 +67,10 @@ describe('createNumberBatch rollback (mocked db)', () => {
       ])
       .mockRejectedValueOnce(new Error('injected insert failure'))
 
-    const result = await createNumberBatch(body)
-    expect(result).toEqual({ error: 'injected insert failure', status: 500 })
-    expect(result).not.toHaveProperty('inserted')
-    expect(result).not.toHaveProperty('records')
+    await expect(createNumberBatch(body)).rejects.toMatchObject({
+      status: 500,
+      message: expect.stringContaining('injected insert failure'),
+    })
     expect(insert).toHaveBeenCalledTimes(2)
     expect(insertValues).toHaveBeenCalledTimes(2)
   })
@@ -78,9 +78,7 @@ describe('createNumberBatch rollback (mocked db)', () => {
   it('returns inserted records on success', async () => {
     const result = await createNumberBatch(body)
     expect(result.status).toBe(201)
-    if ('records' in result) {
-      expect(result.inserted).toBe(2)
-      expect(result.records).toHaveLength(2)
-    }
+    expect(result.inserted).toBe(2)
+    expect(result.records).toHaveLength(2)
   })
 })

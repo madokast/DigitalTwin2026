@@ -1,6 +1,5 @@
-import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { errorMessage, errorResponse } from '@/lib/httperror'
+import { errorResponse, routeError } from '@/lib/httperror'
 import { transitionTodo } from '@/lib/logapi'
 import type { LogTodoTransitionBody } from '@/lib/tododraft'
 import { readJsonBody } from '@/lib/httpjson'
@@ -14,10 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await transitionTodo(parsed.value as LogTodoTransitionBody)
-    if ('error' in result) {
-      return errorResponse(result.error, result.status)
-    }
-
+    
     // §4.2：恰好一次 notify，正文 = 审计 raw_content（非待办行格式化）
     scheduleBestEffortNotify(() => notify_user(result.todoAuditNotifyText))
 
@@ -30,7 +26,6 @@ export async function POST(request: NextRequest) {
       { status: result.status },
     )
   } catch (error) {
-    logger.error({ err: error }, 'Error transitioning to-do')
-    return errorResponse(errorMessage(error), 500)
+    return routeError(error, 'Error transitioning to-do')
   }
 }
