@@ -21,7 +21,7 @@ func writeInternalError(w http.ResponseWriter, _ error) {   // ← err 被丢弃
 }
 ```
 - `writeLogOrError`：`status >= 500` → `slog.Error(logMsg, "err", err)` + `writeInternalError`（细节进日志，detail 固定）。
-- handler 直接调用 `writeInternalError` 约 8 处（query / summary / tags / rename / import 等）。
+- handler 直接调用 `writeInternalError` 共 **7 处**（query / summary / tags / rename / transactions-summary / import 等）。
 
 ### 2.2 Node
 
