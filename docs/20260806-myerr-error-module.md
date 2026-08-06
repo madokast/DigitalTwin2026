@@ -157,6 +157,16 @@ npm run test:integration        # 双端 API 集成
 - **D1（独立、小、先做）**：新建 `myerr` 包 + handler 500 兜底统一（`errors.As` + `writeError(w, me.Status, ...)`）+ `NewInternal` describe；删 `writeInternalError`/`writeLogOrError`/`errorDetail`。**不碰业务函数签名**，立即获得 500 detail 带类型名的诊断收益。
 - **D2（大，与步骤 9 Service 化合并）**：业务函数 `(T, status, error)`→`(T, error)` + 全层换装 + Node 端 throw 化。与 Service 化同波改签名，避免同一批函数碰两遍。
 
+## 5a. 错误语义定案（2026-08-06 补充，D 系列收尾）
+
+**400 = 数据/格式问题（任何层）；500 = 仅限第三方库/驱动失败**（`NewInternal` + describe 烙类型名）。据此全仓收紧：
+
+- **Go 域层已无 `error` 接口**：jsonutil / draft 包（Validate/Parse/Require/Optional）/ 5 个 draft 包 ParseXxx / `record.TagsJSON` / `recordjsonl` / tags（parseTagsJSONArray/RenameTagInTagsJSON/AggregateTagCounts）全部返回 `*MyError`（400）；draft 解析错误统一 `writeErr(w, me, ...)` 直出（`writeError` 仅剩 body-too-large / multipart / 配置错误）。
+- **`recordrepo.Save/Transition` 的 `ParseHappenedAt`/`TagsJSON` 失败 → 400 透传**（业务层已校验，不可达防御；非第三方库错误——旧实现错误地包成 500）。
+- **DB 脏数据**（records.tags 非 JSON 数组）→ 500（内部状态损坏，非客户端请求问题，亦非第三方库错误——语义特例）。
+- **Node 对称**：draft 层保持 `{ error: string }` 结果对象（TS 惯例，映射 Go 多返回值）；`recordrepo.save` 的 parseHappenedAt 失败改 `newValidation`（400，旧实现 500 错位已修）。
+- 哨兵全部转字符串常量（`ErrInvalidTarget`/`ErrInvalidWeight`/`ErrInvalidAmount`/`ErrExportLimitError`/`ErrTagsNotJSONArray` 等），`errors.New` 仅剩基础设施（telegram/qqbot/notify/db 接口契约）与不可达防御的临时构造。
+
 ## 6. 相关记录
 
 - 错误响应形状（RFC 9457 problem+json）：[`docs/20260805-error-response-shape.md`](20260805-error-response-shape.md)。
