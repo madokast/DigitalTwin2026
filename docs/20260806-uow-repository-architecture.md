@@ -343,6 +343,21 @@ src/lib/logapi.ts 等   业务层（Service class）
    - **条件构建迁入**：`buildWhere` / `orderByRecordsList` / `EscapeLikePattern` / 族通配判定迁 repo（§5 D3 已定案）；fake executor 单测断言查询条件（Go 断言 SQL 与参数 / Node vi.mock drizzle builder 链）。
    - **#5 返回转换**：repo 内 Scan DBRow + FromDB（§4 唯一转换点原则，`scanRecord` 移除）。
    - **`findInRange` 确认移除**：export 现状已是游标形态（无 findInRange 调用），验证后删除。
+   - **迁移映射盘点（2026-08-06 讨论记录）**：
+
+     | 现状散落 | → 原语 |
+     |---|---|
+     | `FetchFilteredRecords`（countSQL + selectSQL） | `Count` + `FindByCriteria` 接线（删 buildWhere/orderByRecordsList/escapeLikePattern/scanRecord 旧实现——repo 已有副本） |
+     | `FetchSummary`（全表 count + 区间 count） | `Count`×2（无过滤 + 区间两个 Criteria） |
+     | `FetchTagCounts`（拉 tags + 聚合） | `CountTags`（聚合在 repo 内，§7 允许 recordrepo → tags） |
+     | `FetchTransactionsSummary` | `FindByCriteria`（单族通配，已定案） |
+     | `FetchExportRecords`（EXISTS + 游标） | `FindByCursor` |
+
+   - **待拍板点（2026-08-06 讨论记录，未定案）**：
+     - **A. `Count` 校验范围**：倾向**不校验**——Count 只用过滤条件（id/from/to/tags/q），分页/排序不相关；过滤条件无非法值检测项（tag 格式业务层校验、from/to 已解析）；各原语只校验自己相关的字段（findByCriteria 校验其分页/排序）。
+     - **B. `FindByCursor` 的 404 文案归属**：repo 内 EXISTS 不存在 → `NewNotFound`；`ErrExportFromNotFound` 现驻 exportapi 包（repo → exportapi 反向依赖，不允许）——倾向移 `record` 包（`record.ErrExportFromNotFound`，领域文案；exportapi 引用之）。
+     - **C. `FindByCursor` 的 limit 检测**：倾向 `limit < 1 → 400`（对齐 findByCriteria 分页字段检测；export 业务层 parseRequiredLimit 已有，repo 检测为防御）。
+     - **D. Node parse 层重构（最大改动）**：`parseRecordQueryParams` 现产 `conditions: SQL[]`（drizzle 条件）——接线后应**产 `Criteria`**（SQL 构建整个移 repo，对齐 Go ParsedQuery 领域值），返回 `{criteria, hint}`；Go 侧 ParseRecordQueryParams 保留 + 业务层 `toCriteria()` 转换；影响 query.test.ts 断言。
 4. **UoW 步骤 9：Service 化（最终横切）**——业务层自由函数 → Service struct/class 方法，构造注入 `db` + `uow`；**届时废除 httpx 可选函数字段 + nil 回落**（TransitionTodo/NotifyUser/FetchExportRecords → 接口注入）。依赖 2/3 完成后的完整原语集合。**设计定案（2026-08-06 讨论）**：
    - **粒度：按业务包各一个 Service**——`logapi.Service`（7 个 create/transition 方法）、`importapi.Service`（`ImportRecordsJSONL`）、`exportapi.Service`（`FetchExportRecords`）、`query.Service`（4 个 fetch）、`tags.Service`（`RenameAcrossRecords`）；包即边界，构造依赖最小。
    - **httpx 全接口化（不最小化）**：`NewServer(pool, tokens, logSvc, importSvc, exportSvc, querySvc, tagsSvc, notify)` 构造必填接口、无 nil 约定；**废除全部 nil 回落**——3 个函数字段（`TransitionTodo`/`NotifyUser`/`FetchExportRecords`）与 `Telegram`/`Qqbot`/`Notify` 字段及 `s.notify()` 的 nil 分支一并删除；httpx 单测一律 fake 接口注入（废除「struct 字面量绕过 NewServer」模式）。接口定义在消费方（httpx），业务包实现。
