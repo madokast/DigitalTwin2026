@@ -157,20 +157,20 @@ export class RecordConflictError extends Error {}
 // 阶段 B：export class InternalError extends Error {}（随 Repository 引入，不 throw，放 res.error）
 ```
 
-**每方法专属 `XXXXResult`**（拒绝泛型；Go/Node 同名同构；`error` 字段是领域错误对象，`null` = 成功；Node **不 throw**）：
+**每方法专属 `XXXXResult`**（拒绝泛型；Go/Node 同名同构；`error` 字段是领域错误对象，`null` = 成功；Node **不 throw**）。**Repository 收/返领域行对象** `record.RecordRow`（时间 = 绝对瞬间 `time.Time` + 录入偏移 `UtcOffset`；格式化到带区 ISO 是序列化层 `FromDB` 的职责，Repository 不碰时间转换；`record.Record` 是 API 响应对象，不含隐列）：
 
 ```go
 type RecordFindByIDResult struct {
 	OK     bool
-	Record record.Record
-	Error  error // 领域哨兵；nil = 成功
+	Record record.RecordRow // 领域行：HappenedAt time.Time + UtcOffset（录入偏移）
+	Error  error            // 领域哨兵；nil = 成功
 }
 ```
 ```ts
 export type RecordFindByIDResult = {
 	ok: boolean
-	record: Record | null
-	error: Error | null // 领域错误实例；null = 成功
+	record: RecordRow | null // 领域行（含 utcOffset）；对外 Record 由 fromDB 产出
+	error: Error | null      // 领域错误实例；null = 成功
 }
 ```
 

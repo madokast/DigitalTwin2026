@@ -63,35 +63,49 @@ func optionalTagList(raw any) ([]string, error) {
 	return out, nil
 }
 
-// insertReturning 单条 INSERT + RETURNING 完整行。q 满足 db.Executor（pool 或事务 tx）。
+// aiAnalysisPtr draft 解析产出的 any（string | nil）→ *string（领域行对象字段类型）。
+func aiAnalysisPtr(v any) *string {
+	if s, ok := v.(string); ok {
+		return &s
+	}
+	return nil
+}
+
+// insertReturning 单条 INSERT + RETURNING 完整行（领域行对象 → API Record）。q 满足 db.Executor（pool 或事务 tx）。
 func insertReturning(
 	ctx context.Context,
 	q db.Executor,
-	id string,
-	happenedAt time.Time,
-	utcOffset string,
-	numericValue *string,
-	rawContent *string,
-	tagsJSON string,
-	objectiveContext string,
-	subj any,
+	row record.RecordRow,
 ) (record.Record, error) {
+	tagsJSON, err := record.TagsJSON(row.Tags)
+	if err != nil {
+		return record.Record{}, err
+	}
 	var (
 		outID, outTags, outObj, outOffset string
 		outHappened                       time.Time
 		outNum, outText, outSubj          *string
 	)
-	err := q.QueryRow(ctx, `
+	err = q.QueryRow(ctx, `
 INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
 RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags
-`, id, happenedAt, utcOffset, numericValue, rawContent, objectiveContext, subj, tagsJSON).Scan(
+`, row.ID, row.HappenedAt, row.UtcOffset, row.NumericValue, row.RawContent, row.ObjectiveContext, row.AiAnalysis, tagsJSON).Scan(
 		&outID, &outHappened, &outOffset, &outNum, &outText, &outObj, &outSubj, &outTags,
 	)
 	if err != nil {
 		return record.Record{}, err
 	}
-	return record.FromDB(outID, outHappened, outOffset, outNum, outText, outTags, outObj, outSubj), nil
+	return record.FromDB(record.RecordRow{
+		ID:               outID,
+		HappenedAt:       outHappened,
+		UtcOffset:        outOffset,
+		NumericValue:     outNum,
+		RawContent:       outText,
+		Tags:             record.ParseTagsField(outTags),
+		ObjectiveContext: outObj,
+		AiAnalysis:       outSubj,
+	}), nil
 }
 
 func decodeJSONBody(raw []byte, dest any) error {
@@ -135,19 +149,21 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 		return record.Record{}, 400, err
 	}
 
-	tagsJSON, err := record.TagsJSON(tagList)
-	if err != nil {
-		return record.Record{}, 500, err
-	}
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, 500, err
 	}
 
-	rec, err := insertReturning(
-		ctx, pool, id.String(), happenedAt, utcOffset, nil, &rawContent,
-		tagsJSON, objCtx, subj,
-	)
+	rec, err := insertReturning(ctx, pool, record.RecordRow{
+		ID:               id.String(),
+		HappenedAt:       happenedAt,
+		UtcOffset:        utcOffset,
+		NumericValue:     nil,
+		RawContent:       &rawContent,
+		Tags:             tagList,
+		ObjectiveContext: objCtx,
+		AiAnalysis:       subj,
+	})
 	if err != nil {
 		return record.Record{}, 500, err
 	}

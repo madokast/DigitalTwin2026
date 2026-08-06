@@ -10,10 +10,23 @@ import (
 )
 
 // Record matches Next JSON shape（snake_case HTTP JSON）。
+// RecordRow 领域行对象（Repository 收/返；时间 = 绝对瞬间 + 录入偏移，
+// 格式化到带区 ISO 是序列化层（FromDB）的职责，Repository 不碰时间转换）。
+type RecordRow struct {
+	ID               string
+	HappenedAt       time.Time
+	UtcOffset        string
+	NumericValue     *string
+	RawContent       *string
+	Tags             []string
+	ObjectiveContext string
+	AiAnalysis       *string
+}
+
+// Record API 响应对象（对外 JSON 形状；happened_at 已按 utc_offset 格式化为带区串）。
 type Record struct {
 	ID               string   `json:"id"`
 	HappenedAt       string   `json:"happened_at"`
-	UtcOffset        string   `json:"-"` // 隐列（对外 JSON 不可见）；FromDB 填充，Repository 写入用
 	NumericValue     *string  `json:"numeric_value,omitempty"`
 	RawContent       *string  `json:"raw_content"`
 	ObjectiveContext string   `json:"objective_context"`
@@ -47,30 +60,21 @@ func FormatHappenedAt(t time.Time) string {
 	return t.UTC().Format("2006-01-02T15:04:05.000Z")
 }
 
-func FromDB(
-	id string,
-	happenedAt time.Time,
-	utcOffset string,
-	numericValue *string,
-	rawContent *string,
-	tags string,
-	objectiveContext string,
-	aiAnalysis *string,
-) Record {
-	formatted, err := utcoffset.FormatHappenedAt(happenedAt, utcOffset)
+// FromDB 领域行 → API Record（happened_at = 瞬间 + utc_offset 带区格式化）。
+func FromDB(row RecordRow) Record {
+	formatted, err := utcoffset.FormatHappenedAt(row.HappenedAt, row.UtcOffset)
 	if err != nil {
 		// 隐列损坏时仍可序列化；正常路径有 DB CHECK + 写入校验
-		formatted = FormatHappenedAt(happenedAt)
+		formatted = FormatHappenedAt(row.HappenedAt)
 	}
 	return Record{
-		ID:                       id,
-		HappenedAt:               formatted,
-		UtcOffset:                utcOffset,
-		NumericValue:              numericValue,
-		RawContent:                rawContent,
-		Tags:                     ParseTagsField(tags),
-		ObjectiveContext:         objectiveContext,
-		AiAnalysis: aiAnalysis,
+		ID:               row.ID,
+		HappenedAt:       formatted,
+		NumericValue:     row.NumericValue,
+		RawContent:       row.RawContent,
+		Tags:             row.Tags,
+		ObjectiveContext: row.ObjectiveContext,
+		AiAnalysis:       row.AiAnalysis,
 	}
 }
 

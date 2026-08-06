@@ -30,14 +30,16 @@ func CreateNumberBatch(ctx context.Context, pool *pgxpool.Pool, raw []byte) (int
 		if err != nil {
 			return 0, nil, 500, err
 		}
-		tagsJSON, err := record.TagsJSON(e.Tags)
-		if err != nil {
-			return 0, nil, 500, err
-		}
-		rec, err := insertReturning(
-			ctx, tx, id.String(), batch.HappenedAt, batch.UtcOffset,
-			&e.NumericValue, nil, tagsJSON, e.ObjectiveContext, e.AiAnalysis,
-		)
+		rec, err := insertReturning(ctx, tx, record.RecordRow{
+			ID:               id.String(),
+			HappenedAt:       batch.HappenedAt,
+			UtcOffset:        batch.UtcOffset,
+			NumericValue:     &e.NumericValue,
+			RawContent:       nil,
+			Tags:             e.Tags,
+			ObjectiveContext: e.ObjectiveContext,
+			AiAnalysis:       e.AiAnalysis,
+		})
 		if err != nil {
 			return 0, nil, 500, err
 		}

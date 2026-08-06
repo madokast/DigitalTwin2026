@@ -22,20 +22,22 @@ func CreateTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 		return record.Record{}, 400, err
 	}
 
-	tagsJSON, err := record.TagsJSON(parsed.Tags)
-	if err != nil {
-		return record.Record{}, 500, err
-	}
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, 500, err
 	}
 
 	vt := parsed.RawContent
-	rec, err := insertReturning(
-		ctx, pool, id.String(), parsed.HappenedAt, parsed.UtcOffset, nil, &vt,
-		tagsJSON, parsed.ObjectiveContext, parsed.AiAnalysis,
-	)
+	rec, err := insertReturning(ctx, pool, record.RecordRow{
+		ID:               id.String(),
+		HappenedAt:       parsed.HappenedAt,
+		UtcOffset:        parsed.UtcOffset,
+		NumericValue:     nil,
+		RawContent:       &vt,
+		Tags:             parsed.Tags,
+		ObjectiveContext: parsed.ObjectiveContext,
+		AiAnalysis:       aiAnalysisPtr(parsed.AiAnalysis),
+	})
 	if err != nil {
 		return record.Record{}, 500, fmt.Errorf("insert todo: %w", err)
 	}
@@ -75,9 +77,9 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (Transitio
 			return TransitionResult{}, 500, res.Error
 		}
 	}
-	todoRec := res.Record
+	todoRow := res.Record
 
-	tagList := todoRec.Tags
+	tagList := todoRow.Tags
 	if tododraft.IsTodoAuditRecordTags(tagList) {
 		return TransitionResult{}, 400, fmt.Errorf("%w", tododraft.ErrAuditTransition)
 	}
@@ -90,25 +92,26 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (Transitio
 	}
 
 	content := ""
-	if todoRec.RawContent != nil {
-		content = *todoRec.RawContent
+	if todoRow.RawContent != nil {
+		content = *todoRow.RawContent
 	}
-	notifyText := tododraft.TodoAuditNotifyText(parsed.Target, parsed.ID, todoRec.HappenedAt, content)
-	objCtx := tododraft.AuditObjectiveContext(parsed.Target, parsed.ID, todoRec.HappenedAt)
+	// 通知/审计文案需要带区串：领域行（瞬间 + offset）→ 序列化层格式化
+	todoHappenedAt, err := utcoffset.FormatHappenedAt(todoRow.HappenedAt, todoRow.UtcOffset)
+	if err != nil {
+		return TransitionResult{}, 500, err
+	}
+	notifyText := tododraft.TodoAuditNotifyText(parsed.Target, parsed.ID, todoHappenedAt, content)
+	objCtx := tododraft.AuditObjectiveContext(parsed.Target, parsed.ID, todoHappenedAt)
 	newTags := tododraft.ReplaceTodoStateInTags(tagList, parsed.Target)
 	auditID, err := uuid.NewV7()
 	if err != nil {
 		return TransitionResult{}, 500, err
 	}
 
-	auditHappenedAt, err := utcoffset.FormatHappenedAt(parsed.HappenedAt, parsed.UtcOffset)
-	if err != nil {
-		return TransitionResult{}, 500, err
-	}
 	// 写路径：UPDATE 状态 tag + INSERT 审计，原子（业务层经 UoW 决定事务性）
-	auditRec := record.Record{
+	auditRow := record.RecordRow{
 		ID:               auditID.String(),
-		HappenedAt:       auditHappenedAt,
+		HappenedAt:       parsed.HappenedAt,
 		UtcOffset:        parsed.UtcOffset,
 		NumericValue:     nil,
 		RawContent:       &content,
@@ -118,11 +121,11 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (Transitio
 	}
 	err = db.WithTx(ctx, q, func(q db.Executor) error {
 		repo := recordrepo.New(q)
-		tRes := repo.Transition(ctx, todoRec.ID, newTags)
+		tRes := repo.Transition(ctx, todoRow.ID, newTags)
 		if !tRes.OK {
 			return tRes.Error
 		}
-		aRes := repo.Save(ctx, auditRec)
+		aRes := repo.Save(ctx, auditRow)
 		if !aRes.OK {
 			return fmt.Errorf("insert todo audit: %w", aRes.Error)
 		}
@@ -133,7 +136,7 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (Transitio
 	}
 
 	return TransitionResult{
-		ID:                  todoRec.ID,
+		ID:                  todoRow.ID,
 		From:                from,
 		To:                  parsed.Target,
 		TodoAuditNotifyText: notifyText,

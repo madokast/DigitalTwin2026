@@ -29,15 +29,17 @@ func CreateTransactionBatch(ctx context.Context, pool *pgxpool.Pool, raw []byte)
 		if err != nil {
 			return 0, "", "", nil, 500, err
 		}
-		tagsJSON, err := record.TagsJSON(e.Tags)
-		if err != nil {
-			return 0, "", "", nil, 500, err
-		}
 		amount := e.Amount
-		rec, err := insertReturning(
-			ctx, tx, id.String(), batch.HappenedAt, batch.UtcOffset, &amount, nil,
-			tagsJSON, e.Memo, nil,
-		)
+		rec, err := insertReturning(ctx, tx, record.RecordRow{
+			ID:               id.String(),
+			HappenedAt:       batch.HappenedAt,
+			UtcOffset:        batch.UtcOffset,
+			NumericValue:     &amount,
+			RawContent:       nil,
+			Tags:             e.Tags,
+			ObjectiveContext: e.Memo,
+			AiAnalysis:       nil,
+		})
 		if err != nil {
 			return 0, "", "", nil, 500, err
 		}

@@ -17,20 +17,22 @@ func CreateBodyWeight(ctx context.Context, pool *pgxpool.Pool, raw []byte) (reco
 		return record.Record{}, 400, err
 	}
 
-	tagsJSON, err := record.TagsJSON(parsed.Tags)
-	if err != nil {
-		return record.Record{}, 500, err
-	}
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, 500, err
 	}
 
 	vn := parsed.NumericValue
-	rec, err := insertReturning(
-		ctx, pool, id.String(), parsed.HappenedAt, parsed.UtcOffset, &vn, nil,
-		tagsJSON, parsed.ObjectiveContext, parsed.AiAnalysis,
-	)
+	rec, err := insertReturning(ctx, pool, record.RecordRow{
+		ID:               id.String(),
+		HappenedAt:       parsed.HappenedAt,
+		UtcOffset:        parsed.UtcOffset,
+		NumericValue:     &vn,
+		RawContent:       nil,
+		Tags:             parsed.Tags,
+		ObjectiveContext: parsed.ObjectiveContext,
+		AiAnalysis:       aiAnalysisPtr(parsed.AiAnalysis),
+	})
 	if err != nil {
 		return record.Record{}, 500, fmt.Errorf("insert body weight: %w", err)
 	}

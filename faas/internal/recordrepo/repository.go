@@ -8,7 +8,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
-	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 )
 
@@ -24,11 +23,11 @@ func New(q db.Executor) *RecordRepository {
 
 type RecordFindByIDResult struct {
 	OK     bool
-	Record record.Record
+	Record record.RecordRow
 	Error  error // 领域哨兵；nil = 成功
 }
 
-// FindByID 按 id 查完整行；未找到 → record.ErrNotFound。
+// FindByID 按 id 查完整行（领域行对象，时间 = 绝对瞬间 + 录入偏移）；未找到 → record.ErrNotFound。
 func (r *RecordRepository) FindByID(ctx context.Context, id string) RecordFindByIDResult {
 	var (
 		outID, outTags, outObj, outOffset string
@@ -48,8 +47,17 @@ FROM records WHERE id = $1
 		return RecordFindByIDResult{Error: err}
 	}
 	return RecordFindByIDResult{
-		OK:     true,
-		Record: record.FromDB(outID, outHappened, outOffset, outNum, outText, outTags, outObj, outSubj),
+		OK: true,
+		Record: record.RecordRow{
+			ID:               outID,
+			HappenedAt:       outHappened,
+			UtcOffset:        outOffset,
+			NumericValue:     outNum,
+			RawContent:       outText,
+			Tags:             record.ParseTagsField(outTags),
+			ObjectiveContext: outObj,
+			AiAnalysis:       outSubj,
+		},
 	}
 }
 
@@ -77,17 +85,13 @@ func (r *RecordRepository) Transition(ctx context.Context, id string, tags []str
 
 type RecordSaveResult struct {
 	OK     bool
-	Record record.Record
+	Record record.RecordRow
 	Error  error
 }
 
-// Save 单条 INSERT + RETURNING 完整行。rec.HappenedAt 为带区 ISO（内部 UtcOffset 字段承载隐列）。
-func (r *RecordRepository) Save(ctx context.Context, rec record.Record) RecordSaveResult {
-	happenedAt, _, err := draft.ParseHappenedAt(rec.HappenedAt)
-	if err != nil {
-		return RecordSaveResult{Error: err}
-	}
-	tagsJSON, err := record.TagsJSON(rec.Tags)
+// Save 单条 INSERT + RETURNING 完整行（row 为领域行对象，直接落 time.Time + utc_offset，无时间转换）。
+func (r *RecordRepository) Save(ctx context.Context, row record.RecordRow) RecordSaveResult {
+	tagsJSON, err := record.TagsJSON(row.Tags)
 	if err != nil {
 		return RecordSaveResult{Error: err}
 	}
@@ -100,14 +104,23 @@ func (r *RecordRepository) Save(ctx context.Context, rec record.Record) RecordSa
 INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
 RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags
-`, rec.ID, happenedAt, rec.UtcOffset, rec.NumericValue, rec.RawContent, rec.ObjectiveContext, rec.AiAnalysis, tagsJSON).Scan(
+`, row.ID, row.HappenedAt, row.UtcOffset, row.NumericValue, row.RawContent, row.ObjectiveContext, row.AiAnalysis, tagsJSON).Scan(
 		&outID, &outHappened, &outOffset, &outNum, &outText, &outObj, &outSubj, &outTags,
 	)
 	if err != nil {
 		return RecordSaveResult{Error: err}
 	}
 	return RecordSaveResult{
-		OK:     true,
-		Record: record.FromDB(outID, outHappened, outOffset, outNum, outText, outTags, outObj, outSubj),
+		OK: true,
+		Record: record.RecordRow{
+			ID:               outID,
+			HappenedAt:       outHappened,
+			UtcOffset:        outOffset,
+			NumericValue:     outNum,
+			RawContent:       outText,
+			Tags:             record.ParseTagsField(outTags),
+			ObjectiveContext: outObj,
+			AiAnalysis:       outSubj,
+		},
 	}
 }

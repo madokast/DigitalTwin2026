@@ -14,16 +14,16 @@ func TestFormatHappenedAt(t *testing.T) {
 
 func TestFromDB(t *testing.T) {
 	num := "75.5"
-	rec := FromDB(
-		"01900000-0000-7000-8000-000000000001",
-		time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC),
-		"Z",
-		&num,
-		nil,
-		`["weight"]`,
-		"morning",
-		nil,
-	)
+	rec := FromDB(RecordRow{
+		ID:               "01900000-0000-7000-8000-000000000001",
+		HappenedAt:       time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC),
+		UtcOffset:        "Z",
+		NumericValue:     &num,
+		RawContent:       nil,
+		Tags:             []string{"weight"},
+		ObjectiveContext: "morning",
+		AiAnalysis:       nil,
+	})
 	if rec.HappenedAt != "2026-07-30T10:00:00.000Z" {
 		t.Fatalf("happenedAt %s", rec.HappenedAt)
 	}
@@ -31,16 +31,16 @@ func TestFromDB(t *testing.T) {
 		t.Fatalf("numericValue %#v", rec.NumericValue)
 	}
 
-	offsetRec := FromDB(
-		"01900000-0000-7000-8000-000000000002",
-		time.Date(2026, 7, 30, 0, 0, 0, 0, time.UTC),
-		"+08:00",
-		&num,
-		nil,
-		`["weight"]`,
-		"morning",
-		nil,
-	)
+	offsetRec := FromDB(RecordRow{
+		ID:               "01900000-0000-7000-8000-000000000002",
+		HappenedAt:       time.Date(2026, 7, 30, 0, 0, 0, 0, time.UTC),
+		UtcOffset:        "+08:00",
+		NumericValue:     &num,
+		RawContent:       nil,
+		Tags:             []string{"weight"},
+		ObjectiveContext: "morning",
+		AiAnalysis:       nil,
+	})
 	if offsetRec.HappenedAt != "2026-07-30T08:00:00.000+08:00" {
 		t.Fatalf("offset happenedAt %s", offsetRec.HappenedAt)
 	}
