@@ -44,7 +44,7 @@
 | 8 | `countTags` | `CountTags(ctx, q, prefix) ([]tags.TagCount, error)` | `countTags(q, prefix) → Promise<TagCount[]>` | `FetchTagCounts` |
 | 9 | `attachTag` | `AttachTag(ctx, q, rec, tag) (record.Record, error)` | `attachTag(q, rec, tag) → Promise<Record>` | tags-add 定案 CAS |
 | 10 | `detachTag` | `DetachTag(ctx, q, rec, tag) (record.Record, error)` | `detachTag(q, rec, tag) → Promise<Record>` | tags-add 定案 |
-| 11 | `transition` | ⏸ 依赖 A5（领域服务 vs Repository 边界） | 同左 | `transitionTodo` 双写 |
+| 11 | `transition` | `Transition(ctx, q, id, tags []string) (int, error)`（只 UPDATE tags，A5 定案）+ 审计行复用 #1 `save` | 同左 | `transitionTodo` 双写 |
 | 12 | `renameTag` | `RenameTag(ctx, q, from, to) (int, error)` | `renameTag(q, from, to) → Promise<number>` | `RenameAcrossRecords` |
 
 **attachTag/detachTag 传 `record` 而非 `fromTags`**：CAS 需要 tags 旧值作 WHERE 条件——业务层 `FindByID` 读到的 `rec` 自带旧 tags；返回新 `record`，业务层 diff from/to 得 `changed`（tags-add 响应）。
@@ -65,7 +65,7 @@
    - 状态：✅ **已定案**——移到 `record` 包（Go `record.UpsertCounts`）/ `record.ts`（Node `UpsertCounts`），改名去掉 `importapi` 前缀。**硬约束**：否则 `recordrepo` import `importapi`（返回类型）+ `importapi` 业务函数调 `recordrepo.Upsert` = 循环依赖。`importapi.FormatImportNotifyMessage` 改用 `record.UpsertCounts` 入参；旧 `importapi.Counts` / `ImportCounts` 随迁移替换。签名表 #3 返回类型改为 `(record.UpsertCounts, error)`。JSON 键不变（`inserted`/`updated`/`total`，snake）。
 5. **`transition`**：等 A5 定案后补。
 
-- 状态：⏳ 讨论中（待定点 1-4 已定案；5 等 A5）
+- 状态：✅ **已定案**（待定点 1-5 全部定案）
 
 ### A4【阻塞】业务函数签名变更与接口注入点
 - 现状：业务函数收 `*pgxpool.Pool`（`CreateTodo(ctx, pool, raw)`）；httpx 直接调用；transition 用 `TransitionTodo` 字段注入（httpx 层）。
@@ -81,6 +81,13 @@
 - 现状：`transitionTodo` 一个函数包含：SELECT 预读 → 领域校验（审计行 / 四态识别 / already target）→ 组 notify/objCtx → UPDATE + INSERT 审计（事务）。
 - 问题：方法集有 `Transition(ctx, q, id, target)`，文档又说「领域逻辑留在业务层/领域服务，Repository 只读写原始行」。那么：校验谁做？`Transition` 方法只做 UPDATE？审计 INSERT 谁做？`TransitionService` 与 `Transition` 方法的关系？
 - 待决：transition 拆分为「领域服务编排 + Repository 原语（`transition` 只 UPDATE？`save` 插审计？）」还是 Repository 组合方法。
+- 状态：✅ **已定案**——**领域服务编排 + Repository 原语**：
+  - **Repository 原语**：
+    - `Transition(ctx, q, id string, tags []string) (int, error)`：只 `UPDATE records SET tags = $1 WHERE id = $2`，内部 `record.TagsJSON`；`RowsAffected != 1` → 错误（内部错误，业务层映射 500；阶段 B 用 `record.ErrInternal` 包装）。
+    - 审计行 INSERT → **复用 `Save`（#1）**：`Save(ctx, q, auditRec)`。
+  - **业务层 `transitionTodo`**（多语句 → A4 形态：收 `db.TxBeginner` + 内部 `WithTx`）：parse（400）→ `repo.FindByID`（#4，404）→ 领域校验（tododraft 纯函数：审计行识别 / 四态识别 / already target → 400）→ 组装（notifyText / objCtx / ReplaceTodoStateInTags / 审计行构造）→ `WithTx` 内 `repo.Transition` + `repo.Save`（审计，原子）→ 事务外 `errors.Is` 映射 status（A2 风格）。
+  - Repository 不碰任何领域规则（四态 / 审计行 / notify / objCtx 均留在 tododraft + 业务层）。
+- 签名表 #11 随之定案。
 
 ## B. 包布局与依赖
 
