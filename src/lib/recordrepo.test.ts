@@ -24,7 +24,8 @@ const insertValues = vi.fn(() => ({ where: insertWhere }))
 const insert = vi.fn(() => ({ values: insertValues }))
 
 // findByCriteria 直接收执行器 q（无 db 顶层 import）；q 即 mock builder 链。
-const q = { select, update, insert } as unknown as Executor
+const execute = vi.fn()
+const q = { select, update, insert, execute } as unknown as Executor
 
 import type { Executor } from '@/db/uow'
 import { Repo, type Criteria } from '@/lib/recordrepo'
@@ -47,6 +48,7 @@ function base(): Criteria {
 }
 
 beforeEach(() => {
+  execute.mockClear()
   updateWhere.mockClear()
   updateSet.mockClear()
   update.mockClear()
@@ -210,6 +212,26 @@ describe('update', () => {
         tags: [],
       }),
     ).rejects.toMatchObject({
+      status: 500,
+      message: 'Error: connection refused',
+    })
+  })
+})
+
+describe('acquireRenameLock', () => {
+  it('executes pg_advisory_xact_lock with the shared key', async () => {
+    execute.mockResolvedValue(undefined)
+    await Repo.acquireRenameLock(q)
+    expect(execute).toHaveBeenCalledTimes(1)
+    // drizzle sql 模板节点：queryChunks 含模板串与 key 数字
+    const node = execute.mock.calls[0][0] as { queryChunks: unknown[] }
+    expect(JSON.stringify(node.queryChunks)).toContain('726478478')
+    expect(JSON.stringify(node.queryChunks)).toContain('pg_advisory_xact_lock')
+  })
+
+  it('wraps driver errors as internal 500', async () => {
+    execute.mockRejectedValue(new Error('connection refused'))
+    await expect(Repo.acquireRenameLock(q)).rejects.toMatchObject({
       status: 500,
       message: 'Error: connection refused',
     })

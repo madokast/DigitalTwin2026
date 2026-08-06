@@ -3,70 +3,46 @@
  * 纯校验 / JSON 变换仍在 `@/lib/tags`。
  */
 
-import { eq, sql } from 'drizzle-orm'
 import db from '@/db'
-import { records } from '@/db/schema'
-import { renameTagInTagsJson } from '@/lib/tags'
+import { Repo } from '@/lib/recordrepo'
+import { renameTags } from '@/lib/tags'
+
+/** rename 分页循环页大小（与 Go `tags.RenamePageSize` 一致）。 */
+export const RENAME_PAGE_SIZE = 100
 
 /**
- * renameAcrossRecords 可注入的写库边界（与 Go renameAcrossQuerier / 假 Querier 对称）。
- * 注入时跳过事务与 advisory lock（单测）；生产省略 store，走事务+锁。
- */
-export type RenameAcrossRecordsDb = {
-  listIdAndTags: () => Promise<{ id: string; tags: string }[]>
-  updateTags: (id: string, tags: string) => Promise<void>
-}
-
-/** 与 Go tags.TagRenameAdvisoryLockKey 一致 */
-export const TAG_RENAME_ADVISORY_LOCK_KEY = 726478478
-
-async function renameAcrossStore(
-  from: string,
-  to: string,
-  store: RenameAcrossRecordsDb,
-): Promise<number> {
-  const rows = await store.listIdAndTags()
-  let updated = 0
-
-  for (const row of rows) {
-    const nextTags = renameTagInTagsJson(row.tags, from, to)
-    if (nextTags === null) continue
-    await store.updateTags(row.id, nextTags)
-    updated += 1
-  }
-  return updated
-}
-
-/**
- * 全表扫描 records，将 tags JSON 中 from 重命名为 to。
- * 生产路径：单事务 + pg_advisory_xact_lock（与 Go RenameAcrossRecords 对齐）—
- * 中途失败全滚；并发 rename 互斥。
- * 脏 tags JSON 向上抛错（HTTP 映射 500）。
- * 可选 `store`：测试注入（无真实锁/事务）；生产调用方省略。
+ * 单事务内将 tags 中 from 重命名为 to（业务层编排，§10b 步骤 2 二次定案）：
+ * db.transaction 开事务 → Repo.acquireRenameLock（advisory xact lock：并发 rename 互斥）
+ * → 分页循环 Repo.findByCriteria（Criteria{tags:[from], pageSize: RENAME_PAGE_SIZE, sortBy:'id'}）
+ * → 每行 renameTags 变换 → Repo.update 写回 → len(页) < RENAME_PAGE_SIZE 终止。
+ * 中途失败全滚（任何 DB 错误 → 500）；OFFSET 分页 + 事务内多页：页间并发提交可能跳行/漏改（尽力而为）。
  */
 export async function renameAcrossRecords(
   from: string,
   to: string,
-  store?: RenameAcrossRecordsDb,
 ): Promise<number> {
-  if (store) {
-    return renameAcrossStore(from, to, store)
-  }
-
   return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(${TAG_RENAME_ADVISORY_LOCK_KEY})`,
-    )
-    return renameAcrossStore(from, to, {
-      async listIdAndTags() {
-        return tx.select({ id: records.id, tags: records.tags }).from(records)
-      },
-      async updateTags(id, tagsJson) {
-        await tx
-          .update(records)
-          .set({ tags: tagsJson })
-          .where(eq(records.id, id))
-      },
-    })
+    await Repo.acquireRenameLock(tx)
+    let updated = 0
+    let page = 1
+    for (;;) {
+      const recs = await Repo.findByCriteria(tx, {
+        tags: [from],
+        page,
+        pageSize: RENAME_PAGE_SIZE,
+        sortBy: 'id',
+        sortOrder: 'asc',
+      })
+      for (const rec of recs) {
+        const next = renameTags(rec.tags, from, to)
+        if (next === null) continue
+        rec.tags = next
+        await Repo.update(tx, rec)
+        updated += 1
+      }
+      if (recs.length < RENAME_PAGE_SIZE) break
+      page += 1
+    }
+    return updated
   })
 }

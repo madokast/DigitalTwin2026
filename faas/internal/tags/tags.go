@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
 	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
+	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 )
 
 var tagPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$`)
@@ -173,78 +173,95 @@ func AggregateTagCounts(tagFields []string, prefix string) ([]TagCount, *myerr.M
 	return list, nil
 }
 
-// TagRenameAdvisoryLockKey 与 Next tagsdb.TAG_RENAME_ADVISORY_LOCK_KEY 一致。
-// pg_advisory_xact_lock：串行化并发 rename；随事务结束自动释放（适合 PgBouncer 类连接池）。
-const TagRenameAdvisoryLockKey int64 = 726478478
+// RenamePageSize rename 分页循环的页大小（写死 100，§6 定案）。
+const RenamePageSize = 100
 
-// RenameAcrossRecords 在单事务内全表扫描并将 tags JSON 中 from 重命名为 to。
-// 先拿 advisory xact lock，再读改写，保证：中途失败全滚；并发 rename 互斥。
-// 脏 tags JSON 向上返回 error（HTTP 映射 500）。
-func RenameAcrossRecords(ctx context.Context, pool *pgxpool.Pool, from, to string) (int, *myerr.MyError) {
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return 0, myerr.NewInternal(err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, TagRenameAdvisoryLockKey); err != nil {
-		return 0, myerr.NewInternal(err)
-	}
-
-	updated, me := renameAcrossQuerier(ctx, tx, from, to)
+// RenameAcrossRecords 在单事务内将 tags 中 from 重命名为 to（业务层编排，§10b 步骤 2 二次定案）：
+// uow 开事务 → repo.AcquireRenameLock（advisory xact lock：并发 rename 互斥、随事务结束自动释放）
+// → 分页循环 repo.FindByCriteria（Criteria{Tags:[from], PageSize: RenamePageSize, SortBy: id}）
+// → 每行 renameTags 变换 → repo.Update 写回 → len(页) < RenamePageSize 终止。
+// 中途失败全滚（任何 DB 错误 → 500）；OFFSET 分页 + 事务内多页：页间并发提交可能跳行/漏改（尽力而为）。
+func RenameAcrossRecords(ctx context.Context, b db.TxBeginner, from, to string) (int, *myerr.MyError) {
+	updated := 0
+	me := db.WithTx(ctx, b, func(q db.Executor) *myerr.MyError {
+		if me := recordrepo.Repo.AcquireRenameLock(ctx, q); me != nil {
+			return me
+		}
+		page := 1
+		for {
+			recs, me := recordrepo.Repo.FindByCriteria(ctx, q, recordrepo.Criteria{
+				Tags:      []string{from},
+				Page:      page,
+				PageSize:  RenamePageSize,
+				SortBy:    "id",
+				SortOrder: "asc",
+			})
+			if me != nil {
+				return me
+			}
+			for _, rec := range recs {
+				next, ok := renameTags(rec.Tags, from, to)
+				if !ok {
+					continue
+				}
+				rec.Tags = next
+				if me := recordrepo.Repo.Update(ctx, q, rec); me != nil {
+					return me
+				}
+				updated++
+			}
+			if len(recs) < RenamePageSize {
+				return nil
+			}
+			page++
+		}
+	})
 	if me != nil {
 		return 0, me
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return 0, myerr.NewInternal(err)
-	}
 	return updated, nil
 }
 
-// renameAcrossQuerier 事务内（或单测假执行器）的读改写循环。
-func renameAcrossQuerier(ctx context.Context, q db.Executor, from, to string) (int, *myerr.MyError) {
-	rows, err := q.Query(ctx, `SELECT id, tags FROM records`)
-	if err != nil {
-		return 0, myerr.NewInternal(err)
-	}
-	defer rows.Close()
-
-	type row struct {
-		id   string
-		tags string
-	}
-	var list []row
-	for rows.Next() {
-		var r row
-		if err := rows.Scan(&r.id, &r.tags); err != nil {
-			return 0, myerr.NewInternal(err)
+// renameTags 数组版变换（§10b 步骤 2 二次定案，替代串版 RenameTagInTagsJSON）：
+// to ∈ tags → 移除 from（去重语义）；否则 from 原位替换为 to。from ∉ tags → 不变（防御）。
+func renameTags(tags []string, from, to string) ([]string, bool) {
+	fromIdx := -1
+	for i, t := range tags {
+		if t == from {
+			fromIdx = i
+			break
 		}
-		list = append(list, r)
 	}
-	if err := rows.Err(); err != nil {
-		return 0, myerr.NewInternal(err)
+	if fromIdx < 0 {
+		return tags, false
 	}
-
-	updated := 0
-	for _, r := range list {
-		next, ok, me := RenameTagInTagsJSON(r.tags, from, to)
-		if me != nil {
-			return 0, me
+	hasTo := false
+	for _, t := range tags {
+		if t == to {
+			hasTo = true
+			break
 		}
-		if !ok {
-			continue
-		}
-		if _, err := q.Exec(ctx, `UPDATE records SET tags = $1 WHERE id = $2`, next, r.id); err != nil {
-			return 0, myerr.NewInternal(err)
-		}
-		updated++
 	}
-	return updated, nil
+	if hasTo {
+		out := make([]string, 0, len(tags)-1)
+		for _, t := range tags {
+			if t != from {
+				out = append(out, t)
+			}
+		}
+		return out, true
+	}
+	out := make([]string, len(tags))
+	for i, t := range tags {
+		if t == from {
+			out[i] = to
+		} else {
+			out[i] = t
+		}
+	}
+	return out, true
 }
 
-// RenameTagInTagsJSON renames from→to in a tags JSON array.
-// Returns ("", false) when from is absent; dedupes keeping first occurrence order.
-// 非法 JSON / 非数组返回 error。
 func RenameTagInTagsJSON(tagsJSON, from, to string) (string, bool, *myerr.MyError) {
 	parsed, me := parseTagsJSONArray(tagsJSON)
 	if me != nil {

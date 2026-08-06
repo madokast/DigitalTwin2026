@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   TAGS_NOT_JSON_ARRAY,
   aggregateTagCounts,
@@ -6,15 +6,11 @@ import {
   firstDuplicateTag,
   isReservedTag,
   isValidTag,
-  renameTagInTagsJson,
+  renameTags,
   reservedTagError,
   validateRename,
   validateTags,
 } from './tags'
-import {
-  renameAcrossRecords,
-  type RenameAcrossRecordsDb,
-} from './tagsdb'
 
 describe('isValidTag', () => {
   it.each(['weight', 'source:device', 'review:weekly', 'a', 'A1_b:c2'])(
@@ -218,27 +214,19 @@ describe('aggregateTagCounts', () => {
   })
 })
 
-describe('renameTagInTagsJson', () => {
-  it('returns null when from tag is absent', () => {
-    expect(renameTagInTagsJson(JSON.stringify(['weight']), 'exercise', 'workout')).toBeNull()
+describe('renameTags', () => {
+  it('renames from to when to absent, order preserved', () => {
+    expect(renameTags(['a', 'work', 'b'], 'work', 'job')).toEqual(['a', 'job', 'b'])
   })
 
-  it('renames exact tag and dedupes if to already exists', () => {
-    expect(renameTagInTagsJson(JSON.stringify(['exercise', 'morning']), 'exercise', 'workout')).toBe(
-      JSON.stringify(['workout', 'morning']),
-    )
-    expect(renameTagInTagsJson(JSON.stringify(['exercise', 'workout']), 'exercise', 'workout')).toBe(
-      JSON.stringify(['workout']),
-    )
+  it('removes from when to already exists (dedupe)', () => {
+    expect(renameTags(['job', 'work', 'x'], 'work', 'job')).toEqual(['job', 'x'])
+    expect(renameTags(['work', 'job'], 'work', 'job')).toEqual(['job'])
   })
 
-  it('throws on invalid JSON', () => {
-    expect(() => renameTagInTagsJson('{', 'a', 'b')).toThrow()
-  })
-
-  it('throws on non-array JSON root', () => {
-    expect(() => renameTagInTagsJson('{}', 'a', 'b')).toThrow(TAGS_NOT_JSON_ARRAY)
-    expect(() => renameTagInTagsJson('null', 'a', 'b')).toThrow(TAGS_NOT_JSON_ARRAY)
+  it('returns null when from is absent', () => {
+    expect(renameTags(['alpha'], 'weight', 'mass')).toBeNull()
+    expect(renameTags([], 'weight', 'mass')).toBeNull()
   })
 })
 
@@ -297,53 +285,5 @@ describe('validateRename', () => {
 
   it('accepts a valid rename pair', () => {
     expect(validateRename('exercise', 'workout')).toEqual({ valid: true })
-  })
-})
-
-/**
- * renameAcrossRecords 写库路径：注入 RenameAcrossRecordsDb（与 Go renameAcrossQuerier 对称；无真实锁）。
- */
-describe('renameAcrossRecords (injected store)', () => {
-  it('updates two matching rows and returns updated===2', async () => {
-    const updateTags = vi.fn(async () => {})
-    const store: RenameAcrossRecordsDb = {
-      listIdAndTags: async () => [
-        { id: 'id-1', tags: '["weight","morning"]' },
-        { id: 'id-2', tags: '["weight"]' },
-        { id: 'id-3', tags: '["other"]' },
-      ],
-      updateTags,
-    }
-    const updated = await renameAcrossRecords('weight', 'mass', store)
-    expect(updated).toBe(2)
-    expect(updateTags).toHaveBeenCalledTimes(2)
-    expect(updateTags).toHaveBeenNthCalledWith(1, 'id-1', '["mass","morning"]')
-    expect(updateTags).toHaveBeenNthCalledWith(2, 'id-2', '["mass"]')
-  })
-
-  it('returns updated===0 and skips updateTags when no match', async () => {
-    const updateTags = vi.fn(async () => {})
-    const store: RenameAcrossRecordsDb = {
-      listIdAndTags: async () => [
-        { id: 'id-1', tags: '["alpha"]' },
-        { id: 'id-2', tags: '["beta"]' },
-      ],
-      updateTags,
-    }
-    const updated = await renameAcrossRecords('weight', 'mass', store)
-    expect(updated).toBe(0)
-    expect(updateTags).not.toHaveBeenCalled()
-  })
-
-  it('throws on dirty tags JSON and does not update', async () => {
-    const updateTags = vi.fn(async () => {})
-    const store: RenameAcrossRecordsDb = {
-      listIdAndTags: async () => [{ id: 'id-1', tags: '{"not":"array"}' }],
-      updateTags,
-    }
-    await expect(renameAcrossRecords('a', 'b', store)).rejects.toThrow(
-      TAGS_NOT_JSON_ARRAY,
-    )
-    expect(updateTags).not.toHaveBeenCalled()
   })
 })

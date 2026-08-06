@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/bodyweightdraft"
+	"github.com/mdk/digitaltwin2026/faas/internal/db"
 	"github.com/mdk/digitaltwin2026/faas/internal/dbprobe"
 	"github.com/mdk/digitaltwin2026/faas/internal/exportapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/importapi"
@@ -574,7 +575,7 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := tags.RenameAcrossRecords(r.Context(), s.Pool, from, to)
+	updated, err := tags.RenameAcrossRecords(r.Context(), db.NewPoolTxBeginner(s.Pool), from, to)
 	if err != nil {
 		writeErr(w, err, "rename tags")
 		return

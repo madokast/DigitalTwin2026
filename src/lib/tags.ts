@@ -166,32 +166,20 @@ export function aggregateTagCounts(
 }
 
 /**
- * 在单条 records.tags JSON 中精确替换 tag 名。
- * 若 from 不存在返回 null；若 to 已存在则去重，保持首次出现顺序。
- * 非法 JSON / 非数组抛错（与 Go `RenameTagInTagsJSON` 的 error 通道对齐）。
+ * 数组版 rename 变换（与 Go `tags.renameTags` 对称，§10b 步骤 2 二次定案）：
+ * to ∈ tags → 移除 from（去重语义）；否则 from 原位替换为 to；from ∉ tags → 返回 null（防御）。
  */
-export function renameTagInTagsJson(
-  tagsJson: string,
+export function renameTags(
+  tags: string[],
   from: string,
   to: string,
-): string | null {
-  const parsed = parseTagsJsonArray(tagsJson)
-
-  let found = false
-  const next: string[] = []
-  const seen = new Set<string>()
-
-  for (const item of parsed) {
-    if (typeof item !== 'string') continue
-    const mapped = item === from ? to : item
-    if (item === from) found = true
-    if (seen.has(mapped)) continue
-    seen.add(mapped)
-    next.push(mapped)
+): string[] | null {
+  const fromIdx = tags.indexOf(from)
+  if (fromIdx < 0) return null
+  if (tags.includes(to)) {
+    return tags.filter((t) => t !== from)
   }
-
-  if (!found) return null
-  return JSON.stringify(next)
+  return tags.map((t) => (t === from ? to : t))
 }
 
 /**

@@ -462,3 +462,28 @@ func TestUpdateDriverErrorInternal(t *testing.T) {
 		t.Fatalf("driver message not embedded: %q", me.Message)
 	}
 }
+
+func TestAcquireRenameLockExecutes(t *testing.T) {
+	f := &fakeExecutor{}
+	me := Repo.AcquireRenameLock(context.Background(), f)
+	if me != nil {
+		t.Fatal(me)
+	}
+	if len(f.execSQL) != 1 || !strings.Contains(f.execSQL[0], "pg_advisory_xact_lock") {
+		t.Fatalf("sql=%v", f.execSQL)
+	}
+	if len(f.execArgs[0]) != 1 || f.execArgs[0][0].(int64) != 726478478 {
+		t.Fatalf("lock key arg=%v", f.execArgs[0])
+	}
+}
+
+func TestAcquireRenameLockDriverErrorInternal(t *testing.T) {
+	f := &fakeExecutor{execErr: errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`)}
+	me := Repo.AcquireRenameLock(context.Background(), f)
+	if me == nil {
+		t.Fatal("want error")
+	}
+	if me.Status != 500 {
+		t.Fatalf("status=%d want 500", me.Status)
+	}
+}

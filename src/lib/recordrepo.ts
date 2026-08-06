@@ -56,6 +56,17 @@ export class RecordRepository {
     }
   }
 
+  /** 拿 rename 的 advisory xact lock（业务层事务内第一步调用）。
+   * 防并发 rename 读改写循环互相覆盖；锁随事务提交/回滚自动释放。
+   * 与 Go `AcquireRenameLock` 对称（key 与 Go renameAdvisoryLockKey 一致）。 */
+  async acquireRenameLock(q: Executor): Promise<void> {
+    try {
+      await q.execute(sql`SELECT pg_advisory_xact_lock(${RENAME_ADVISORY_LOCK_KEY})`)
+    } catch (err) {
+      throw newInternal(err)
+    }
+  }
+
   /** 按 id 判存在（import 逐行 upsert 用）。竞态语义：并发同 id 时唯一索引兜底
    * （exists→insert 竞态 → 500 整单回滚 = 正确失败语义，保留，见 §10b 步骤 2）。 */
   async exists(q: Executor, id: string): Promise<boolean> {
@@ -256,6 +267,9 @@ function recordsOrderBySql(sortBy: 'happened_at' | 'id', sortOrder: 'asc' | 'des
   }
   return sortOrder === 'desc' ? 'happened_at DESC, id ASC' : 'happened_at ASC, id ASC'
 }
+
+/** rename 的 advisory lock key（与 Go renameAdvisoryLockKey 一致）。 */
+const RENAME_ADVISORY_LOCK_KEY = 726478478
 
 /** Repo RecordRepository 模块级单例（空结构体，无状态，安全共享）。 */
 export const Repo = new RecordRepository()

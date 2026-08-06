@@ -166,6 +166,19 @@ WHERE id = $8
 	return nil
 }
 
+// renameAdvisoryLockKey 与 Next tagsdb.TAG_RENAME_ADVISORY_LOCK_KEY 一致。
+// pg_advisory_xact_lock：串行化并发 rename；随事务结束自动释放（适合 PgBouncer 类连接池）。
+const renameAdvisoryLockKey int64 = 726478478
+
+// AcquireRenameLock 拿 rename 的 advisory xact lock（业务层事务内第一步调用）。
+// 防并发 rename 读改写循环互相覆盖；锁随事务提交/回滚自动释放。
+func (r *RecordRepository) AcquireRenameLock(ctx context.Context, q db.Executor) *myerr.MyError {
+	if _, err := q.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, renameAdvisoryLockKey); err != nil {
+		return myerr.NewInternal(err)
+	}
+	return nil
+}
+
 // FindByCriteria 按条件查询 records 列表（只返回行；total 由业务层另行 Count，方案 B）。
 // 条件构建在 Repository 内部（D3：escapeLikePattern / 族通配 / recordsOrderBySql 迁入本包）。
 // Scan DBRow + FromDB 唯一转换点。ID 非空时忽略分页返回 0～1 条（现状语义）。
