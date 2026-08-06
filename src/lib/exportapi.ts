@@ -11,7 +11,6 @@ import db from '@/db'
 import { records } from '@/db/schema'
 import {
   fromDB,
-  rowFromDB,
   INVALID_RECORD_ID,
   isValidRecordId,
   type Record as DomainRecord,
@@ -99,7 +98,7 @@ export async function fetchExportRecords(
           .orderBy(asc(records.id))
           .limit(parsed.limit)
 
-  return { records: rows.map((r) => fromDB(rowFromDB(r))), status: 200 }
+  return { records: rows.map(fromDB), status: 200 }
 }
 
 /** 每行一条 Record JSON + 换行；0 行 → 空字符串 */

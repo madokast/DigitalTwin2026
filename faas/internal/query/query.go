@@ -251,16 +251,7 @@ func scanRecord(row pgx.Row) (record.Record, error) {
 	if err != nil {
 		return record.Record{}, err
 	}
-	return record.FromDB(record.RecordRow{
-		ID:               id,
-		HappenedAt:       happenedAt,
-		UtcOffset:        utcOffset,
-		NumericValue:     numericValue,
-		RawContent:       rawContent,
-		Tags:             record.ParseTagsField(tagsField),
-		ObjectiveContext: objectiveContext,
-		AiAnalysis:       subj,
-	}), nil
+	return record.FromDB(id, happenedAt, utcOffset, numericValue, rawContent, tagsField, objectiveContext, subj), nil
 }
 
 type FetchResult struct {

@@ -30,10 +30,9 @@ func CreateNumberBatch(ctx context.Context, pool *pgxpool.Pool, raw []byte) (int
 		if err != nil {
 			return 0, nil, 500, err
 		}
-		rec, err := insertReturning(ctx, tx, record.RecordRow{
+		rec, err := insertReturning(ctx, tx, record.Record{
 			ID:               id.String(),
-			HappenedAt:       batch.HappenedAt,
-			UtcOffset:        batch.UtcOffset,
+			HappenedAt:       formatHappenedAt(batch.HappenedAt, batch.UtcOffset),
 			NumericValue:     &e.NumericValue,
 			RawContent:       nil,
 			Tags:             e.Tags,

@@ -3,7 +3,6 @@ import db from '@/db'
 import { records } from '@/db/schema'
 import {
   fromDB,
-  rowFromDB,
   INVALID_RECORD_ID,
   isValidRecordId,
   type Record as DomainRecord,
@@ -231,7 +230,7 @@ export async function fetchFilteredRecords(
       total,
       page: 1,
       pageSize: rows.length || 1,
-      records: rows.map((r) => fromDB(rowFromDB(r))),
+      records: rows.map(fromDB),
     }
   }
 
@@ -255,7 +254,7 @@ export async function fetchFilteredRecords(
     total,
     page: parsed.page,
     pageSize: parsed.pageSize,
-    records: rows.map((r) => fromDB(rowFromDB(r))),
+    records: rows.map(fromDB),
   }
 }
 

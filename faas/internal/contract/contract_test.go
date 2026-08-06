@@ -220,16 +220,16 @@ func TestGoFromDBMatchesNumberSuccessFixture(t *testing.T) {
 
 	vn := "75.5"
 	subj := "a bit heavy"
-	got := record.FromDB(record.RecordRow{
-		ID:               fixture.Record.ID,
-		HappenedAt:       time.Date(2026, 7, 30, 0, 0, 0, 0, time.UTC),
-		UtcOffset:        "+08:00",
-		NumericValue:     &vn,
-		RawContent:       nil,
-		Tags:             []string{"weight"},
-		ObjectiveContext: "morning weigh-in",
-		AiAnalysis:       &subj,
-	})
+	got := record.FromDB(
+		fixture.Record.ID,
+		time.Date(2026, 7, 30, 0, 0, 0, 0, time.UTC),
+		"+08:00",
+		&vn,
+		nil,
+		`["weight"]`,
+		"morning weigh-in",
+		&subj,
+	)
 	if got.HappenedAt != fixture.Record.HappenedAt {
 		t.Fatalf("happenedAt: got %q want %q", got.HappenedAt, fixture.Record.HappenedAt)
 	}

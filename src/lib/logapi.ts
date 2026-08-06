@@ -20,7 +20,6 @@ import {
 } from '@/lib/draft'
 import {
   fromDB,
-  rowFromDB,
   isValidRecordId,
   INVALID_RECORD_ID,
   tagsJSON,
@@ -121,7 +120,7 @@ async function insertReturning(
   values: InsertValues,
 ): Promise<Record> {
   const result = await executor.insert(records).values(values).returning()
-  return fromDB(rowFromDB(result[0]))
+  return fromDB(result[0])
 }
 
 export type CreateNumberBatchOk = {
@@ -163,7 +162,7 @@ export async function createNumberBatch(
             aiAnalysis: entry.aiAnalysis,
           })
           .returning()
-        rows.push(fromDB(rowFromDB(result[0])))
+        rows.push(fromDB(result[0]))
       }
       return rows
     })
@@ -272,8 +271,8 @@ export async function transitionTodo(
       return { error: errorMessage(found.error), status: 500 }
     }
 
-    const todoRow = found.record!
-    const tagList = todoRow.tags
+    const todoRec = found.record!
+    const tagList = todoRec.tags
 
     if (isTodoAuditRecordTags(tagList)) {
       return { error: ERR_AUDIT_TRANSITION, status: 400 }
@@ -286,25 +285,24 @@ export async function transitionTodo(
       return { error: ERR_ALREADY_TARGET, status: 400 }
     }
 
-    const content = todoRow.rawContent ?? ''
-    // 通知/审计文案需要带区串：领域行（瞬间 + offset）→ 序列化层格式化
-    const todoHappenedAt = formatHappenedAt(todoRow.happenedAt, todoRow.utcOffset)
+    const content = todoRec.raw_content ?? ''
     const notifyText = todoAuditNotifyText(
       parsed.target,
       parsed.id,
-      todoHappenedAt,
+      todoRec.happened_at,
       content,
     )
     const objCtx = auditObjectiveContext(
       parsed.target,
       parsed.id,
-      todoHappenedAt,
+      todoRec.happened_at,
     )
     const newTags = replaceTodoStateInTags(tagList, parsed.target)
 
     // 写路径：UPDATE 状态 tag + INSERT 审计，原子（业务层经 UoW 决定事务性）。
     // D7 对齐 Go（RowsAffected() != 1 → 500）：SELECT 与 UPDATE 之间记录被删的并发竞态
     // —— 影响行数 ≠ 1 时不插审计行、事务回滚，错误文案含实际行数。
+    // 审计行 happened_at 与请求一致（带区串；领域对象 = 对外形状，组装在业务层）
     await new UoW(db).do(async (q) => {
       const txRepo = new RecordRepository(q)
       const t = await txRepo.transition(parsed.id, newTags)
@@ -313,13 +311,12 @@ export async function transitionTodo(
       }
       await txRepo.save({
         id: uuidv7(),
-        happenedAt: parsed.happenedAt,
-        utcOffset: parsed.utcOffset,
-        numericValue: null,
-        rawContent: content,
+        happened_at: formatHappenedAt(parsed.happenedAt, parsed.utcOffset),
+        numeric_value: undefined,
+        raw_content: content,
         tags: [TODO_TAG_TRANSITION],
-        objectiveContext: objCtx,
-        aiAnalysis: null,
+        objective_context: objCtx,
+        ai_analysis: null,
       })
     })
 
@@ -455,7 +452,7 @@ export async function createTransactionBatch(
             aiAnalysis: null,
           })
           .returning()
-        rows.push(fromDB(rowFromDB(result[0])))
+        rows.push(fromDB(result[0]))
       }
       return rows
     })

@@ -6,13 +6,14 @@
 
 import { eq } from 'drizzle-orm'
 import * as schema from '@/db/schema'
-import { rowFromDB, tagsJSON, type RecordRow } from '@/lib/record'
+import { fromDB, type Record } from '@/lib/record'
+import { extractUtcOffsetLiteral } from '@/lib/utcoffset'
 import { RecordNotFoundError } from '@/lib/record/errors'
 import type { Executor } from '@/db/uow'
 
 export type RecordFindByIDResult = {
   ok: boolean
-  record: RecordRow | null
+  record: Record | null
   error: Error | null
 }
 
@@ -23,14 +24,14 @@ export type RecordTransitionResult = {
 
 export type RecordSaveResult = {
   ok: boolean
-  record: RecordRow | null
+  record: Record | null
   error: Error | null
 }
 
 export class RecordRepository {
   constructor(private q: Executor) {}
 
-  /** 按 id 查完整行（领域行对象：绝对瞬间 + 录入偏移，tags 已数组）；未找到 → RecordNotFoundError */
+  /** 按 id 查完整行（持久化转换：瞬间 + 隐列 → 带区串，在 fromDB 收敛）；未找到 → RecordNotFoundError */
   async findById(id: string): Promise<RecordFindByIDResult> {
     const rows = await this.q
       .select()
@@ -40,14 +41,14 @@ export class RecordRepository {
     if (rows.length === 0) {
       return { ok: false, record: null, error: new RecordNotFoundError(`record ${id} not found`) }
     }
-    return { ok: true, record: rowFromDB(rows[0]), error: null }
+    return { ok: true, record: fromDB(rows[0]), error: null }
   }
 
   /** 只 UPDATE tags（WHERE id）；影响行数 ≠ 1 → 错误（D7 并发竞态文案含实际行数）。 */
   async transition(id: string, tags: string[]): Promise<RecordTransitionResult> {
     const res = (await this.q
       .update(schema.records)
-      .set({ tags: tagsJSON(tags) })
+      .set({ tags: JSON.stringify(tags) })
       .where(eq(schema.records.id, id))) as { count: number }
     if (res.count !== 1) {
       return { ok: false, error: new Error(`todo update affected ${res.count} rows`) }
@@ -55,15 +56,23 @@ export class RecordRepository {
     return { ok: true, error: null }
   }
 
-  /** 单条 INSERT + RETURNING 完整行（row 为领域行对象：直接落 time.Time + utc_offset，tags 由 Repository 序列化）。 */
-  async save(row: RecordRow): Promise<RecordSaveResult> {
+  /** 单条 INSERT + RETURNING 完整行（rec 为对外形状；持久化转换：带区串 → 瞬间 + 隐列，在此内部）。 */
+  async save(rec: Record): Promise<RecordSaveResult> {
+    const offset = extractUtcOffsetLiteral(rec.happened_at)
+    const utcOffset = 'ok' in offset ? offset.value : 'Z'
     const rows = await this.q
       .insert(schema.records)
       .values({
-        ...row,
-        tags: tagsJSON(row.tags),
+        id: rec.id,
+        happenedAt: new Date(rec.happened_at),
+        utcOffset,
+        numericValue: rec.numeric_value ?? null,
+        rawContent: rec.raw_content,
+        tags: JSON.stringify(rec.tags),
+        objectiveContext: rec.objective_context,
+        aiAnalysis: rec.ai_analysis,
       })
       .returning()
-    return { ok: true, record: rowFromDB(rows[0]), error: null }
+    return { ok: true, record: fromDB(rows[0]), error: null }
   }
 }

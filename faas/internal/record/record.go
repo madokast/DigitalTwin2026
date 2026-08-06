@@ -10,20 +10,7 @@ import (
 )
 
 // Record matches Next JSON shape（snake_case HTTP JSON）。
-// RecordRow 领域行对象（Repository 收/返；时间 = 绝对瞬间 + 录入偏移，
-// 格式化到带区 ISO 是序列化层（FromDB）的职责，Repository 不碰时间转换）。
-type RecordRow struct {
-	ID               string
-	HappenedAt       time.Time
-	UtcOffset        string
-	NumericValue     *string
-	RawContent       *string
-	Tags             []string
-	ObjectiveContext string
-	AiAnalysis       *string
-}
-
-// Record API 响应对象（对外 JSON 形状；happened_at 已按 utc_offset 格式化为带区串）。
+// Record 领域对象 = 对外 JSON 形状（时间轴操作全在 Repository SQL 内，业务层只消费带区串）。
 type Record struct {
 	ID               string   `json:"id"`
 	HappenedAt       string   `json:"happened_at"`
@@ -60,21 +47,31 @@ func FormatHappenedAt(t time.Time) string {
 	return t.UTC().Format("2006-01-02T15:04:05.000Z")
 }
 
-// FromDB 领域行 → API Record（happened_at = 瞬间 + utc_offset 带区格式化）。
-func FromDB(row RecordRow) Record {
-	formatted, err := utcoffset.FormatHappenedAt(row.HappenedAt, row.UtcOffset)
+// FromDB DB 行（Scan 结果）→ Record：持久化转换（瞬间 + 隐列 → 带区串）在 record 包收敛，
+// Repository / 读路径调用。utc_offset 隐列不出 Record（领域对象 = 对外形状）。
+func FromDB(
+	id string,
+	happenedAt time.Time,
+	utcOffset string,
+	numericValue *string,
+	rawContent *string,
+	tags string,
+	objectiveContext string,
+	aiAnalysis *string,
+) Record {
+	formatted, err := utcoffset.FormatHappenedAt(happenedAt, utcOffset)
 	if err != nil {
 		// 隐列损坏时仍可序列化；正常路径有 DB CHECK + 写入校验
-		formatted = FormatHappenedAt(row.HappenedAt)
+		formatted = FormatHappenedAt(happenedAt)
 	}
 	return Record{
-		ID:               row.ID,
+		ID:               id,
 		HappenedAt:       formatted,
-		NumericValue:     row.NumericValue,
-		RawContent:       row.RawContent,
-		Tags:             row.Tags,
-		ObjectiveContext: row.ObjectiveContext,
-		AiAnalysis:       row.AiAnalysis,
+		NumericValue:     numericValue,
+		RawContent:       rawContent,
+		Tags:             ParseTagsField(tags),
+		ObjectiveContext: objectiveContext,
+		AiAnalysis:       aiAnalysis,
 	}
 }
 

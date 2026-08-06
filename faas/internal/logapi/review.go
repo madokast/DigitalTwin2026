@@ -24,10 +24,9 @@ func CreateReview(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 		return record.Record{}, 500, err
 	}
 
-	rec, err := insertReturning(ctx, pool, record.RecordRow{
+	rec, err := insertReturning(ctx, pool, record.Record{
 		ID:               id.String(),
-		HappenedAt:       parsed.HappenedAt,
-		UtcOffset:        parsed.UtcOffset,
+		HappenedAt:       formatHappenedAt(parsed.HappenedAt, parsed.UtcOffset),
 		NumericValue:     nil,
 		RawContent:       &parsed.RawContent,
 		Tags:             tagList,
