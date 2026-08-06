@@ -15,8 +15,16 @@ const where = vi.fn(() => ({ orderBy }))
 const from = vi.fn(() => ({ where, orderBy }))
 const select = vi.fn(() => ({ from }))
 
+const updateWhere = vi.fn()
+const updateSet = vi.fn(() => ({ where: updateWhere }))
+const update = vi.fn(() => ({ set: updateSet }))
+
+const insertWhere = vi.fn()
+const insertValues = vi.fn(() => ({ where: insertWhere }))
+const insert = vi.fn(() => ({ values: insertValues }))
+
 // findByCriteria 直接收执行器 q（无 db 顶层 import）；q 即 mock builder 链。
-const q = { select } as unknown as Executor
+const q = { select, update, insert } as unknown as Executor
 
 import type { Executor } from '@/db/uow'
 import { Repo, type Criteria } from '@/lib/recordrepo'
@@ -39,6 +47,12 @@ function base(): Criteria {
 }
 
 beforeEach(() => {
+  updateWhere.mockClear()
+  updateSet.mockClear()
+  update.mockClear()
+  insertWhere.mockClear()
+  insertValues.mockClear()
+  insert.mockClear()
   offset.mockResolvedValue(ROWS)
   offset.mockClear()
   limit.mockClear()
@@ -110,6 +124,92 @@ describe('findByCriteria conditions', () => {
   it('wraps driver errors as internal 500', async () => {
     offset.mockRejectedValue(new Error('connection refused'))
     await expect(Repo.findByCriteria(q, base())).rejects.toMatchObject({
+      status: 500,
+      message: 'Error: connection refused',
+    })
+  })
+})
+
+describe('exists', () => {
+  const exLimit = vi.fn()
+  const exWhere = vi.fn(() => ({ limit: exLimit }))
+  const exFrom = vi.fn(() => ({ where: exWhere }))
+  const exSelect = vi.fn(() => ({ from: exFrom }))
+  const exQ = { select: exSelect } as unknown as Executor
+
+  it('returns true when a row matches', async () => {
+    exLimit.mockResolvedValue([{ id: '01900000-0000-7000-8000-000000000003' }])
+    const exists = await Repo.exists(exQ, '01900000-0000-7000-8000-000000000003')
+    expect(exists).toBe(true)
+  })
+
+  it('returns false when no row matches', async () => {
+    exLimit.mockResolvedValue([])
+    const exists = await Repo.exists(exQ, '01900000-0000-7000-8000-000000000003')
+    expect(exists).toBe(false)
+  })
+
+  it('wraps driver errors as internal 500', async () => {
+    exLimit.mockRejectedValue(new Error('connection refused'))
+    await expect(Repo.exists(exQ, 'id')).rejects.toMatchObject({
+      status: 500,
+      message: 'Error: connection refused',
+    })
+  })
+})
+
+describe('update', () => {
+  it('updates all columns and re-parses utc_offset from happened_at', async () => {
+    updateWhere.mockResolvedValue([])
+    await Repo.update(q, {
+      id: '01900000-0000-7000-8000-000000000003',
+      happened_at: '2026-08-01T12:00:00.000+08:00',
+      numeric_value: '12.34',
+      raw_content: 'raw',
+      objective_context: 'obj',
+      ai_analysis: 'ai',
+      tags: ['work', 'urgent'],
+    })
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(updateSet).toHaveBeenCalledTimes(1)
+    expect(updateWhere).toHaveBeenCalledTimes(1)
+    expect(updateSet).toHaveBeenCalledWith({
+      happenedAt: new Date('2026-08-01T04:00:00.000Z'),
+      utcOffset: '+08:00',
+      numericValue: '12.34',
+      rawContent: 'raw',
+      tags: JSON.stringify(['work', 'urgent']),
+      objectiveContext: 'obj',
+      aiAnalysis: 'ai',
+    })
+  })
+
+  it('rejects invalid happened_at as 400', async () => {
+    await expect(
+      Repo.update(q, {
+        id: '01900000-0000-7000-8000-000000000003',
+        happened_at: 'not-a-datetime',
+        raw_content: null,
+        objective_context: '',
+        ai_analysis: null,
+        tags: [],
+      }),
+    ).rejects.toMatchObject({ status: 400 })
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('wraps driver errors as internal 500', async () => {
+    updateWhere.mockRejectedValue(new Error('connection refused'))
+    await expect(
+      Repo.update(q, {
+        id: '01900000-0000-7000-8000-000000000003',
+        happened_at: '2026-08-01T12:00:00.000+08:00',
+        raw_content: null,
+        objective_context: '',
+        ai_analysis: null,
+        tags: [],
+      }),
+    ).rejects.toMatchObject({
       status: 500,
       message: 'Error: connection refused',
     })

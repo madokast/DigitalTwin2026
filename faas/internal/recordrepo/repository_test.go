@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/mdk/digitaltwin2026/faas/internal/record"
 )
 
 type fakeRow struct {
@@ -25,6 +26,8 @@ func (r *fakeRow) Scan(dest ...any) error {
 		switch p := d.(type) {
 		case *string:
 			*p = r.vals[i].(string)
+		case *bool:
+			*p = r.vals[i].(bool)
 		case *time.Time:
 			*p = r.vals[i].(time.Time)
 		case **string:
@@ -332,6 +335,122 @@ func TestFindByCriteriaDriverErrorInternal(t *testing.T) {
 		PageSize:  20,
 		SortBy:    "happened_at",
 		SortOrder: "asc",
+	})
+	if me == nil {
+		t.Fatal("want error")
+	}
+	if me.Status != 500 {
+		t.Fatalf("status=%d want 500", me.Status)
+	}
+	if !strings.Contains(me.Message, `ERROR: relation "records" does not exist (SQLSTATE 42P01)`) {
+		t.Fatalf("driver message not embedded: %q", me.Message)
+	}
+}
+
+func TestExistsTrue(t *testing.T) {
+	f := &fakeExecutor{row: &fakeRow{vals: []any{true}}}
+	exists, me := Repo.Exists(context.Background(), f, "01900000-0000-7000-8000-000000000003")
+	if me != nil {
+		t.Fatal(me)
+	}
+	if !exists {
+		t.Fatal("want exists=true")
+	}
+}
+
+func TestExistsFalse(t *testing.T) {
+	f := &fakeExecutor{row: &fakeRow{vals: []any{false}}}
+	exists, me := Repo.Exists(context.Background(), f, "01900000-0000-7000-8000-000000000003")
+	if me != nil {
+		t.Fatal(me)
+	}
+	if exists {
+		t.Fatal("want exists=false")
+	}
+}
+
+func TestExistsDriverErrorInternal(t *testing.T) {
+	f := &fakeExecutor{row: &fakeRow{err: errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`)}}
+	_, me := Repo.Exists(context.Background(), f, "id")
+	if me == nil {
+		t.Fatal("want error")
+	}
+	if me.Status != 500 {
+		t.Fatalf("status=%d want 500", me.Status)
+	}
+}
+
+func TestUpdateAllColumns(t *testing.T) {
+	numVal := "12.34"
+	raw := "raw"
+	ai := "ai"
+	f := &fakeExecutor{rowsAff: 1}
+	me := Repo.Update(context.Background(), f, record.Record{
+		ID:               "01900000-0000-7000-8000-000000000003",
+		HappenedAt:       "2026-08-01T12:00:00.000+08:00",
+		NumericValue:     &numVal,
+		RawContent:       &raw,
+		Tags:             []string{"work", "urgent"},
+		ObjectiveContext: "obj",
+		AiAnalysis:       &ai,
+	})
+	if me != nil {
+		t.Fatal(me)
+	}
+	if len(f.execSQL) != 1 {
+		t.Fatalf("exec count=%d want 1", len(f.execSQL))
+	}
+	sql := f.execSQL[0]
+	for _, want := range []string{
+		"UPDATE records SET",
+		"happened_at = $1::timestamptz",
+		"utc_offset = $2",
+		"numeric_value = $3",
+		"raw_content = $4",
+		"tags = $5",
+		"objective_context = $6",
+		"ai_analysis = $7",
+		"WHERE id = $8",
+	} {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("SQL missing %q:\n%s", want, sql)
+		}
+	}
+	if len(f.execArgs) != 1 || len(f.execArgs[0]) != 8 {
+		t.Fatalf("exec args=%v want 1 exec of 8 args", f.execArgs)
+	}
+	// utc_offset 由 repo 内 ParseHappenedAt 重解析（带区串 → offset 字面量）
+	if got := f.execArgs[0][1].(string); got != "+08:00" {
+		t.Fatalf("utc_offset arg=%v want +08:00", got)
+	}
+	if got := f.execArgs[0][4].(string); got != `["work","urgent"]` {
+		t.Fatalf("tags arg=%v want JSON", got)
+	}
+}
+
+func TestUpdateInvalidHappenedAt400(t *testing.T) {
+	f := &fakeExecutor{}
+	me := Repo.Update(context.Background(), f, record.Record{
+		ID:         "01900000-0000-7000-8000-000000000003",
+		HappenedAt: "not-a-datetime",
+	})
+	if me == nil {
+		t.Fatal("want validation error")
+	}
+	if me.Status != 400 {
+		t.Fatalf("status=%d want 400", me.Status)
+	}
+	if len(f.execSQL) != 0 {
+		t.Fatalf("no exec expected, got %q", f.execSQL)
+	}
+}
+
+func TestUpdateDriverErrorInternal(t *testing.T) {
+	f := &fakeExecutor{execErr: errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`)}
+	me := Repo.Update(context.Background(), f, record.Record{
+		ID:         "01900000-0000-7000-8000-000000000003",
+		HappenedAt: "2026-08-01T12:00:00.000+08:00",
+		Tags:       []string{"work"},
 	})
 	if me == nil {
 		t.Fatal("want error")

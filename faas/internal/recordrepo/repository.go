@@ -124,6 +124,48 @@ func (r *RecordRepository) SaveAll(ctx context.Context, q db.Executor, recs []re
 	return out, nil
 }
 
+// Exists 按 id 判存在（import 逐行 upsert 用）。竞态语义：并发同 id 时唯一索引兜底
+// （exists→insert 竞态 → 500 整单回滚 = 正确失败语义，保留，见 §10b 步骤 2）。
+func (r *RecordRepository) Exists(ctx context.Context, q db.Executor, id string) (bool, *myerr.MyError) {
+	var exists bool
+	err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM records WHERE id = $1)`, id).Scan(&exists)
+	if err != nil {
+		return false, myerr.NewInternal(err)
+	}
+	return exists, nil
+}
+
+// Update 全列覆盖（import 逐行 update；INSERT 分支复用 Save）。
+// rec 为领域 Record（HappenedAt 为业务层已校验的请求串，repo 内 ParseHappenedAt 重解析
+// 落库——§4 两次解析成本原则，与 Save 一致）。无条件覆盖（WHERE id，不检查 RowsAffected
+// ——import 语义 exists=true 才 update，0 行不可达；保守复刻现状行为）。
+func (r *RecordRepository) Update(ctx context.Context, q db.Executor, rec record.Record) *myerr.MyError {
+	happenedAt, utcOffset, me := draft.ParseHappenedAt(rec.HappenedAt)
+	if me != nil {
+		// 数据/格式问题 → 400 透传（业务层已校验，不可达防御；非第三方库错误）
+		return me
+	}
+	tagsJSON, me := record.TagsJSON(rec.Tags)
+	if me != nil {
+		return me
+	}
+	_, err := q.Exec(ctx, `
+UPDATE records SET
+  happened_at = $1::timestamptz,
+  utc_offset = $2,
+  numeric_value = $3,
+  raw_content = $4,
+  tags = $5,
+  objective_context = $6,
+  ai_analysis = $7
+WHERE id = $8
+`, happenedAt, utcOffset, rec.NumericValue, rec.RawContent, tagsJSON, rec.ObjectiveContext, rec.AiAnalysis, rec.ID)
+	if err != nil {
+		return myerr.NewInternal(err)
+	}
+	return nil
+}
+
 // FindByCriteria 按条件查询 records 列表（只返回行；total 由业务层另行 Count，方案 B）。
 // 条件构建在 Repository 内部（D3：escapeLikePattern / 族通配 / recordsOrderBySql 迁入本包）。
 // Scan DBRow + FromDB 唯一转换点。ID 非空时忽略分页返回 0～1 条（现状语义）。

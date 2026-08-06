@@ -56,6 +56,50 @@ export class RecordRepository {
     }
   }
 
+  /** 按 id 判存在（import 逐行 upsert 用）。竞态语义：并发同 id 时唯一索引兜底
+   * （exists→insert 竞态 → 500 整单回滚 = 正确失败语义，保留，见 §10b 步骤 2）。 */
+  async exists(q: Executor, id: string): Promise<boolean> {
+    let rows: { id: string }[]
+    try {
+      rows = (await q
+        .select({ id: schema.records.id })
+        .from(schema.records)
+        .where(eq(schema.records.id, id))
+        .limit(1)) as { id: string }[]
+    } catch (err) {
+      throw newInternal(err)
+    }
+    return rows.length > 0
+  }
+
+  /** 全列覆盖（import 逐行 update；INSERT 分支复用 save）。
+   * rec 为领域 Record（happened_at 为业务层已校验的请求串，repo 内 parseHappenedAt 重解析
+   * 落库——§4 两次解析成本原则，与 save 一致）。无条件覆盖（WHERE id，不检查影响行数
+   * ——import 语义 exists=true 才 update，0 行不可达；保守复刻现状行为）。 */
+  async update(q: Executor, rec: Record): Promise<void> {
+    const happened = parseHappenedAt(rec.happened_at)
+    if ('error' in happened) {
+      // 数据/格式问题 → 400（业务层已校验，不可达防御）
+      throw newValidation(happened.error)
+    }
+    try {
+      await q
+        .update(schema.records)
+        .set({
+          happenedAt: happened.value,
+          utcOffset: happened.utcOffset,
+          numericValue: rec.numeric_value ?? null,
+          rawContent: rec.raw_content,
+          tags: JSON.stringify(rec.tags),
+          objectiveContext: rec.objective_context,
+          aiAnalysis: rec.ai_analysis,
+        })
+        .where(eq(schema.records.id, rec.id))
+    } catch (err) {
+      throw newInternal(err)
+    }
+  }
+
   /** 单条 INSERT + RETURNING 完整行。rec 为领域 Record（happened_at 为业务层已校验的
    * 请求串，Repository 内 parseHappenedAt 解析落库——接受两次解析成本）；
    * 返回规范化领域 Record（fromDB）——业务层唯一使用的 happened_at 来源。 */
