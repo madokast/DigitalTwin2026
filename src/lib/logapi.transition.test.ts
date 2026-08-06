@@ -14,7 +14,19 @@ const select = vi.fn<(...args: unknown[]) => { from: typeof from }>(
 const txWhere = vi.fn().mockResolvedValue({ count: 1 })
 const txSet = vi.fn(() => ({ where: txWhere }))
 const txUpdate = vi.fn(() => ({ set: txSet }))
-const txValues = vi.fn().mockResolvedValue(undefined)
+const txReturning = vi.fn().mockResolvedValue([
+  {
+    id: '01900000-0000-7000-8000-000000000099',
+    happenedAt: new Date('2026-08-02T04:00:00.000Z'),
+    utcOffset: '+08:00',
+    numericValue: null,
+    rawContent: 'Buy milk',
+    tags: JSON.stringify(['todo:transition']),
+    objectiveContext: 'todo transition: 01900000-0000-7000-8000-000000000003 to completed (2026-08-02T04:00:00.000+08:00)',
+    aiAnalysis: null,
+  },
+])
+const txValues = vi.fn(() => ({ returning: txReturning }))
 const txInsert = vi.fn(() => ({ values: txValues }))
 const transaction = vi.fn(
   async (...args: unknown[]) =>
@@ -76,6 +88,7 @@ beforeEach(() => {
   txWhere.mockClear()
   txInsert.mockClear()
   txValues.mockClear()
+  txReturning.mockClear()
 })
 
 describe('transitionTodo domain errors (mocked db)', () => {
@@ -167,7 +180,7 @@ describe('transitionTodo mid-transaction failure (mocked db)', () => {
     limit.mockResolvedValueOnce([
       todoRow(JSON.stringify(['todo:in_progress', 'errand'])),
     ])
-    txValues.mockRejectedValueOnce(new Error('audit insert failed'))
+    txReturning.mockRejectedValueOnce(new Error('audit insert failed'))
 
     const result = await transitionTodo(body)
     expect(result).toEqual({

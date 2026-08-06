@@ -14,7 +14,8 @@ export type Record = {
   ai_analysis: string | null
 }
 
-type RecordRow = {
+/** DB 行形态（含隐列 utcOffset；Repository 写入 / fromDB 读入用，对外不可见） */
+export type RecordRow = {
   id: string
   happenedAt: Date | string
   /** 隐列；fromDB 按此格式化 happened_at（对外不可见） */

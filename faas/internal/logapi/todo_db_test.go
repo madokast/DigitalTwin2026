@@ -138,15 +138,17 @@ const (
 
 func sampleTodoSelect(tags string, rawContent string) *fakeRow {
 	happened := time.Date(2026, 8, 2, 2, 0, 0, 0, time.UTC)
+	// 列序与 recordrepo.FindByID SELECT 对齐：id, happened_at, utc_offset, numeric_value,
+	// raw_content, objective_context, ai_analysis, tags
 	return &fakeRow{vals: []any{
 		todoID,
 		happened,
 		"Z",
 		nil,
 		rawContent,
-		tags,
 		"weekend grocery list",
 		nil,
+		tags,
 	}}
 }
 
@@ -253,9 +255,9 @@ func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 			"Z",
 			nil,
 			"Buy milk",
-			`["todo:in_progress","errand"]`,
 			"weekend grocery list",
 			nil,
+			`["todo:in_progress","errand"]`,
 		}},
 		tx: tx,
 	}

@@ -66,10 +66,10 @@ func NewUoW(pool *pgxpool.Pool) *UoW {
 	return &UoW{pool: NewPoolTxBeginner(pool)}
 }
 
-// Do 闭包式事务：fn 返回 nil → Commit；返回 error → Rollback 并透传该 error。
-// fn 收到的 q 满足 Executor（事务上下文执行器），供 Repository 构造注入。
-func (u *UoW) Do(ctx context.Context, fn func(q Executor) error) error {
-	tx, err := u.pool.Begin(ctx)
+// WithTx 闭包式事务（函数形态，接受任意 TxBeginner——测试可注入 fake）：
+// fn 返回 nil → Commit；返回 error → Rollback 并透传。fn 收到的 q 满足 Executor。
+func WithTx(ctx context.Context, b TxBeginner, fn func(q Executor) error) error {
+	tx, err := b.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -78,4 +78,9 @@ func (u *UoW) Do(ctx context.Context, fn func(q Executor) error) error {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// Do UoW 对象形态的 WithTx（Service 构造注入 UoW 后调用）。
+func (u *UoW) Do(ctx context.Context, fn func(q Executor) error) error {
+	return WithTx(ctx, u.pool, fn)
 }

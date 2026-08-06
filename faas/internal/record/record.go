@@ -13,6 +13,7 @@ import (
 type Record struct {
 	ID               string   `json:"id"`
 	HappenedAt       string   `json:"happened_at"`
+	UtcOffset        string   `json:"-"` // 隐列（对外 JSON 不可见）；FromDB 填充，Repository 写入用
 	NumericValue     *string  `json:"numeric_value,omitempty"`
 	RawContent       *string  `json:"raw_content"`
 	ObjectiveContext string   `json:"objective_context"`
@@ -64,6 +65,7 @@ func FromDB(
 	return Record{
 		ID:                       id,
 		HappenedAt:               formatted,
+		UtcOffset:                utcOffset,
 		NumericValue:              numericValue,
 		RawContent:                rawContent,
 		Tags:                     ParseTagsField(tags),

@@ -4,10 +4,12 @@
  */
 import { logger } from './logger'
 import { errorMessage } from './httperror'
-import { eq } from 'drizzle-orm'
+import { UoW } from '@/db/uow'
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { records } from '@/db/schema'
+import { RecordRepository } from '@/lib/recordrepo'
+import { RecordNotFoundError } from '@/lib/record/errors'
 import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
 import {
   optionalTrimmedNullable,
@@ -258,16 +260,17 @@ export async function transitionTodo(
   }
 
   try {
-    const existing = await db
-      .select()
-      .from(records)
-      .where(eq(records.id, parsed.id))
-      .limit(1)
-    if (existing.length === 0) {
-      return { error: ERR_TODO_NOT_FOUND, status: 404 }
+    // 预读（非 CAS：只用于判断与组装，事务外，事务持有时间最短）
+    const repo = new RecordRepository(db)
+    const found = await repo.findById(parsed.id)
+    if (!found.ok) {
+      if (found.error instanceof RecordNotFoundError) {
+        return { error: ERR_TODO_NOT_FOUND, status: 404 }
+      }
+      return { error: errorMessage(found.error), status: 500 }
     }
 
-    const todoRec = fromDB(existing[0])
+    const todoRec = found.record!
     const tagList = todoRec.tags
 
     if (isTodoAuditRecordTags(tagList)) {
@@ -295,19 +298,16 @@ export async function transitionTodo(
     )
     const newTags = replaceTodoStateInTags(tagList, parsed.target)
 
-    // D7 对齐 Go（todo.go RowsAffected() != 1 → 500）：SELECT 与 UPDATE 之间记录被删的
-    // 并发竞态 —— 影响行数 ≠ 1 时不插审计行、事务回滚，错误文案含实际行数。
-    let raceError: string | null = null
-    await db.transaction(async (tx) => {
-      const res = (await tx
-        .update(records)
-        .set({ tags: tagsJSON(newTags) })
-        .where(eq(records.id, parsed.id))) as { count: number }
-      if (res.count !== 1) {
-        raceError = `todo update affected ${res.count} rows`
-        return
+    // 写路径：UPDATE 状态 tag + INSERT 审计，原子（业务层经 UoW 决定事务性）。
+    // D7 对齐 Go（RowsAffected() != 1 → 500）：SELECT 与 UPDATE 之间记录被删的并发竞态
+    // —— 影响行数 ≠ 1 时不插审计行、事务回滚，错误文案含实际行数。
+    await new UoW(db).do(async (q) => {
+      const txRepo = new RecordRepository(q)
+      const t = await txRepo.transition(parsed.id, newTags)
+      if (!t.ok) {
+        throw t.error
       }
-      await tx.insert(records).values({
+      await txRepo.save({
         id: uuidv7(),
         happenedAt: parsed.happenedAt,
         utcOffset: parsed.utcOffset,
@@ -318,9 +318,6 @@ export async function transitionTodo(
         aiAnalysis: null,
       })
     })
-    if (raceError) {
-      return { error: raceError, status: 500 }
-    }
 
     return {
       id: parsed.id,
