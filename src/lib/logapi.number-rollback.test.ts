@@ -77,7 +77,6 @@ describe('createNumberBatch rollback (mocked db)', () => {
 
   it('returns inserted records on success', async () => {
     const result = await createNumberBatch(body)
-    expect(result.status).toBe(201)
     expect(result.inserted).toBe(2)
     expect(result.records).toHaveLength(2)
   })

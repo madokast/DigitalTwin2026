@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
         id: result.id,
         transition: { from: result.from, to: result.to },
       },
-      { status: result.status },
+      { status: 200 },
     )
   } catch (error) {
     return routeError(error, 'Error transitioning to-do')

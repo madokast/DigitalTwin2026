@@ -61,14 +61,11 @@ export type TextBody = {
   tags?: unknown
 }
 
-export type CreateRecordOk = { record: Record; status: 201 }
-export type CreateRecordResult = CreateRecordOk
 export type CreateBatchOk = {
   inserted: number
   type: TransactionType
   sum: string
   records: Record[]
-  status: 201
 }
 export type CreateBatchResult = CreateBatchOk
 
@@ -93,7 +90,6 @@ function optionalTagList(raw: unknown): { value: string[] } | { error: string } 
 export type CreateNumberBatchOk = {
   inserted: number
   records: Record[]
-  status: 201
 }
 export type CreateNumberBatchResult = CreateNumberBatchOk
 
@@ -128,7 +124,6 @@ export async function createNumberBatch(
   return {
     inserted: out.length,
     records: out,
-    status: 201,
   }
 }
 
@@ -138,13 +133,13 @@ export async function createNumberBatch(
  */
 export async function createBodyWeight(
   body: LogBodyWeightBody,
-): Promise<CreateRecordResult> {
+): Promise<Record> {
   const parsed = parseBodyWeight(body)
   if ('error' in parsed) {
     throw newValidation(parsed.error)
   }
 
-  const rec = await Repo.save(db, {
+  return Repo.save(db, {
     id: uuidv7(),
     happened_at: parsed.happenedAtRaw,
     numeric_value: parsed.numericValue,
@@ -153,7 +148,6 @@ export async function createBodyWeight(
     objective_context: parsed.objectiveContext,
     ai_analysis: parsed.aiAnalysis,
   })
-  return { record: rec, status: 201 }
 }
 
 /**
@@ -162,13 +156,13 @@ export async function createBodyWeight(
  */
 export async function createTodo(
   body: LogTodoBody,
-): Promise<CreateRecordResult> {
+): Promise<Record> {
   const parsed = parseTodo(body)
   if ('error' in parsed) {
     throw newValidation(parsed.error)
   }
 
-  const rec = await Repo.save(db, {
+  return Repo.save(db, {
     id: uuidv7(),
     happened_at: parsed.happenedAtRaw,
     raw_content: parsed.rawContent,
@@ -176,7 +170,6 @@ export async function createTodo(
     objective_context: parsed.objectiveContext,
     ai_analysis: parsed.aiAnalysis,
   })
-  return { record: rec, status: 201 }
 }
 
 export type TransitionTodoOk = {
@@ -184,7 +177,6 @@ export type TransitionTodoOk = {
   from: TodoState
   to: TodoState
   todoAuditNotifyText: string
-  status: 200
 }
 export type TransitionTodoResult = TransitionTodoOk
 
@@ -261,12 +253,11 @@ export async function transitionTodo(
       from,
       to: parsed.target,
       todoAuditNotifyText: notifyText,
-      status: 200,
     }
 }
 
 /** 与 Go `logapi.CreateText` 对齐：校验 + INSERT */
-export async function createText(body: TextBody): Promise<CreateRecordResult> {
+export async function createText(body: TextBody): Promise<Record> {
   const unknown = rejectUnknownKeys(body, LOG_TEXT_KEYS)
   if (unknown) {
     throw newValidation(unknown.error)
@@ -306,7 +297,7 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     throw newValidation(aiAnalysis.error)
   }
 
-  const rec = await Repo.save(db, {
+  return Repo.save(db, {
     id: uuidv7(),
     happened_at: happenedAtRaw,
     raw_content: rawContentResult.value,
@@ -314,7 +305,6 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     objective_context: objCtxResult.value,
     ai_analysis: aiAnalysis.value,
   })
-  return { record: rec, status: 201 }
 }
 
 /**
@@ -323,13 +313,13 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
  */
 export async function createReview(
   body: unknown,
-): Promise<CreateRecordResult> {
+): Promise<Record> {
   const parsed = parseReview(body as LogReviewBody)
   if ('error' in parsed) {
     throw newValidation(parsed.error)
   }
 
-  const rec = await Repo.save(db, {
+  return Repo.save(db, {
     id: uuidv7(),
     happened_at: parsed.happenedAtRaw,
     raw_content: parsed.rawContent,
@@ -337,7 +327,6 @@ export async function createReview(
     objective_context: parsed.objectiveContext,
     ai_analysis: parsed.aiAnalysis,
   })
-  return { record: rec, status: 201 }
 }
 
 /**
@@ -372,6 +361,5 @@ export async function createTransactionBatch(
     type: parsed.type,
     sum: sumMoneyAmounts2(parsed.entries.map((e) => e.amount)),
     records: out,
-    status: 201,
   }
 }

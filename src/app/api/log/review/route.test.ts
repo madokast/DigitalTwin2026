@@ -46,7 +46,7 @@ beforeEach(() => {
   createReview.mockReset()
   scheduleBestEffortNotify.mockReset()
   notifyRecordInserted.mockReset()
-  createReview.mockResolvedValue({ status: 201, record: sampleRecord })
+  createReview.mockResolvedValue(sampleRecord)
 })
 
 describe('POST /api/log/review notify schedule', () => {

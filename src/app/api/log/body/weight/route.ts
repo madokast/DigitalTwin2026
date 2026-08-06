@@ -17,11 +17,11 @@ export async function POST(request: NextRequest) {
 
     const result = await createBodyWeight(parsed.value as LogBodyWeightBody)
     
-    scheduleBestEffortNotify(() => notifyRecordInserted(result.record))
+    scheduleBestEffortNotify(() => notifyRecordInserted(result))
 
     return NextResponse.json(
-      { success: true, record: result.record },
-      { status: result.status },
+      { success: true, record: result },
+      { status: 201 },
     )
   } catch (error) {
     return routeError(error, 'Error creating body weight record')

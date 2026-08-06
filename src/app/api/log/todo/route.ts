@@ -18,11 +18,11 @@ export async function POST(request: NextRequest) {
 
     const result = await createTodo(parsed.value as LogTodoBody)
     
-    scheduleBestEffortNotify(() => notifyRecordInserted(result.record))
+    scheduleBestEffortNotify(() => notifyRecordInserted(result))
 
     return NextResponse.json(
-      { success: true, record: toTodoRecordJson(result.record) },
-      { status: result.status },
+      { success: true, record: toTodoRecordJson(result) },
+      { status: 201 },
     )
   } catch (error) {
     return routeError(error, 'Error creating to-do record')

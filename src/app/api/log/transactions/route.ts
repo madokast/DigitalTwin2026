@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
         sum: result.sum,
         atomic: true,
       },
-      { status: result.status },
+      { status: 201 },
     )
   } catch (error) {
     return routeError(error, 'Error creating transaction records')

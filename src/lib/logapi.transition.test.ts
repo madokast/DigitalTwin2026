@@ -143,7 +143,6 @@ describe('transitionTodo success (mocked db)', () => {
       from: 'in_progress',
       to: 'completed',
       todoAuditNotifyText: wantNotify,
-      status: 200,
     })
     expect(result).not.toHaveProperty('record')
     expect(result).not.toHaveProperty('audit_record')

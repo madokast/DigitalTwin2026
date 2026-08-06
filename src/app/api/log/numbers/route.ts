@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
         inserted: result.inserted,
         atomic: true,
       },
-      { status: result.status },
+      { status: 201 },
     )
   } catch (error) {
     return routeError(error, 'Error creating number records')

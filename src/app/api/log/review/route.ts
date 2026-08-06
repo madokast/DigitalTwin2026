@@ -17,11 +17,11 @@ export async function POST(request: NextRequest) {
     const result = await createReview(parsed.value)
     
     // 响应写出后再通知，避免渠道阻塞 201；失败不影响已成功写入
-    scheduleBestEffortNotify(() => notifyRecordInserted(result.record))
+    scheduleBestEffortNotify(() => notifyRecordInserted(result))
 
     return NextResponse.json(
-      { success: true, record: result.record },
-      { status: result.status },
+      { success: true, record: result },
+      { status: 201 },
     )
   } catch (error) {
     return routeError(error, 'Error creating review record')
