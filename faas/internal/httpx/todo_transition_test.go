@@ -102,10 +102,10 @@ func TestLogTodoTransitionDomainErrorsWithoutDB(t *testing.T) {
 		status int
 		err    string
 	}{
-		{"not found", 404, tododraft.ErrTodoNotFound.Error()},
-		{"not a todo", 400, tododraft.ErrNotATodo.Error()},
-		{"audit", 400, tododraft.ErrAuditTransition.Error()},
-		{"already", 400, tododraft.ErrAlreadyTarget.Error()},
+		{"not found", 404, tododraft.ErrTodoNotFound},
+		{"not a todo", 400, tododraft.ErrNotATodo},
+		{"audit", 400, tododraft.ErrAuditTransition},
+		{"already", 400, tododraft.ErrAlreadyTarget},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

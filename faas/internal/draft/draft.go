@@ -25,7 +25,7 @@ const (
 )
 
 // ErrNumericValueMustBeString 在 JSON 以 number 传入 numeric_value 时返回（硬切断，不静默转 string）。
-var ErrNumericValueMustBeString = errors.New("numeric_value must be a decimal string")
+const ErrNumericValueMustBeString = "numeric_value must be a decimal string"
 
 // ValidateHappenedAt 业务层校验 happened_at（零 DB，校验失败 → 400）：
 // 只校验不产 time/offset，构造 record.Record（HappenedAt = 已校验请求串）后由
@@ -93,7 +93,7 @@ func ParseNumericValue(raw any) (*string, error) {
 		}
 		return &trimmed, nil
 	case float64, json.Number:
-		return nil, fmt.Errorf("%w", ErrNumericValueMustBeString)
+		return nil, errors.New(ErrNumericValueMustBeString)
 	default:
 		return nil, fmt.Errorf("invalid numeric_value")
 	}

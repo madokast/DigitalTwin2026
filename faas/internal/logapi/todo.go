@@ -63,21 +63,21 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, parsed tododraft.Norma
 	if me != nil {
 		// 404 文案映射为待办专属（契约）；其余（驱动错误）透传 myerr 500
 		if me.IsNotFound() {
-			return TransitionResult{}, myerr.NewNotFound(tododraft.ErrTodoNotFound.Error())
+			return TransitionResult{}, myerr.NewNotFound(tododraft.ErrTodoNotFound)
 		}
 		return TransitionResult{}, me
 	}
 
 	tagList := todoRec.Tags
 	if tododraft.IsTodoAuditRecordTags(tagList) {
-		return TransitionResult{}, myerr.NewValidation(tododraft.ErrAuditTransition.Error())
+		return TransitionResult{}, myerr.NewValidation(tododraft.ErrAuditTransition)
 	}
 	from := tododraft.TodoStateFromTags(tagList)
 	if from == "" {
-		return TransitionResult{}, myerr.NewValidation(tododraft.ErrNotATodo.Error())
+		return TransitionResult{}, myerr.NewValidation(tododraft.ErrNotATodo)
 	}
 	if from == parsed.Target {
-		return TransitionResult{}, myerr.NewValidation(tododraft.ErrAlreadyTarget.Error())
+		return TransitionResult{}, myerr.NewValidation(tododraft.ErrAlreadyTarget)
 	}
 
 	content := ""

@@ -21,7 +21,7 @@ var segmentPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 var moneyAmountPattern = regexp.MustCompile(`^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$`)
 
 var (
-	ErrAmountMustBeString = errors.New("amount must be a decimal string")
+	ErrAmountMustBeString = "amount must be a decimal string"
 	ErrInvalidAmount      = errors.New("invalid amount: non-zero decimal string, optional leading minus (no plus), at most 2 fractional digits, absolute value at most 999999999999.99, no spaces; e.g. 10, 10.5, 10.50, -1.5")
 )
 
@@ -164,7 +164,7 @@ func parseAmount(raw any) (string, error) {
 		}
 		return NormalizeMoneyAmount(trimmed), nil
 	case float64, json.Number:
-		return "", fmt.Errorf("%w", ErrAmountMustBeString)
+		return "", errors.New(ErrAmountMustBeString)
 	default:
 		return "", fmt.Errorf("%w", ErrInvalidAmount)
 	}

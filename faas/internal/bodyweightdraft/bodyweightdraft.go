@@ -18,7 +18,7 @@ import (
 // 体重形态：正数、至多 3 位整数或至多两位小数；禁 +、负号、空格、残缺点、前导零。
 var weightAmountPattern = regexp.MustCompile(`^(?:0|[1-9]\d{0,2})(?:\.\d{1,2})?$`)
 
-var ErrInvalidWeight = errors.New("invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50")
+const ErrInvalidWeight = "invalid weight: positive decimal string from 1.00 to 500.00 inclusive, at most 2 fractional digits, no spaces; e.g. 75, 75.5, 75.50"
 
 const weightMinCents = 100   // 1.00
 const weightMaxCents = 50000 // 500.00
@@ -70,17 +70,17 @@ func ParseWeightAmount(raw any) (string, error) {
 	case string:
 		trimmed := strings.TrimSpace(v)
 		if !weightAmountPattern.MatchString(trimmed) {
-			return "", fmt.Errorf("%w", ErrInvalidWeight)
+			return "", errors.New(ErrInvalidWeight)
 		}
 		stored := transactiondraft.NormalizeMoneyAmount(trimmed)
 		if !WeightCentsInRange(stored) {
-			return "", fmt.Errorf("%w", ErrInvalidWeight)
+			return "", errors.New(ErrInvalidWeight)
 		}
 		return stored, nil
 	case float64, json.Number:
-		return "", fmt.Errorf("%w", draft.ErrNumericValueMustBeString)
+		return "", errors.New(draft.ErrNumericValueMustBeString)
 	default:
-		return "", fmt.Errorf("%w", ErrInvalidWeight)
+		return "", errors.New(ErrInvalidWeight)
 	}
 }
 

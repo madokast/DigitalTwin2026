@@ -64,7 +64,7 @@ func TestCreateTransactionBatchRejectsJSONNumberAmount(t *testing.T) {
 		"entries": [{"amount": 25, "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
 	_, err := transactiondraft.ParseTransactionBatch(raw)
-	if err == nil || !strings.Contains(err.Error(), transactiondraft.ErrAmountMustBeString.Error()) {
+	if err == nil || !strings.Contains(err.Error(), transactiondraft.ErrAmountMustBeString) {
 		t.Fatalf("err=%v", err)
 	}
 }

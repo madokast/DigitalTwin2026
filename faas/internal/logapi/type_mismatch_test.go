@@ -75,7 +75,7 @@ func TestTransitionTodoRejectsValidation(t *testing.T) {
 		},
 		{
 			`{"id":"01900000-0000-7000-8000-000000000003","target":"done","happened_at":"2026-08-02T12:00:00+08:00"}`,
-			tododraft.ErrInvalidTarget.Error(),
+			tododraft.ErrInvalidTarget,
 		},
 		{
 			`{"id":"01900000-0000-7000-8000-000000000003","target":"completed","happened_at":"2026-08-02T12:00:00+08:00","created_at":"x"}`,

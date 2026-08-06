@@ -89,13 +89,14 @@ func ShouldDeformTodoRecordTags(tagList []string) bool {
 	return false
 }
 
-// Transition 四类可区分英文错误（与 TS tododraft 字节一致）。
-var (
-	ErrTodoNotFound    = errors.New("to-do not found")
-	ErrNotATodo        = errors.New("record is not a to-do")
-	ErrAuditTransition = errors.New("cannot transition a to-do audit record")
-	ErrAlreadyTarget   = errors.New("to-do is already in target state")
-	ErrInvalidTarget   = errors.New("target must be one of: in_progress, completed, cancelled, paused")
+// Transition 四类可区分英文错误文案（与 TS tododraft 字节一致）。
+// 字符串常量（非 error 哨兵）：仅作 myerr 构造文案 / draft 层错误文案，无 errors.Is 语义。
+const (
+	ErrTodoNotFound    = "to-do not found"
+	ErrNotATodo        = "record is not a to-do"
+	ErrAuditTransition = "cannot transition a to-do audit record"
+	ErrAlreadyTarget   = "to-do is already in target state"
+	ErrInvalidTarget   = "target must be one of: in_progress, completed, cancelled, paused"
 )
 
 // LogTodoTransitionBody POST /api/log/todo/transition 请求体。
@@ -257,12 +258,12 @@ func ParseTodoTransition(raw []byte) (NormalizedTodoTransition, error) {
 	target, ok := body.Target.(string)
 	if !ok || target == "" {
 		if !ok {
-			return NormalizedTodoTransition{}, fmt.Errorf("%w", ErrInvalidTarget)
+			return NormalizedTodoTransition{}, errors.New(ErrInvalidTarget)
 		}
 		return NormalizedTodoTransition{}, fmt.Errorf("missing required field: target")
 	}
 	if !isValidTodoState(target) {
-		return NormalizedTodoTransition{}, fmt.Errorf("%w", ErrInvalidTarget)
+		return NormalizedTodoTransition{}, errors.New(ErrInvalidTarget)
 	}
 
 	createdAt := happenedAtString(body.HappenedAt)
