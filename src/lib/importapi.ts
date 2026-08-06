@@ -7,6 +7,7 @@
  */
 
 import { logger } from './logger'
+import { errorMessage } from './httperror'
 import { eq } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
@@ -266,6 +267,6 @@ export async function importRecordsJsonl(
       return { ok: false, error: err.message, status: err.status }
     }
     logger.error({ err }, 'import records')
-    return { ok: false, error: 'Internal server error', status: 500 }
+    return { ok: false, error: errorMessage(err), status: 500 }
   }
 }

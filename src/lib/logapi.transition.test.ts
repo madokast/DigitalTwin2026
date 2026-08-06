@@ -171,7 +171,7 @@ describe('transitionTodo mid-transaction failure (mocked db)', () => {
 
     const result = await transitionTodo(body)
     expect(result).toEqual({
-      error: 'Internal server error',
+      error: 'audit insert failed',
       status: 500,
     })
     expect(result).not.toHaveProperty('id')

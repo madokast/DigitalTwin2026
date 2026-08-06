@@ -5,7 +5,7 @@
  */
 
 import { logger } from '@/lib/logger'
-import { errorResponse } from '@/lib/httperror'
+import { errorMessage, errorResponse } from '@/lib/httperror'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   extractMultipartBoundary,
@@ -104,6 +104,6 @@ export async function POST(request: NextRequest) {
     return response
   } catch (error) {
     logger.error({ err: error }, 'Error importing records')
-    return errorResponse('Internal server error', 500)
+    return errorResponse(errorMessage(error), 500)
   }
 }

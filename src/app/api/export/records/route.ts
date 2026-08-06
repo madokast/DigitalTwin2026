@@ -1,6 +1,6 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { errorResponse } from '@/lib/httperror'
+import { errorMessage, errorResponse } from '@/lib/httperror'
 import {
   buildExportNdjson,
   exportContentDisposition,
@@ -44,6 +44,6 @@ export async function GET(request: NextRequest) {
     return response
   } catch (error) {
     logger.error({ err: error }, 'export records')
-    return errorResponse('Internal server error', 500)
+    return errorResponse(errorMessage(error), 500)
   }
 }

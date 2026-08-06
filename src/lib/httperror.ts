@@ -21,6 +21,12 @@ export type ErrorResponse = {
   detail: string
 }
 
+// errorMessage：任意捕获值 → detail 字符串（与 Go errorDetail 对称，见
+// docs/20260806-internal-error-transparency.md §3.5）。Error → message；非 Error → String()。
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 // errorResponse 组装 problem+json 错误响应（Content-Type: application/problem+json）。
 export function errorResponse(
   detail: string,

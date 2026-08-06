@@ -1,6 +1,6 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { errorResponse } from '@/lib/httperror'
+import { errorMessage, errorResponse } from '@/lib/httperror'
 import { createBodyWeight } from '@/lib/logapi'
 import type { LogBodyWeightBody } from '@/lib/bodyweightdraft'
 import { readJsonBody } from '@/lib/httpjson'
@@ -29,6 +29,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     logger.error({ err: error }, 'Error creating body weight record')
-    return errorResponse('Internal server error', 500)
+    return errorResponse(errorMessage(error), 500)
   }
 }

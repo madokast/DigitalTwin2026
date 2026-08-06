@@ -1,5 +1,5 @@
 import { logger } from '@/lib/logger'
-import { errorResponse } from '@/lib/httperror'
+import { errorMessage, errorResponse } from '@/lib/httperror'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   formatNowInZone,
@@ -25,6 +25,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     logger.error({ err: error }, 'query time')
-    return errorResponse('Internal server error', 500)
+    return errorResponse(errorMessage(error), 500)
   }
 }
