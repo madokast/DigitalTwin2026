@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
+	"github.com/mdk/digitaltwin2026/faas/internal/numberdraft"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/transactiondraft"
 )
@@ -17,7 +18,11 @@ func TestCreateTextRejectsReservedTag(t *testing.T) {
 		"tags": ["transaction_entry"],
 		"objective_context": "x"
 	}`)
-	_, status, err := CreateText(context.Background(), nil, raw)
+	body, err := ParseTextBody(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, status, err := CreateText(context.Background(), nil, body)
 	if status != 400 {
 		t.Fatalf("status %d", status)
 	}
@@ -34,7 +39,11 @@ func TestCreateTextRejectsTodoReservedTag(t *testing.T) {
 		"tags": ["todo:in_progress"],
 		"objective_context": "x"
 	}`)
-	_, status, err := CreateText(context.Background(), nil, raw)
+	body, err := ParseTextBody(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, status, err := CreateText(context.Background(), nil, body)
 	if status != 400 {
 		t.Fatalf("status %d", status)
 	}
@@ -46,9 +55,9 @@ func TestCreateTextRejectsTodoReservedTag(t *testing.T) {
 
 func TestCreateTransactionBatchRejectsEmptyEntries(t *testing.T) {
 	raw := []byte(`{"happened_at":"2026-08-01T12:30:00+08:00","type":"expense","entries":[]}`)
-	_, _, _, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
-	if status != 400 || err == nil || err.Error() != "entries must be a non-empty array" {
-		t.Fatalf("status=%d err=%v", status, err)
+	_, err := transactiondraft.ParseTransactionBatch(raw)
+	if err == nil || err.Error() != "entries must be a non-empty array" {
+		t.Fatalf("err=%v", err)
 	}
 }
 
@@ -58,10 +67,7 @@ func TestCreateTransactionBatchRejectsJSONNumberAmount(t *testing.T) {
 		"type": "expense",
 		"entries": [{"amount": 25, "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
-	_, _, _, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
-	if status != 400 {
-		t.Fatalf("status %d", status)
-	}
+	_, err := transactiondraft.ParseTransactionBatch(raw)
 	if err == nil || !strings.Contains(err.Error(), transactiondraft.ErrAmountMustBeString.Error()) {
 		t.Fatalf("err=%v", err)
 	}
@@ -72,9 +78,9 @@ func TestCreateTransactionBatchRejectsMissingType(t *testing.T) {
 		"happened_at": "2026-08-01T12:30:00+08:00",
 		"entries": [{"amount": "25.00", "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
-	_, _, _, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
-	if status != 400 || err == nil || err.Error() != "missing required field: type" {
-		t.Fatalf("status=%d err=%v", status, err)
+	_, err := transactiondraft.ParseTransactionBatch(raw)
+	if err == nil || err.Error() != "missing required field: type" {
+		t.Fatalf("err=%v", err)
 	}
 }
 
@@ -84,12 +90,12 @@ func TestCreateTransactionBatchRejectsZeroAmount(t *testing.T) {
 		"type": "income",
 		"entries": [{"amount": "0.00", "memo": "x", "category": "food", "subcategory": "lunch"}]
 	}`)
-	_, _, _, _, status, err := CreateTransactionBatch(context.Background(), nil, raw)
-	if status != 400 {
-		t.Fatalf("status %d", status)
+	_, err := transactiondraft.ParseTransactionBatch(raw)
+	if err == nil {
+		t.Fatal("want error")
 	}
 	want := "entries[0]: " + transactiondraft.ErrInvalidAmount.Error()
-	if err == nil || err.Error() != want {
+	if err.Error() != want {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -151,10 +157,7 @@ func TestCreateNumberBatchValidation(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		_, _, status, err := CreateNumberBatch(context.Background(), nil, []byte(c.raw))
-		if status != 400 {
-			t.Fatalf("%s: status %d", c.name, status)
-		}
+		_, err := numberdraft.ParseNumberBatch([]byte(c.raw))
 		if err == nil || err.Error() != c.want {
 			t.Fatalf("%s: got %v want %q", c.name, err, c.want)
 		}
@@ -168,7 +171,11 @@ func TestCreateTextRejectsDuplicateTags(t *testing.T) {
 		"tags": ["study", "study"],
 		"objective_context": "x"
 	}`)
-	_, status, err := CreateText(context.Background(), nil, raw)
+	body, err := ParseTextBody(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, status, err := CreateText(context.Background(), nil, body)
 	if status != 400 || err == nil || err.Error() != `duplicate tag "study"` {
 		t.Fatalf("status=%d err=%v", status, err)
 	}

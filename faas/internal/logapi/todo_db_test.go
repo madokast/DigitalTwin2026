@@ -136,6 +136,15 @@ const (
 	}`
 )
 
+// todoParsed transitionTodo 的 typed 入参（route 层经 tododraft.ParseTodoTransition 解析产物）。
+var todoParsed = func() tododraft.NormalizedTodoTransition {
+	parsed, err := tododraft.ParseTodoTransition([]byte(todoBody))
+	if err != nil {
+		panic(err)
+	}
+	return parsed
+}()
+
 func sampleTodoSelect(tags string, rawContent string) *fakeRow {
 	happened := time.Date(2026, 8, 2, 2, 0, 0, 0, time.UTC)
 	// 列序与 recordrepo.FindByID SELECT 对齐：id, happened_at, utc_offset, numeric_value,
@@ -193,7 +202,7 @@ func TestTransitionTodo_fourDomainErrors(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			_, status, err := transitionTodo(context.Background(), c.db, []byte(todoBody))
+			_, status, err := transitionTodo(context.Background(), c.db, todoParsed)
 			if status != c.status {
 				t.Fatalf("status=%d want %d", status, c.status)
 			}
@@ -214,7 +223,7 @@ func TestTransitionTodo_updateAffectedNotOne(t *testing.T) {
 		selectRow: sampleTodoSelect(`["todo:in_progress"]`, "Buy milk"),
 		tx:        &fakeTx{rowsAff: 2},
 	}
-	_, status, err := transitionTodo(context.Background(), fdb, []byte(todoBody))
+	_, status, err := transitionTodo(context.Background(), fdb, todoParsed)
 	if status != 500 || err == nil || !strings.Contains(err.Error(), "todo update affected 2 rows") {
 		t.Fatalf("status=%d err=%v", status, err)
 	}
@@ -262,7 +271,7 @@ func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 		tx: tx,
 	}
 
-	result, status, err := transitionTodo(context.Background(), db, []byte(todoBody))
+	result, status, err := transitionTodo(context.Background(), db, todoParsed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +307,7 @@ func TestTransitionTodo_updateOkInsertFailRollsBack(t *testing.T) {
 		tx:        tx,
 	}
 
-	result, status, err := transitionTodo(context.Background(), db, []byte(todoBody))
+	result, status, err := transitionTodo(context.Background(), db, todoParsed)
 	if status != 500 {
 		t.Fatalf("status=%d want 500", status)
 	}

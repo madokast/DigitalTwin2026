@@ -13,14 +13,10 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
 
-// CreateTodo 与 Next createTodo 对齐：解析委托 tododraft，落库强制含 todo:in_progress。
+// CreateTodo 与 Next createTodo 对齐：落库强制含 todo:in_progress。
+// 收 typed 产物（route 层经 tododraft.ParseTodo 解析校验）。
 // 返回内部 Record；HTTP 层再用 tododraft.ToTodoRecordJSON 变形响应。
-func CreateTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {
-	parsed, err := tododraft.ParseTodo(raw)
-	if err != nil {
-		return record.Record{}, 400, err
-	}
-
+func CreateTodo(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodo) (record.Record, int, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, 500, err
@@ -52,16 +48,13 @@ type TransitionResult struct {
 }
 
 // TransitionTodo 与 Next transitionTodo 对齐：同事务 UPDATE 状态 tag + INSERT 审计。
+// 收 typed 产物（route 层经 tododraft.ParseTodoTransition 解析校验）。
 // pool 经 db.NewPoolTxBeginner 适配为 TxBeginner；单测直接调 transitionTodo 注入 fake。
-func TransitionTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (TransitionResult, int, error) {
-	return transitionTodo(ctx, db.NewPoolTxBeginner(pool), raw)
+func TransitionTodo(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodoTransition) (TransitionResult, int, error) {
+	return transitionTodo(ctx, db.NewPoolTxBeginner(pool), parsed)
 }
 
-func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (TransitionResult, int, error) {
-	parsed, err := tododraft.ParseTodoTransition(raw)
-	if err != nil {
-		return TransitionResult{}, 400, err
-	}
+func transitionTodo(ctx context.Context, q db.TxBeginner, parsed tododraft.NormalizedTodoTransition) (TransitionResult, int, error) {
 	if !record.IsValidID(parsed.ID) {
 		return TransitionResult{}, 400, record.ErrInvalidID
 	}

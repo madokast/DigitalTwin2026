@@ -11,12 +11,9 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 )
 
-// CreateBodyWeight 与 Next createBodyWeight 对齐：解析委托 bodyweightdraft，落库强制含 body:weight。
-func CreateBodyWeight(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {
-	parsed, err := bodyweightdraft.ParseBodyWeight(raw)
-	if err != nil {
-		return record.Record{}, 400, err
-	}
+// CreateBodyWeight 与 Next createBodyWeight 对齐：落库强制含 body:weight。
+// 收 typed 产物（route 层经 bodyweightdraft.ParseBodyWeight 解析校验）。
+func CreateBodyWeight(ctx context.Context, pool *pgxpool.Pool, parsed bodyweightdraft.NormalizedBodyWeight) (record.Record, int, error) {
 
 	id, err := uuid.NewV7()
 	if err != nil {

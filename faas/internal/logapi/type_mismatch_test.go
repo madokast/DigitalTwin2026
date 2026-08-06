@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/mdk/digitaltwin2026/faas/internal/bodyweightdraft"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
@@ -11,7 +12,11 @@ import (
 func TestCreateTextTypeMismatchMessages(t *testing.T) {
 	t.Parallel()
 	raw := `{"happened_at":"2026-07-30T08:00:00Z","raw_content":123,"tags":["study"],"objective_context":"x"}`
-	_, status, err := CreateText(context.Background(), nil, []byte(raw))
+	body, err := ParseTextBody([]byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, status, err := CreateText(context.Background(), nil, body)
 	if status != 400 || err == nil || err.Error() != "missing required field: raw_content" {
 		t.Fatalf("status=%d err=%v", status, err)
 	}
@@ -24,9 +29,9 @@ func TestCreateBodyWeightRejectsJSONNumber(t *testing.T) {
 		"numeric_value": 75.5,
 		"objective_context": "x"
 	}`)
-	_, status, err := CreateBodyWeight(context.Background(), nil, raw)
-	if status != 400 || err == nil || err.Error() != "numeric_value must be a decimal string" {
-		t.Fatalf("status=%d err=%v", status, err)
+	_, err := bodyweightdraft.ParseBodyWeight(raw)
+	if err == nil || err.Error() != "numeric_value must be a decimal string" {
+		t.Fatalf("err=%v", err)
 	}
 }
 
@@ -50,9 +55,9 @@ func TestCreateTodoRejects(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		_, status, err := CreateTodo(context.Background(), nil, []byte(c.raw))
-		if status != 400 || err == nil || err.Error() != c.want {
-			t.Fatalf("%s: status=%d err=%v want %q", c.raw, status, err, c.want)
+		_, err := tododraft.ParseTodo([]byte(c.raw))
+		if err == nil || err.Error() != c.want {
+			t.Fatalf("%s: err=%v want %q", c.raw, err, c.want)
 		}
 	}
 }
@@ -81,7 +86,18 @@ func TestTransitionTodoRejectsValidation(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		_, status, err := TransitionTodo(context.Background(), nil, []byte(c.raw))
+		var status int
+		var err error
+		if c.want == record.ErrInvalidID.Error() {
+			parsed, perr := tododraft.ParseTodoTransition([]byte(c.raw))
+			if perr != nil {
+				t.Fatalf("%s: parse: %v", c.raw, perr)
+			}
+			_, status, err = TransitionTodo(context.Background(), nil, parsed)
+		} else {
+			_, err = tododraft.ParseTodoTransition([]byte(c.raw))
+			status = 400
+		}
 		if status != 400 || err == nil || err.Error() != c.want {
 			t.Fatalf("%s: status=%d err=%v want %q", c.raw, status, err, c.want)
 		}

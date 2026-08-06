@@ -11,12 +11,8 @@ import (
 )
 
 // CreateReview 校验复盘请求并落库；落库 tags = [review:{cadence}, ...clientTags]
-// （自动附加，客户端不得传 review:*；解析已在 reviewdraft 内完成）。
-func CreateReview(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {
-	parsed, err := reviewdraft.ParseReview(raw)
-	if err != nil {
-		return record.Record{}, 400, err
-	}
+// （自动附加，客户端不得传 review:*）。收 typed 产物（route 层经 reviewdraft.ParseReview 解析校验）。
+func CreateReview(ctx context.Context, pool *pgxpool.Pool, parsed reviewdraft.NormalizedReview) (record.Record, int, error) {
 
 	tagList := reviewdraft.ReviewTagsForCadence(parsed.Cadence, parsed.Tags)
 	id, err := uuid.NewV7()

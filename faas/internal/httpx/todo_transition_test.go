@@ -22,7 +22,7 @@ func TestLogTodoTransitionSuccessBodyAndNotify(t *testing.T) {
 	var notified []string
 	s := &Server{
 		Tokens: auth.Tokens{AI: "ai-tok", Admin: "admin-tok"},
-		TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ []byte) (logapi.TransitionResult, int, error) {
+		TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ tododraft.NormalizedTodoTransition) (logapi.TransitionResult, int, error) {
 			return logapi.TransitionResult{
 				ID:                  todoID,
 				From:                tododraft.TodoStateInProgress,
@@ -112,7 +112,7 @@ func TestLogTodoTransitionDomainErrorsWithoutDB(t *testing.T) {
 			wantErr := c.err
 			s := &Server{
 				Tokens: auth.Tokens{AI: "ai-tok", Admin: "admin-tok"},
-				TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ []byte) (logapi.TransitionResult, int, error) {
+				TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ tododraft.NormalizedTodoTransition) (logapi.TransitionResult, int, error) {
 					return logapi.TransitionResult{}, wantStatus, errString(wantErr)
 				},
 			}

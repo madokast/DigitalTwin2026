@@ -26,6 +26,19 @@ var logTextKeys = []string{
 	"ai_analysis", "tags",
 }
 
+// ParseTextBody 纯解析（reject unknown keys + decode，不校验语义）：route 层调用，
+// 产出的 typed body 传给 CreateText（业务层校验 + 落库）。
+func ParseTextBody(raw []byte) (TextBody, error) {
+	var body TextBody
+	if err := jsonutil.RejectUnknownObjectKeys(raw, logTextKeys); err != nil {
+		return TextBody{}, err
+	}
+	if err := jsonutil.DecodeUseNumber(raw, &body); err != nil {
+		return TextBody{}, err
+	}
+	return body, nil
+}
+
 func happenedAtString(raw any) string {
 	s, _ := raw.(string)
 	return s
@@ -62,19 +75,9 @@ func optionalTagList(raw any) ([]string, error) {
 	return out, nil
 }
 
-func decodeJSONBody(raw []byte, dest any) error {
-	return jsonutil.DecodeUseNumber(raw, dest)
-}
-
-// CreateText 与 Next createText 对齐：校验 + INSERT。
-func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Record, int, error) {
-	if err := jsonutil.RejectUnknownObjectKeys(raw, logTextKeys); err != nil {
-		return record.Record{}, 400, err
-	}
-	var body TextBody
-	if err := decodeJSONBody(raw, &body); err != nil {
-		return record.Record{}, 400, err
-	}
+// CreateText 与 Next createText 对齐：校验 + INSERT。收 typed 请求体（route 层已
+// reject unknown keys + decode）；业务层只做字段校验与落库。
+func CreateText(ctx context.Context, pool *pgxpool.Pool, body TextBody) (record.Record, int, error) {
 	happenedRaw := happenedAtString(body.HappenedAt)
 	if err := draft.ValidateHappenedAt(happenedRaw); err != nil {
 		return record.Record{}, 400, err

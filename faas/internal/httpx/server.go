@@ -16,19 +16,23 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
+	"github.com/mdk/digitaltwin2026/faas/internal/bodyweightdraft"
 	"github.com/mdk/digitaltwin2026/faas/internal/dbprobe"
 	"github.com/mdk/digitaltwin2026/faas/internal/exportapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/importapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/logapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/notify"
+	"github.com/mdk/digitaltwin2026/faas/internal/numberdraft"
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/faas/internal/query"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
+	"github.com/mdk/digitaltwin2026/faas/internal/reviewdraft"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
 	"github.com/mdk/digitaltwin2026/faas/internal/timeutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
+	"github.com/mdk/digitaltwin2026/faas/internal/transactiondraft"
 )
 
 // MaxBodyBytes 与 Next MAX_HTTP_BODY_BYTES（256 KiB）对齐。
@@ -47,7 +51,7 @@ type Server struct {
 	Qqbot    *qqbot.Sender
 	Notify   *notify.Notifier
 	// TransitionTodo 可选；nil → logapi.TransitionTodo（单测注入成功/域错误结果，无需真实数据库）。
-	TransitionTodo func(ctx context.Context, pool *pgxpool.Pool, raw []byte) (logapi.TransitionResult, int, error)
+	TransitionTodo func(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodoTransition) (logapi.TransitionResult, int, error)
 	// NotifyUser 可选；非 nil 时同步调用（单测 spy）；nil → go notify().NotifyUser（生产路径）。
 	NotifyUser func(text string)
 	// FetchExportRecords 可选；nil → exportapi.FetchExportRecords（单测注入空页，无需真实数据库）。
@@ -206,7 +210,12 @@ func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	inserted, recs, status, err := logapi.CreateNumberBatch(r.Context(), s.Pool, raw)
+	batch, err := numberdraft.ParseNumberBatch(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	inserted, recs, status, err := logapi.CreateNumberBatch(r.Context(), s.Pool, batch)
 	if err != nil {
 		writeLogOrError(w, status, err, "Error creating number records")
 		return
@@ -223,7 +232,12 @@ func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	rec, status, err := logapi.CreateBodyWeight(r.Context(), s.Pool, raw)
+	parsed, err := bodyweightdraft.ParseBodyWeight(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	rec, status, err := logapi.CreateBodyWeight(r.Context(), s.Pool, parsed)
 	if err != nil {
 		writeLogOrError(w, status, err, "Error creating body weight record")
 		return
@@ -237,7 +251,12 @@ func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	rec, status, err := logapi.CreateTodo(r.Context(), s.Pool, raw)
+	parsed, err := tododraft.ParseTodo(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	rec, status, err := logapi.CreateTodo(r.Context(), s.Pool, parsed)
 	if err != nil {
 		writeLogOrError(w, status, err, "Error creating to-do record")
 		return
@@ -251,15 +270,19 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
+	parsed, err := tododraft.ParseTodoTransition(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	var (
 		result logapi.TransitionResult
 		status int
-		err    error
 	)
 	if s.TransitionTodo != nil {
-		result, status, err = s.TransitionTodo(r.Context(), s.Pool, raw)
+		result, status, err = s.TransitionTodo(r.Context(), s.Pool, parsed)
 	} else {
-		result, status, err = logapi.TransitionTodo(r.Context(), s.Pool, raw)
+		result, status, err = logapi.TransitionTodo(r.Context(), s.Pool, parsed)
 	}
 	if err != nil {
 		writeLogOrError(w, status, err, "Error transitioning to-do")
@@ -286,7 +309,12 @@ func (s *Server) handleLogReview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	rec, status, err := logapi.CreateReview(r.Context(), s.Pool, raw)
+	parsed, err := reviewdraft.ParseReview(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	rec, status, err := logapi.CreateReview(r.Context(), s.Pool, parsed)
 	if err != nil {
 		writeLogOrError(w, status, err, "Error creating review record")
 		return
@@ -300,7 +328,12 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	rec, status, err := logapi.CreateText(r.Context(), s.Pool, raw)
+	body, err := logapi.ParseTextBody(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	rec, status, err := logapi.CreateText(r.Context(), s.Pool, body)
 	if err != nil {
 		writeLogOrError(w, status, err, "Error creating text record")
 		return
@@ -314,7 +347,12 @@ func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	inserted, batchType, sum, recs, status, err := logapi.CreateTransactionBatch(r.Context(), s.Pool, raw)
+	batch, err := transactiondraft.ParseTransactionBatch(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	inserted, batchType, sum, recs, status, err := logapi.CreateTransactionBatch(r.Context(), s.Pool, batch)
 	if err != nil {
 		writeLogOrError(w, status, err, "Error creating transaction records")
 		return

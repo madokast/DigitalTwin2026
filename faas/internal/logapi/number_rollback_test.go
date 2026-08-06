@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
+	"github.com/mdk/digitaltwin2026/faas/internal/numberdraft"
 )
 
 // fakeNumberTx 可控事务：QueryRow 第 failOn 次调用返回注入错误（INSERT 失败 → 触发回滚）。
@@ -81,13 +82,22 @@ const numberBatchBody = `{
 	]
 }`
 
+// numberBatchParsed createNumberBatch 的 typed 入参（route 层经 numberdraft.ParseNumberBatch 解析产物）。
+var numberBatchParsed = func() numberdraft.NormalizedNumberBatch {
+	parsed, err := numberdraft.ParseNumberBatch([]byte(numberBatchBody))
+	if err != nil {
+		panic(err)
+	}
+	return parsed
+}()
+
 // 继承项 2：批量 create 事务回滚测试。第 2 条 INSERT 注入错误 →
 // 全部回滚（无 Commit、Rollback 被调）、500、零成功半状态。
 func TestCreateNumberBatchRollsBackOnInsertFailure(t *testing.T) {
 	fx := &fakeNumberTx{failOn: 2}
 	q := &fakeNumberBeginner{tx: fx}
 
-	inserted, recs, status, err := createNumberBatch(context.Background(), q, []byte(numberBatchBody))
+	inserted, recs, status, err := createNumberBatch(context.Background(), q, numberBatchParsed)
 	if status != 500 {
 		t.Fatalf("status=%d want 500", status)
 	}
@@ -112,7 +122,7 @@ func TestCreateNumberBatchSuccessCommits(t *testing.T) {
 	fx := &fakeNumberTx{}
 	q := &fakeNumberBeginner{tx: fx}
 
-	inserted, recs, status, err := createNumberBatch(context.Background(), q, []byte(numberBatchBody))
+	inserted, recs, status, err := createNumberBatch(context.Background(), q, numberBatchParsed)
 	if err != nil || status != 201 {
 		t.Fatalf("status=%d err=%v", status, err)
 	}

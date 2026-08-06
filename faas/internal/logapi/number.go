@@ -12,18 +12,14 @@ import (
 )
 
 // CreateNumberBatch 整单事务写入；成功返回 inserted 与行（供通知）。
+// 收 typed 产物（route 层经 numberdraft.ParseNumberBatch 解析校验）。
 // Body 顶层 happened_at 共享；entry numeric_value/memo 必填、tags/ai_analysis 可选。
 // 落库：numeric_value → numeric_value；memo → objective_context；raw_content = NULL。
-func CreateNumberBatch(ctx context.Context, pool *pgxpool.Pool, raw []byte) (int, []record.Record, int, error) {
-	return createNumberBatch(ctx, db.NewPoolTxBeginner(pool), raw)
+func CreateNumberBatch(ctx context.Context, pool *pgxpool.Pool, batch numberdraft.NormalizedNumberBatch) (int, []record.Record, int, error) {
+	return createNumberBatch(ctx, db.NewPoolTxBeginner(pool), batch)
 }
 
-func createNumberBatch(ctx context.Context, q db.TxBeginner, raw []byte) (int, []record.Record, int, error) {
-	batch, err := numberdraft.ParseNumberBatch(raw)
-	if err != nil {
-		return 0, nil, 400, err
-	}
-
+func createNumberBatch(ctx context.Context, q db.TxBeginner, batch numberdraft.NormalizedNumberBatch) (int, []record.Record, int, error) {
 	// 领域 Record 组装（HappenedAt = 已校验请求串；Repository 内解析落库）。
 	recs := make([]record.Record, 0, len(batch.Entries))
 	for _, e := range batch.Entries {
@@ -45,7 +41,7 @@ func createNumberBatch(ctx context.Context, q db.TxBeginner, raw []byte) (int, [
 	// 批量原子：业务层经 UoW 决定事务性；领域 Record 组装零 DB。
 	var inserted int
 	var out []record.Record
-	err = db.WithTx(ctx, q, func(q db.Executor) error {
+	err := db.WithTx(ctx, q, func(q db.Executor) error {
 		res := recordrepo.Repo.SaveAll(ctx, q, recs)
 		if !res.OK {
 			return res.Error
