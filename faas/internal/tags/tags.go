@@ -2,7 +2,6 @@ package tags
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -120,20 +119,6 @@ func ValidateRename(from, to string) ValidationResult {
 // ErrTagsNotJSONArray 与 TS TAGS_NOT_JSON_ARRAY 同文案（transactions-summary 行解析仍 500 用）。
 const ErrTagsNotJSONArray = "tags field is not a JSON array"
 
-// parseTagsJSONArray 解析 records.tags；非法 JSON / 根非数组 = DB 脏数据 → 空数组
-// （聚合时静默跳过该行，与 rename 的 FromDB 兜底语义统一——2026-08-06 用户拍板）。
-func parseTagsJSONArray(tagsJSON string) []any {
-	var raw any
-	if err := json.Unmarshal([]byte(tagsJSON), &raw); err != nil {
-		return nil
-	}
-	arr, ok := raw.([]any)
-	if !ok {
-		return nil
-	}
-	return arr
-}
-
 // TagCount 单个 tag 的计数（JSON `tag`/`count` snake_case）。
 type TagCount struct {
 	Tag   string `json:"tag"`
@@ -143,15 +128,10 @@ type TagCount struct {
 // AggregateTagCounts 汇总 tag 出现次数，按「计数降序、同名 tag 升序」返回。
 // prefix 非空时仅保留 strings.HasPrefix(tag, prefix) 的 tag（真前缀，自动补全语义）。
 // 非法 JSON / 非数组返回 error（HTTP 映射 500）。
-func AggregateTagCounts(tagFields []string, prefix string) []TagCount {
+func AggregateTagCounts(tagLists [][]string, prefix string) []TagCount {
 	counts := map[string]int{}
-	for _, field := range tagFields {
-		parsed := parseTagsJSONArray(field)
-		for _, item := range parsed {
-			tag, ok := item.(string)
-			if !ok {
-				continue
-			}
+	for _, tags := range tagLists {
+		for _, tag := range tags {
 			counts[tag]++
 		}
 	}
@@ -187,8 +167,8 @@ func RenameAcrossRecords(ctx context.Context, b db.TxBeginner, from, to string) 
 		}
 		page := 1
 		for {
-			recs, me := recordrepo.Repo.FindByCriteria(ctx, q, recordrepo.Criteria{
-				Tags:      []string{from},
+			recs, me := recordrepo.Repo.FindByCriteria(ctx, q, recordrepo.FindCriteria{
+				Criteria:  recordrepo.Criteria{Tags: []string{from}},
 				Page:      page,
 				PageSize:  RenamePageSize,
 				SortBy:    "id",

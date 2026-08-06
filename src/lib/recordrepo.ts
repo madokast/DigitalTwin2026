@@ -158,11 +158,12 @@ export class RecordRepository {
    * id 非空时忽略分页返回 0～1 条（现状语义）。
    * Criteria 非法值（page/pageSize<1、sortBy/sortOrder 空或非法枚举）→ 400（§6：repo 只检测不填补）。
    */
-  async findByCriteria(q: Executor, c: Criteria): Promise<Record[]> {
+  async findByCriteria(q: Executor, c: FindCriteria): Promise<Record[]> {
     validateCriteria(c)
 
     const conditions: SQL[] = []
     if (c.id) conditions.push(eq(schema.records.id, c.id))
+    if (c.idFrom) conditions.push(gte(schema.records.id, c.idFrom))
     if (c.from) conditions.push(gte(schema.records.happenedAt, c.from))
     if (c.to) conditions.push(lt(schema.records.happenedAt, c.to))
     for (const tag of c.tags) {
@@ -220,25 +221,30 @@ export class RecordRepository {
 }
 
 /**
- * 过滤 + 分页 + 排序条件（§6 定案）。
- * 校验归属业务层（HTTP parse 填默认 page 1 / page_size 20 / sort 默认、上限 100 契约）；
- * repo 内零默认、只检测非法值（page/pageSize<1、sortBy/sortOrder 空或非法枚举 → 400）。
- * hint 不进 Criteria（响应辅助，业务层 parse 时产出、随响应返回）。
+ * 过滤共用字段（§6 分层定案：`count` 收本类型——类型上不存在分页/排序字段）。
+ * 校验归属业务层（tag 格式 / 时间解析 / id 格式）；hint 不进 Criteria（响应辅助，业务层 parse 时产出）。
  */
 export type Criteria = {
-  id?: string
+  id?: string // 等值 `id = $n`（query API `?id=` 契约）
+  idFrom?: string // keyset 起点 `id >= $n`（export 游标）；与 id 互斥（400 检测）
   from?: Date
   to?: Date
   tags: string[] // 每项精确 tag 或 "family:*" 族通配；空 = 无 tag 过滤
   q?: string // 全文搜索 raw_content / objective_context / ai_analysis / tags
+}
+
+/** 查询条件：Criteria + 分页/排序（§6 分层定案）。
+ * repo 内零默认、只检测非法值（page/pageSize<1、sortBy/sortOrder 空或非法枚举、id 与 idFrom 互斥 → 400）。 */
+export type FindCriteria = Criteria & {
   page: number
   pageSize: number
   sortBy: 'happened_at' | 'id'
   sortOrder: 'asc' | 'desc'
 }
 
-/** 检测非法值 → 400（错误语义：数据/格式问题不限层级）。文案与 HTTP query parse 层一致（契约文案双端逐字一致）。 */
-function validateCriteria(c: Criteria): void {
+/** 检测非法值 → 400（错误语义：数据/格式问题不限层级；只属 FindCriteria）。文案与 HTTP query parse 层一致。 */
+function validateCriteria(c: FindCriteria): void {
+  if (c.id && c.idFrom) throw newValidation('id and id_from are mutually exclusive')
   if (c.page < 1) throw newValidation('page must be a positive integer')
   if (c.pageSize < 1) throw newValidation('page_size must be a positive integer')
   if (c.sortBy !== 'happened_at' && c.sortBy !== 'id') {

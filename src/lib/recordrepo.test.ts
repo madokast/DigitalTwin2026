@@ -28,7 +28,7 @@ const execute = vi.fn()
 const q = { select, update, insert, execute } as unknown as Executor
 
 import type { Executor } from '@/db/uow'
-import { Repo, type Criteria } from '@/lib/recordrepo'
+import { Repo, type Criteria, type FindCriteria } from '@/lib/recordrepo'
 
 const row = {
   id: '01900000-0000-7000-8000-000000000003',
@@ -43,7 +43,7 @@ const row = {
 
 const ROWS = [row]
 
-function base(): Criteria {
+function base(): FindCriteria {
   return { tags: [], page: 1, pageSize: 20, sortBy: 'happened_at', sortOrder: 'asc' }
 }
 
@@ -65,7 +65,7 @@ beforeEach(() => {
 })
 
 describe('findByCriteria validation 400', () => {
-  const cases: Array<[string, Criteria, string]> = [
+  const cases: Array<[string, FindCriteria, string]> = [
     ['page zero', { ...base(), page: 0 }, 'page must be a positive integer'],
     ['page negative', { ...base(), page: -1 }, 'page must be a positive integer'],
     ['pageSize zero', { ...base(), pageSize: 0 }, 'page_size must be a positive integer'],
@@ -235,5 +235,28 @@ describe('acquireRenameLock', () => {
       status: 500,
       message: 'Error: connection refused',
     })
+  })
+})
+
+describe('findByCriteria idFrom', () => {
+  it('builds id >= keyset condition and paginates', async () => {
+    await Repo.findByCriteria(q, {
+      ...base(),
+      idFrom: '01900000-0000-7000-8000-000000000003',
+    })
+    expect(where).toHaveBeenCalledTimes(1)
+    expect(limit).toHaveBeenCalledTimes(1)
+    expect(offset).toHaveBeenCalledWith(0)
+  })
+
+  it('rejects id + idFrom together as 400', async () => {
+    await expect(
+      Repo.findByCriteria(q, {
+        ...base(),
+        id: '01900000-0000-7000-8000-000000000001',
+        idFrom: '01900000-0000-7000-8000-000000000002',
+      }),
+    ).rejects.toMatchObject({ status: 400, message: 'id and id_from are mutually exclusive' })
+    expect(select).not.toHaveBeenCalled()
   })
 })

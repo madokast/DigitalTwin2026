@@ -153,9 +153,9 @@ describe('aggregateTagCounts', () => {
 
   it('counts tags and sorts by count desc, then tag name asc', () => {
     const result = aggregateTagCounts([
-      JSON.stringify(['weight', 'morning']),
-      JSON.stringify(['study', 'physics']),
-      JSON.stringify(['weight']),
+      ['weight', 'morning'],
+      ['study', 'physics'],
+      ['weight'],
     ])
     expect(result).toEqual([
       { tag: 'weight', count: 2 },
@@ -167,7 +167,7 @@ describe('aggregateTagCounts', () => {
 
   it('ties break by tag name byte order (uppercase before lowercase)', () => {
     const result = aggregateTagCounts([
-      JSON.stringify(['weight', 'Weight', 'apple', 'Apple']),
+      ['weight', 'Weight', 'apple', 'Apple'],
     ])
     expect(result).toEqual([
       { tag: 'Apple', count: 1 },
@@ -180,9 +180,9 @@ describe('aggregateTagCounts', () => {
   it('filters by true prefix when prefix is given', () => {
     const result = aggregateTagCounts(
       [
-        JSON.stringify(['body:weight', 'body:weight']),
-        JSON.stringify(['workout:arm']),
-        JSON.stringify(['morning']),
+        ['body:weight', 'body:weight'],
+        ['workout:arm'],
+        ['morning'],
       ],
       'body:',
     )
@@ -194,19 +194,18 @@ describe('aggregateTagCounts', () => {
     // 若被当通配则会返回全部 tag。断言返回空即证明未做通配解析。
     const result = aggregateTagCounts(
       [
-        JSON.stringify(['workout:arm']),
-        JSON.stringify(['morning']),
+        ['workout:arm'],
+        ['morning'],
       ],
       '*',
     )
     expect(result).toEqual([])
   })
 
-  it('skips dirty JSON rows (invalid JSON / non-array root)', () => {
-    expect(aggregateTagCounts(['not-json'])).toEqual([])
-    expect(aggregateTagCounts(['{}'])).toEqual([])
-    expect(aggregateTagCounts(['null'])).toEqual([])
-    expect(aggregateTagCounts(['"weight"'])).toEqual([])
+  it('skips empty/nil rows', () => {
+    expect(aggregateTagCounts([])).toEqual([])
+    expect(aggregateTagCounts([[]])).toEqual([])
+    expect(aggregateTagCounts([[], ['weight']])).toEqual([{ tag: 'weight', count: 1 }])
   })
 })
 

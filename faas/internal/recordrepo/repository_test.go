@@ -182,21 +182,21 @@ func criteriaRow(id, tags string) []any {
 }
 
 func TestFindByCriteriaValidation400(t *testing.T) {
-	base := func() Criteria {
-		return Criteria{Page: 1, PageSize: 20, SortBy: "happened_at", SortOrder: "asc"}
+	base := func() FindCriteria {
+		return FindCriteria{Page: 1, PageSize: 20, SortBy: "happened_at", SortOrder: "asc"}
 	}
 	cases := []struct {
 		name string
-		c    Criteria
+		c    FindCriteria
 		want string
 	}{
-		{"page zero", func() Criteria { c := base(); c.Page = 0; return c }(), "page must be a positive integer"},
-		{"page negative", func() Criteria { c := base(); c.Page = -1; return c }(), "page must be a positive integer"},
-		{"pageSize zero", func() Criteria { c := base(); c.PageSize = 0; return c }(), "page_size must be a positive integer"},
-		{"sortBy empty", func() Criteria { c := base(); c.SortBy = ""; return c }(), "sort_by must be one of: happened_at, id"},
-		{"sortBy invalid", func() Criteria { c := base(); c.SortBy = "foo"; return c }(), "sort_by must be one of: happened_at, id"},
-		{"sortOrder empty", func() Criteria { c := base(); c.SortOrder = ""; return c }(), "sort_order must be one of: asc, desc"},
-		{"sortOrder invalid", func() Criteria { c := base(); c.SortOrder = "foo"; return c }(), "sort_order must be one of: asc, desc"},
+		{"page zero", func() FindCriteria { c := base(); c.Page = 0; return c }(), "page must be a positive integer"},
+		{"page negative", func() FindCriteria { c := base(); c.Page = -1; return c }(), "page must be a positive integer"},
+		{"pageSize zero", func() FindCriteria { c := base(); c.PageSize = 0; return c }(), "page_size must be a positive integer"},
+		{"sortBy empty", func() FindCriteria { c := base(); c.SortBy = ""; return c }(), "sort_by must be one of: happened_at, id"},
+		{"sortBy invalid", func() FindCriteria { c := base(); c.SortBy = "foo"; return c }(), "sort_by must be one of: happened_at, id"},
+		{"sortOrder empty", func() FindCriteria { c := base(); c.SortOrder = ""; return c }(), "sort_order must be one of: asc, desc"},
+		{"sortOrder invalid", func() FindCriteria { c := base(); c.SortOrder = "foo"; return c }(), "sort_order must be one of: asc, desc"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -222,11 +222,13 @@ func TestFindByCriteriaBuildsConditions(t *testing.T) {
 	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC)
 	f := &fakeExecutor{queryRows: [][]any{criteriaRow("id-1", `["work"]`)}}
-	_, me := Repo.FindByCriteria(context.Background(), f, Criteria{
-		From:      &from,
-		To:        &to,
-		Tags:      []string{"work", "family:*"},
-		Q:         "hello world",
+	_, me := Repo.FindByCriteria(context.Background(), f, FindCriteria{
+		Criteria: Criteria{
+			From: &from,
+			To:   &to,
+			Tags: []string{"work", "family:*"},
+			Q:    "hello world",
+		},
 		Page:      1,
 		PageSize:  100,
 		SortBy:    "id",
@@ -266,8 +268,8 @@ func TestFindByCriteriaBuildsConditions(t *testing.T) {
 
 func TestFindByCriteriaIDNoPagination(t *testing.T) {
 	f := &fakeExecutor{queryRows: [][]any{criteriaRow("id-1", `["work"]`)}}
-	_, me := Repo.FindByCriteria(context.Background(), f, Criteria{
-		ID:        "01900000-0000-7000-8000-000000000003",
+	_, me := Repo.FindByCriteria(context.Background(), f, FindCriteria{
+		Criteria:  Criteria{ID: "01900000-0000-7000-8000-000000000003"},
 		Page:      2,
 		PageSize:  20,
 		SortBy:    "happened_at",
@@ -283,7 +285,7 @@ func TestFindByCriteriaIDNoPagination(t *testing.T) {
 
 func TestFindByCriteriaNoConditions(t *testing.T) {
 	f := &fakeExecutor{queryRows: [][]any{criteriaRow("id-1", `[]`)}}
-	_, me := Repo.FindByCriteria(context.Background(), f, Criteria{
+	_, me := Repo.FindByCriteria(context.Background(), f, FindCriteria{
 		Page:      1,
 		PageSize:  20,
 		SortBy:    "happened_at",
@@ -305,7 +307,7 @@ func TestFindByCriteriaNoConditions(t *testing.T) {
 
 func TestFindByCriteriaFromDB(t *testing.T) {
 	f := &fakeExecutor{queryRows: [][]any{criteriaRow("01900000-0000-7000-8000-000000000003", `["work","urgent"]`)}}
-	recs, me := Repo.FindByCriteria(context.Background(), f, Criteria{
+	recs, me := Repo.FindByCriteria(context.Background(), f, FindCriteria{
 		Page:      1,
 		PageSize:  20,
 		SortBy:    "happened_at",
@@ -330,7 +332,7 @@ func TestFindByCriteriaFromDB(t *testing.T) {
 
 func TestFindByCriteriaDriverErrorInternal(t *testing.T) {
 	f := &fakeExecutor{queryErr: errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`)}
-	_, me := Repo.FindByCriteria(context.Background(), f, Criteria{
+	_, me := Repo.FindByCriteria(context.Background(), f, FindCriteria{
 		Page:      1,
 		PageSize:  20,
 		SortBy:    "happened_at",
@@ -485,5 +487,45 @@ func TestAcquireRenameLockDriverErrorInternal(t *testing.T) {
 	}
 	if me.Status != 500 {
 		t.Fatalf("status=%d want 500", me.Status)
+	}
+}
+
+func TestFindByCriteriaIDFromKeyset(t *testing.T) {
+	f := &fakeExecutor{queryRows: [][]any{criteriaRow("id-1", `["work"]`)}}
+	_, me := Repo.FindByCriteria(context.Background(), f, FindCriteria{
+		Criteria:  Criteria{IDFrom: "01900000-0000-7000-8000-000000000003"},
+		Page:      1,
+		PageSize:  20,
+		SortBy:    "id",
+		SortOrder: "asc",
+	})
+	if me != nil {
+		t.Fatal(me)
+	}
+	if !strings.Contains(f.querySQL, "id >= $1") {
+		t.Fatalf("keyset SQL missing id >=: %q", f.querySQL)
+	}
+	if !strings.Contains(f.querySQL, "LIMIT 20 OFFSET 0") {
+		t.Fatalf("IDFrom must paginate: %q", f.querySQL)
+	}
+	if len(f.queryArgs) != 1 || f.queryArgs[0] != "01900000-0000-7000-8000-000000000003" {
+		t.Fatalf("args=%v", f.queryArgs)
+	}
+}
+
+func TestFindByCriteriaIDAndIDFromMutuallyExclusive(t *testing.T) {
+	f := &fakeExecutor{}
+	_, me := Repo.FindByCriteria(context.Background(), f, FindCriteria{
+		Criteria:  Criteria{ID: "01900000-0000-7000-8000-000000000001", IDFrom: "01900000-0000-7000-8000-000000000002"},
+		Page:      1,
+		PageSize:  20,
+		SortBy:    "happened_at",
+		SortOrder: "asc",
+	})
+	if me == nil || me.Status != 400 {
+		t.Fatalf("want 400 mutual exclusion, got %v", me)
+	}
+	if f.querySQL != "" {
+		t.Fatalf("no query expected, got %q", f.querySQL)
 	}
 }

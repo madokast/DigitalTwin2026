@@ -17,6 +17,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
+	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/timeutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
@@ -377,23 +378,28 @@ func FetchSummary(ctx context.Context, pool *pgxpool.Pool, tz string, now time.T
 }
 
 func FetchTagCounts(ctx context.Context, pool *pgxpool.Pool, prefix string) ([]tags.TagCount, *myerr.MyError) {
-	rows, err := pool.Query(ctx, `SELECT tags FROM records`)
-	if err != nil {
-		return nil, myerr.NewInternal(err)
-	}
-	defer rows.Close()
-	var fields []string
-	for rows.Next() {
-		var t string
-		if err := rows.Scan(&t); err != nil {
-			return nil, myerr.NewInternal(err)
+	// 分页循环 FindByCriteria（无过滤）收集每行 tags 数组 → 数组版聚合（§10b 步骤 3 二次定案）。
+	var tagLists [][]string
+	page := 1
+	for {
+		recs, me := recordrepo.Repo.FindByCriteria(ctx, pool, recordrepo.FindCriteria{
+			Page:      page,
+			PageSize:  tags.RenamePageSize, // 100，与 rename 循环一致
+			SortBy:    "id",
+			SortOrder: "asc",
+		})
+		if me != nil {
+			return nil, me
 		}
-		fields = append(fields, t)
+		for _, rec := range recs {
+			tagLists = append(tagLists, rec.Tags)
+		}
+		if len(recs) < tags.RenamePageSize {
+			break
+		}
+		page++
 	}
-	if err := rows.Err(); err != nil {
-		return nil, myerr.NewInternal(err)
-	}
-	return tags.AggregateTagCounts(fields, prefix), nil
+	return tags.AggregateTagCounts(tagLists, prefix), nil
 }
 
 // --- GET /api/query/transactions/summary ---

@@ -120,18 +120,6 @@ export function firstDuplicateTag(tagList: string[]): string | null {
 /** 与 Go `tags.ErrTagsNotJSONArray` 同文案：解析成功但根不是数组 */
 export const TAGS_NOT_JSON_ARRAY = 'tags field is not a JSON array'
 
-/** 解析 records.tags JSON；非法 JSON / 根非数组 = DB 脏数据 → 空数组
- * （聚合时静默跳过该行，与 rename 的 FromDB 兜底语义统一——2026-08-06 用户拍板）。
- * 与 Go `tags.parseTagsJSONArray` 对称。 */
-function parseTagsJsonArray(tagsJson: string): unknown[] {
-  try {
-    const parsed: unknown = JSON.parse(tagsJson)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
 /** 单个 tag 的计数（JSON `tag`/`count` snake_case） */
 export type TagCount = { tag: string; count: number }
 
@@ -141,16 +129,16 @@ export type TagCount = { tag: string; count: number }
  * 排序与 Go `sort.Slice`（计数降序，同名升序）一致；tag 名比较用字节序（ASCII 下大写在小写前），勿用 localeCompare。
  * 非法 JSON / 非数组抛错（由 HTTP 映射 500）。
  */
+/** 聚合计数（数组版，2026-08-06 定案）：每行 tags 数组已由 fromDB 解析并兜底脏数据（与跳过语义统一）；
+ * prefix 非空时真前缀过滤；计数降序、同数按名升序。与 Go `tags.AggregateTagCounts` 对称。 */
 export function aggregateTagCounts(
-  tagFields: string[],
+  tagLists: string[][],
   prefix = '',
 ): TagCount[] {
   const counts = new Map<string, number>()
 
-  for (const field of tagFields) {
-    const parsed = parseTagsJsonArray(field)
-    for (const tag of parsed) {
-      if (typeof tag !== 'string') continue
+  for (const tags of tagLists) {
+    for (const tag of tags) {
       counts.set(tag, (counts.get(tag) ?? 0) + 1)
     }
   }

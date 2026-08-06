@@ -9,6 +9,8 @@ import {
 } from '@/lib/record'
 import { aggregateTagCounts, TAGS_NOT_JSON_ARRAY, type TagCount } from '@/lib/tags'
 import { newInternalMsg } from '@/lib/myerr'
+import { Repo } from '@/lib/recordrepo'
+import { RENAME_PAGE_SIZE } from '@/lib/tagsdb'
 import {
   getZonedDayBounds,
   isValidTimeZone,
@@ -289,13 +291,26 @@ export async function fetchSummary(
   }
 }
 
-/** 全表 tags 字段聚合计数（与 Go FetchTagCounts 同构）；prefix 非空时真前缀过滤 */
+/** 全表 tags 聚合计数（与 Go FetchTagCounts 同构）；prefix 非空时真前缀过滤。
+ * 分页循环 Repo.findByCriteria 收集每行 tags 数组 → 数组版聚合（§10b 步骤 3 二次定案）。 */
 export async function fetchTagCounts(prefix = ''): Promise<TagCount[]> {
-  const rows = await db.select({ tags: records.tags }).from(records)
-  return aggregateTagCounts(
-    rows.map((row) => row.tags),
-    prefix,
-  )
+  const tagLists: string[][] = []
+  let page = 1
+  for (;;) {
+    const recs = await Repo.findByCriteria(db, {
+      tags: [],
+      page,
+      pageSize: RENAME_PAGE_SIZE,
+      sortBy: 'id',
+      sortOrder: 'asc',
+    })
+    for (const rec of recs) {
+      tagLists.push(rec.tags)
+    }
+    if (recs.length < RENAME_PAGE_SIZE) break
+    page += 1
+  }
+  return aggregateTagCounts(tagLists, prefix)
 }
 
 // --- GET /api/query/transactions/summary ---

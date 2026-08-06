@@ -147,10 +147,10 @@ func TestAssertNoReservedTags(t *testing.T) {
 }
 
 func TestAggregateTagCounts(t *testing.T) {
-	got := AggregateTagCounts([]string{
-		`["weight","morning"]`,
-		`["study","physics"]`,
-		`["weight"]`,
+	got := AggregateTagCounts([][]string{
+		{"weight", "morning"},
+		{"study", "physics"},
+		{"weight"},
 	}, "")
 	want := []TagCount{
 		{Tag: "weight", Count: 2},
@@ -172,8 +172,8 @@ func TestAggregateTagCountsEmptyReturnsEmptySlice(t *testing.T) {
 }
 
 func TestAggregateTagCountsOrderCountDescThenName(t *testing.T) {
-	got := AggregateTagCounts([]string{
-		`["a","b","b","c","c","c"]`,
+	got := AggregateTagCounts([][]string{
+		{"a", "b", "b", "c", "c", "c"},
 	}, "")
 	// 计数降序：c(3) → b(2) → a(1)；同计数按名升序
 	want := []TagCount{
@@ -188,8 +188,8 @@ func TestAggregateTagCountsOrderCountDescThenName(t *testing.T) {
 
 func TestAggregateTagCountsTieBreakByNameAsc(t *testing.T) {
 	// 同计数次级按 tag 名升序（字节序：大写在小写前）
-	got := AggregateTagCounts([]string{
-		`["weight","Weight","apple","Apple","banana","Banana"]`,
+	got := AggregateTagCounts([][]string{
+		{"weight", "Weight", "apple", "Apple", "banana", "Banana"},
 	}, "")
 	want := []TagCount{
 		{Tag: "Apple", Count: 1},
@@ -205,8 +205,8 @@ func TestAggregateTagCountsTieBreakByNameAsc(t *testing.T) {
 }
 
 func TestAggregateTagCountsPrefix(t *testing.T) {
-	got := AggregateTagCounts([]string{
-		`["body:weight","body:weight","workout:arm","morning"]`,
+	got := AggregateTagCounts([][]string{
+		{"body:weight", "body:weight", "workout:arm", "morning"},
 	}, "body:")
 	// 真前缀：只留 body: 开头；workout:arm、morning 排除
 	want := []TagCount{{Tag: "body:weight", Count: 2}}
@@ -218,8 +218,8 @@ func TestAggregateTagCountsPrefix(t *testing.T) {
 func TestAggregateTagCountsPrefixTreatsStarLiterally(t *testing.T) {
 	// prefix 是纯字面前缀，`*` 不做通配解析：`*` 不是合法 tag 字符，
 	// 故无任何 tag 以字面 `*` 开头 → 返回空；若被当通配则会返回全部。
-	got := AggregateTagCounts([]string{
-		`["workout:arm","morning"]`,
+	got := AggregateTagCounts([][]string{
+		{"workout:arm", "morning"},
 	}, "*")
 	if len(got) != 0 {
 		t.Fatalf("literal star prefix should match nothing, got %#v", got)
@@ -228,15 +228,10 @@ func TestAggregateTagCountsPrefixTreatsStarLiterally(t *testing.T) {
 
 func TestAggregateTagCountsDirtyJSONSkipped(t *testing.T) {
 	// 脏字段静默跳过（2026-08-06 用户拍板：聚合不再被脏数据搞死）
-	got := AggregateTagCounts([]string{`not-json`}, "")
-	if len(got) != 0 {
-		t.Fatalf("dirty JSON must count 0, got %#v", got)
-	}
-	for _, field := range []string{`{}`, `null`, `"weight"`} {
-		got := AggregateTagCounts([]string{field}, "")
-		if len(got) != 0 {
-			t.Fatalf("%q: want empty counts, got %#v", field, got)
-		}
+	// 脏行由 FromDB 兜底为空数组——聚合收已解析数组，脏数据不可达
+	got := AggregateTagCounts([][]string{{"weight"}, nil}, "")
+	if len(got) != 1 || got[0].Tag != "weight" {
+		t.Fatalf("nil row must be skipped: got %#v", got)
 	}
 }
 
