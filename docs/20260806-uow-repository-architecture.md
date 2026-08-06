@@ -219,7 +219,7 @@ func (s *Service) GetUser(ctx context.Context, req GetUserRequest) (*User, error
 | 3 | `exists` / `update`（insert 复用 `save`） | `Exists(ctx, q, id) (bool, *MyError)` / `Update(ctx, q, rec record.Record) *MyError` | import 逐行 upsert 原语（2026-08-06 定案：**保守复刻**，非 ON CONFLICT——否决理由见 §10b 步骤 2）；`Exists` 判存在 → 业务层分支：**insert 分支复用 `Save`**（无独立 `Insert` 原语——RETURNING 多传一行无行为差异，用户拍板砍掉）；`Update` 全列覆盖（含 `::timestamptz` cast——与 `save` 统一，行为等价；utc_offset 由 repo 内 `ParseHappenedAt(rec.HappenedAt)` 重解析，§4 两次解析成本原则）；**并发同 id 竞态：唯一索引拦截 → 500 整单回滚 = 正确失败语义，保留**；`ImportCounts`（Inserted/Updated/Total）移 `record` 包（否则 recordrepo↔importapi 循环；Node 同步改 `ImportCounts`，双端词干一致） |
 | 4 | `findById` | `FindByID(ctx, q, id) RecordFindByIDResult` | `findById(q, id) → Promise<RecordFindByIDResult>` | 未找到 → `record.ErrNotFound` |
 | 5 | `findByCriteria` | `FindByCriteria(ctx, q, c FindCriteria) ([]record.Record, *MyError)` | `findByCriteria(q, c: FindCriteria) → Promise<Record[]>` | **只返回 records**；`total` 由业务层再 `Count(q, c)`（方案 B，读路径无事务） |
-| 6 | `findByCursor` | `FindByCursor(ctx, q, from, limit) RecordFindByCursorResult` | 同左 | export 游标（`findInRange` **移除**）。无 from → 全表 id ASC LIMIT；有 from → 先 EXISTS 检查（不存在 → `fmt.Errorf("export from id not found: %w", ErrNotFound)`）再 `id >= from` ASC LIMIT |
+| 6 | ~~`findByCursor`~~（取消） | — | — | **`FindByCriteria.IDFrom` 替代（2026-08-06 定案）**：export 游标走业务层 `Repo.Exists(from)` → 404（`ErrExportFromNotFound` 留 exportapi 包）→ `FindByCriteria{IDFrom, PageSize: limit, SortBy: id}`；无 from → `FindByCriteria{PageSize: limit, SortBy: id}`；limit 即 PageSize（`validateCriteria` 已检测 `PageSize<1 → 400`，原「limit 检测」待拍板点随之消解） |
 | 7 | `count` | `Count(ctx, q, c Criteria) (int, *MyError)` | 同左 | stats total/today；summary 覆盖；**无分页/排序字段**（§6 分层） |
 | 8 | `countTags` | `CountTags(ctx, q, prefix) RecordCountTagsResult` | 同左 | 返回 `[]tags.TagCount` |
 | 9 | `attachTag` | `AttachTag(ctx, q, rec, tag) RecordAttachTagResult` | 同左 | **CAS**（WHERE 含旧 tags）；`rec` 自带旧 tags（业务层 `FindByID` 预读）；返回新 record，业务层 diff 得 `changed` |
@@ -249,6 +249,7 @@ type Criteria struct {
 ```
 
 - **`Criteria` / `FindCriteria` 分层（2026-08-06 定案）**：`Criteria` = 过滤共用字段（`ID`/`From`/`To`/`Tags`/`Q`）；`FindCriteria` = 嵌入 `Criteria` + 分页/排序（`Page`/`PageSize`/`SortBy`/`SortOrder`，Go 嵌入 / Node `Criteria & {...}`）；**`Count` 直接收 `Criteria`**——类型上不存在分页/排序字段，调用方（如 summary 的 Count）零哑值，「各原语只校验自己使用的字段」（`validateCriteria` 只属 `FindCriteria`）。
+- **`FindCriteria.IDFrom`（2026-08-06 定案，替代 FindByCursor）**：非空 → `id >= $n`（keyset 起点，export 游标语义）；与 `ID` 互斥（同时非空 → 400 检测）；`IDFrom` 非空走 `LIMIT/OFFSET` 分支（范围查询要 LIMIT，现状「`ID` 非空不分页」分支天然正确）；query API 的 `?id=` 等值语义不受影响（HTTP parse 不产 `IDFrom`）。
 - **`hint` 不进 Criteria**（响应辅助，业务层 parse 时产出、随响应返回）。
 - **校验归属**：现有 `ParseRecordQueryParams`（双端）保留在业务层，产出**已校验**的 `Criteria`；Repository 不重复校验。
 - **零值填补全部在业务层；repo 只检测不填补（2026-08-06 定案）**：repo 内**不做任何默认值**；`findByCriteria` 检测非法值——`Page < 1`、`PageSize < 1`、`SortBy` 空或 ∉ {happened_at, id}、`SortOrder` 空或 ∉ {asc, desc} → `NewValidation`（400；错误语义定案：数据/格式问题不限层级，Node 对称 `newValidation` throw）。调用方责任：HTTP 路径业务层 parse（page 默认 1、page_size 默认 20、上限 100 校验——`> 100 → 400` 是对外契约，防客户端拉爆；sort 默认 happened_at/asc）；内部调用者自守（`RenameTag` 自构造 Criteria 时显式 `Page ≥ 1` / `PageSize = 100` / `SortBy = "id"`）；漏填即触发 repo 400 检测。
@@ -356,8 +357,7 @@ src/lib/logapi.ts 等   业务层（Service class）
 
    - **待拍板点（2026-08-06 讨论记录，未定案）**：
      - **A. `Count` 校验范围（✅ 定案：类型层面解决）**：`Criteria`/`FindCriteria` 分层——`Count` 收 `Criteria`（无分页/排序字段），类型上不存在可校验的分页字段；`validateCriteria` 只属 `FindCriteria`。
-     - **B. `FindByCursor` 的 404 文案归属**：repo 内 EXISTS 不存在 → `NewNotFound`；`ErrExportFromNotFound` 现驻 exportapi 包（repo → exportapi 反向依赖，不允许）——倾向移 `record` 包（`record.ErrExportFromNotFound`，领域文案；exportapi 引用之）。
-     - **C. `FindByCursor` 的 limit 检测**：倾向 `limit < 1 → 400`（对齐 findByCriteria 分页字段检测；export 业务层 parseRequiredLimit 已有，repo 检测为防御）。
+     - **B/C（✅ 消解，2026-08-06）**：`FindCriteria.IDFrom` 方案取消 `FindByCursor`——404 检查在业务层（`Repo.Exists`），`ErrExportFromNotFound` 留 exportapi 包（repo 不碰文案）；limit 即 PageSize（`validateCriteria` 已检测）。
      - **D. Node parse 层重构（最大改动）**：`parseRecordQueryParams` 现产 `conditions: SQL[]`（drizzle 条件）——接线后应**产 `Criteria`**（SQL 构建整个移 repo，对齐 Go ParsedQuery 领域值），返回 `{criteria, hint}`；Go 侧 ParseRecordQueryParams 保留 + 业务层 `toCriteria()` 转换；影响 query.test.ts 断言。
 4. **UoW 步骤 9：Service 化（最终横切）**——业务层自由函数 → Service struct/class 方法，构造注入 `db` + `uow`；**届时废除 httpx 可选函数字段 + nil 回落**（TransitionTodo/NotifyUser/FetchExportRecords → 接口注入）。依赖 2/3 完成后的完整原语集合。**设计定案（2026-08-06 讨论）**：
    - **粒度：按业务包各一个 Service**——`logapi.Service`（7 个 create/transition 方法）、`importapi.Service`（`ImportRecordsJSONL`）、`exportapi.Service`（`FetchExportRecords`）、`query.Service`（4 个 fetch）、`tags.Service`（`RenameAcrossRecords`）；包即边界，构造依赖最小。
