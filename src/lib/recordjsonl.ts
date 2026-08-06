@@ -65,6 +65,22 @@ export type RecordJsonlRow = {
 export type RecordJsonlError = { error: string }
 
 /**
+ * Row → 领域 Record（§4：Repository 收领域对象；utcOffset 丢弃、repo 内 parseHappenedAt
+ * 重解析——两次解析成本原则）。隐列损坏时回退 UTC 格式（对称 Go ToDomainRecord）。
+ */
+export function toDomainRecord(row: RecordJsonlRow): ApiRecord {
+  return {
+    id: row.id,
+    happened_at: formatHappenedAt(row.happenedAt, row.utcOffset),
+    ...(row.numericValue !== null ? { numeric_value: row.numericValue } : {}),
+    raw_content: row.rawContent,
+    tags: row.tags,
+    objective_context: row.objectiveContext,
+    ai_analysis: row.aiAnalysis,
+  }
+}
+
+/**
  * 可选行号包装：`line N: …`（1-based）。未传或 <1 时原样返回。
  * 与 Go `FormatLineError` 同构。
  */

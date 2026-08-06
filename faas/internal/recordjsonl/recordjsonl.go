@@ -57,6 +57,24 @@ type Row struct {
 	AiAnalysis       *string
 }
 
+// ToDomainRecord Row → 领域 Record（§4：Repository 收领域对象；UtcOffset 丢弃、
+// repo 内 ParseHappenedAt 重解析——两次解析成本原则）。隐列损坏时回退 UTC 格式（对称 FromDB）。
+func ToDomainRecord(row *Row) record.Record {
+	formatted, err := utcoffset.FormatHappenedAt(row.HappenedAt, row.UtcOffset)
+	if err != nil {
+		formatted = record.FormatHappenedAt(row.HappenedAt)
+	}
+	return record.Record{
+		ID:               row.ID,
+		HappenedAt:       formatted,
+		NumericValue:     row.NumericValue,
+		RawContent:       row.RawContent,
+		Tags:             row.Tags,
+		ObjectiveContext: row.ObjectiveContext,
+		AiAnalysis:       row.AiAnalysis,
+	}
+}
+
 // FormatLineError 可选行号包装：`line N: …`（1-based）。lineNumber < 1 时原样返回。
 func FormatLineError(message string, lineNumber int) string {
 	if lineNumber >= 1 {

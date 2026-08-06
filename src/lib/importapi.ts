@@ -7,6 +7,9 @@
  */
 
 import { newValidation } from './myerr'
+import { Repo } from '@/lib/recordrepo'
+import { toDomainRecord } from '@/lib/recordjsonl'
+import { type ImportCounts } from '@/lib/record'
 import { eq } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
@@ -68,12 +71,6 @@ export function extractMultipartBoundary(contentType: string): string | null {
 export const UNSUPPORTED_FILE_CONTENT_TYPE =
   'unsupported file Content-Type; use application/x-ndjson, application/jsonl, or application/octet-stream with a .jsonl filename'
 
-export type ImportCounts = {
-  inserted: number
-  updated: number
-  total: number
-}
-
 /** 成功返回类型（失败 throw MyError）。 */
 export type ImportResult = ImportCounts
 
@@ -133,49 +130,19 @@ export function isAcceptedImportFilePart(
   return false
 }
 
-function rowValues(row: RecordJsonlRow) {
-  return {
-    id: row.id,
-    happenedAt: row.happenedAt,
-    utcOffset: row.utcOffset,
-    numericValue: row.numericValue,
-    rawContent: row.rawContent,
-    tags: tagsJSON(row.tags),
-    objectiveContext: row.objectiveContext,
-    aiAnalysis: row.aiAnalysis,
-  }
-}
-
 function defaultStore(): ImportStore {
   return {
     begin(fn) {
       return db.transaction(async (tx) => {
         const importTx: ImportTx = {
           async exists(id) {
-            const rows = await tx
-              .select({ id: records.id })
-              .from(records)
-              .where(eq(records.id, id))
-              .limit(1)
-            return rows.length > 0
+            return Repo.exists(tx, id)
           },
           async insert(row) {
-            await tx.insert(records).values(rowValues(row))
+            await Repo.save(tx, toDomainRecord(row))
           },
           async update(row) {
-            const v = rowValues(row)
-            await tx
-              .update(records)
-              .set({
-                happenedAt: v.happenedAt,
-                utcOffset: v.utcOffset,
-                numericValue: v.numericValue,
-                rawContent: v.rawContent,
-                tags: v.tags,
-                objectiveContext: v.objectiveContext,
-                aiAnalysis: v.aiAnalysis,
-              })
-              .where(eq(records.id, row.id))
+            await Repo.update(tx, toDomainRecord(row))
           },
         }
         return fn(importTx)

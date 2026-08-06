@@ -9,6 +9,13 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/utcoffset"
 )
 
+// ImportCounts 导入成功计数（双端对称；import 业务层返回给 handler）。
+type ImportCounts struct {
+	Inserted int
+	Updated  int
+	Total    int
+}
+
 // Record matches Next JSON shape（snake_case HTTP JSON）。
 // Record 领域对象 = 对外 JSON 形状（happened_at 带区串、tags 数组、无隐列）。
 // Repository 返回 / 业务层消费；写路径业务层构造（HappenedAt = 已校验请求串），

@@ -1,6 +1,13 @@
 import { validate as uuidValidate } from 'uuid'
 import { formatHappenedAt as formatWithUtcOffset } from '@/lib/utcoffset'
 
+/** 导入成功计数（双端对称；import 业务层返回给 route）。 */
+export type ImportCounts = {
+  inserted: number
+  updated: number
+  total: number
+}
+
 /** 领域对象 = 对外 JSON 形状（时间轴操作全在 Repository SQL 内，业务层只消费带区串）。
  * 写路径业务层构造（happened_at = 已校验请求串），Repository 内 parseHappenedAt 落库后返回规范化形。 */
 
