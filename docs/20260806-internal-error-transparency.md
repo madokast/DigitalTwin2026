@@ -153,6 +153,17 @@ export function errorMessage(error: unknown): string {
 4. **测试**：mock 单测可断言精确 message（mock `new Error('injected')` → detail `'injected'`）；真 DB 集成测试放宽为 `status=500` / `detail` 非空（不断言具体值）。
 5. `InternalError` 类推迟（UoW 落地时与 Repository 一起引入，见上）。
 
+### 3.6 Go 端落地细节（讨论中）
+
+1. **阶段划分**：当前**无 Repository 层**（UoW 暂停），业务函数直接返回 `(T, status, error)`（err 为含三方库错误的包装链）。分两阶段：
+   - **阶段 A（现在）**：最小透传——`writeInternalError` 改为 `writeError(w, 500, err.Error())`（透传），守卫测试反转。统一模型的**中间态**。
+   - **阶段 B（UoW 落地时）**：引入 `ErrInternal` 类 + `statusOf` 统一映射 + Repository 层吸收三方库错误（防腐层）——`writeInternalError` 消失。与 Node 端「`InternalError` 类推迟」决策对称。
+2. **`ErrInternal` 错误链保留**：`InternalError` 存原始 `err` + 实现 `Unwrap()`（返回原 err）——`Error()` 返回原文，`errors.As` 命中 `InternalError`，底层链仍可 `errors.Is` 穿透（如判 SQLSTATE）。**不**只存 `message` 断链。
+3. **`statusOf` 归属**：放 `httpx` 包（HTTP 适配层职责：领域错误 → HTTP status）。领域错误定义在 `record` 包，`statusOf` 是其到 HTTP 的映射。
+4. **`writeLogOrError` 去留**：倾向**保留**（改造内部用 `statusOf`）：≥500 → `slog.Error` + `writeError(w, statusOf(err), err.Error())`；<500 → `writeError(w, status, err.Error())`。它已是「日志 + 错误写出」统一入口，handler 调用点（10 处）不动。
+5. **日志位置**：500 时 `slog.Error(logMsg, "err", err)` 保持（写路径 `writeLogOrError`、读路径 handler 内 `slog.Error`）——日志是诊断兜底，与透传并存。
+6. **守卫测试 + 空 err 兜底**：`TestWriteInternalErrorNeverExposesDetails` → `TestWriteInternalErrorTransmitsDetail`（500 + 透传注入 message）；`writeInternalError` 内 `err == nil` 或 `err.Error() == ""` 回退固定文案（防空 detail）。
+
 ## 4. 待验证 / 风险
 
 - **Go pgx vs Node postgres.js 实际错误 message 差异**：实施时对比（如 `relation ... does not exist`、`disk full` 在两端的实际输出），确认透传后 detail 形态。
