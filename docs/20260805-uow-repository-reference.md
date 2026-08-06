@@ -8,8 +8,8 @@
 ```
 HTTP 请求
   → router.ServeHTTP（自写路由，匹配分发）
-  → httpx.Server.handleLogNumbers（handler：读 body → 调业务函数 → 组响应）
-  → logapi.CreateNumberBatch（业务层：校验零 DB → WithTx 闭包 → Repository 领域方法）
+  → httpx.Server.handleLogNumbers（handler：读 body → 编排层 WithTx 开事务 → 调业务函数 → 组响应）
+  → logapi.CreateNumberBatch（业务层：校验零 DB → 收 Executor（=tx）→ Repository 领域方法）
   → recordrepo.RecordRepository.SaveAll（领域持久化，内部 SQL）
   → db.Executor / pgx 驱动 → 事务 Commit / Rollback
 ```
@@ -52,8 +52,8 @@ type TxBeginner interface {
 }
 
 // WithTx：闭包式 UoW——Begin → fn(tx) → 成功 Commit / 失败 Rollback。
-// 业务方零事务 API：不手动 Begin/Commit/Rollback，闭包返回 nil 即提交。
-func WithTx(ctx context.Context, q TxBeginner, fn func(q Executor) error) error {
+// 编排层（handler）调用：业务方不见 TxBeginner，闭包内收 tx 注入业务函数。
+func WithTx(ctx context.Context, q TxBeginner, fn func(tx Tx) error) error {
 	tx, err := q.Begin(ctx)
 	if err != nil {
 		return err
@@ -98,7 +98,7 @@ import (
 )
 
 // RecordRepository 唯一聚合根的持久化：领域语义方法，内部写 SQL。
-// 无状态；方法第一参数一律收 Executor（事务内外同一签名，事务边界在业务层 WithTx）。
+// 无状态；方法第一参数一律收 Executor（业务层统一只见 Executor——非事务 pool / 事务 tx 调用形态一致）。
 type RecordRepository struct{}
 
 // SaveAll 批量插入（UoW 内）。返回插入后的完整行（含 id）。
@@ -210,35 +210,50 @@ async findById(q: Executor, id: string): Promise<RecordFindByIDResult> {
 ```
 
 ```go
-// 业务函数签名保持 (T, status, error)；status 在闭包外 errors.Is / instanceof 映射。
+// 业务函数签名统一 (ctx, q db.Executor, ...) (T, status, error)；status 在业务函数内 errors.Is 映射。
+// 业务层只见 Executor——非事务 = pool（handler 直接传），事务 = tx（编排层 WithTx 闭包注入），调用形态一致。
 // 错误处理风格：先 err==nil 快速返回成功；switch 全用 errors.Is；
 // default = 未知错误 = 漏了 case 需补代码（暂 500 并留注释）。
-func AttachTag(ctx context.Context, q db.TxBeginner, id, tag string) (TagsEdit, int, error) {
+func AttachTag(ctx context.Context, q db.Executor, id, tag string) (TagsEdit, int, error) {
+	res := recordRepo.FindByID(ctx, q, id)
+	if !res.OK {
+		switch {
+		case errors.Is(res.Error, record.ErrNotFound):
+			return TagsEdit{}, http.StatusNotFound, res.Error
+		default:
+			return TagsEdit{}, http.StatusInternalServerError, res.Error // 漏了 case 需补代码
+		}
+	}
+	res2 := recordRepo.AttachTag(ctx, q, res.Record, tag)
+	if !res2.OK {
+		switch {
+		case errors.Is(res2.Error, record.ErrConflict):
+			return TagsEdit{}, http.StatusConflict, res2.Error
+		default:
+			return TagsEdit{}, http.StatusInternalServerError, res2.Error
+		}
+	}
+	return toTagsEdit(res.Record, res2.Record), http.StatusOK, nil
+}
+```
+
+```go
+// 编排层（handler）：多语句操作在此开事务（业务层不见 TxBeginner）。
+// 闭包收 tx 注入业务函数；捕获 result/status 供组响应；WithTx 遇 err 回滚。
+func (s *Server) handleAttachTag(w http.ResponseWriter, r *http.Request) {
+	...
 	var result TagsEdit
-	err := db.WithTx(ctx, q, func(q db.Executor) error {
-		res := recordRepo.FindByID(ctx, q, id)
-		if !res.OK {
-			return res.Error // 领域错误透传
-		}
-		res2 := recordRepo.AttachTag(ctx, q, res.Record, tag)
-		if !res2.OK {
-			return res2.Error
-		}
-		result = toTagsEdit(res.Record, res2.Record)
-		return nil
+	var status int
+	err := db.WithTx(r.Context(), s.Pool, func(tx db.Tx) error {
+		result, status, err = logapi.AttachTag(r.Context(), tx, id, tag)
+		return err
 	})
-	if err == nil {
-		return result, http.StatusOK, nil // 成功路径快速返回
+	if err != nil {
+		logResponseError(status, "Error attaching tag", err)
+		writeError(w, status, errorDetail(err))
+		return
 	}
-	switch {
-	case errors.Is(err, record.ErrNotFound):
-		return result, http.StatusNotFound, err
-	case errors.Is(err, record.ErrConflict):
-		return result, http.StatusConflict, err
-	default:
-		// 未知错误：漏了 case，需要补代码
-		return result, http.StatusInternalServerError, err
-	}
+	writeJSON(w, status, result)
 }
 ```
 
@@ -248,7 +263,7 @@ const res = await recordRepo.findById(q, id)
 if (!res.ok) {
 	if (res.error instanceof RecordNotFoundError) return { error: res.error.message, status: 404 }
 	if (res.error instanceof RecordConflictError) return { error: res.error.message, status: 409 }
-	return { error: 'Internal server error', status: 500 }
+	return { error: errorMessage(res.error), status: 500 } // 透传（阶段 A）；阶段 B 加 instanceof InternalError
 }
 ```
 
@@ -289,9 +304,8 @@ func numberRecords(batch *numberdraft.NumberBatch) ([]record.Record, error) {
 	return out, nil
 }
 
-// CreateNumberBatch 校验（零 DB）→ WithTx 闭包 → Repository 领域方法。
-// q 收 TxBeginner（业务层传 pool，天然满足；单测传 fake）。
-func CreateNumberBatch(ctx context.Context, q db.TxBeginner, raw []byte) (int, []record.Record, int, error) {
+// CreateNumberBatch 业务函数：校验（零 DB）→ 收 Executor（事务由编排层 WithTx 注入 tx）。
+func CreateNumberBatch(ctx context.Context, q db.Executor, raw []byte) (int, []record.Record, int, error) {
 	batch, err := numberdraft.ParseNumberBatch(raw)
 	if err != nil {
 		return 0, nil, 400, err
@@ -301,22 +315,11 @@ func CreateNumberBatch(ctx context.Context, q db.TxBeginner, raw []byte) (int, [
 		return 0, nil, 500, err
 	}
 
-	var (
-		inserted int
-		out      []record.Record
-	)
-	err = db.WithTx(ctx, q, func(q db.Executor) error {
-		recs, err := recordRepo.SaveAll(ctx, q, records) // 领域语言，无 SQL
-		if err != nil {
-			return err
-		}
-		inserted, out = len(recs), recs
-		return nil
-	})
+	recs, err := recordRepo.SaveAll(ctx, q, records) // 领域语言，无 SQL
 	if err != nil {
 		return 0, nil, 500, err
 	}
-	return inserted, out, 201, nil
+	return len(recs), recs, 201, nil
 }
 ```
 
@@ -333,7 +336,14 @@ func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	inserted, recs, status, err := logapi.CreateNumberBatch(r.Context(), s.Pool, raw)
+	// 编排层开事务：多语句原子操作在此 WithTx（业务层不见 TxBeginner）。
+	var inserted int
+	var recs []record.Record
+	var status int
+	err := db.WithTx(r.Context(), s.Pool, func(tx db.Tx) error {
+		inserted, recs, status, err = logapi.CreateNumberBatch(r.Context(), tx, raw)
+		return err
+	})
 	if err != nil {
 		// 阶段 B 定案形态：日志与错误写出拆开（writeLogOrError 已删除）
 		logResponseError(status, "Error creating number records", err) // 仅 status>=500 记日志
@@ -419,7 +429,8 @@ export type Executor = Pick<
   'insert' | 'select' | 'update' | 'delete' | 'execute'
 >
 
-/** withTx：闭包式 UoW，包装 drizzle db.transaction；与 Go WithTx 同构（业务方零事务 API） */
+/** withTx：闭包式 UoW，包装 drizzle db.transaction；与 Go WithTx 同构。
+ *  Node 框架差异：无 TxBeginner 注入，withTx 走模块级 db 单例，业务函数内部调用（Go 由 handler 编排）。 */
 export function withTx<T>(fn: (q: Executor) => Promise<T>): Promise<T> {
   return db.transaction(async (tx) => fn(tx as Executor))
 }
@@ -451,7 +462,7 @@ export async function createNumberBatch(
     return { inserted: inserted.length, records: inserted, status: 201 }
   } catch (err) {
     logger.error({ err }, 'Error creating number records')
-    return { error: 'Internal server error', status: 500 }
+    return { error: errorMessage(err), status: 500 } // 透传（阶段 A）
   }
 }
 ```
@@ -494,10 +505,10 @@ it('rolls back when the Nth insert fails', async () => {
 | 环节 | Go | Node |
 |---|---|---|
 | 执行器类型名 | `Executor`（+ `Tx` / `TxBeginner`） | `Executor`（**无 Tx/TxBeginner**——drizzle transaction 已封装事务边界） |
-| 事务闭包 | `db.WithTx(ctx, q TxBeginner, fn(q Executor))` | `withTx(fn(q: Executor))`（包装 `db.transaction`） |
-| 业务层 | 校验零 DB → `WithTx` 闭包 → `recordRepo.SaveAll(q, ...)` | 同左 |
+| 事务闭包 | `db.WithTx(ctx, q TxBeginner, fn(tx Tx))`（**编排层 handler 调用**） | `withTx(fn(q: Executor))`（包装 `db.transaction`；**业务函数内部调用**） |
+| 事务边界位置 | 业务层**不见** TxBeginner（handler 编排）；业务函数统一收 `Executor` | 业务函数内部 `withTx`（模块级 db 单例，无注入） |
 | Repository | `SaveAll(ctx, q, records)`（内部 SQL） | `recordRepo.saveAll(q, records)` |
 | 执行器来源 | 业务函数收参数（`pool`，接口注入） | 全局 `db` 单例（`vi.mock` 模块） |
 | 测试机制 | fake `TxBeginner`/`Tx` | `vi.mock('@/db')` |
 
-**形态同构（业务代码一样长闭包，类型名/参数名统一 `Executor`/`q`）、注入机制不同（Go 接口 / Node 模块 mock）**——后者是框架差异，非不一致。
+**行为同构（多语句原子性 / 业务函数只见 `Executor` / `repo.xxx(q, ...)` 调用形态一致）、事务编排位置不同（Go handler 注入 vs Node 模块单例）、注入机制不同（Go 接口 / Node 模块 mock）**——后者是框架差异，非不一致。
