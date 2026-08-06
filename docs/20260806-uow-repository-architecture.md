@@ -260,15 +260,16 @@ src/lib/logapi.ts 等   业务层（Service class）
 
 ## 10. 迁移步骤（E1 定案：逐个迁移、每步全绿提交）
 
-1. **定义接口**：Go `db` 包 `Executor`/`Tx`/`TxBeginner` + `UoW.Do`；Node `src/db/uow.ts`（`Executor`/`UoW` class）。
-2. **统一散落接口**：`rowQuerier` / `transitionDB` / `db.Querier` → `Executor`（纯重构，不改变行为）。
-3. **迁移 transition**（最小先例，已有假实现测试）：`TransitionTodo` → Service 方法 + `uow.Do` + `Transition` 原语，fake 单测。
+1. **定义接口**：Go `db` 包 `Executor`/`Tx`/`TxBeginner` + `UoW.Do`；Node `src/db/uow.ts`（`Executor`/`UoW` class）。✅ 已完成（`602a41e`）
+2. **统一散落接口**：`rowQuerier` / `transitionDB` / `db.Querier` → `Executor`（纯重构，不改变行为）。✅ 已完成（`5486488` + `fcd93df`）
+3. **迁移 transition**（最小先例）：`transitionTodo` 走 `db.WithTx` + `recordrepo.Transition`/`Save`/`FindByID` 原语，fake 单测。✅ 已完成（`6c6607c`）——**暂用函数形态 `db.WithTx(ctx, q, fn)`**（Service 结构体未引入；`UoW.Do` 即 `WithTx` 的注入封装，行为一致）
 4. **迁移批量 create**（number/transaction）：`SaveAll` → **补 log/numbers 回滚测试**（继承项 2）。
 5. **迁移单条 create**（text/todo/bodyWeight/review）：`Save`（无事务）。
 6. **迁移 import / rename**：`Upsert` / `RenameTag`（事务）；`UpsertCounts` 移 `record` 包。
 7. **tags 增删接口**（新接口，暂停中）：`AttachTag` / `DetachTag`（CAS）——业务层零 DB 校验 → `uow.Do` → Repository 存在性/重复性/CAS（见 `docs/20260805-tags-add.md`）。
 8. **迁移读路径**（query/export/stats/summary/tags）：`FindByCriteria` / `FindByCursor` / `Count` / `CountTags`（fake executor 单测查询条件）。
-9. **回归**：全量 unit + integration + lint（`npm run test:unit`、`npm run test:integration`、`go build/vet/golangci-lint`、`npm run openapi:lint`）。
+9. **Service 化（横切，2026-08-06 补充）**：业务层自由函数（logapi/importapi/exportapi/query）→ **Service struct/class 方法**，构造注入 `db` + `uow`；`db.WithTx(ctx, q, fn)` → `s.uow.Do(ctx, fn)`（Node `new UoW(db)` → 构造注入 `this.uow`）；httpx/route 装配注入 Service；测试改注入 fake uow。双端对称，一次性横切。
+10. **回归**：全量 unit + integration + lint（`npm run test:unit`、`npm run test:integration`、`go build/vet/golangci-lint`、`npm run openapi:lint`）。
 
 ## 11. 阶段 B（ErrInternal 防腐层，随 UoW 落地）
 
