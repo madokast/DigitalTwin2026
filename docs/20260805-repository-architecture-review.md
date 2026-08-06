@@ -30,6 +30,35 @@
 - 问题：落地前必须定：`Save`/`SaveAll`/`Upsert` 返回什么（`record.Record` / `[]record.Record`？含 id 的完整行？）；`FindByID` 未找到返回什么错误（sentinel？）；`AttachTag`/`DetachTag` 返回什么（旧 tags + 新 tags？`changed`？）；`Count`/`CountTags` 返回 `int` / `[]tags.TagCount`；`FindInRange` 的分页 / 排序在哪层。
 - 待决：逐方法定义双端签名。
 
+**推荐签名表（基于现有实现，讨论中）**：
+
+| # | 方法 | Go | Node | 现状基础 |
+|---|---|---|---|---|
+| 1 | `save` | `Save(ctx, q, rec) (record.Record, error)` | `save(q, rec) → Promise<Record>` | `insertReturning`（RETURNING 完整行） |
+| 2 | `saveAll` | `SaveAll(ctx, q, recs) ([]record.Record, error)` | `saveAll(q, recs) → Promise<Record[]>` | number/transaction 批量 |
+| 3 | `upsert` | `Upsert(ctx, q, recs) (Counts, error)` | `upsert(q, recs) → Promise<UpsertCounts>` | `ImportRecordsJSONLTx` 的 `Counts{Inserted,Updated,Total}` |
+| 4 | `findById` | `FindByID(ctx, q, id) (record.Record, error)`，未找到 → `record.ErrNotFound` | `findById(q, id) → Promise<Record>` | transition 的 SELECT 预读 |
+| 5 | `findByCriteria` | `FindByCriteria(ctx, q, c) ([]record.Record, error)` | `findByCriteria(q, c) → Promise<Record[]>` | `FetchFilteredRecords` |
+| 6 | `findInRange` | ❓ 语义模糊，见待定点 2 | 同左 | `FetchSummary` / `FetchExportRecords` |
+| 7 | `count` | `Count(ctx, q, c) (int, error)` | `count(q, c) → Promise<number>` | stats total/today |
+| 8 | `countTags` | `CountTags(ctx, q, prefix) ([]tags.TagCount, error)` | `countTags(q, prefix) → Promise<TagCount[]>` | `FetchTagCounts` |
+| 9 | `attachTag` | `AttachTag(ctx, q, rec, tag) (record.Record, error)` | `attachTag(q, rec, tag) → Promise<Record>` | tags-add 定案 CAS |
+| 10 | `detachTag` | `DetachTag(ctx, q, rec, tag) (record.Record, error)` | `detachTag(q, rec, tag) → Promise<Record>` | tags-add 定案 |
+| 11 | `transition` | ⏸ 依赖 A5（领域服务 vs Repository 边界） | 同左 | `transitionTodo` 双写 |
+| 12 | `renameTag` | `RenameTag(ctx, q, from, to) (int, error)` | `renameTag(q, from, to) → Promise<number>` | `RenameAcrossRecords` |
+
+**attachTag/detachTag 传 `record` 而非 `fromTags`**：CAS 需要 tags 旧值作 WHERE 条件——业务层 `FindByID` 读到的 `rec` 自带旧 tags；返回新 `record`，业务层 diff from/to 得 `changed`（tags-add 响应）。
+
+**待定点（5 个，逐个讨论后更新状态）**：
+
+1. **`findByCriteria` 的 total**：query 端点需 `total`（COUNT）。A) `findByCriteria` 内部 COUNT+SELECT 一次返回 `(records, total)`（现状单次函数）；B) 返回 records，业务层再 `count(c)` 两次调用（方法语义单一）。
+2. **`findInRange` 语义模糊**：summary（happened_at 区间**计数**）与 export（**id 游标分页**）语义完全不同。是否拆成：summary 用 `count(criteria 带区间)`、export 用独立 `findByCursor(q, from, limit)`？`findInRange` 是否从方法集移除？
+3. **Node 领域错误表达**：Go 用 `record.ErrNotFound` sentinel + `errors.Is`；Node 对称方案 = throw 领域错误类 + `instanceof`（`RecordNotFoundError` / `RecordConflictError`），业务层 catch 分类——但改变 Node 现状「返回 Result 对象不 throw」惯例。是否引入？或 Node 用 `null` / Result？
+4. **`Counts` 类型归属**：`UpsertCounts{Inserted,Updated,Total}` 现在在 `importapi` 包，Repository 要用——是否移到 `record` 包（聚合根类型）？
+5. **`transition`**：等 A5 定案后补。
+
+- 状态：⏳ 讨论中（待定点 1-4 逐个讨论定案；5 等 A5）
+
 ### A4【阻塞】业务函数签名变更与接口注入点
 - 现状：业务函数收 `*pgxpool.Pool`（`CreateTodo(ctx, pool, raw)`）；httpx 直接调用；transition 用 `TransitionTodo` 字段注入（httpx 层）。
 - 问题：迁移后业务函数收 `Executor` 还是收 `pool` 内部 `WithTx`？httpx 层如何保持可注入（`TransitionTodo` 字段签名是否变）？写路径「业务层开 WithTx」与「业务函数收 Executor（上层已开事务）」两种形态取哪种？现有 `CreateTodo` 单条 INSERT 是否需要事务（无多语句，可无事务）？
