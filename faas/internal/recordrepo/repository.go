@@ -10,6 +10,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
@@ -17,6 +19,21 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 )
+
+// Criteria 过滤 + 分页 + 排序条件（§6 定案）。
+// 校验归属业务层（HTTP parse 填默认 page 1 / page_size 20 / sort 默认、上限 100 契约）；
+// repo 内零默认、只检测非法值（Page<1 / PageSize<1 / SortBy/SortOrder 空或非法枚举 → 400）。
+// Hint 不进 Criteria（响应辅助，业务层 parse 时产出、随响应返回）。
+type Criteria struct {
+	ID        string     // 空 = 无 id 过滤
+	From, To  *time.Time // happened_at 区间（含 utc_offset 语义）
+	Tags      []string   // 每项精确 tag 或 "family:*" 族通配；空 = 无 tag 过滤
+	Q         string     // 全文搜索 raw_content / objective_context / ai_analysis / tags
+	Page      int
+	PageSize  int
+	SortBy    string // happened_at | id
+	SortOrder string // asc | desc
+}
 
 // RecordRepository 唯一聚合根的持久化：领域语义方法，内部写 SQL。
 // 空结构体（无状态）；以包级单例 Repo 暴露，方法第一参数显式收执行器 q
@@ -105,4 +122,160 @@ func (r *RecordRepository) SaveAll(ctx context.Context, q db.Executor, recs []re
 		out = append(out, saved)
 	}
 	return out, nil
+}
+
+// FindByCriteria 按条件查询 records 列表（只返回行；total 由业务层另行 Count，方案 B）。
+// 条件构建在 Repository 内部（D3：escapeLikePattern / 族通配 / recordsOrderBySql 迁入本包）。
+// Scan DBRow + FromDB 唯一转换点。ID 非空时忽略分页返回 0～1 条（现状语义）。
+// Criteria 非法值（Page/PageSize<1、SortBy/SortOrder 空或非法枚举）→ 400（§6：repo 只检测不填补）。
+func (r *RecordRepository) FindByCriteria(ctx context.Context, q db.Executor, c Criteria) ([]record.Record, *myerr.MyError) {
+	if me := validateCriteria(c); me != nil {
+		return nil, me
+	}
+
+	where, args := buildCriteriaWhere(c)
+	selectSQL := `SELECT id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis
+FROM records`
+	if where != "" {
+		selectSQL += " WHERE " + where
+	}
+	selectSQL += " ORDER BY " + recordsOrderBySql(c.SortBy, c.SortOrder)
+	if c.ID == "" {
+		offset := (c.Page - 1) * c.PageSize
+		selectSQL += fmt.Sprintf(" LIMIT %d OFFSET %d", c.PageSize, offset)
+	}
+
+	rows, err := q.Query(ctx, selectSQL, args...)
+	if err != nil {
+		return nil, myerr.NewInternal(err)
+	}
+	defer rows.Close()
+
+	recs := []record.Record{}
+	for rows.Next() {
+		rec, err := scanRecordRow(rows)
+		if err != nil {
+			return nil, myerr.NewInternal(err)
+		}
+		recs = append(recs, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, myerr.NewInternal(err)
+	}
+	return recs, nil
+}
+
+// validateCriteria 检测非法值 → 400（错误语义：数据/格式问题不限层级）。
+// 文案与 HTTP query parse 层一致（契约文案双端逐字一致）。
+func validateCriteria(c Criteria) *myerr.MyError {
+	if c.Page < 1 {
+		return myerr.NewValidation("page must be a positive integer")
+	}
+	if c.PageSize < 1 {
+		return myerr.NewValidation("page_size must be a positive integer")
+	}
+	if c.SortBy != "happened_at" && c.SortBy != "id" {
+		return myerr.NewValidation("sort_by must be one of: happened_at, id")
+	}
+	if c.SortOrder != "asc" && c.SortOrder != "desc" {
+		return myerr.NewValidation("sort_order must be one of: asc, desc")
+	}
+	return nil
+}
+
+// buildCriteriaWhere 构建 WHERE 子句（迁移自 query.buildWhere；步骤 8 接线后删旧实现）。
+func buildCriteriaWhere(c Criteria) (string, []any) {
+	var parts []string
+	var args []any
+	n := 1
+
+	if c.ID != "" {
+		parts = append(parts, fmt.Sprintf("id = $%d", n))
+		args = append(args, c.ID)
+		n++
+	}
+	if c.From != nil {
+		parts = append(parts, fmt.Sprintf("happened_at >= $%d", n))
+		args = append(args, *c.From)
+		n++
+	}
+	if c.To != nil {
+		parts = append(parts, fmt.Sprintf("happened_at < $%d", n))
+		args = append(args, *c.To)
+		n++
+	}
+	for _, tag := range c.Tags {
+		parts = append(parts, fmt.Sprintf("tags LIKE $%d", n))
+		pattern := `%"` + escapeLikePattern(tag) + `"%`
+		if strings.HasSuffix(tag, ":*") {
+			// 族通配 `X:*` → `%"X:%`（去尾闭合引号、保留冒号）
+			pattern = `%"` + escapeLikePattern(tag[:len(tag)-1]) + `%`
+		}
+		args = append(args, pattern)
+		n++
+	}
+	if c.Q != "" {
+		pattern := `%` + escapeLikePattern(c.Q) + `%`
+		parts = append(parts, fmt.Sprintf(
+			`(raw_content LIKE $%d OR objective_context LIKE $%d OR ai_analysis LIKE $%d OR tags LIKE $%d)`,
+			n, n+1, n+2, n+3,
+		))
+		args = append(args, pattern, pattern, pattern, pattern)
+	}
+
+	if len(parts) == 0 {
+		return "", nil
+	}
+	return strings.Join(parts, " AND "), args
+}
+
+// escapeLikePattern 转义 LIKE 通配符（PostgreSQL 默认 ESCAPE '\'）。
+// 迁移自 query.EscapeLikePattern；步骤 8 接线后删旧实现。
+func escapeLikePattern(raw string) string {
+	s := strings.ReplaceAll(raw, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
+}
+
+// recordsOrderBySql 列表查询排序（迁移自 query.RecordsOrderBySql；步骤 8 接线后删旧实现）。
+func recordsOrderBySql(sortBy, sortOrder string) string {
+	if sortBy == "id" {
+		if sortOrder == "desc" {
+			return "id DESC"
+		}
+		return "id ASC"
+	}
+	if sortOrder == "desc" {
+		return "happened_at DESC, id ASC"
+	}
+	return "happened_at ASC, id ASC"
+}
+
+// rowScanner 收窄的扫描接口（pgx.Rows / pgx.Row 均满足）。
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+// scanRecordRow Scan DBRow → FromDB（迁移自 query.scanRecord；唯一转换点）。
+func scanRecordRow(row rowScanner) (record.Record, error) {
+	var (
+		id, tagsField, objectiveContext, utcOffset string
+		happenedAt                                 time.Time
+		numericValue, rawContent, subj             *string
+	)
+	err := row.Scan(&id, &happenedAt, &utcOffset, &numericValue, &rawContent, &tagsField, &objectiveContext, &subj)
+	if err != nil {
+		return record.Record{}, err
+	}
+	return record.FromDB(record.DBRow{
+		ID:               id,
+		HappenedAt:       happenedAt,
+		UtcOffset:        utcOffset,
+		NumericValue:     numericValue,
+		RawContent:       rawContent,
+		Tags:             tagsField,
+		ObjectiveContext: objectiveContext,
+		AiAnalysis:       subj,
+	}), nil
 }

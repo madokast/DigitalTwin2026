@@ -13,7 +13,7 @@
  * newInternal 后 throw），成功路径返回直接值——业务层无拆包样板。
  */
 
-import { eq } from 'drizzle-orm'
+import { and, eq, gte, like, lt, or, sql, type SQL } from 'drizzle-orm'
 import * as schema from '@/db/schema'
 import { fromDB, type Record } from '@/lib/record'
 import { parseHappenedAt } from '@/lib/draft'
@@ -96,6 +96,121 @@ export class RecordRepository {
     }
     return out
   }
+
+  /**
+   * 按条件查询 records 列表（只返回行；total 由业务层另行 count，方案 B）。
+   * 条件构建在 Repository 内部（D3）；fromDB 唯一转换点。
+   * id 非空时忽略分页返回 0～1 条（现状语义）。
+   * Criteria 非法值（page/pageSize<1、sortBy/sortOrder 空或非法枚举）→ 400（§6：repo 只检测不填补）。
+   */
+  async findByCriteria(q: Executor, c: Criteria): Promise<Record[]> {
+    validateCriteria(c)
+
+    const conditions: SQL[] = []
+    if (c.id) conditions.push(eq(schema.records.id, c.id))
+    if (c.from) conditions.push(gte(schema.records.happenedAt, c.from))
+    if (c.to) conditions.push(lt(schema.records.happenedAt, c.to))
+    for (const tag of c.tags) {
+      if (tag.endsWith(':*')) {
+        // 族通配 `X:*` → `%"X:%`（去尾闭合引号、保留冒号）
+        conditions.push(like(schema.records.tags, `%"${escapeLikePattern(tag.slice(0, -1))}%`))
+      } else {
+        conditions.push(like(schema.records.tags, `%"${escapeLikePattern(tag)}"%`))
+      }
+    }
+    if (c.q) {
+      const pattern = `%${escapeLikePattern(c.q)}%`
+      // 必须用 or() 包一层，否则 and(...conds) 拼出 tag AND vt OR obj …（AND 优先于 OR）
+      conditions.push(
+        or(
+          like(schema.records.rawContent, pattern),
+          like(schema.records.objectiveContext, pattern),
+          like(schema.records.aiAnalysis, pattern),
+          like(schema.records.tags, pattern),
+        )!,
+      )
+    }
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined
+    const listOrder = sql.raw(recordsOrderBySql(c.sortBy, c.sortOrder))
+
+    let rows: typeof schema.records.$inferSelect[]
+    try {
+      if (c.id) {
+        rows = where
+          ? await q.select().from(schema.records).where(where).orderBy(listOrder)
+          : await q.select().from(schema.records).orderBy(listOrder)
+      } else {
+        const offset = (c.page - 1) * c.pageSize
+        rows = where
+          ? await q
+              .select()
+              .from(schema.records)
+              .where(where)
+              .orderBy(listOrder)
+              .limit(c.pageSize)
+              .offset(offset)
+          : await q
+              .select()
+              .from(schema.records)
+              .orderBy(listOrder)
+              .limit(c.pageSize)
+              .offset(offset)
+      }
+    } catch (err) {
+      throw newInternal(err)
+    }
+    return rows.map(fromDB)
+  }
+}
+
+/**
+ * 过滤 + 分页 + 排序条件（§6 定案）。
+ * 校验归属业务层（HTTP parse 填默认 page 1 / page_size 20 / sort 默认、上限 100 契约）；
+ * repo 内零默认、只检测非法值（page/pageSize<1、sortBy/sortOrder 空或非法枚举 → 400）。
+ * hint 不进 Criteria（响应辅助，业务层 parse 时产出、随响应返回）。
+ */
+export type Criteria = {
+  id?: string
+  from?: Date
+  to?: Date
+  tags: string[] // 每项精确 tag 或 "family:*" 族通配；空 = 无 tag 过滤
+  q?: string // 全文搜索 raw_content / objective_context / ai_analysis / tags
+  page: number
+  pageSize: number
+  sortBy: 'happened_at' | 'id'
+  sortOrder: 'asc' | 'desc'
+}
+
+/** 检测非法值 → 400（错误语义：数据/格式问题不限层级）。文案与 HTTP query parse 层一致（契约文案双端逐字一致）。 */
+function validateCriteria(c: Criteria): void {
+  if (c.page < 1) throw newValidation('page must be a positive integer')
+  if (c.pageSize < 1) throw newValidation('page_size must be a positive integer')
+  if (c.sortBy !== 'happened_at' && c.sortBy !== 'id') {
+    throw newValidation('sort_by must be one of: happened_at, id')
+  }
+  if (c.sortOrder !== 'asc' && c.sortOrder !== 'desc') {
+    throw newValidation('sort_order must be one of: asc, desc')
+  }
+}
+
+/**
+ * 转义 LIKE 通配符（PostgreSQL 默认 ESCAPE '\'）。
+ * 迁移自 query.escapeLikePattern；步骤 8 接线后删旧实现。
+ */
+function escapeLikePattern(raw: string): string {
+  return raw
+    .replace(/\\/g, '\\\\')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_')
+}
+
+/** 列表查询排序（迁移自 query.recordsOrderBySql；步骤 8 接线后删旧实现）。 */
+function recordsOrderBySql(sortBy: 'happened_at' | 'id', sortOrder: 'asc' | 'desc'): string {
+  if (sortBy === 'id') {
+    return sortOrder === 'desc' ? 'id DESC' : 'id ASC'
+  }
+  return sortOrder === 'desc' ? 'happened_at DESC, id ASC' : 'happened_at ASC, id ASC'
 }
 
 /** Repo RecordRepository 模块级单例（空结构体，无状态，安全共享）。 */

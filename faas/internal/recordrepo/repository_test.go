@@ -42,11 +42,15 @@ func (r *fakeRow) Scan(dest ...any) error {
 }
 
 type fakeExecutor struct {
-	execSQL  []string
-	execArgs [][]any
-	row      *fakeRow
-	rowsAff  int64
-	execErr  error
+	execSQL   []string
+	execArgs  [][]any
+	row       *fakeRow
+	rowsAff   int64
+	execErr   error
+	querySQL  string
+	queryArgs []any
+	queryRows [][]any
+	queryErr  error
 }
 
 func (f *fakeExecutor) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
@@ -60,9 +64,61 @@ func (f *fakeExecutor) Exec(_ context.Context, sql string, args ...any) (pgconn.
 	}
 	return pgconn.NewCommandTag("UPDATE " + strconv.FormatInt(f.rowsAff, 10)), nil
 }
-func (f *fakeExecutor) Query(context.Context, string, ...any) (pgx.Rows, error) {
-	panic("Query not used")
+func (f *fakeExecutor) Query(_ context.Context, sql string, args ...any) (pgx.Rows, error) {
+	f.querySQL = sql
+	f.queryArgs = append([]any{}, args...)
+	if f.queryErr != nil {
+		return nil, f.queryErr
+	}
+	return &fakeRows{data: f.queryRows}, nil
 }
+
+type fakeRows struct {
+	data [][]any
+	i    int // 已消费条数；Next 后指向 data[i-1]
+	err  error
+}
+
+func (r *fakeRows) Next() bool {
+	if r.i >= len(r.data) {
+		return false
+	}
+	r.i++
+	return true
+}
+
+func (r *fakeRows) Scan(dest ...any) error {
+	row := r.data[r.i-1]
+	if len(dest) != len(row) {
+		return errors.New("scan dest/row length mismatch")
+	}
+	for i, d := range dest {
+		switch p := d.(type) {
+		case *string:
+			*p = row[i].(string)
+		case *time.Time:
+			*p = row[i].(time.Time)
+		case **string:
+			if row[i] == nil {
+				*p = nil
+			} else {
+				s := row[i].(string)
+				*p = &s
+			}
+		default:
+			return errors.New("unsupported scan dest type")
+		}
+	}
+	return nil
+}
+
+func (r *fakeRows) Close()                                       {}
+func (r *fakeRows) Err() error                                   { return r.err }
+func (r *fakeRows) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
+func (r *fakeRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
+func (r *fakeRows) Values() ([]any, error)                       { return nil, nil }
+func (r *fakeRows) RawValues() [][]byte                          { return nil }
+func (r *fakeRows) Conn() *pgx.Conn                              { return nil }
 
 func TestFindByIDNotFound(t *testing.T) {
 	f := &fakeExecutor{row: &fakeRow{err: pgx.ErrNoRows}}
@@ -106,5 +162,184 @@ func TestTransitionAffectedNotOne(t *testing.T) {
 	}
 	if len(f.execSQL) != 1 || !strings.Contains(f.execSQL[0], "UPDATE records SET tags") {
 		t.Fatalf("sql %v", f.execSQL)
+	}
+}
+
+func criteriaRow(id, tags string) []any {
+	return []any{
+		id,
+		time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC),
+		"+00:00",
+		"12.34",
+		"raw",
+		tags,
+		"obj",
+		"ai",
+	}
+}
+
+func TestFindByCriteriaValidation400(t *testing.T) {
+	base := func() Criteria {
+		return Criteria{Page: 1, PageSize: 20, SortBy: "happened_at", SortOrder: "asc"}
+	}
+	cases := []struct {
+		name string
+		c    Criteria
+		want string
+	}{
+		{"page zero", func() Criteria { c := base(); c.Page = 0; return c }(), "page must be a positive integer"},
+		{"page negative", func() Criteria { c := base(); c.Page = -1; return c }(), "page must be a positive integer"},
+		{"pageSize zero", func() Criteria { c := base(); c.PageSize = 0; return c }(), "page_size must be a positive integer"},
+		{"sortBy empty", func() Criteria { c := base(); c.SortBy = ""; return c }(), "sort_by must be one of: happened_at, id"},
+		{"sortBy invalid", func() Criteria { c := base(); c.SortBy = "foo"; return c }(), "sort_by must be one of: happened_at, id"},
+		{"sortOrder empty", func() Criteria { c := base(); c.SortOrder = ""; return c }(), "sort_order must be one of: asc, desc"},
+		{"sortOrder invalid", func() Criteria { c := base(); c.SortOrder = "foo"; return c }(), "sort_order must be one of: asc, desc"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := &fakeExecutor{}
+			_, me := Repo.FindByCriteria(context.Background(), f, tc.c)
+			if me == nil {
+				t.Fatal("want validation error")
+			}
+			if me.Status != 400 {
+				t.Fatalf("status=%d want 400 (%s)", me.Status, me.Message)
+			}
+			if me.Message != tc.want {
+				t.Fatalf("msg %q want %q", me.Message, tc.want)
+			}
+			if f.querySQL != "" {
+				t.Fatalf("no query expected on validation failure, got %q", f.querySQL)
+			}
+		})
+	}
+}
+
+func TestFindByCriteriaBuildsConditions(t *testing.T) {
+	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC)
+	f := &fakeExecutor{queryRows: [][]any{criteriaRow("id-1", `["work"]`)}}
+	_, me := Repo.FindByCriteria(context.Background(), f, Criteria{
+		From:      &from,
+		To:        &to,
+		Tags:      []string{"work", "family:*"},
+		Q:         "hello world",
+		Page:      1,
+		PageSize:  100,
+		SortBy:    "id",
+		SortOrder: "asc",
+	})
+	if me != nil {
+		t.Fatal(me)
+	}
+	sql := f.querySQL
+	for _, want := range []string{
+		"happened_at >= $1",
+		"happened_at < $2",
+		"tags LIKE $3",
+		"tags LIKE $4",
+		`raw_content LIKE $5 OR objective_context LIKE $6 OR ai_analysis LIKE $7 OR tags LIKE $8`,
+		"ORDER BY id ASC",
+		"LIMIT 100 OFFSET 0",
+	} {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("SQL missing %q:\n%s", want, sql)
+		}
+	}
+	if len(f.queryArgs) != 8 {
+		t.Fatalf("args=%v want 8", f.queryArgs)
+	}
+	// 模式在参数中（SQL 侧仅占位符）：精确 tag → %"work"%；族通配 → %"family:%
+	if got := f.queryArgs[2]; got != `%"work"%` {
+		t.Fatalf("tag arg=%v want %%\"work\"%%", got)
+	}
+	if got := f.queryArgs[3]; got != `%"family:%` {
+		t.Fatalf("wildcard arg=%v want %%\"family:\"%%", got)
+	}
+	if got := f.queryArgs[4]; got != `%hello world%` {
+		t.Fatalf("q arg=%v want %%hello world%%", got)
+	}
+}
+
+func TestFindByCriteriaIDNoPagination(t *testing.T) {
+	f := &fakeExecutor{queryRows: [][]any{criteriaRow("id-1", `["work"]`)}}
+	_, me := Repo.FindByCriteria(context.Background(), f, Criteria{
+		ID:        "01900000-0000-7000-8000-000000000003",
+		Page:      2,
+		PageSize:  20,
+		SortBy:    "happened_at",
+		SortOrder: "asc",
+	})
+	if me != nil {
+		t.Fatal(me)
+	}
+	if strings.Contains(f.querySQL, "LIMIT") {
+		t.Fatalf("id path must not paginate: %q", f.querySQL)
+	}
+}
+
+func TestFindByCriteriaNoConditions(t *testing.T) {
+	f := &fakeExecutor{queryRows: [][]any{criteriaRow("id-1", `[]`)}}
+	_, me := Repo.FindByCriteria(context.Background(), f, Criteria{
+		Page:      1,
+		PageSize:  20,
+		SortBy:    "happened_at",
+		SortOrder: "desc",
+	})
+	if me != nil {
+		t.Fatal(me)
+	}
+	if strings.Contains(f.querySQL, "WHERE") {
+		t.Fatalf("no WHERE expected: %q", f.querySQL)
+	}
+	if !strings.Contains(f.querySQL, "ORDER BY happened_at DESC, id ASC") {
+		t.Fatalf("unexpected order: %q", f.querySQL)
+	}
+	if !strings.Contains(f.querySQL, "LIMIT 20 OFFSET 0") {
+		t.Fatalf("unexpected pagination: %q", f.querySQL)
+	}
+}
+
+func TestFindByCriteriaFromDB(t *testing.T) {
+	f := &fakeExecutor{queryRows: [][]any{criteriaRow("01900000-0000-7000-8000-000000000003", `["work","urgent"]`)}}
+	recs, me := Repo.FindByCriteria(context.Background(), f, Criteria{
+		Page:      1,
+		PageSize:  20,
+		SortBy:    "happened_at",
+		SortOrder: "asc",
+	})
+	if me != nil {
+		t.Fatal(me)
+	}
+	if len(recs) != 1 {
+		t.Fatalf("recs=%d want 1", len(recs))
+	}
+	if recs[0].ID != "01900000-0000-7000-8000-000000000003" {
+		t.Fatalf("id %q", recs[0].ID)
+	}
+	if recs[0].HappenedAt != "2026-08-01T12:00:00.000+00:00" {
+		t.Fatalf("happened_at %q", recs[0].HappenedAt)
+	}
+	if len(recs[0].Tags) != 2 || recs[0].Tags[0] != "work" || recs[0].Tags[1] != "urgent" {
+		t.Fatalf("tags %v", recs[0].Tags)
+	}
+}
+
+func TestFindByCriteriaDriverErrorInternal(t *testing.T) {
+	f := &fakeExecutor{queryErr: errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`)}
+	_, me := Repo.FindByCriteria(context.Background(), f, Criteria{
+		Page:      1,
+		PageSize:  20,
+		SortBy:    "happened_at",
+		SortOrder: "asc",
+	})
+	if me == nil {
+		t.Fatal("want error")
+	}
+	if me.Status != 500 {
+		t.Fatalf("status=%d want 500", me.Status)
+	}
+	if !strings.Contains(me.Message, `ERROR: relation "records" does not exist (SQLSTATE 42P01)`) {
+		t.Fatalf("driver message not embedded: %q", me.Message)
 	}
 }
