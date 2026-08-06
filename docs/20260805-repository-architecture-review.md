@@ -71,6 +71,11 @@
 - 现状：业务函数收 `*pgxpool.Pool`（`CreateTodo(ctx, pool, raw)`）；httpx 直接调用；transition 用 `TransitionTodo` 字段注入（httpx 层）。
 - 问题：迁移后业务函数收 `Executor` 还是收 `pool` 内部 `WithTx`？httpx 层如何保持可注入（`TransitionTodo` 字段签名是否变）？写路径「业务层开 WithTx」与「业务函数收 Executor（上层已开事务）」两种形态取哪种？现有 `CreateTodo` 单条 INSERT 是否需要事务（无多语句，可无事务）？
 - 待决：逐业务函数定签名 + httpx 注入点。
+- 状态：✅ **已定案**——**按语句数分两种形态**：
+  - **单条 INSERT（无多语句，如 `CreateTodo`、单条 Save）**：**不走事务**，业务函数收 `db.Executor`（`*pgxpool.Pool` 天然满足），直接 `repo.Save(ctx, q, rec)`。无事务即无可回滚，回滚测试不覆盖此形态。
+  - **多语句 / 原子性需求（SaveAll、import upsert、tags 编辑、transition）**：业务函数收 `db.TxBeginner`，内部 `db.WithTx(ctx, q, func(q db.Executor) error {...})` 闭包（A1 形态，闭包内只调 repo 领域方法）。
+  - 两种形态业务函数签名均保持 `(T, status, error)`（A2）。
+  - **httpx 注入点**：`Server.TransitionTodo` 字段 pool 参数 `*pgxpool.Pool` → `db.TxBeginner`（多语句形态，与 `Server.Pool` 放宽同步）；httpx 测试 fake 注入方式不变。
 
 ### A5【阻塞】transition 的领域服务 vs Repository 边界
 - 现状：`transitionTodo` 一个函数包含：SELECT 预读 → 领域校验（审计行 / 四态识别 / already target）→ 组 notify/objCtx → UPDATE + INSERT 审计（事务）。
