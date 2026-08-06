@@ -111,7 +111,7 @@ if err != nil {
 
 ### 3.4 具体改动清单
 
-1. **Go**：`record` 包新增 `ErrInternal`（`InternalError` 类型 + `ErrInternal(err)` 包装）；Repository 层吸收三方库错误；**status 来源保持 A2 定案（业务函数显式返回，不引入 statusOf）**；删除 `writeInternalError` 特殊通道（handler 统一 `writeError(w, status, err.Error())`）。
+1. **Go**：`record` 包新增 `ErrInternal`（`InternalError` 类型 + `ErrInternal(err)` 包装）；Repository 层吸收三方库错误；**status 来源保持 A2 定案（业务函数显式返回，不引入 statusOf）**；删除 `writeInternalError` 特殊通道（handler 统一 `logResponseError + writeError(w, status, errorDetail(err))`）。
 2. **Node**：见 §3.5（双端对称，但当前无 Repository 层，见下）。
 3. **守卫测试反转**：`TestWriteInternalErrorNeverExposesDetails` → 验证 500 + detail 透传。
 4. **OpenAPI** `InternalError` example 更新（示意透传具体错误）。
@@ -162,8 +162,17 @@ export function errorMessage(error: unknown): string {
    }
    ```
    日志语义随操作走（8 处 handler 各自组合），无跨层依赖。
-5. **日志位置**：500 时 `slog.Error(logMsg, "err", err)` 保持（写路径 `writeLogOrError`、读路径 handler 内 `slog.Error`）——日志是诊断兜底，与透传并存。
-6. **守卫测试 + 空 err 兜底**：`TestWriteInternalErrorNeverExposesDetails` → `TestWriteInternalErrorTransmitsDetail`（500 + 透传注入 message）；`writeInternalError` 内 `err == nil` 或 `err.Error() == ""` 回退固定文案（防空 detail）。
+5. **日志位置**：500 时 `slog.Error(logMsg, "err", err)` 保持（写路径 handler 显式调用 `logResponseError`、读路径 handler 内 `slog.Error`）——日志是诊断兜底，与透传并存。
+6. **守卫测试 + 空 err 兜底**：`TestWriteInternalErrorNeverExposesDetails` → `TestWriteInternalErrorTransmitsDetail`（500 + 透传注入 message）。空 message 兜底用 `errorDetail(err)` helper：`err.Error() == ""` 时以 `fmt.Sprintf("%T", err)` 类型名兜底（非 nil error 永不为空，保留诊断信息）——阶段 B 删除 `writeInternalError` 后由其承担（与 Node `errorMessage` helper 对称）：
+   ```go
+   func errorDetail(err error) string {
+   	if msg := err.Error(); msg != "" {
+   		return msg
+   	}
+   	return fmt.Sprintf("%T", err)
+   }
+   ```
+   handler：`logResponseError(status, logMsg, err)` + `writeError(w, status, errorDetail(err))`。
 
 ## 4. 待验证 / 风险
 
