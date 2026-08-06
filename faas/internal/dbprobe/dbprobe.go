@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 )
 
 const (
@@ -44,8 +45,8 @@ func SanitizeProbeError(_ error) string {
 
 type connectFunc func(ctx context.Context, connString string) (*pgx.Conn, error)
 
-// Probe 打开短命连接并测三段延迟。失败时返回 status=503 与英文 error。
-func Probe(ctx context.Context, getenv func(string) string) (result Result, status int, errMsg string) {
+// Probe 打开短命连接并测三段延迟。失败 → myerr 503（服务不可用）。
+func Probe(ctx context.Context, getenv func(string) string) (Result, *myerr.MyError) {
 	return probeWith(ctx, getenv, connectWithTimeout)
 }
 
@@ -59,38 +60,38 @@ func connectWithTimeout(ctx context.Context, connString string) (*pgx.Conn, erro
 	return pgx.ConnectConfig(ctx, cfg)
 }
 
-func probeWith(ctx context.Context, getenv func(string) string, connect connectFunc) (Result, int, string) {
+func probeWith(ctx context.Context, getenv func(string) string, connect connectFunc) (Result, *myerr.MyError) {
 	if getenv == nil {
 		getenv = os.Getenv
 	}
 	url := strings.TrimSpace(getenv("DATABASE_URL"))
 	if url == "" {
-		return Result{}, 503, DatabaseURLNotSet
+		return Result{}, myerr.NewServiceUnavailable(DatabaseURLNotSet)
 	}
 
 	t0 := time.Now()
 	conn, err := connect(ctx, url)
 	if err != nil {
-		return Result{}, 503, SanitizeProbeError(err)
+		return Result{}, myerr.NewServiceUnavailable(SanitizeProbeError(err))
 	}
 	connectMs := roundMs(time.Since(t0))
 	defer conn.Close(ctx)
 
 	t1 := time.Now()
 	if _, err := conn.Exec(ctx, "select 1"); err != nil {
-		return Result{}, 503, SanitizeProbeError(err)
+		return Result{}, myerr.NewServiceUnavailable(SanitizeProbeError(err))
 	}
 	select1FirstMs := roundMs(time.Since(t1))
 
 	t2 := time.Now()
 	if _, err := conn.Exec(ctx, "select 1"); err != nil {
-		return Result{}, 503, SanitizeProbeError(err)
+		return Result{}, myerr.NewServiceUnavailable(SanitizeProbeError(err))
 	}
 	select1SecondMs := roundMs(time.Since(t2))
 
 	var reg *string
 	if err := conn.QueryRow(ctx, "select to_regclass('public.records')::text").Scan(&reg); err != nil {
-		return Result{}, 503, SanitizeProbeError(err)
+		return Result{}, myerr.NewServiceUnavailable(SanitizeProbeError(err))
 	}
 	recordsExists := reg != nil && *reg != ""
 
@@ -101,5 +102,5 @@ func probeWith(ctx context.Context, getenv func(string) string, connect connectF
 		ConnectMs:          connectMs,
 		Select1FirstMs:     select1FirstMs,
 		Select1SecondMs:    select1SecondMs,
-	}, 200, ""
+	}, nil
 }

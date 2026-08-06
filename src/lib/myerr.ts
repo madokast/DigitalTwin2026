@@ -30,6 +30,9 @@ export const newValidation = (msg: string): MyError => new MyError(400, msg)
 /** 409（唯一约束冲突 / 重名等；暂未使用）。 */
 export const newConflict = (msg: string): MyError => new MyError(409, msg)
 
+/** 503（健康探测等「服务暂不可用」；非客户端请求问题）。 */
+export const newServiceUnavailable = (msg: string): MyError => new MyError(503, msg)
+
 /** 500（驱动错误等内部错误）：describe 拼 "类型名: 消息"（空消息 → 仅类型名，永不为空）。
  * 吸收原 httperror.errorMessage 的兜底职责；500 detail 透传驱动消息供 AI 诊断。
  * 防呆：cause 已是 MyError（误传）→ 原样返回，杜绝双重包装（describe 再烙一层类型名污染文案）。 */

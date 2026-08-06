@@ -3,6 +3,7 @@
  * 与 Go `faas/internal/dbprobe` 同构；不查 __drizzle_migrations。
  */
 import postgres from 'postgres'
+import { newServiceUnavailable, type MyError } from '@/lib/myerr'
 
 export type DbProbeResult = {
   ok: boolean
@@ -14,8 +15,7 @@ export type DbProbeResult = {
 }
 
 export type DbProbeFailure = {
-  error: string
-  status: 503
+  error: MyError
 }
 
 export const DATABASE_URL_NOT_SET = 'DATABASE_URL is not set'
@@ -44,7 +44,7 @@ export async function probeDatabase(
 ): Promise<DbProbeResult | DbProbeFailure> {
   const url = getenv('DATABASE_URL')?.trim()
   if (!url) {
-    return { error: DATABASE_URL_NOT_SET, status: 503 }
+    return { error: newServiceUnavailable(DATABASE_URL_NOT_SET) }
   }
 
   const pool = createSql(url, {
@@ -84,7 +84,7 @@ export async function probeDatabase(
       conn.release()
     }
   } catch (err) {
-    return { error: sanitizeProbeError(err), status: 503 }
+    return { error: newServiceUnavailable(sanitizeProbeError(err)) }
   } finally {
     await pool.end({ timeout: 5 }).catch(() => {})
   }

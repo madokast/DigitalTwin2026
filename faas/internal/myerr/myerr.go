@@ -27,6 +27,9 @@ func NewValidation(msg string) *MyError { return &MyError{Status: 400, Message: 
 // NewConflict 409（唯一约束冲突 / 重名等；暂未使用）。
 func NewConflict(msg string) *MyError { return &MyError{Status: 409, Message: msg} }
 
+// NewServiceUnavailable 503（健康探测等「服务暂不可用」；非客户端请求问题）。
+func NewServiceUnavailable(msg string) *MyError { return &MyError{Status: 503, Message: msg} }
+
 // NewInternal 500（驱动错误等内部错误）：describe 拼 "类型名: 消息"（空消息 → 仅类型名，永不为空）。
 // 吸收原 httpx.errorDetail；500 detail 透传驱动消息供 AI 诊断。
 // 防呆：cause 已是 *MyError（误传）→ 原样返回，杜绝双重包装（describe 再烙一层类型名污染文案）。

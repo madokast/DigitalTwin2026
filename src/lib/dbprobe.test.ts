@@ -23,7 +23,9 @@ describe('sanitizeProbeError', () => {
 describe('probeDatabase', () => {
   it('returns 503 when DATABASE_URL is missing', async () => {
     const result = await probeDatabase(() => undefined)
-    expect(result).toEqual({ error: DATABASE_URL_NOT_SET, status: 503 })
+    if (!('error' in result)) throw new Error('expected failure')
+    expect(result.error.status).toBe(503)
+    expect(result.error.message).toBe(DATABASE_URL_NOT_SET)
   })
 
   it('returns timings and ok when reachable with records table', async () => {
@@ -47,7 +49,7 @@ describe('probeDatabase', () => {
       database_reachable: true,
       records_table_exists: true,
     })
-    if ('status' in result) throw new Error('expected success')
+    if ('error' in result) throw new Error('expected success')
     expect(result.connect_ms).toBeGreaterThanOrEqual(0)
     expect(result.select1_first_ms).toBeGreaterThanOrEqual(0)
     expect(result.select1_second_ms).toBeGreaterThanOrEqual(0)
@@ -84,6 +86,8 @@ describe('probeDatabase', () => {
       end: vi.fn().mockResolvedValue(undefined),
     })
     const result = await probeDatabase(() => 'postgresql://u:p@test-host/db', createSql as never)
-    expect(result).toEqual({ error: DATABASE_UNREACHABLE, status: 503 })
+    if (!('error' in result)) throw new Error('expected failure')
+    expect(result.error.status).toBe(503)
+    expect(result.error.message).toBe(DATABASE_UNREACHABLE)
   })
 })

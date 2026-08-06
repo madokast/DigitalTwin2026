@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { MyError } from '@/lib/myerr'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -9,8 +10,7 @@ describe('POST /api/db/probe', () => {
   it('returns 503 when DATABASE_URL is missing', async () => {
     vi.doMock('@/lib/dbprobe', () => ({
       probeDatabase: async () => ({
-        error: 'DATABASE_URL is not set',
-        status: 503 as const,
+        error: new MyError(503, 'DATABASE_URL is not set'),
       }),
     }))
     const { POST } = await import('./route')

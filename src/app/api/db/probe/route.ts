@@ -6,7 +6,7 @@ import { probeDatabase } from '@/lib/dbprobe'
 export async function POST() {
   const result = await probeDatabase()
   if ('error' in result) {
-    return errorResponse(result.error, result.status)
+    return errorResponse(result.error.message, result.error.status)
   }
   return NextResponse.json(result)
 }

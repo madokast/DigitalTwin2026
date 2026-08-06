@@ -19,22 +19,22 @@ func TestSanitizeProbeError(t *testing.T) {
 }
 
 func TestProbeMissingURL(t *testing.T) {
-	_, status, errMsg := probeWith(context.Background(), func(string) string { return "" }, nil)
-	if status != 503 || errMsg != DatabaseURLNotSet {
-		t.Fatalf("status=%d err=%q", status, errMsg)
+	_, me := probeWith(context.Background(), func(string) string { return "" }, nil)
+	if me == nil || me.Status != 503 || me.Message != DatabaseURLNotSet {
+		t.Fatalf("err=%v", me)
 	}
 }
 
 func TestProbeConnectFailure(t *testing.T) {
-	_, status, errMsg := probeWith(
+	_, me := probeWith(
 		context.Background(),
 		func(string) string { return "postgresql://u:p@test-host/db" },
 		func(context.Context, string) (*pgx.Conn, error) {
 			return nil, errors.New("postgresql://secret boom")
 		},
 	)
-	if status != 503 || errMsg != DatabaseUnreachable {
-		t.Fatalf("status=%d err=%q", status, errMsg)
+	if me == nil || me.Status != 503 || me.Message != DatabaseUnreachable {
+		t.Fatalf("err=%v", me)
 	}
 }
 
@@ -45,9 +45,9 @@ func TestProbeIntegration(t *testing.T) {
 	t.Setenv("DATABASE_URL", url)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	res, status, errMsg := Probe(ctx, os.Getenv)
-	if status != 200 {
-		t.Fatalf("status=%d err=%q", status, errMsg)
+	res, me := Probe(ctx, os.Getenv)
+	if me != nil {
+		t.Fatalf("err=%v", me)
 	}
 	if !res.DatabaseReachable {
 		t.Fatal("expected reachable")

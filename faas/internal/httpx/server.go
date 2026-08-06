@@ -425,9 +425,9 @@ func (s *Server) handleQqbotProbe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDbProbe(w http.ResponseWriter, r *http.Request) {
-	result, status, errMsg := dbprobe.Probe(r.Context(), nil)
-	if status != 200 {
-		writeError(w, status, errMsg)
+	result, me := dbprobe.Probe(r.Context(), nil)
+	if me != nil {
+		writeErr(w, me, "db probe")
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
