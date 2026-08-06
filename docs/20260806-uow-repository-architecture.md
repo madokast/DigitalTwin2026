@@ -157,26 +157,29 @@ export class RecordConflictError extends Error {}
 // 阶段 B：export class InternalError extends Error {}（随 Repository 引入，不 throw，放 res.error）
 ```
 
-**每方法专属 `XXXXResult`**（拒绝泛型；Go/Node 同名同构；`error` 字段是领域错误对象，`null` = 成功；Node **不 throw**）。**双结构**：
-- **`record.Record`（领域 = 对外 JSON 形状）**：`happened_at` 带区串、tags 数组、无隐列——业务层/响应；本系统时间轴操作全在 Repository SQL 内，业务层只消费带区串。
-- **`record.DBRow`（数据库直接映射）**：`HappenedAt time.Time` + `UtcOffset` + `Tags string`（DB JSON 字符串）——写路径入参 / Scan 产物；业务层 parse 请求的产物（time.Time + offset）直接填充，**零字符串往返**；SQL 直接消费。
-- 转换仅一处：`FromDB(DBRow) → Record`（瞬间 + 隐列 → 带区串；tags JSON → 数组），Repository 读路径调用。
+**每方法专属 `XXXXResult`**（拒绝泛型；Go/Node 同名同构；`error` 字段是领域错误对象，`null` = 成功；Node **不 throw**）。**三种形态，职责分明**：
+- **`record.Record`（领域 = 对外 JSON 形状）**：`happened_at` 带区串、tags 数组——Repository 返回、业务层消费（唯一 happened_at 来源，由 `Save`/`FindByID` 产出规范化形）。
+- **`record.NewRecord`（写入意图）**：`HappenedAt draft.DateTimeWithOffset{ Time, Offset }`（time + 规范 offset 值对象）+ 领域字段（tags 数组）——业务层构造、`Save`/`SaveAll` 入参；`happened_at` 只此一次解析（业务层 `draft.NormalizeHappenedAt` / draft 系解析产物组装），Repository 直接落库**不再解析**。
+- **`record.DBRow`（数据库直接映射，仅 Repository 内部）**：`FromDB` 入参 / Scan 产物；业务层禁止接触。
+
+**happened_at 处理原则（写路径）**：业务层**只做校验 + 一次解析**（`draft.NormalizeHappenedAt` 产出 `DateTimeWithOffset`，或 draft 系解析产物组装），构造 `NewRecord`；`Save` 内部用 `dt.Time`/`dt.Offset` 直接落库 → RETURNING → `FromDB`（规范化）→ **返回规范化 `Record`**；业务层后续（响应、后续处理）**一律用返回值，绝不用传入的 happened_at**。业务层 API 无散落 offset、无 format。
 
 ```go
 type RecordFindByIDResult struct {
 	OK     bool
-	Record record.Record // 领域 = 对外形状：HappenedAt 带区串；隐列在 DBRow
+	Record record.Record // 领域 = 对外形状：HappenedAt 带区串（规范化）
 	Error  error         // 领域哨兵；nil = 成功
 }
-// Save(ctx, row record.DBRow) RecordSaveResult —— 写路径收 DB 映射，返回领域 Record（FromDB）
+// Save(ctx, q, nr record.NewRecord) RecordSaveResult —— 写路径收写入意图，返回规范化 Record（FromDB）
+// draft.NormalizeHappenedAt(raw) (draft.DateTimeWithOffset, error) —— 业务层唯一 happened_at 解析入口
 ```
 ```ts
 export type RecordFindByIDResult = {
 	ok: boolean
-	record: Record | null // 领域 = 对外形状：happened_at 带区串
+	record: Record | null // 领域 = 对外形状：happened_at 带区串（规范化）
 	error: Error | null   // 领域错误实例；null = 成功
 }
-// save(row: DBRow) → Promise<RecordSaveResult> —— 写路径收 DB 映射，返回领域 Record（fromDB）
+// save(nr: NewRecord) → Promise<RecordSaveResult> —— 写路径收写入意图（happenedAt: DateTimeWithOffset），返回规范化 Record（fromDB）
 ```
 
 **status 映射**（业务层，A2 风格）：先 `err == nil` 快速返回成功；`switch errors.Is(err, ...)`（Node `instanceof`）；`default` = 未知错误 = 漏了 case 需补代码（暂 500 并留注释）。**400 校验错误发生在事务外（零 DB）**，直接给 status，无需领域分类。
@@ -185,8 +188,8 @@ export type RecordFindByIDResult = {
 
 | # | 方法 | Go | Node | 说明（定案） |
 |---|---|---|---|---|
-| 1 | `save` | `Save(ctx, rec) RecordSaveResult` | `save(rec) → Promise<RecordSaveResult>` | 单条 INSERT，RETURNING 完整行 |
-| 2 | `saveAll` | `SaveAll(ctx, recs) RecordSaveAllResult` | `saveAll(recs) → Promise<RecordSaveAllResult>` | number/transaction 批量，事务内 |
+| 1 | `save` | `Save(ctx, q, nr record.NewRecord) RecordSaveResult` | `save(q, nr: NewRecord) → Promise<RecordSaveResult>` | 单条 INSERT，RETURNING 完整行；`nr.HappenedAt` 为 `DateTimeWithOffset`（一次解析，直接落库） |
+| 2 | `saveAll` | `SaveAll(ctx, q, nrs []record.NewRecord) RecordSaveAllResult` | `saveAll(q, nrs: NewRecord[]) → Promise<RecordSaveAllResult>` | number/transaction 批量，事务内 |
 | 3 | `upsert` | `Upsert(ctx, recs) RecordUpsertResult` | `upsert(recs) → Promise<RecordUpsertResult>` | `INSERT ... ON CONFLICT (id) DO UPDATE` 全字段（D2）；**batch 内重复 id 检测在业务层**；返回 `record.UpsertCounts`（待定点 4：移 `record` 包，否则 recordrepo↔importapi 循环） |
 | 4 | `findById` | `FindByID(ctx, id) RecordFindByIDResult` | `findById(id) → Promise<RecordFindByIDResult>` | 未找到 → `record.ErrNotFound` |
 | 5 | `findByCriteria` | `FindByCriteria(ctx, c) RecordFindByCriteriaResult` | `findByCriteria(c) → Promise<...>` | **只返回 records**；`total` 由业务层再 `Count(q, c)`（待定点 1：方案 B，读路径无事务，默认 READ COMMITTED 下两次独立查询可接受） |

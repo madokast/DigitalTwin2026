@@ -5,7 +5,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
+	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/reviewdraft"
 )
 
@@ -18,27 +20,26 @@ func CreateReview(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 	}
 
 	tagList := reviewdraft.ReviewTagsForCadence(parsed.Cadence, parsed.Tags)
-	tagsJSON, err := record.TagsJSON(tagList)
-	if err != nil {
-		return record.Record{}, 500, err
-	}
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, 500, err
 	}
 
-	rec, err := insertReturning(ctx, pool, record.DBRow{
-		ID:               id.String(),
-		HappenedAt:       parsed.HappenedAt,
-		UtcOffset:        parsed.UtcOffset,
+	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record。
+	res := recordrepo.New(pool).Save(ctx, record.NewRecord{
+		ID: id.String(),
+		HappenedAt: draft.DateTimeWithOffset{
+			Time:   parsed.HappenedAt,
+			Offset: parsed.UtcOffset,
+		},
 		NumericValue:     nil,
 		RawContent:       &parsed.RawContent,
-		Tags:             tagsJSON,
+		Tags:             tagList,
 		ObjectiveContext: parsed.ObjectiveContext,
 		AiAnalysis:       aiAnalysisPtr(parsed.AiAnalysis),
 	})
-	if err != nil {
+	if !res.OK {
 		return record.Record{}, 500, err
 	}
-	return rec, 201, nil
+	return res.Record, 201, nil
 }

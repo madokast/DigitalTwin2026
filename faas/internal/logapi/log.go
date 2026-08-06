@@ -6,10 +6,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mdk/digitaltwin2026/faas/internal/db"
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
+	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 )
 
@@ -62,33 +62,12 @@ func optionalTagList(raw any) ([]string, error) {
 	return out, nil
 }
 
-// aiAnalysisPtr draft 解析产出的 any（string | nil）→ *string（DBRow 字段类型）。
+// aiAnalysisPtr draft 解析产出的 any（string | nil）→ *string（NewRecord 字段类型）。
 func aiAnalysisPtr(v any) *string {
 	if s, ok := v.(string); ok {
 		return &s
 	}
 	return nil
-}
-
-// insertReturning 单条 INSERT + RETURNING 完整行（row 为 DB 直接映射，SQL 直接消费；返回领域 Record）。
-func insertReturning(
-	ctx context.Context,
-	q db.Executor,
-	row record.DBRow,
-) (record.Record, error) {
-	var out record.DBRow
-	err := q.QueryRow(ctx, `
-INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags)
-VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
-RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags
-`, row.ID, row.HappenedAt, row.UtcOffset, row.NumericValue, row.RawContent, row.ObjectiveContext, row.AiAnalysis, row.Tags).Scan(
-		&out.ID, &out.HappenedAt, &out.UtcOffset, &out.NumericValue,
-		&out.RawContent, &out.ObjectiveContext, &out.AiAnalysis, &out.Tags,
-	)
-	if err != nil {
-		return record.Record{}, err
-	}
-	return record.FromDB(out), nil
 }
 
 func decodeJSONBody(raw []byte, dest any) error {
@@ -104,7 +83,7 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 	if err := decodeJSONBody(raw, &body); err != nil {
 		return record.Record{}, 400, err
 	}
-	happenedAt, utcOffset, err := draft.ParseHappenedAt(happenedAtString(body.HappenedAt))
+	dt, err := draft.NormalizeHappenedAt(happenedAtString(body.HappenedAt))
 	if err != nil {
 		return record.Record{}, 400, err
 	}
@@ -132,27 +111,23 @@ func CreateText(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 		return record.Record{}, 400, err
 	}
 
-	tagsJSON, err := record.TagsJSON(tagList)
-	if err != nil {
-		return record.Record{}, 500, err
-	}
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, 500, err
 	}
 
-	rec, err := insertReturning(ctx, pool, record.DBRow{
+	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record，业务层唯一使用。
+	res := recordrepo.New(pool).Save(ctx, record.NewRecord{
 		ID:               id.String(),
-		HappenedAt:       happenedAt,
-		UtcOffset:        utcOffset,
+		HappenedAt:       dt,
 		NumericValue:     nil,
 		RawContent:       &rawContent,
-		Tags:             tagsJSON,
+		Tags:             tagList,
 		ObjectiveContext: objCtx,
 		AiAnalysis:       subj,
 	})
-	if err != nil {
-		return record.Record{}, 500, err
+	if !res.OK {
+		return record.Record{}, 500, res.Error
 	}
-	return rec, 201, nil
+	return res.Record, 201, nil
 }

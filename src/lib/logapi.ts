@@ -7,7 +7,6 @@ import { errorMessage } from './httperror'
 import { UoW } from '@/db/uow'
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
-import { records } from '@/db/schema'
 import { RecordRepository } from '@/lib/recordrepo'
 import { RecordNotFoundError } from '@/lib/record/errors'
 import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
@@ -18,11 +17,9 @@ import {
   requireTrimmedText,
 } from '@/lib/draft'
 import {
-  fromDB,
   isValidRecordId,
   INVALID_RECORD_ID,
-  tagsJSON,
-  type DBRow,
+  type NewRecord,
   type Record,
 } from '@/lib/record'
 import { assertNoReservedTags, firstDuplicateTag, validateTags } from '@/lib/tags'
@@ -82,21 +79,6 @@ export type CreateBatchOk = {
 }
 export type CreateBatchResult = CreateBatchOk | LogApiError
 
-type InsertValues = {
-  id: string
-  happenedAt: Date
-  utcOffset: string
-  numericValue: string | null
-  rawContent: string | null
-  tags: string
-  objectiveContext: string
-  aiAnalysis: string | null
-}
-
-type InsertExecutor = {
-  insert: typeof db.insert
-}
-
 /** tags optional：省略 / null / [] → []；非数组或元素非 string → 400 */
 function optionalTagList(raw: unknown): { value: string[] } | { error: string } {
   if (raw === undefined || raw === null) {
@@ -113,14 +95,6 @@ function optionalTagList(raw: unknown): { value: string[] } | { error: string } 
     return { error: `duplicate tag "${dup}"` }
   }
   return { value: raw }
-}
-
-async function insertReturning(
-  executor: InsertExecutor,
-  values: InsertValues,
-): Promise<Record> {
-  const result = await executor.insert(records).values(values).returning()
-  return fromDB(result[0])
 }
 
 export type CreateNumberBatchOk = {
@@ -147,18 +121,17 @@ export async function createNumberBatch(
 
   try {
     // 批量原子：业务层经 UoW 决定事务性；rows（DB 直接映射）组装零 DB。
-    const rows: DBRow[] = parsed.entries.map((entry) => ({
+    const nrs: NewRecord[] = parsed.entries.map((entry) => ({
       id: uuidv7(),
-      happenedAt: parsed.happenedAt,
-      utcOffset: parsed.utcOffset,
+      happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
       numericValue: entry.numericValue,
       rawContent: null,
-      tags: tagsJSON(entry.tags),
+      tags: entry.tags,
       objectiveContext: entry.objectiveContext,
       aiAnalysis: entry.aiAnalysis,
     }))
     const out = await new UoW(db).do(async (q) => {
-      const res = await new RecordRepository(q).saveAll(rows)
+      const res = await new RecordRepository(q).saveAll(nrs)
       if (!res.ok) {
         throw res.error
       }
@@ -188,17 +161,17 @@ export async function createBodyWeight(
   }
 
   try {
-    const record = await insertReturning(db, {
+    const res = await new RecordRepository(db).save({
       id: uuidv7(),
-      happenedAt: parsed.happenedAt,
-      utcOffset: parsed.utcOffset,
+      happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
       numericValue: parsed.numericValue,
       rawContent: null,
-      tags: tagsJSON(parsed.tags),
+      tags: parsed.tags,
       objectiveContext: parsed.objectiveContext,
       aiAnalysis: parsed.aiAnalysis,
     })
-    return { record, status: 201 }
+    if (!res.ok) throw res.error
+    return { record: res.record!, status: 201 }
   } catch (err) {
     logger.error({ err }, 'Error creating body weight record')
     return { error: errorMessage(err), status: 500 }
@@ -218,17 +191,17 @@ export async function createTodo(
   }
 
   try {
-    const record = await insertReturning(db, {
+    const res = await new RecordRepository(db).save({
       id: uuidv7(),
-      happenedAt: parsed.happenedAt,
-      utcOffset: parsed.utcOffset,
+      happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
       numericValue: null,
       rawContent: parsed.rawContent,
-      tags: tagsJSON(parsed.tags),
+      tags: parsed.tags,
       objectiveContext: parsed.objectiveContext,
       aiAnalysis: parsed.aiAnalysis,
     })
-    return { record, status: 201 }
+    if (!res.ok) throw res.error
+    return { record: res.record!, status: 201 }
   } catch (err) {
     logger.error({ err }, 'Error creating to-do record')
     return { error: errorMessage(err), status: 500 }
@@ -309,11 +282,10 @@ export async function transitionTodo(
       }
       await txRepo.save({
         id: uuidv7(),
-        happenedAt: parsed.happenedAt,
-        utcOffset: parsed.utcOffset,
+        happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
         numericValue: null,
         rawContent: content,
-        tags: JSON.stringify([TODO_TAG_TRANSITION]),
+        tags: [TODO_TAG_TRANSITION],
         objectiveContext: objCtx,
         aiAnalysis: null,
       })
@@ -373,17 +345,17 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
   }
 
   try {
-    const record = await insertReturning(db, {
+    const res = await new RecordRepository(db).save({
       id: uuidv7(),
-      happenedAt: happenedResult.value,
-      utcOffset: happenedResult.utcOffset,
+      happenedAt: { time: happenedResult.value, offset: happenedResult.utcOffset },
       numericValue: null,
       rawContent: rawContentResult.value,
-      tags: tagsJSON(tagListResult.value),
+      tags: tagListResult.value,
       objectiveContext: objCtxResult.value,
       aiAnalysis: aiAnalysis.value,
     })
-    return { record, status: 201 }
+    if (!res.ok) throw res.error
+    return { record: res.record!, status: 201 }
   } catch (err) {
     logger.error({ err }, 'Error creating text record')
     return { error: errorMessage(err), status: 500 }
@@ -403,17 +375,17 @@ export async function createReview(
   }
 
   try {
-    const record = await insertReturning(db, {
+    const res = await new RecordRepository(db).save({
       id: uuidv7(),
-      happenedAt: parsed.happenedAt,
-      utcOffset: parsed.utcOffset,
+      happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
       numericValue: null,
       rawContent: parsed.rawContent,
-      tags: tagsJSON(reviewTagsForCadence(parsed.cadence, parsed.tags)),
+      tags: reviewTagsForCadence(parsed.cadence, parsed.tags),
       objectiveContext: parsed.objectiveContext,
       aiAnalysis: parsed.aiAnalysis,
     })
-    return { record, status: 201 }
+    if (!res.ok) throw res.error
+    return { record: res.record!, status: 201 }
   } catch (err) {
     logger.error({ err }, 'Error creating review record')
     return { error: errorMessage(err), status: 500 }
@@ -436,18 +408,17 @@ export async function createTransactionBatch(
 
   try {
     // 批量原子：业务层经 UoW 决定事务性；rows（DB 直接映射）组装零 DB。
-    const rows: DBRow[] = parsed.entries.map((entry) => ({
+    const nrs: NewRecord[] = parsed.entries.map((entry) => ({
       id: uuidv7(),
-      happenedAt: parsed.happenedAt,
-      utcOffset: parsed.utcOffset,
+      happenedAt: { time: parsed.happenedAt, offset: parsed.utcOffset },
       numericValue: entry.amount,
       rawContent: null,
-      tags: tagsJSON(entry.tags),
+      tags: entry.tags,
       objectiveContext: entry.memo,
       aiAnalysis: null,
     }))
     const out = await new UoW(db).do(async (q) => {
-      const res = await new RecordRepository(q).saveAll(rows)
+      const res = await new RecordRepository(q).saveAll(nrs)
       if (!res.ok) {
         throw res.error
       }

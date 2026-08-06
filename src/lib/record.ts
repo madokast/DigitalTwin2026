@@ -14,6 +14,25 @@ export type Record = {
   ai_analysis: string | null
 }
 
+/** 带偏移日期时间值对象（时间 + 录入偏移，封装成单值，业务层不接触散落的 offset）。与 Go `draft.DateTimeWithOffset` 同构。 */
+export type DateTimeWithOffset = {
+  time: Date
+  offset: string // 规范 utc_offset 字面量（'Z' 或 '±HH:MM'）
+}
+
+/** 写入意图对象（业务层构造，Repository.save 入参）：
+ * happenedAt 为 draft 解析产物（Date + 规范 offset，只此一次解析；Repository 直接落库）。
+ * 领域字段（tags 数组），JSON 序列化在 Repository 内部。与 Go `record.NewRecord` 同构。 */
+export type NewRecord = {
+  id: string
+  happenedAt: DateTimeWithOffset
+  numericValue: string | null
+  rawContent: string | null
+  tags: string[]
+  objectiveContext: string
+  aiAnalysis: string | null
+}
+
 /** 数据库直接映射结构（写路径入参 / drizzle 行）：utc_offset 隐列 + tags 为 DB JSON 字符串。
  * 业务层 parse 请求的产物（Date + offset）直接填充，零字符串往返。与 Go `record.DBRow` 同构。 */
 export type DBRow = {

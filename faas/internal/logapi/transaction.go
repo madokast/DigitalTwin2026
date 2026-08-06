@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
+	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/transactiondraft"
@@ -23,24 +24,23 @@ func createTransactionBatch(ctx context.Context, q db.TxBeginner, raw []byte) (i
 		return 0, "", "", nil, 400, err
 	}
 
-	rows := make([]record.DBRow, 0, len(batch.Entries))
+	// 写入意图（NewRecord）：happened_at 已由 draft 解析为 time + offset，组装值对象，零额外解析。
+	nrs := make([]record.NewRecord, 0, len(batch.Entries))
 	for _, e := range batch.Entries {
-		tagsJSON, err := record.TagsJSON(e.Tags)
-		if err != nil {
-			return 0, "", "", nil, 500, err
-		}
 		id, err := uuid.NewV7()
 		if err != nil {
 			return 0, "", "", nil, 500, err
 		}
 		amount := e.Amount
-		rows = append(rows, record.DBRow{
-			ID:               id.String(),
-			HappenedAt:       batch.HappenedAt,
-			UtcOffset:        batch.UtcOffset,
+		nrs = append(nrs, record.NewRecord{
+			ID: id.String(),
+			HappenedAt: draft.DateTimeWithOffset{
+				Time:   batch.HappenedAt,
+				Offset: batch.UtcOffset,
+			},
 			NumericValue:     &amount,
 			RawContent:       nil,
-			Tags:             tagsJSON,
+			Tags:             e.Tags,
 			ObjectiveContext: e.Memo,
 			AiAnalysis:       nil,
 		})
@@ -50,7 +50,7 @@ func createTransactionBatch(ctx context.Context, q db.TxBeginner, raw []byte) (i
 	var inserted int
 	var out []record.Record
 	err = db.WithTx(ctx, q, func(q db.Executor) error {
-		res := recordrepo.New(q).SaveAll(ctx, rows)
+		res := recordrepo.New(q).SaveAll(ctx, nrs)
 		if !res.OK {
 			return res.Error
 		}

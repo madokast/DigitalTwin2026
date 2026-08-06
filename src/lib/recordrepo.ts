@@ -11,7 +11,7 @@
 
 import { eq } from 'drizzle-orm'
 import * as schema from '@/db/schema'
-import { fromDB, type DBRow, type Record } from '@/lib/record'
+import { fromDB, type NewRecord, type Record } from '@/lib/record'
 import { RecordNotFoundError } from '@/lib/record/errors'
 import type { Executor } from '@/db/uow'
 
@@ -66,19 +66,32 @@ export class RecordRepository {
     return { ok: true, error: null }
   }
 
-  /** 单条 INSERT + RETURNING 完整行（row 为 DB 直接映射，SQL 直接消费，零时间字符串转换；返回领域 Record）。 */
-  async save(row: DBRow): Promise<RecordSaveResult> {
-    const rows = await this.q.insert(schema.records).values(row).returning()
+  /** 单条 INSERT + RETURNING 完整行。nr 为写入意图（happenedAt 已由 draft 解析为 time + 规范 offset，
+   * 此处直接落库，不再解析）；返回规范化领域 Record（fromDB）——业务层唯一使用的 happened_at 来源。 */
+  async save(nr: NewRecord): Promise<RecordSaveResult> {
+    const rows = await this.q
+      .insert(schema.records)
+      .values({
+        id: nr.id,
+        happenedAt: nr.happenedAt.time,
+        utcOffset: nr.happenedAt.offset,
+        numericValue: nr.numericValue,
+        rawContent: nr.rawContent,
+        tags: JSON.stringify(nr.tags),
+        objectiveContext: nr.objectiveContext,
+        aiAnalysis: nr.aiAnalysis,
+      })
+      .returning()
     return { ok: true, record: fromDB(rows[0]), error: null }
   }
 
   /** 批量 INSERT（循环复用 save 单条原语，行为与顺序确定）；事务内调用。
    * TODO(perf)：当前逐条 insert（N 次往返）。批量场景可优化为 drizzle 多值
    * `.values([...])` 批量插入——注意 returning 顺序不保证与输入一致，需按 id 恢复输入顺序。 */
-  async saveAll(rows: DBRow[]): Promise<RecordSaveAllResult> {
+  async saveAll(nrs: NewRecord[]): Promise<RecordSaveAllResult> {
     const out: Record[] = []
-    for (const row of rows) {
-      const res = await this.save(row)
+    for (const nr of nrs) {
+      const res = await this.save(nr)
       if (!res.ok) {
         return { ok: false, records: [], error: res.error }
       }

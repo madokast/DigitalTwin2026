@@ -57,23 +57,6 @@ type RecordSaveAllResult struct {
 	Error   error
 }
 
-// SaveAll 批量 INSERT（循环复用 Save 单条原语，行为与顺序确定）；事务内调用。
-//
-// TODO(perf)：当前是逐条 INSERT（N 次往返）。批量场景可优化为单条多值 INSERT
-// （`INSERT ... VALUES (...),(...) ... RETURNING`）——但 PG 的 RETURNING 不保证与
-// VALUES 顺序一致，需额外按 id ORDER BY（或临时表）恢复输入顺序。本项目 batch 量小暂未做。
-func (r *RecordRepository) SaveAll(ctx context.Context, rows []record.DBRow) RecordSaveAllResult {
-	out := make([]record.Record, 0, len(rows))
-	for _, row := range rows {
-		res := r.Save(ctx, row)
-		if !res.OK {
-			return RecordSaveAllResult{Error: res.Error}
-		}
-		out = append(out, res.Record)
-	}
-	return RecordSaveAllResult{OK: true, Records: out}
-}
-
 type RecordTransitionResult struct {
 	OK    bool
 	Error error
@@ -102,15 +85,20 @@ type RecordSaveResult struct {
 	Error  error
 }
 
-// Save 单条 INSERT + RETURNING 完整行。row 为 DB 直接映射（time.Time + utc_offset + tags JSON 字符串），
-// SQL 直接消费，零时间字符串转换；返回领域 Record（FromDB）。
-func (r *RecordRepository) Save(ctx context.Context, row record.DBRow) RecordSaveResult {
+// Save 单条 INSERT + RETURNING 完整行。nr 为写入意图（HappenedAt 已由业务层 NormalizeHappenedAt
+// 解析为 DateTimeWithOffset，此处直接落 time.Time + utc_offset，不再解析）；
+// 返回规范化领域 Record（FromDB）——业务层唯一使用的 happened_at 来源。
+func (r *RecordRepository) Save(ctx context.Context, nr record.NewRecord) RecordSaveResult {
+	tagsJSON, err := record.TagsJSON(nr.Tags)
+	if err != nil {
+		return RecordSaveResult{Error: err}
+	}
 	var out record.DBRow
-	err := r.q.QueryRow(ctx, `
+	err = r.q.QueryRow(ctx, `
 INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags)
 VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8)
 RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags
-`, row.ID, row.HappenedAt, row.UtcOffset, row.NumericValue, row.RawContent, row.ObjectiveContext, row.AiAnalysis, row.Tags).Scan(
+`, nr.ID, nr.HappenedAt.Time, nr.HappenedAt.Offset, nr.NumericValue, nr.RawContent, nr.ObjectiveContext, nr.AiAnalysis, tagsJSON).Scan(
 		&out.ID, &out.HappenedAt, &out.UtcOffset, &out.NumericValue,
 		&out.RawContent, &out.ObjectiveContext, &out.AiAnalysis, &out.Tags,
 	)
@@ -118,4 +106,21 @@ RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_con
 		return RecordSaveResult{Error: err}
 	}
 	return RecordSaveResult{OK: true, Record: record.FromDB(out)}
+}
+
+// SaveAll 批量 INSERT（循环复用 Save 单条原语，行为与顺序确定）；事务内调用。
+//
+// TODO(perf)：当前是逐条 INSERT（N 次往返）。批量场景可优化为单条多值 INSERT
+// （`INSERT ... VALUES (...),(...) ... RETURNING`）——但 PG 的 RETURNING 不保证与
+// VALUES 顺序一致，需额外按 id ORDER BY（或临时表）恢复输入顺序。本项目 batch 量小暂未做。
+func (r *RecordRepository) SaveAll(ctx context.Context, nrs []record.NewRecord) RecordSaveAllResult {
+	out := make([]record.Record, 0, len(nrs))
+	for _, nr := range nrs {
+		res := r.Save(ctx, nr)
+		if !res.OK {
+			return RecordSaveAllResult{Error: res.Error}
+		}
+		out = append(out, res.Record)
+	}
+	return RecordSaveAllResult{OK: true, Records: out}
 }

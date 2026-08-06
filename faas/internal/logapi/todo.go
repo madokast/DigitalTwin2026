@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
+	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
@@ -21,30 +22,29 @@ func CreateTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 		return record.Record{}, 400, err
 	}
 
-	tagsJSON, err := record.TagsJSON(parsed.Tags)
-	if err != nil {
-		return record.Record{}, 500, err
-	}
 	id, err := uuid.NewV7()
 	if err != nil {
 		return record.Record{}, 500, err
 	}
 
 	vt := parsed.RawContent
-	rec, err := insertReturning(ctx, pool, record.DBRow{
-		ID:               id.String(),
-		HappenedAt:       parsed.HappenedAt,
-		UtcOffset:        parsed.UtcOffset,
+	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record。
+	res := recordrepo.New(pool).Save(ctx, record.NewRecord{
+		ID: id.String(),
+		HappenedAt: draft.DateTimeWithOffset{
+			Time:   parsed.HappenedAt,
+			Offset: parsed.UtcOffset,
+		},
 		NumericValue:     nil,
 		RawContent:       &vt,
-		Tags:             tagsJSON,
+		Tags:             parsed.Tags,
 		ObjectiveContext: parsed.ObjectiveContext,
 		AiAnalysis:       aiAnalysisPtr(parsed.AiAnalysis),
 	})
-	if err != nil {
-		return record.Record{}, 500, fmt.Errorf("insert todo: %w", err)
+	if !res.OK {
+		return record.Record{}, 500, fmt.Errorf("insert todo: %w", res.Error)
 	}
-	return rec, 201, nil
+	return res.Record, 201, nil
 }
 
 // TransitionResult 成功流转结果（供 HTTP 组 200 JSON + notify）。
@@ -106,19 +106,17 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (Transitio
 		return TransitionResult{}, 500, err
 	}
 
-	// 审计行 happened_at 与请求一致（parse 产物 time.Time + offset 直接填 DBRow，零字符串往返）
-	auditTagsJSON, err := record.TagsJSON([]string{tododraft.TodoTagTransition})
-	if err != nil {
-		return TransitionResult{}, 500, err
-	}
+	// 审计行 happened_at 与请求一致（parse 产物 time + offset 组装值对象，零额外解析）
 	// 写路径：UPDATE 状态 tag + INSERT 审计，原子（业务层经 UoW 决定事务性）
-	auditRec := record.DBRow{
-		ID:               auditID.String(),
-		HappenedAt:       parsed.HappenedAt,
-		UtcOffset:        parsed.UtcOffset,
+	auditRec := record.NewRecord{
+		ID: auditID.String(),
+		HappenedAt: draft.DateTimeWithOffset{
+			Time:   parsed.HappenedAt,
+			Offset: parsed.UtcOffset,
+		},
 		NumericValue:     nil,
 		RawContent:       &content,
-		Tags:             auditTagsJSON,
+		Tags:             []string{tododraft.TodoTagTransition},
 		ObjectiveContext: objCtx,
 		AiAnalysis:       nil,
 	}
