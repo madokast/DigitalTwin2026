@@ -23,7 +23,9 @@ type Tx interface {
 }
 
 // TxBeginner 能开事务的入口。*pgxpool.Pool（事务起点）与 pgx.Tx（savepoint 嵌套）均满足。
+// Begin 返回具体 pgx.Tx（Go 接口方法返回类型不协变，不能精确返回自定义 Tx）；
+// pgx.Tx 满足 db.Tx（Executor + Commit/Rollback）。
 type TxBeginner interface {
 	Executor
-	Begin(ctx context.Context) (Tx, error)
+	Begin(ctx context.Context) (pgx.Tx, error)
 }

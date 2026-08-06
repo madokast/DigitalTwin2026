@@ -13,7 +13,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
 
-// ---- 假 transitionDB / Tx（四类域错误 + 成功路径，不依赖真实数据库）----
+// ---- 假 db.Tx / db.TxBeginner（四类域错误 + 成功路径，不依赖真实数据库）----
 
 type fakeRow struct {
 	vals []any
@@ -79,6 +79,11 @@ func (t *fakeTx) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
 	return &fakeRow{err: errors.New("unexpected QueryRow on fakeTx")}
 }
 
+// Query 满足 db.Executor（transitionTodo 不用 Query，panic 暴露误用）
+func (t *fakeTx) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	panic("Query not used by transitionTodo")
+}
+
 func (t *fakeTx) Commit(context.Context) error {
 	t.commitN++
 	return nil
@@ -87,6 +92,26 @@ func (t *fakeTx) Commit(context.Context) error {
 func (t *fakeTx) Rollback(context.Context) error {
 	t.rollbackN++
 	return nil
+}
+
+// 以下 stub 满足 pgx.Tx（transitionTodo 不用，panic 暴露误用）
+func (t *fakeTx) Begin(context.Context) (pgx.Tx, error) {
+	panic("Begin not used by transitionTodo")
+}
+func (t *fakeTx) CopyFrom(context.Context, pgx.Identifier, []string, pgx.CopyFromSource) (int64, error) {
+	panic("CopyFrom not used by transitionTodo")
+}
+func (t *fakeTx) SendBatch(context.Context, *pgx.Batch) pgx.BatchResults {
+	panic("SendBatch not used by transitionTodo")
+}
+func (t *fakeTx) LargeObjects() pgx.LargeObjects {
+	panic("LargeObjects not used by transitionTodo")
+}
+func (t *fakeTx) Prepare(context.Context, string, string) (*pgconn.StatementDescription, error) {
+	panic("Prepare not used by transitionTodo")
+}
+func (t *fakeTx) Conn() *pgx.Conn {
+	panic("Conn not used by transitionTodo")
 }
 
 type fakeTransitionDB struct {
@@ -102,7 +127,16 @@ func (f *fakeTransitionDB) QueryRow(context.Context, string, ...any) pgx.Row {
 	return &fakeRow{err: pgx.ErrNoRows}
 }
 
-func (f *fakeTransitionDB) Begin(context.Context) (transitionTx, error) {
+// Exec / Query 满足 db.TxBeginner（transitionTodo 只用 QueryRow + Begin，误用 panic 暴露）
+func (f *fakeTransitionDB) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
+	panic("Exec not used by transitionTodo")
+}
+
+func (f *fakeTransitionDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	panic("Query not used by transitionTodo")
+}
+
+func (f *fakeTransitionDB) Begin(context.Context) (pgx.Tx, error) {
 	if f.beginErr != nil {
 		return nil, f.beginErr
 	}

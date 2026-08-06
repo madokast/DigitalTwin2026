@@ -8,35 +8,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mdk/digitaltwin2026/faas/internal/db"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
 )
-
-// transitionTx：事务内 UPDATE + INSERT（*pgx.Tx 满足；单测可假实现）。
-type transitionTx interface {
-	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-	Commit(ctx context.Context) error
-	Rollback(ctx context.Context) error
-}
-
-// transitionDB：SELECT + Begin（*pgxpool.Pool 经 poolAdapter；单测可假实现，无需真实数据库）。
-type transitionDB interface {
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-	Begin(ctx context.Context) (transitionTx, error)
-}
-
-type poolAdapter struct{ pool *pgxpool.Pool }
-
-func (a poolAdapter) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
-	return a.pool.QueryRow(ctx, sql, args...)
-}
-
-func (a poolAdapter) Begin(ctx context.Context) (transitionTx, error) {
-	return a.pool.Begin(ctx)
-}
 
 // CreateTodo 与 Next createTodo 对齐：解析委托 tododraft，落库强制含 todo:in_progress。
 // 返回内部 Record；HTTP 层再用 tododraft.ToTodoRecordJSON 变形响应。
@@ -91,15 +67,12 @@ func parseTagsList(tagsJSON string) ([]string, error) {
 }
 
 // TransitionTodo 与 Next transitionTodo 对齐：同事务 UPDATE 状态 tag + INSERT 审计。
+// pool 满足 db.TxBeginner（*pgxpool.Pool 天然满足）；单测直接调 transitionTodo 注入 fake。
 func TransitionTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (TransitionResult, int, error) {
-	var db transitionDB
-	if pool != nil {
-		db = poolAdapter{pool}
-	}
-	return transitionTodo(ctx, db, raw)
+	return transitionTodo(ctx, pool, raw)
 }
 
-func transitionTodo(ctx context.Context, db transitionDB, raw []byte) (TransitionResult, int, error) {
+func transitionTodo(ctx context.Context, q db.TxBeginner, raw []byte) (TransitionResult, int, error) {
 	parsed, err := tododraft.ParseTodoTransition(raw)
 	if err != nil {
 		return TransitionResult{}, 400, err
@@ -113,7 +86,7 @@ func transitionTodo(ctx context.Context, db transitionDB, raw []byte) (Transitio
 		todoHappened                          time.Time
 		todoNum, todoText, todoSubj           *string
 	)
-	err = db.QueryRow(ctx, `
+	err = q.QueryRow(ctx, `
 SELECT id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis
 FROM records WHERE id = $1
 `, parsed.ID).Scan(
@@ -163,7 +136,7 @@ FROM records WHERE id = $1
 		return TransitionResult{}, 500, err
 	}
 
-	tx, err := db.Begin(ctx)
+	tx, err := q.Begin(ctx)
 	if err != nil {
 		return TransitionResult{}, 500, err
 	}

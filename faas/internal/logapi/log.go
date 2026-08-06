@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mdk/digitaltwin2026/faas/internal/db"
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
@@ -63,14 +63,10 @@ func optionalTagList(raw any) ([]string, error) {
 	return out, nil
 }
 
-// rowQuerier：pgxpool.Pool 与 pgx.Tx 均实现
-type rowQuerier interface {
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
-
+// insertReturning 单条 INSERT + RETURNING 完整行。q 满足 db.Executor（pool 或事务 tx）。
 func insertReturning(
 	ctx context.Context,
-	q rowQuerier,
+	q db.Executor,
 	id string,
 	happenedAt time.Time,
 	utcOffset string,

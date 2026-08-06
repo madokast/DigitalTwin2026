@@ -201,8 +201,8 @@ func RenameAcrossRecords(ctx context.Context, pool *pgxpool.Pool, from, to strin
 	return updated, nil
 }
 
-// renameAcrossQuerier 事务内（或单测假 Querier）的读改写循环。
-func renameAcrossQuerier(ctx context.Context, q db.Querier, from, to string) (int, error) {
+// renameAcrossQuerier 事务内（或单测假执行器）的读改写循环。
+func renameAcrossQuerier(ctx context.Context, q db.Executor, from, to string) (int, error) {
 	rows, err := q.Query(ctx, `SELECT id, tags FROM records`)
 	if err != nil {
 		return 0, err

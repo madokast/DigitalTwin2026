@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// fakeTx 可控事务：记录 Commit/Rollback 调用，满足 Executor。
+// fakeTx 可控事务：记录 Commit/Rollback 调用，满足 pgx.Tx（仅 Exec/QueryRow/Commit/Rollback 被 UoW 使用）。
 type fakeTx struct {
 	committed  bool
 	rolledBack bool
@@ -32,6 +32,24 @@ func (f *fakeTx) Rollback(ctx context.Context) error {
 	f.rolledBack = true
 	return nil
 }
+func (f *fakeTx) Begin(ctx context.Context) (pgx.Tx, error) {
+	panic("Begin not used by UoW")
+}
+func (f *fakeTx) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+	panic("CopyFrom not used by UoW")
+}
+func (f *fakeTx) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults {
+	panic("SendBatch not used by UoW")
+}
+func (f *fakeTx) LargeObjects() pgx.LargeObjects {
+	panic("LargeObjects not used by UoW")
+}
+func (f *fakeTx) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
+	panic("Prepare not used by UoW")
+}
+func (f *fakeTx) Conn() *pgx.Conn {
+	panic("Conn not used by UoW")
+}
 
 // fakeBeginner 可控事务起点：beginErr 非 nil 时 Begin 失败；否则返回预置 tx。
 type fakeBeginner struct {
@@ -48,7 +66,7 @@ func (f *fakeBeginner) Exec(ctx context.Context, sql string, args ...any) (pgcon
 func (f *fakeBeginner) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
 	return nil, nil
 }
-func (f *fakeBeginner) Begin(ctx context.Context) (Tx, error) {
+func (f *fakeBeginner) Begin(ctx context.Context) (pgx.Tx, error) {
 	if f.beginErr != nil {
 		return nil, f.beginErr
 	}
