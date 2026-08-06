@@ -37,7 +37,7 @@ import {
   type TodoState,
 } from '@/lib/tododraft'
 import { parseNumberBatch } from '@/lib/numberdraft'
-import { parseTransactionBatch, sumMoneyAmounts2, type TransactionType } from '@/lib/transactiondraft'
+import { parseTransactionBatch, sumMoneyAmounts, type TransactionType } from '@/lib/transactiondraft'
 import {
   parseReview,
   reviewTagsForCadence,
@@ -67,7 +67,6 @@ export type CreateBatchOk = {
   sum: string
   records: Record[]
 }
-export type CreateBatchResult = CreateBatchOk
 
 /** tags optional：省略 / null / [] → []；非数组或元素非 string → 400 */
 function optionalTagList(raw: unknown): { value: string[] } | { error: string } {
@@ -91,7 +90,6 @@ export type CreateNumberBatchOk = {
   inserted: number
   records: Record[]
 }
-export type CreateNumberBatchResult = CreateNumberBatchOk
 
 /**
  * 与 Go `logapi.CreateNumberBatch` 对齐：
@@ -100,7 +98,7 @@ export type CreateNumberBatchResult = CreateNumberBatchOk
  */
 export async function createNumberBatch(
   body: unknown,
-): Promise<CreateNumberBatchResult> {
+): Promise<CreateNumberBatchOk> {
   const parsed = parseNumberBatch(
     body as Parameters<typeof parseNumberBatch>[0],
   )
@@ -178,14 +176,13 @@ export type TransitionTodoOk = {
   to: TodoState
   todoAuditNotifyText: string
 }
-export type TransitionTodoResult = TransitionTodoOk
 
 /**
  * 与 Go `logapi.TransitionTodo` 对齐：同事务 UPDATE 状态 tag + INSERT 审计。
  */
 export async function transitionTodo(
   body: LogTodoTransitionBody,
-): Promise<TransitionTodoResult> {
+): Promise<TransitionTodoOk> {
   const parsed = parseTodoTransition(body)
   if ('error' in parsed) {
     throw newValidation(parsed.error)
@@ -335,7 +332,7 @@ export async function createReview(
  */
 export async function createTransactionBatch(
   body: unknown,
-): Promise<CreateBatchResult> {
+): Promise<CreateBatchOk> {
   const parsed = parseTransactionBatch(
     body as Parameters<typeof parseTransactionBatch>[0],
   )
@@ -359,7 +356,7 @@ export async function createTransactionBatch(
   return {
     inserted: out.length,
     type: parsed.type,
-    sum: sumMoneyAmounts2(parsed.entries.map((e) => e.amount)),
+    sum: sumMoneyAmounts(parsed.entries.map((e) => e.amount)),
     records: out,
   }
 }

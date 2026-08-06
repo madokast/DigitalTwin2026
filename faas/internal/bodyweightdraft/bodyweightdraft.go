@@ -72,7 +72,7 @@ func ParseWeightAmount(raw any) (string, error) {
 		if !weightAmountPattern.MatchString(trimmed) {
 			return "", fmt.Errorf("%w", ErrInvalidWeight)
 		}
-		stored := transactiondraft.NormalizeMoneyAmount2(trimmed)
+		stored := transactiondraft.NormalizeMoneyAmount(trimmed)
 		if !WeightCentsInRange(stored) {
 			return "", fmt.Errorf("%w", ErrInvalidWeight)
 		}

@@ -72,7 +72,7 @@ export function isZeroDecimalLiteral(s: string): boolean {
  * 将已通过金额校验的字面量规范为恰好两位小数（字符串补齐，禁止 float）。
  * 例：`10` → `10.00`，`10.5` → `10.50`，`-1.5` → `-1.50`。
  */
-export function normalizeMoneyAmount2(s: string): string {
+export function normalizeMoneyAmount(s: string): string {
   const neg = s.startsWith('-')
   const body = neg ? s.slice(1) : s
   const dot = body.indexOf('.')
@@ -85,7 +85,7 @@ export function normalizeMoneyAmount2(s: string): string {
  * 恰好两位小数字符串列表 → 代数合计（定点分，无 float；与 summary 一致）。
  * 例：["12.50","-3.00"] → "9.50"。
  */
-export function sumMoneyAmounts2(amounts: string[]): string {
+export function sumMoneyAmounts(amounts: string[]): string {
   let cents = 0n
   for (const amount of amounts) {
     cents += BigInt(amount.replace('.', ''))
@@ -127,7 +127,7 @@ function parseAmount(
   if (isZeroDecimalLiteral(trimmed)) {
     return { error: INVALID_AMOUNT }
   }
-  return { ok: true, value: normalizeMoneyAmount2(trimmed) }
+  return { ok: true, value: normalizeMoneyAmount(trimmed) }
 }
 
 function parseSegment(

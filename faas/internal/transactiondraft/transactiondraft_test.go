@@ -118,14 +118,14 @@ func jsonString(s string) string {
 	return string(b)
 }
 
-func TestNormalizeMoneyAmount2(t *testing.T) {
-	if got := NormalizeMoneyAmount2("10"); got != "10.00" {
+func TestNormalizeMoneyAmount(t *testing.T) {
+	if got := NormalizeMoneyAmount("10"); got != "10.00" {
 		t.Fatalf("got %q", got)
 	}
-	if got := NormalizeMoneyAmount2("10.5"); got != "10.50" {
+	if got := NormalizeMoneyAmount("10.5"); got != "10.50" {
 		t.Fatalf("got %q", got)
 	}
-	if got := NormalizeMoneyAmount2("-1.5"); got != "-1.50" {
+	if got := NormalizeMoneyAmount("-1.5"); got != "-1.50" {
 		t.Fatalf("got %q", got)
 	}
 }

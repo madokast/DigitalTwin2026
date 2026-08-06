@@ -58,5 +58,5 @@ func createTransactionBatch(ctx context.Context, q db.TxBeginner, batch transact
 	for _, e := range batch.Entries {
 		amounts = append(amounts, e.Amount)
 	}
-	return inserted, batch.Type, transactiondraft.SumMoneyAmounts2(amounts), out, nil
+	return inserted, batch.Type, transactiondraft.SumMoneyAmounts(amounts), out, nil
 }

@@ -16,7 +16,7 @@ import {
   assertNoReservedTags,
 } from '@/lib/tags'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
-import { normalizeMoneyAmount2 } from '@/lib/transactiondraft'
+import { normalizeMoneyAmount } from '@/lib/transactiondraft'
 
 export const LOG_BODY_WEIGHT_KEYS = [
   'happened_at',
@@ -80,7 +80,7 @@ export function parseWeightAmount(
   if (!WEIGHT_AMOUNT.test(trimmed)) {
     return { error: INVALID_WEIGHT }
   }
-  const stored = normalizeMoneyAmount2(trimmed)
+  const stored = normalizeMoneyAmount(trimmed)
   if (!weightCentsInRange(stored)) {
     return { error: INVALID_WEIGHT }
   }

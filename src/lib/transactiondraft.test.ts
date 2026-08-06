@@ -6,7 +6,7 @@ import {
   AMOUNT_MUST_BE_STRING,
   INVALID_AMOUNT,
   MAX_TRANSACTION_ENTRIES,
-  normalizeMoneyAmount2,
+  normalizeMoneyAmount,
   parseTransactionBatch,
 } from './transactiondraft'
 
@@ -108,10 +108,10 @@ describe('parseTransactionBatch', () => {
     }
   })
 
-  it('normalizeMoneyAmount2 pads to two fractional digits', () => {
-    expect(normalizeMoneyAmount2('10')).toBe('10.00')
-    expect(normalizeMoneyAmount2('10.5')).toBe('10.50')
-    expect(normalizeMoneyAmount2('-1.5')).toBe('-1.50')
+  it('normalizeMoneyAmount pads to two fractional digits', () => {
+    expect(normalizeMoneyAmount('10')).toBe('10.00')
+    expect(normalizeMoneyAmount('10.5')).toBe('10.50')
+    expect(normalizeMoneyAmount('-1.5')).toBe('-1.50')
   })
 
   it('rejects empty entries', () => {

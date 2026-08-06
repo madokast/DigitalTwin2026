@@ -77,12 +77,12 @@ func IsZeroDecimalLiteral(s string) bool {
 	return true
 }
 
-// SumMoneyAmounts2 恰好两位小数字符串列表 → 代数合计（定点分，无 float；与 summary 一致）。
+// SumMoneyAmounts 恰好两位小数字符串列表 → 代数合计（定点分，无 float；与 summary 一致）。
 // 例：["12.50","-3.00"] → "9.50"。单笔上限 999999999999.99 → 分 1e14；100 笔总量远小于 int64。
-func SumMoneyAmounts2(amounts []string) string {
+func SumMoneyAmounts(amounts []string) string {
 	var cents int64
 	for _, amount := range amounts {
-		cents += centsFromAmount2(amount)
+		cents += centsFromAmount(amount)
 	}
 	neg := cents < 0
 	if neg {
@@ -91,7 +91,7 @@ func SumMoneyAmounts2(amounts []string) string {
 	return fmt.Sprintf("%s%d.%02d", negSign(neg), cents/100, cents%100)
 }
 
-func centsFromAmount2(amount string) int64 {
+func centsFromAmount(amount string) int64 {
 	neg := strings.HasPrefix(amount, "-")
 	body := amount
 	if neg {
@@ -116,7 +116,7 @@ func negSign(neg bool) string {
 	return ""
 }
 
-func NormalizeMoneyAmount2(s string) string {
+func NormalizeMoneyAmount(s string) string {
 	neg := strings.HasPrefix(s, "-")
 	body := s
 	if neg {
@@ -162,7 +162,7 @@ func parseAmount(raw any) (string, error) {
 		if IsZeroDecimalLiteral(trimmed) {
 			return "", fmt.Errorf("%w", ErrInvalidAmount)
 		}
-		return NormalizeMoneyAmount2(trimmed), nil
+		return NormalizeMoneyAmount(trimmed), nil
 	case float64, json.Number:
 		return "", fmt.Errorf("%w", ErrAmountMustBeString)
 	default:
