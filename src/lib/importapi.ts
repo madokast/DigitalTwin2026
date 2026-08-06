@@ -6,7 +6,7 @@
  * 成功 commit + Notify；失败 rollback、不 Notify。勿接 `readJsonBody`（须 bypass 256KiB）。
  */
 
-import { newValidation, MyError } from './myerr'
+import { newValidation } from './myerr'
 import { eq } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'

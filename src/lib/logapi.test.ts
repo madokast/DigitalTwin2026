@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { NUMERIC_VALUE_MUST_BE_STRING } from '@/lib/draft'
 import { createText } from '@/lib/logapi'
 import { reservedTagError } from '@/lib/tags'
 
