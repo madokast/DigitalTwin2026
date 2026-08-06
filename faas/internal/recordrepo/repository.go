@@ -52,6 +52,10 @@ type RecordSaveAllResult struct {
 }
 
 // SaveAll 批量 INSERT（循环复用 Save 单条原语，行为与顺序确定）；事务内调用。
+//
+// TODO(perf)：当前是逐条 INSERT（N 次往返）。批量场景可优化为单条多值 INSERT
+// （`INSERT ... VALUES (...),(...) ... RETURNING`）——但 PG 的 RETURNING 不保证与
+// VALUES 顺序一致，需额外按 id ORDER BY（或临时表）恢复输入顺序。本项目 batch 量小暂未做。
 func (r *RecordRepository) SaveAll(ctx context.Context, rows []record.DBRow) RecordSaveAllResult {
 	out := make([]record.Record, 0, len(rows))
 	for _, row := range rows {

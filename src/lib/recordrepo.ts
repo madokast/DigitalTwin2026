@@ -67,7 +67,9 @@ export class RecordRepository {
     return { ok: true, record: fromDB(rows[0]), error: null }
   }
 
-  /** 批量 INSERT（循环复用 save 单条原语，行为与顺序确定）；事务内调用。 */
+  /** 批量 INSERT（循环复用 save 单条原语，行为与顺序确定）；事务内调用。
+   * TODO(perf)：当前逐条 insert（N 次往返）。批量场景可优化为 drizzle 多值
+   * `.values([...])` 批量插入——注意 returning 顺序不保证与输入一致，需按 id 恢复输入顺序。 */
   async saveAll(rows: DBRow[]): Promise<RecordSaveAllResult> {
     const out: Record[] = []
     for (const row of rows) {
