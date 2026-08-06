@@ -36,7 +36,7 @@
 |---|---|---|---|---|
 | 1 | `save` | `Save(ctx, q, rec) (record.Record, error)` | `save(q, rec) → Promise<Record>` | `insertReturning`（RETURNING 完整行） |
 | 2 | `saveAll` | `SaveAll(ctx, q, recs) ([]record.Record, error)` | `saveAll(q, recs) → Promise<Record[]>` | number/transaction 批量 |
-| 3 | `upsert` | `Upsert(ctx, q, recs) (Counts, error)` | `upsert(q, recs) → Promise<UpsertCounts>` | `ImportRecordsJSONLTx` 的 `Counts{Inserted,Updated,Total}` |
+| 3 | `upsert` | `Upsert(ctx, q, recs) (record.UpsertCounts, error)` | `upsert(q, recs) → Promise<UpsertCounts>` | `ImportRecordsJSONLTx` 的 `Counts{Inserted,Updated,Total}`（待定点 4 定案：移 `record` 包） |
 | 4 | `findById` | `FindByID(ctx, q, id) (record.Record, error)`，未找到 → `record.ErrNotFound` | `findById(q, id) → Promise<Record>` | transition 的 SELECT 预读 |
 | 5 | `findByCriteria` | `FindByCriteria(ctx, q, c) ([]record.Record, error)` | `findByCriteria(q, c) → Promise<Record[]>` | `FetchFilteredRecords` |
 | 6 | ~~`findInRange`~~ | ✅ 已移除（待定点 2 定案）：export 拆 `findByCursor(ctx, q, from, limit)`（`[]record.Record, error`）；summary 用 #7 `count` | 同左 | `FetchExportRecords` |
@@ -62,9 +62,10 @@
 3. **Node 领域错误表达**：Go 用 `record.ErrNotFound` sentinel + `errors.Is`；Node 对称方案 = throw 领域错误类 + `instanceof`（`RecordNotFoundError` / `RecordConflictError`），业务层 catch 分类——但改变 Node 现状「返回 Result 对象不 throw」惯例。是否引入？或 Node 用 `null` / Result？
 - 状态：✅ **已定案**——error 字段承载**领域错误对象**（Go `error` 哨兵 / Node `Error` 实例，`null` = 成功），**非字符串**。DDD Error 一套（双端对称）：message 固定（`record not found`、`record tags changed concurrently, retry`）或运行时拼接（`fmt.Errorf("record %s not found: %w", id, record.ErrNotFound)` / `new RecordNotFoundError(\`record ${id} not found\`)`）。**Node 不 throw**——Repository 返回 `XXXXResult`，错误实例放 `res.error` 字段。Service 层判断：Go `errors.Is(res.Error, record.ErrNotFound)`、Node `res.error instanceof RecordNotFoundError` → 带 status，message 透传 detail。每方法专属 `XXXXResult`（拒绝泛型，Go/Node 同名同构，含 `ok` + 业务字段 + `error`）。未知错误 = default 分支 = 漏 case 需补代码。
 4. **`Counts` 类型归属**：`UpsertCounts{Inserted,Updated,Total}` 现在在 `importapi` 包，Repository 要用——是否移到 `record` 包（聚合根类型）？
+   - 状态：✅ **已定案**——移到 `record` 包（Go `record.UpsertCounts`）/ `record.ts`（Node `UpsertCounts`），改名去掉 `importapi` 前缀。**硬约束**：否则 `recordrepo` import `importapi`（返回类型）+ `importapi` 业务函数调 `recordrepo.Upsert` = 循环依赖。`importapi.FormatImportNotifyMessage` 改用 `record.UpsertCounts` 入参；旧 `importapi.Counts` / `ImportCounts` 随迁移替换。签名表 #3 返回类型改为 `(record.UpsertCounts, error)`。JSON 键不变（`inserted`/`updated`/`total`，snake）。
 5. **`transition`**：等 A5 定案后补。
 
-- 状态：⏳ 讨论中（待定点 1、2、3 已定案；4 逐个讨论；5 等 A5）
+- 状态：⏳ 讨论中（待定点 1-4 已定案；5 等 A5）
 
 ### A4【阻塞】业务函数签名变更与接口注入点
 - 现状：业务函数收 `*pgxpool.Pool`（`CreateTodo(ctx, pool, raw)`）；httpx 直接调用；transition 用 `TransitionTodo` 字段注入（httpx 层）。
