@@ -32,7 +32,7 @@ func CreateBodyWeight(ctx context.Context, pool *pgxpool.Pool, raw []byte) (reco
 		RawContent:       nil,
 		Tags:             parsed.Tags,
 		ObjectiveContext: parsed.ObjectiveContext,
-		AiAnalysis:       aiAnalysisPtr(parsed.AiAnalysis),
+		AiAnalysis:       parsed.AiAnalysis,
 	})
 	if !res.OK {
 		return record.Record{}, 500, fmt.Errorf("insert body weight: %w", res.Error)

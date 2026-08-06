@@ -43,7 +43,7 @@ type NormalizedBodyWeight struct {
 	NumericValue     string
 	Tags             []string
 	ObjectiveContext string
-	AiAnalysis       any // string or nil
+	AiAnalysis       *string
 }
 
 // WeightCentsInRange 已通过体重正则并规范为两位小数的字面量是否在 [1.00, 500.00]。

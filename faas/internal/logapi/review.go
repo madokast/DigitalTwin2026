@@ -32,7 +32,7 @@ func CreateReview(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.R
 		RawContent:       &parsed.RawContent,
 		Tags:             tagList,
 		ObjectiveContext: parsed.ObjectiveContext,
-		AiAnalysis:       aiAnalysisPtr(parsed.AiAnalysis),
+		AiAnalysis:       parsed.AiAnalysis,
 	})
 	if !res.OK {
 		return record.Record{}, 500, err

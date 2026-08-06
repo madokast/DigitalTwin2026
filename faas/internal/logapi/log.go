@@ -62,14 +62,6 @@ func optionalTagList(raw any) ([]string, error) {
 	return out, nil
 }
 
-// aiAnalysisPtr draft 解析产出的 any（string | nil）→ *string（Record 字段类型）。
-func aiAnalysisPtr(v any) *string {
-	if s, ok := v.(string); ok {
-		return &s
-	}
-	return nil
-}
-
 func decodeJSONBody(raw []byte, dest any) error {
 	return jsonutil.DecodeUseNumber(raw, dest)
 }

@@ -49,7 +49,7 @@ type NormalizedTodo struct {
 	RawContent       string
 	Tags             []string
 	ObjectiveContext string
-	AiAnalysis       any // string or nil
+	AiAnalysis       *string
 }
 
 // TodoRecordJSON 待办行 HTTP JSON（别名键；其余与 Record snake_case 一致）。

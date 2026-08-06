@@ -35,7 +35,7 @@ func CreateTodo(ctx context.Context, pool *pgxpool.Pool, raw []byte) (record.Rec
 		RawContent:       &vt,
 		Tags:             parsed.Tags,
 		ObjectiveContext: parsed.ObjectiveContext,
-		AiAnalysis:       aiAnalysisPtr(parsed.AiAnalysis),
+		AiAnalysis:       parsed.AiAnalysis,
 	})
 	if !res.OK {
 		return record.Record{}, 500, fmt.Errorf("insert todo: %w", res.Error)
