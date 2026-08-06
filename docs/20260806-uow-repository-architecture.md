@@ -218,9 +218,9 @@ func (s *Service) GetUser(ctx context.Context, req GetUserRequest) (*User, error
 | 2 | `saveAll` | `SaveAll(ctx, q, recs []record.Record) RecordSaveAllResult` | `saveAll(q, recs: Record[]) → Promise<RecordSaveAllResult>` | number/transaction 批量，事务内 |
 | 3 | `exists` / `update`（insert 复用 `save`） | `Exists(ctx, q, id) (bool, *MyError)` / `Update(ctx, q, rec record.Record) *MyError` | import 逐行 upsert 原语（2026-08-06 定案：**保守复刻**，非 ON CONFLICT——否决理由见 §10b 步骤 2）；`Exists` 判存在 → 业务层分支：**insert 分支复用 `Save`**（无独立 `Insert` 原语——RETURNING 多传一行无行为差异，用户拍板砍掉）；`Update` 全列覆盖（含 `::timestamptz` cast——与 `save` 统一，行为等价；utc_offset 由 repo 内 `ParseHappenedAt(rec.HappenedAt)` 重解析，§4 两次解析成本原则）；**并发同 id 竞态：唯一索引拦截 → 500 整单回滚 = 正确失败语义，保留**；`ImportCounts`（Inserted/Updated/Total）移 `record` 包（否则 recordrepo↔importapi 循环；Node 同步改 `ImportCounts`，双端词干一致） |
 | 4 | `findById` | `FindByID(ctx, q, id) RecordFindByIDResult` | `findById(q, id) → Promise<RecordFindByIDResult>` | 未找到 → `record.ErrNotFound` |
-| 5 | `findByCriteria` | `FindByCriteria(ctx, q, c) RecordFindByCriteriaResult` | `findByCriteria(q, c) → Promise<...>` | **只返回 records**；`total` 由业务层再 `Count(q, c)`（方案 B，读路径无事务） |
+| 5 | `findByCriteria` | `FindByCriteria(ctx, q, c FindCriteria) ([]record.Record, *MyError)` | `findByCriteria(q, c: FindCriteria) → Promise<Record[]>` | **只返回 records**；`total` 由业务层再 `Count(q, c)`（方案 B，读路径无事务） |
 | 6 | `findByCursor` | `FindByCursor(ctx, q, from, limit) RecordFindByCursorResult` | 同左 | export 游标（`findInRange` **移除**）。无 from → 全表 id ASC LIMIT；有 from → 先 EXISTS 检查（不存在 → `fmt.Errorf("export from id not found: %w", ErrNotFound)`）再 `id >= from` ASC LIMIT |
-| 7 | `count` | `Count(ctx, q, c) RecordCountResult` | 同左 | stats total/today；summary 覆盖 |
+| 7 | `count` | `Count(ctx, q, c Criteria) (int, *MyError)` | 同左 | stats total/today；summary 覆盖；**无分页/排序字段**（§6 分层） |
 | 8 | `countTags` | `CountTags(ctx, q, prefix) RecordCountTagsResult` | 同左 | 返回 `[]tags.TagCount` |
 | 9 | `attachTag` | `AttachTag(ctx, q, rec, tag) RecordAttachTagResult` | 同左 | **CAS**（WHERE 含旧 tags）；`rec` 自带旧 tags（业务层 `FindByID` 预读）；返回新 record，业务层 diff 得 `changed` |
 | 10 | `detachTag` | `DetachTag(ctx, q, rec, tag) RecordDetachTagResult` | 同左 | 同上 |
@@ -248,6 +248,7 @@ type Criteria struct {
 }
 ```
 
+- **`Criteria` / `FindCriteria` 分层（2026-08-06 定案）**：`Criteria` = 过滤共用字段（`ID`/`From`/`To`/`Tags`/`Q`）；`FindCriteria` = 嵌入 `Criteria` + 分页/排序（`Page`/`PageSize`/`SortBy`/`SortOrder`，Go 嵌入 / Node `Criteria & {...}`）；**`Count` 直接收 `Criteria`**——类型上不存在分页/排序字段，调用方（如 summary 的 Count）零哑值，「各原语只校验自己使用的字段」（`validateCriteria` 只属 `FindCriteria`）。
 - **`hint` 不进 Criteria**（响应辅助，业务层 parse 时产出、随响应返回）。
 - **校验归属**：现有 `ParseRecordQueryParams`（双端）保留在业务层，产出**已校验**的 `Criteria`；Repository 不重复校验。
 - **零值填补全部在业务层；repo 只检测不填补（2026-08-06 定案）**：repo 内**不做任何默认值**；`findByCriteria` 检测非法值——`Page < 1`、`PageSize < 1`、`SortBy` 空或 ∉ {happened_at, id}、`SortOrder` 空或 ∉ {asc, desc} → `NewValidation`（400；错误语义定案：数据/格式问题不限层级，Node 对称 `newValidation` throw）。调用方责任：HTTP 路径业务层 parse（page 默认 1、page_size 默认 20、上限 100 校验——`> 100 → 400` 是对外契约，防客户端拉爆；sort 默认 happened_at/asc）；内部调用者自守（`RenameTag` 自构造 Criteria 时显式 `Page ≥ 1` / `PageSize = 100` / `SortBy = "id"`）；漏填即触发 repo 400 检测。
@@ -338,7 +339,7 @@ src/lib/logapi.ts 等   业务层（Service class）
      6. **`ImportRecordsJSONLTx` 双入口保留**：Tx 版供单测注入 / 步骤 9 Service 化后内部复用，只换内部原语。
      7. **依赖顺序调整（二次定案）**：`RenameTag` 复用 `findByCriteria`，故**步骤 6 先建 `findByCriteria`**（从 query.go `FetchFilteredRecords` 迁移 Criteria + 分页 + tag 过滤），`RenameTag` 与步骤 8 共用；步骤 8 再把 query.go 其余调用迁入。
 3. **UoW 步骤 8：迁移读路径**——query/export/stats/summary/tags 的散落 SELECT 收进 `recordrepo`（`FindByCriteria` 已在步骤 6 建立 / `FindByCursor` / `Count` / `CountTags`，fake executor 单测查询条件），query.go 瘦身。**设计定案（2026-08-06 讨论）**：
-   - **summary 复用 `FindByCriteria`，无新原语**：`FetchTransactionsSummary` 的「区间 + income OR expense LIKE」查询 → `Criteria{From, To, Tags: ["transaction_entry:*"]}` 单族通配。等价性：`X:*` 族通配即 `tags LIKE '%"X:%'`（与 `buildWhere` 现实现同形），单条件覆盖 income/expense 两前缀、无 OR 问题（一条记录只有一个 transaction_entry 前缀）；多余的 transaction_entry 行由业务层 `classifyEntryType` 精确 tag 分类自然跳过 → **聚合结果与现状等价**。业务层取回 `[]record.Record` 后聚合循环不变。
+   - **summary 复用 `FindByCriteria`，无新原语（2026-08-06 修正：分页循环 + 增量聚合）**：`FetchTransactionsSummary` 的「区间 + income OR expense LIKE」查询 → `FindCriteria{From, To, Tags: ["transaction_entry:*"], Page, PageSize: 100, SortBy: id}` 单族通配。等价性：`X:*` 族通配即 `tags LIKE '%"X:%'`（与 `buildWhere` 现实现同形），单条件覆盖 income/expense 两前缀、无 OR 问题（一条记录只有一个 transaction_entry 前缀）；多余的 transaction_entry 行由业务层 `classifyEntryType` 精确 tag 分类自然跳过 → **聚合结果与现状等价**。**行数可能巨大 → 100 分页循环 + 增量聚合**（`AggregateTransactionsSummary` 从「收全量 list 一次聚合」重构为逐行累加：桶/计数/分类 map 累积，每页行即弃——收集全量再聚合 = 内存爆炸，用户拍板否决）；循环至短页终止。
    - **否决的候选**：FindInRange 通用区间原语（多拉全列行 + 业务层内存 LIKE 过滤，无必要）；专用事务行原语（repo 耦合 transaction 常量）；`Criteria.Tags` 改 OR / 加 `TagsAny`（破坏列表 AND 语义 / 污染契约）。
    - **条件构建迁入**：`buildWhere` / `orderByRecordsList` / `EscapeLikePattern` / 族通配判定迁 repo（§5 D3 已定案）；fake executor 单测断言查询条件（Go 断言 SQL 与参数 / Node vi.mock drizzle builder 链）。
    - **#5 返回转换**：repo 内 Scan DBRow + FromDB（§4 唯一转换点原则，`scanRecord` 移除）。
@@ -354,7 +355,7 @@ src/lib/logapi.ts 等   业务层（Service class）
      | `FetchExportRecords`（EXISTS + 游标） | `FindByCursor` |
 
    - **待拍板点（2026-08-06 讨论记录，未定案）**：
-     - **A. `Count` 校验范围**：倾向**不校验**——Count 只用过滤条件（id/from/to/tags/q），分页/排序不相关；过滤条件无非法值检测项（tag 格式业务层校验、from/to 已解析）；各原语只校验自己相关的字段（findByCriteria 校验其分页/排序）。
+     - **A. `Count` 校验范围（✅ 定案：类型层面解决）**：`Criteria`/`FindCriteria` 分层——`Count` 收 `Criteria`（无分页/排序字段），类型上不存在可校验的分页字段；`validateCriteria` 只属 `FindCriteria`。
      - **B. `FindByCursor` 的 404 文案归属**：repo 内 EXISTS 不存在 → `NewNotFound`；`ErrExportFromNotFound` 现驻 exportapi 包（repo → exportapi 反向依赖，不允许）——倾向移 `record` 包（`record.ErrExportFromNotFound`，领域文案；exportapi 引用之）。
      - **C. `FindByCursor` 的 limit 检测**：倾向 `limit < 1 → 400`（对齐 findByCriteria 分页字段检测；export 业务层 parseRequiredLimit 已有，repo 检测为防御）。
      - **D. Node parse 层重构（最大改动）**：`parseRecordQueryParams` 现产 `conditions: SQL[]`（drizzle 条件）——接线后应**产 `Criteria`**（SQL 构建整个移 repo，对齐 Go ParsedQuery 领域值），返回 `{criteria, hint}`；Go 侧 ParseRecordQueryParams 保留 + 业务层 `toCriteria()` 转换；影响 query.test.ts 断言。
