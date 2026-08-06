@@ -71,10 +71,7 @@ beforeEach(() => {
   notify_user.mockReset()
 
   isAcceptedImportFilePart.mockReturnValue(true)
-  importRecordsJsonl.mockResolvedValue({
-    ok: true,
-    counts: { inserted: 0, updated: 0, total: 0 },
-  })
+  importRecordsJsonl.mockResolvedValue({ inserted: 0, updated: 0, total: 0 })
   formatImportNotifyMessage.mockReturnValue(
     'Imported 0 records (inserted 0, updated 0)',
   )
