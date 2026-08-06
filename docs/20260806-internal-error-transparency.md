@@ -185,5 +185,5 @@ export function errorMessage(error: unknown): string {
 ## 5. 相关记录
 
 - 设计哲学 §2.1 推论：错误信息透传（AI 诊断权）：`docs/20260805-design-philosophy.md`
-- 领域错误体系（XXXXResult / 领域错误类）：`docs/20260805-repository-architecture-review.md` A2 / A3
+- 领域错误体系（XXXXResult / 领域错误类）：`docs/20260806-uow-repository-architecture.md` §4
 - RFC 9457 `detail` / `title` 语义：`docs/20260805-error-response-shape.md`

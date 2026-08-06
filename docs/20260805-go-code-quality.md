@@ -2,7 +2,7 @@
 
 > 创建日期：2026-08-05
 > 性质：Go 侧代码质量规范与待办清单。收录不符合业界惯例的问题与永久规范：错误链 `%w`、禁止 map/any jsonify、结构化日志 slog、状态码常量、handler 样板收敛、race 检测、golangci-lint。
-> 触发：UoW + Repository 架构审查（`docs/20260805-repository-architecture.md`）时发现 Go 侧多处不符合业界惯例；其中「禁止 map/any jsonify」为**永久规范**（key 顺序问题，AI 读响应字符串会很奇怪）。
+> 触发：UoW + Repository 架构审查（`docs/20260806-uow-repository-architecture.md`）时发现 Go 侧多处不符合业界惯例；其中「禁止 map/any jsonify」为**永久规范**（key 顺序问题，AI 读响应字符串会很奇怪）。
 
 ## 1. Go 错误链 `%w`（✅ 已实现，`273041f`）
 
@@ -217,5 +217,5 @@ func writeLogOrError(w http.ResponseWriter, status int, err error, logMsg string
 
 ## 相关记录
 
-- 架构定案：`docs/20260805-repository-architecture.md`。
+- 架构定案：`docs/20260806-uow-repository-architecture.md`。
 - 错误响应结构化：`docs/20260805-error-response-shape.md`。
