@@ -141,6 +141,22 @@
 ### D1 Criteria 字段集完整定义
 - 问题：文档只列「tag / id / from-to / sort / limit / page_size」；现有 query 参数实际含 `tag`（精确 / 族通配 `X:*`）、`from`/`to`（happened_at 区间 + 时区）、`page`、`page_size`、`sort_by`、`sort_order`、`hint`。字段默认值 / 校验在哪层（现 `ParseRecordQueryParams`）。
 - 待决：Criteria 字段清单 + 校验归属。
+- 状态：✅ **已定案**——`recordrepo.Criteria`（Node `Criteria`）字段 = Go `ParsedQuery` **去掉 `Hint`**：
+  ```go
+  type Criteria struct {
+      ID        string      // 空 = 无 id 过滤
+      From, To  *time.Time  // happened_at 区间（含 utc_offset 语义）
+      Tags      []string    // 每项精确 tag 或 "family:*" 族通配；空 = 无 tag 过滤
+      Q         string      // 全文搜索 raw_content / objective_context / ai_analysis / tags
+      Page      int
+      PageSize  int
+      SortBy    string      // happened_at | id
+      SortOrder string      // asc | desc
+  }
+  ```
+  - **`hint` 不进 Criteria**（响应辅助，parse 时产出、随响应返回，仅业务层）。
+  - **校验归属**：现有 `ParseRecordQueryParams`（双端）保留在业务层，产出**已校验**的 `Criteria`；Repository 不重复校验（假定入参合法）。
+  - Go `query.ParsedQuery` 与 Node `ParsedQuery` 迁移时演化为 `recordrepo.Criteria`（Node 端把 `conditions`（drizzle SQL）拆回原始字段——Repository 不接触 SQL 层条件构建，由业务层把 Criteria 转 drizzle 条件，见 D3）。
 
 ### D2 upsert（import）幂等 / 错误归属
 - 问题：import 是 insert-or-update by id，含「batch 内重复 id → 400 `line 2: duplicate record id`」。此重复检测在业务层还是 Repository？`Upsert` 是否含冲突检测？
