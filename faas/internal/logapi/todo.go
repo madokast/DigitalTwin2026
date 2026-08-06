@@ -23,7 +23,7 @@ func CreateTodo(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.Normal
 
 	vt := parsed.RawContent
 	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record。
-	res := recordrepo.Repo.Save(ctx, pool, record.Record{
+	rec, me := recordrepo.Repo.Save(ctx, pool, record.Record{
 		ID:               id.String(),
 		HappenedAt:       parsed.HappenedAtRaw,
 		NumericValue:     nil,
@@ -32,10 +32,10 @@ func CreateTodo(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.Normal
 		ObjectiveContext: parsed.ObjectiveContext,
 		AiAnalysis:       parsed.AiAnalysis,
 	})
-	if !res.OK {
-		return record.Record{}, res.Error
+	if me != nil {
+		return record.Record{}, me
 	}
-	return res.Record, nil
+	return rec, nil
 }
 
 // TransitionResult 成功流转结果（供 HTTP 组 200 JSON + notify）。
@@ -59,15 +59,14 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, parsed tododraft.Norma
 	}
 
 	// 预读（非 CAS：只用于判断与组装，放事务外，事务持有时间最短）
-	res := recordrepo.Repo.FindByID(ctx, q, parsed.ID)
-	if !res.OK {
+	todoRec, me := recordrepo.Repo.FindByID(ctx, q, parsed.ID)
+	if me != nil {
 		// 404 文案映射为待办专属（契约）；其余（驱动错误）透传 myerr 500
-		if res.Error.Status == 404 {
+		if me.Status == 404 {
 			return TransitionResult{}, myerr.NewNotFound(tododraft.ErrTodoNotFound.Error())
 		}
-		return TransitionResult{}, res.Error
+		return TransitionResult{}, me
 	}
-	todoRec := res.Record
 
 	tagList := todoRec.Tags
 	if tododraft.IsTodoAuditRecordTags(tagList) {
@@ -104,14 +103,13 @@ func transitionTodo(ctx context.Context, q db.TxBeginner, parsed tododraft.Norma
 		ObjectiveContext: objCtx,
 		AiAnalysis:       nil,
 	}
-	me := db.WithTx(ctx, q, func(q db.Executor) *myerr.MyError {
-		tRes := recordrepo.Repo.Transition(ctx, q, todoRec.ID, newTags)
-		if !tRes.OK {
-			return tRes.Error
+	me = db.WithTx(ctx, q, func(q db.Executor) *myerr.MyError {
+		if me := recordrepo.Repo.Transition(ctx, q, todoRec.ID, newTags); me != nil {
+			return me
 		}
-		aRes := recordrepo.Repo.Save(ctx, q, auditRec)
-		if !aRes.OK {
-			return aRes.Error
+		_, me := recordrepo.Repo.Save(ctx, q, auditRec)
+		if me != nil {
+			return me
 		}
 		return nil
 	})

@@ -43,11 +43,11 @@ func createNumberBatch(ctx context.Context, q db.TxBeginner, batch numberdraft.N
 	var inserted int
 	var out []record.Record
 	me := db.WithTx(ctx, q, func(q db.Executor) *myerr.MyError {
-		res := recordrepo.Repo.SaveAll(ctx, q, recs)
-		if !res.OK {
-			return res.Error
+		saved, me := recordrepo.Repo.SaveAll(ctx, q, recs)
+		if me != nil {
+			return me
 		}
-		inserted, out = len(res.Records), res.Records
+		inserted, out = len(saved), saved
 		return nil
 	})
 	if me != nil {

@@ -66,43 +66,43 @@ func (f *fakeExecutor) Query(context.Context, string, ...any) (pgx.Rows, error) 
 
 func TestFindByIDNotFound(t *testing.T) {
 	f := &fakeExecutor{row: &fakeRow{err: pgx.ErrNoRows}}
-	res := Repo.FindByID(context.Background(), f, "01900000-0000-7000-8000-000000000003")
-	if res.OK {
+	_, me := Repo.FindByID(context.Background(), f, "01900000-0000-7000-8000-000000000003")
+	if me == nil {
 		t.Fatal("want not found")
 	}
-	if res.Error.Status != 404 {
-		t.Fatalf("err %v, want myerr 404", res.Error)
+	if me.Status != 404 {
+		t.Fatalf("err %v, want myerr 404", me)
 	}
-	if !strings.Contains(res.Error.Message, "not found") {
-		t.Fatalf("msg %q", res.Error.Message)
+	if !strings.Contains(me.Message, "not found") {
+		t.Fatalf("msg %q", me.Message)
 	}
 }
 
 func TestFindByIDDriverErrorInternal(t *testing.T) {
 	f := &fakeExecutor{row: &fakeRow{err: errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`)}}
-	res := Repo.FindByID(context.Background(), f, "01900000-0000-7000-8000-000000000003")
-	if res.OK {
+	_, me := Repo.FindByID(context.Background(), f, "01900000-0000-7000-8000-000000000003")
+	if me == nil {
 		t.Fatal("want error")
 	}
-	if res.Error.Status != 500 {
-		t.Fatalf("err %v, want myerr 500", res.Error)
+	if me.Status != 500 {
+		t.Fatalf("err %v, want myerr 500", me)
 	}
-	if !strings.Contains(res.Error.Message, `ERROR: relation "records" does not exist (SQLSTATE 42P01)`) {
-		t.Fatalf("driver message not embedded: %q", res.Error.Message)
+	if !strings.Contains(me.Message, `ERROR: relation "records" does not exist (SQLSTATE 42P01)`) {
+		t.Fatalf("driver message not embedded: %q", me.Message)
 	}
 }
 
 func TestTransitionAffectedNotOne(t *testing.T) {
 	f := &fakeExecutor{rowsAff: 2}
-	res := Repo.Transition(context.Background(), f, "id", []string{"todo:completed"})
-	if res.OK {
+	me := Repo.Transition(context.Background(), f, "id", []string{"todo:completed"})
+	if me == nil {
 		t.Fatal("want error for rowsAffected != 1")
 	}
-	if res.Error.Status != 500 {
-		t.Fatalf("err %v, want myerr 500", res.Error)
+	if me.Status != 500 {
+		t.Fatalf("err %v, want myerr 500", me)
 	}
-	if !strings.Contains(res.Error.Message, "todo update affected 2 rows") {
-		t.Fatalf("err %v", res.Error)
+	if !strings.Contains(me.Message, "todo update affected 2 rows") {
+		t.Fatalf("err %v", me)
 	}
 	if len(f.execSQL) != 1 || !strings.Contains(f.execSQL[0], "UPDATE records SET tags") {
 		t.Fatalf("sql %v", f.execSQL)

@@ -286,7 +286,7 @@ src/lib/logapi.ts 等   业务层（Service class）
 | UoW | `db.UoW`，`Do(ctx, fn(q Executor) *myerr.MyError) *myerr.MyError`（Begin/Commit 驱动错误统一 NewInternal） | `UoW` class，`do(fn(q: Executor))`（包装 `db.transaction`；闭包 throw MyError） |
 | 事务边界 | **Service 方法内部**（业务层决定用不用事务） | 同左（模块级 db 单例） |
 | Service | struct + 方法，构造注入 `db` + `uow` | class + 方法，构造注入 `db` + `uow` |
-| Repository | **空结构体 + 包级单例 `Repo`，方法第一参数收执行器 `q`** | **空结构体 + 模块级单例 `Repo`，方法第一参数收执行器 `q`** |
+| Repository | **空结构体 + 包级单例 `Repo`，方法第一参数收执行器 `q`；返回 `(T, *MyError)`（无数据方法直接 `*MyError`，nil = 成功），驱动错误在 repo 内 `NewInternal`** | **空结构体 + 模块级单例 `Repo`，方法第一参数收执行器 `q`；返回直接值、throw MyError** |
 | 业务函数入参 | **typed 请求体**（对齐 Node） | typed 请求体 |
 | 业务函数返回 | `(T, error)`，status 由 `StatusError` 携带 | `Promise<(T, StatusError)>` 或 throw StatusError |
 | 执行器来源 | 调用方传参（Go 接口） | 调用方传参（模块 mock） |
@@ -305,6 +305,7 @@ src/lib/logapi.ts 等   业务层（Service class）
 7. **tags 增删接口**（新接口，暂停中）：`AttachTag` / `DetachTag`（CAS）——业务层零 DB 校验 → `uow.Do` → Repository 存在性/重复性/CAS（见 `docs/20260805-tags-add.md`）。
 8. **迁移读路径**（query/export/stats/summary/tags）：`FindByCriteria` / `FindByCursor` / `Count` / `CountTags`（fake executor 单测查询条件）。
 9. **Service 化（横切，2026-08-06 补充）**：业务层自由函数（logapi/importapi/exportapi/query）→ **Service struct/class 方法**，构造注入 `db` + `uow`；`db.WithTx(ctx, q, fn)` → `s.uow.Do(ctx, fn)`（Node `new UoW(db)` → 构造注入 `this.uow`）；httpx/route 装配注入 Service；测试改注入 fake uow。双端对称，一次性横切。
+   **届时废除 httpx 的可选函数字段 + nil 回落注入**（`Server.TransitionTodo` / `Server.NotifyUser` / `Server.FetchExportRecords`，即「nil = 默认实现」模式——调用点 `if s.X != nil` 分支 + 测试用结构体字面量绕过 `NewServer` 的构造契约分裂）：改为 **接口注入**（`Server` 收 `TodoService` / `ExportService` 等接口，构造时必填、无 nil 约定，测试注入 fake struct；生产路径零分支）。过渡期（函数字段形态）仅为单测注入 fake 的权宜，**不得扩展该模式**（新增 handler 依赖禁止再开函数字段），新增依赖一律等步骤 9 接口注入。
 10. **回归**：全量 unit + integration + lint（`npm run test:unit`、`npm run test:integration`、`go build/vet/golangci-lint`、`npm run openapi:lint`）。
 
 ## 10a. 形态修订（2026-08-06 定案，A/B/C/D 已实施）
@@ -313,6 +314,7 @@ src/lib/logapi.ts 等   业务层（Service class）
 - **B. happened_at 简化 → 单一 `Record` 形态**（✅ 已实施，本 commit）：删除 `NewRecord` / `DateTimeWithOffset` / `NormalizeHappenedAt`；业务层 `ValidateHappenedAt(raw) error`（校验）→ 构造 `record.Record`（`HappenedAt` 为已校验请求串，各 draft 产物暴露 `HappenedAtRaw`）→ `Save(ctx, q, rec)`；Repository 内 `ParseHappenedAt` 落库 → 返回规范化 `Record`；业务层只用返回值。**接受两次解析成本**（业务层校验解析 + Repository 落库解析），换取无双类型。
 - **C. Go 业务函数入参 → typed 请求体**（✅ 已实施，本 commit）：`CreateText(ctx, pool, body TextBody)` 等 7 个 logapi 函数改收 typed 入参（text 收 raw body struct，其余收 draft `Normalized*` 产物）；route 层（httpx）承担 reject unknown keys + decode + draft 解析（400 在 route 层零 DB），业务层只做字段校验与落库。import/export/query 原本已收 typed（`ParsedExport` / `url.Values`）。
 - **D. 业务函数错误 → 带 status 的 error**（✅ 已实施，决策 D 定稿为 myerr 模块）：Go `(T, status, error)` 元组 → `(T, error)` + `myerr.MyError{Status, Message}`（构造即分类：NewNotFound/NewValidation/NewConflict/NewInternal，NewInternal 用 describe 拼驱动错误类型名+消息）；Node 对称 `MyError` class + throw；handler/route 统一 `routeError`/`writeErr`（errors.As 取 status，400/500 无差别写错误）。见 docs/20260806-myerr-error-module.md。
+  - **D2. Repository 同收紧**（✅ 已实施，本 commit）：repo 4 方法 `Result{OK, Data, Error}` 结构体 → 多返回值（`FindByID`/`Save`/`SaveAll` → `(T, *MyError)`；`Transition` 无数据 → 裸 `*MyError`）；Node 对称 throw。删除 4 个 Result 类型双端与业务层 `if !res.OK { return res.Error }` / `if (!res.ok) throw res.error` 拆包样板；恒真 `OK` 字段（同 `importRecordsJsonl` 恒真 `ok`，已删先例）随之消灭；**Node repo 补驱动错误 catch → newInternal**（此前依赖业务层 catch 包装，现与 Go repo 内包装对齐），业务层 try/catch + logger 删除（日志统一 routeError/writeErr 边界出口）。
 
 > 注：A/B/C/D 已全部按终稿形态落地。
 

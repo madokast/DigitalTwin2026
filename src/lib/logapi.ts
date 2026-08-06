@@ -2,12 +2,11 @@
  * log 录入：校验 + Drizzle 写入；与 Go `faas/internal/logapi` 同构。
  * Telegram 不在此包——由 HTTP route 在成功后 best-effort 调用。
  */
-import { logger } from './logger'
 import { UoW } from '@/db/uow'
 import { v7 as uuidv7 } from 'uuid'
 import db from '@/db'
 import { Repo } from '@/lib/recordrepo'
-import { MyError, newInternal, newNotFound, newValidation } from '@/lib/myerr'
+import { MyError, newNotFound, newValidation } from '@/lib/myerr'
 import { parseBodyWeight, type LogBodyWeightBody } from '@/lib/bodyweightdraft'
 import {
   optionalTrimmedNullable,
@@ -113,33 +112,23 @@ export async function createNumberBatch(
     throw newValidation(parsed.error)
   }
 
-  try {
-    // 领域 Record 组装（happened_at = 已校验请求串；Repository 内解析落库）。
-    const nrs: Record[] = parsed.entries.map((entry) => ({
-      id: uuidv7(),
-      happened_at: parsed.happenedAtRaw,
-      numeric_value: entry.numericValue,
-      raw_content: null,
-      tags: entry.tags,
-      objective_context: entry.objectiveContext,
-      ai_analysis: entry.aiAnalysis,
-    }))
-    const out = await new UoW(db).do(async (q) => {
-      const res = await Repo.saveAll(q, nrs)
-      if (!res.ok) {
-        throw res.error
-      }
-      return res.records
-    })
-    return {
-      inserted: out.length,
-      records: out,
-      status: 201,
-    }
-  } catch (err) {
-    if (err instanceof MyError) throw err
-    logger.error({ err }, 'Error creating number records')
-    throw newInternal(err)
+  // 领域 Record 组装（happened_at = 已校验请求串；Repository 内解析落库）。
+  const nrs: Record[] = parsed.entries.map((entry) => ({
+    id: uuidv7(),
+    happened_at: parsed.happenedAtRaw,
+    numeric_value: entry.numericValue,
+    raw_content: null,
+    tags: entry.tags,
+    objective_context: entry.objectiveContext,
+    ai_analysis: entry.aiAnalysis,
+  }))
+  const out = await new UoW(db).do(async (q) => {
+    return Repo.saveAll(q, nrs)
+  })
+  return {
+    inserted: out.length,
+    records: out,
+    status: 201,
   }
 }
 
@@ -155,23 +144,16 @@ export async function createBodyWeight(
     throw newValidation(parsed.error)
   }
 
-  try {
-    const res = await Repo.save(db, {
-      id: uuidv7(),
-      happened_at: parsed.happenedAtRaw,
-      numeric_value: parsed.numericValue,
-      raw_content: null,
-      tags: parsed.tags,
-      objective_context: parsed.objectiveContext,
-      ai_analysis: parsed.aiAnalysis,
-    })
-    if (!res.ok) throw res.error
-    return { record: res.record!, status: 201 }
-  } catch (err) {
-    if (err instanceof MyError) throw err
-    logger.error({ err }, 'Error creating body weight record')
-    throw newInternal(err)
-  }
+  const rec = await Repo.save(db, {
+    id: uuidv7(),
+    happened_at: parsed.happenedAtRaw,
+    numeric_value: parsed.numericValue,
+    raw_content: null,
+    tags: parsed.tags,
+    objective_context: parsed.objectiveContext,
+    ai_analysis: parsed.aiAnalysis,
+  })
+  return { record: rec, status: 201 }
 }
 
 /**
@@ -186,22 +168,15 @@ export async function createTodo(
     throw newValidation(parsed.error)
   }
 
-  try {
-    const res = await Repo.save(db, {
-      id: uuidv7(),
-      happened_at: parsed.happenedAtRaw,
-      raw_content: parsed.rawContent,
-      tags: parsed.tags,
-      objective_context: parsed.objectiveContext,
-      ai_analysis: parsed.aiAnalysis,
-    })
-    if (!res.ok) throw res.error
-    return { record: res.record!, status: 201 }
-  } catch (err) {
-    if (err instanceof MyError) throw err
-    logger.error({ err }, 'Error creating to-do record')
-    throw newInternal(err)
-  }
+  const rec = await Repo.save(db, {
+    id: uuidv7(),
+    happened_at: parsed.happenedAtRaw,
+    raw_content: parsed.rawContent,
+    tags: parsed.tags,
+    objective_context: parsed.objectiveContext,
+    ai_analysis: parsed.aiAnalysis,
+  })
+  return { record: rec, status: 201 }
 }
 
 export type TransitionTodoOk = {
@@ -227,17 +202,17 @@ export async function transitionTodo(
     throw newValidation(INVALID_RECORD_ID)
   }
 
+  // 预读（非 CAS：只用于判断与组装，事务外，事务持有时间最短）
+  let todoRec: Record
   try {
-    // 预读（非 CAS：只用于判断与组装，事务外，事务持有时间最短）
-    const found = await Repo.findById(db, parsed.id)
-    if (!found.ok) {
-      if (found.error?.status === 404) {
+      todoRec = await Repo.findById(db, parsed.id)
+    } catch (err) {
+      // 404 文案映射为待办专属（契约）；其余（驱动错误）透传 myerr 500
+      if (err instanceof MyError && err.status === 404) {
         throw newNotFound(ERR_TODO_NOT_FOUND)
       }
-      throw found.error ?? newInternal(new Error('findById failed'))
+      throw err
     }
-
-    const todoRec = found.record!
     const tagList = todoRec.tags
 
     if (isTodoAuditRecordTags(tagList)) {
@@ -270,10 +245,7 @@ export async function transitionTodo(
     // —— 影响行数 ≠ 1 时不插审计行、事务回滚，错误文案含实际行数。
     // 审计行 happened_at 与请求一致（已校验请求串；Repository 内解析落库）
     await new UoW(db).do(async (q) => {
-      const t = await Repo.transition(q, parsed.id, newTags)
-      if (!t.ok) {
-        throw t.error
-      }
+      await Repo.transition(q, parsed.id, newTags)
       await Repo.save(q, {
         id: uuidv7(),
         happened_at: parsed.happenedAtRaw,
@@ -291,11 +263,6 @@ export async function transitionTodo(
       todoAuditNotifyText: notifyText,
       status: 200,
     }
-  } catch (err) {
-    if (err instanceof MyError) throw err
-    logger.error({ err }, 'Error transitioning to-do')
-    throw newInternal(err)
-  }
 }
 
 /** 与 Go `logapi.CreateText` 对齐：校验 + INSERT */
@@ -339,22 +306,15 @@ export async function createText(body: TextBody): Promise<CreateRecordResult> {
     throw newValidation(aiAnalysis.error)
   }
 
-  try {
-    const res = await Repo.save(db, {
-      id: uuidv7(),
-      happened_at: happenedAtRaw,
-      raw_content: rawContentResult.value,
-      tags: tagListResult.value,
-      objective_context: objCtxResult.value,
-      ai_analysis: aiAnalysis.value,
-    })
-    if (!res.ok) throw res.error
-    return { record: res.record!, status: 201 }
-  } catch (err) {
-    if (err instanceof MyError) throw err
-    logger.error({ err }, 'Error creating text record')
-    throw newInternal(err)
-  }
+  const rec = await Repo.save(db, {
+    id: uuidv7(),
+    happened_at: happenedAtRaw,
+    raw_content: rawContentResult.value,
+    tags: tagListResult.value,
+    objective_context: objCtxResult.value,
+    ai_analysis: aiAnalysis.value,
+  })
+  return { record: rec, status: 201 }
 }
 
 /**
@@ -369,22 +329,15 @@ export async function createReview(
     throw newValidation(parsed.error)
   }
 
-  try {
-    const res = await Repo.save(db, {
-      id: uuidv7(),
-      happened_at: parsed.happenedAtRaw,
-      raw_content: parsed.rawContent,
-      tags: reviewTagsForCadence(parsed.cadence, parsed.tags),
-      objective_context: parsed.objectiveContext,
-      ai_analysis: parsed.aiAnalysis,
-    })
-    if (!res.ok) throw res.error
-    return { record: res.record!, status: 201 }
-  } catch (err) {
-    if (err instanceof MyError) throw err
-    logger.error({ err }, 'Error creating review record')
-    throw newInternal(err)
-  }
+  const rec = await Repo.save(db, {
+    id: uuidv7(),
+    happened_at: parsed.happenedAtRaw,
+    raw_content: parsed.rawContent,
+    tags: reviewTagsForCadence(parsed.cadence, parsed.tags),
+    objective_context: parsed.objectiveContext,
+    ai_analysis: parsed.aiAnalysis,
+  })
+  return { record: rec, status: 201 }
 }
 
 /**
@@ -401,34 +354,24 @@ export async function createTransactionBatch(
     throw newValidation(parsed.error)
   }
 
-  try {
-    // 领域 Record 组装（happened_at = 已校验请求串；Repository 内解析落库）。
-    const nrs: Record[] = parsed.entries.map((entry) => ({
-      id: uuidv7(),
-      happened_at: parsed.happenedAtRaw,
-      numeric_value: entry.amount,
-      raw_content: null,
-      tags: entry.tags,
-      objective_context: entry.memo,
-      ai_analysis: null,
-    }))
-    const out = await new UoW(db).do(async (q) => {
-      const res = await Repo.saveAll(q, nrs)
-      if (!res.ok) {
-        throw res.error
-      }
-      return res.records
-    })
-    return {
-      inserted: out.length,
-      type: parsed.type,
-      sum: sumMoneyAmounts2(parsed.entries.map((e) => e.amount)),
-      records: out,
-      status: 201,
-    }
-  } catch (err) {
-    if (err instanceof MyError) throw err
-    logger.error({ err }, 'Error creating transaction records')
-    throw newInternal(err)
+  // 领域 Record 组装（happened_at = 已校验请求串；Repository 内解析落库）。
+  const nrs: Record[] = parsed.entries.map((entry) => ({
+    id: uuidv7(),
+    happened_at: parsed.happenedAtRaw,
+    numeric_value: entry.amount,
+    raw_content: null,
+    tags: entry.tags,
+    objective_context: entry.memo,
+    ai_analysis: null,
+  }))
+  const out = await new UoW(db).do(async (q) => {
+    return Repo.saveAll(q, nrs)
+  })
+  return {
+    inserted: out.length,
+    type: parsed.type,
+    sum: sumMoneyAmounts2(parsed.entries.map((e) => e.amount)),
+    records: out,
+    status: 201,
   }
 }

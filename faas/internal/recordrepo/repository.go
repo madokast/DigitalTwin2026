@@ -26,14 +26,8 @@ type RecordRepository struct{}
 // Repo RecordRepository 包级单例（空结构体，无状态，安全共享）。
 var Repo = &RecordRepository{}
 
-type RecordFindByIDResult struct {
-	OK     bool
-	Record record.Record
-	Error  *myerr.MyError // nil = 成功
-}
-
 // FindByID 按 id 查完整行：Scan → DBRow → FromDB（唯一转换点）→ 领域 Record；未找到 → myerr 404。
-func (r *RecordRepository) FindByID(ctx context.Context, q db.Executor, id string) RecordFindByIDResult {
+func (r *RecordRepository) FindByID(ctx context.Context, q db.Executor, id string) (record.Record, *myerr.MyError) {
 	var row record.DBRow
 	err := q.QueryRow(ctx, `
 SELECT id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags
@@ -44,58 +38,41 @@ FROM records WHERE id = $1
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RecordFindByIDResult{Error: myerr.NewNotFound(fmt.Sprintf("record %s not found", id))}
+			return record.Record{}, myerr.NewNotFound(fmt.Sprintf("record %s not found", id))
 		}
-		return RecordFindByIDResult{Error: myerr.NewInternal(err)}
+		return record.Record{}, myerr.NewInternal(err)
 	}
-	return RecordFindByIDResult{OK: true, Record: record.FromDB(row)}
-}
-
-type RecordSaveAllResult struct {
-	OK      bool
-	Records []record.Record
-	Error   *myerr.MyError
-}
-
-type RecordTransitionResult struct {
-	OK    bool
-	Error *myerr.MyError
+	return record.FromDB(row), nil
 }
 
 // Transition 只 UPDATE tags（WHERE id）；RowsAffected != 1 → 内部错误（D7：并发竞态文案含实际行数）。
-// 领域规则（四态/审计/组装）在业务层；审计行由业务层调 Save 插入。
-func (r *RecordRepository) Transition(ctx context.Context, q db.Executor, id string, tags []string) RecordTransitionResult {
+// 领域规则（四态/审计/组装）在业务层；审计行由业务层调 Save 插入。nil = 成功。
+func (r *RecordRepository) Transition(ctx context.Context, q db.Executor, id string, tags []string) *myerr.MyError {
 	tagsJSON, err := record.TagsJSON(tags)
 	if err != nil {
-		return RecordTransitionResult{Error: myerr.NewInternal(err)}
+		return myerr.NewInternal(err)
 	}
 	ct, err := q.Exec(ctx, `UPDATE records SET tags = $1 WHERE id = $2`, tagsJSON, id)
 	if err != nil {
-		return RecordTransitionResult{Error: myerr.NewInternal(err)}
+		return myerr.NewInternal(err)
 	}
 	if ct.RowsAffected() != 1 {
-		return RecordTransitionResult{Error: myerr.NewInternal(fmt.Errorf("todo update affected %d rows", ct.RowsAffected()))}
+		return myerr.NewInternal(fmt.Errorf("todo update affected %d rows", ct.RowsAffected()))
 	}
-	return RecordTransitionResult{OK: true}
-}
-
-type RecordSaveResult struct {
-	OK     bool
-	Record record.Record
-	Error  *myerr.MyError
+	return nil
 }
 
 // Save 单条 INSERT + RETURNING 完整行。rec 为领域 Record（HappenedAt 为业务层已校验的
 // 请求串，Repository 内 ParseHappenedAt 解析落库——接受两次解析成本）；
 // 返回规范化领域 Record（FromDB）——业务层唯一使用的 happened_at 来源。
-func (r *RecordRepository) Save(ctx context.Context, q db.Executor, rec record.Record) RecordSaveResult {
+func (r *RecordRepository) Save(ctx context.Context, q db.Executor, rec record.Record) (record.Record, *myerr.MyError) {
 	happenedAt, utcOffset, err := draft.ParseHappenedAt(rec.HappenedAt)
 	if err != nil {
-		return RecordSaveResult{Error: myerr.NewInternal(err)}
+		return record.Record{}, myerr.NewInternal(err)
 	}
 	tagsJSON, err := record.TagsJSON(rec.Tags)
 	if err != nil {
-		return RecordSaveResult{Error: myerr.NewInternal(err)}
+		return record.Record{}, myerr.NewInternal(err)
 	}
 	var out record.DBRow
 	err = q.QueryRow(ctx, `
@@ -107,9 +84,9 @@ RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_con
 		&out.RawContent, &out.ObjectiveContext, &out.AiAnalysis, &out.Tags,
 	)
 	if err != nil {
-		return RecordSaveResult{Error: myerr.NewInternal(err)}
+		return record.Record{}, myerr.NewInternal(err)
 	}
-	return RecordSaveResult{OK: true, Record: record.FromDB(out)}
+	return record.FromDB(out), nil
 }
 
 // SaveAll 批量 INSERT（循环复用 Save 单条原语，行为与顺序确定）；事务内调用。
@@ -117,14 +94,14 @@ RETURNING id, happened_at, utc_offset, numeric_value, raw_content, objective_con
 // TODO(perf)：当前是逐条 INSERT（N 次往返）。批量场景可优化为单条多值 INSERT
 // （`INSERT ... VALUES (...),(...) ... RETURNING`）——但 PG 的 RETURNING 不保证与
 // VALUES 顺序一致，需额外按 id ORDER BY（或临时表）恢复输入顺序。本项目 batch 量小暂未做。
-func (r *RecordRepository) SaveAll(ctx context.Context, q db.Executor, recs []record.Record) RecordSaveAllResult {
+func (r *RecordRepository) SaveAll(ctx context.Context, q db.Executor, recs []record.Record) ([]record.Record, *myerr.MyError) {
 	out := make([]record.Record, 0, len(recs))
 	for _, rec := range recs {
-		res := r.Save(ctx, q, rec)
-		if !res.OK {
-			return RecordSaveAllResult{Error: res.Error}
+		saved, me := r.Save(ctx, q, rec)
+		if me != nil {
+			return nil, me
 		}
-		out = append(out, res.Record)
+		out = append(out, saved)
 	}
-	return RecordSaveAllResult{OK: true, Records: out}
+	return out, nil
 }

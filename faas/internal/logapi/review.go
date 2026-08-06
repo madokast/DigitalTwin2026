@@ -21,7 +21,7 @@ func CreateReview(ctx context.Context, pool *pgxpool.Pool, parsed reviewdraft.No
 	}
 
 	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record。
-	res := recordrepo.Repo.Save(ctx, pool, record.Record{
+	rec, me := recordrepo.Repo.Save(ctx, pool, record.Record{
 		ID:               id.String(),
 		HappenedAt:       parsed.HappenedAtRaw,
 		NumericValue:     nil,
@@ -30,8 +30,8 @@ func CreateReview(ctx context.Context, pool *pgxpool.Pool, parsed reviewdraft.No
 		ObjectiveContext: parsed.ObjectiveContext,
 		AiAnalysis:       parsed.AiAnalysis,
 	})
-	if !res.OK {
-		return record.Record{}, res.Error
+	if me != nil {
+		return record.Record{}, me
 	}
-	return res.Record, nil
+	return rec, nil
 }
