@@ -3,6 +3,7 @@
 > 创建日期：2026-08-06
 > 性质：分析 + 策略文档。针对「底层错误被合并成固定文案 `Internal server error`」的现状问题，给出改造策略。
 > 触发：UoW+Repository 审查（A2/A3 领域错误体系）讨论中，用户指出 500 出口「把本可拿到的实际错误信息换成固定文案」是反设计——违背设计哲学 §2.1（AI 诊断权）与 RFC 9457 `detail` 字段语义。
+> **状态（2026-08-06 更新）**：阶段 A（透传 + `errorDetail`/`errorMessage`）✅ 已实施；**阶段 B（`ErrInternal` / `InternalError` 类防腐层）已被决策 D 的 myerr 模块取代、计划作废**——防腐层由 `myerr.NewInternal`/`NewInternalMsg` 承担（Repository 内吸收驱动错误），边界统一 `writeErr`/`routeError`，`writeInternalError`/`writeLogOrError`/`ErrInternal`/`InternalError` 已全部从代码清除（检索零残留）。终稿形态见 [`docs/20260806-myerr-error-module.md`](20260806-myerr-error-module.md)；本节内阶段 B 相关内容均为历史计划，仅作记录，不再执行。
 
 ## 1. 问题定义
 
