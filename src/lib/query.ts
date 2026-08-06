@@ -7,7 +7,8 @@ import {
   isValidRecordId,
   type Record as DomainRecord,
 } from '@/lib/record'
-import { aggregateTagCounts, type TagCount } from '@/lib/tags'
+import { aggregateTagCounts, TAGS_NOT_JSON_ARRAY, type TagCount } from '@/lib/tags'
+import { newInternalMsg } from '@/lib/myerr'
 import {
   getZonedDayBounds,
   isValidTimeZone,
@@ -506,7 +507,7 @@ export function aggregateTransactionsSummary(
   for (const row of rows) {
     const parsed: unknown = JSON.parse(row.tags)
     if (!Array.isArray(parsed)) {
-      throw new Error('tags field is not a JSON array')
+      throw newInternalMsg(TAGS_NOT_JSON_ARRAY)
     }
     const tags = parsed.filter((t): t is string => typeof t === 'string')
     const entryType = classifyEntryType(tags)

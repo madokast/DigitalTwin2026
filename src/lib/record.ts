@@ -46,9 +46,16 @@ export function formatHappenedAt(value: Date | string): string {
 
 /** drizzle 行 / DBRow → 领域 Record：唯一转换点（瞬间 + 隐列 → 带区串；tags JSON → 数组）。与 Go `FromDB` 对称。 */
 export function fromDB(row: DBRow): Record {
+  let happenedAt: string
+  try {
+    happenedAt = formatWithUtcOffset(row.happenedAt, row.utcOffset)
+  } catch {
+    // 隐列损坏时仍可序列化（回退 UTC）；正常路径有 DB CHECK + 写入校验。对称 Go FromDB。
+    happenedAt = formatHappenedAt(row.happenedAt)
+  }
   return {
     id: row.id,
-    happened_at: formatWithUtcOffset(row.happenedAt, row.utcOffset),
+    happened_at: happenedAt,
     ...(row.numericValue !== null ? { numeric_value: row.numericValue } : {}),
     raw_content: row.rawContent,
     objective_context: row.objectiveContext,

@@ -216,9 +216,16 @@ export function parseLine(
  * 键序固定，与 Go SerializeLine 一致。
  */
 export function serializeLine(row: RecordJsonlRow): string {
+  let happenedAt: string
+  try {
+    happenedAt = formatHappenedAt(row.happenedAt, row.utcOffset)
+  } catch {
+    // 隐列损坏时仍可序列化（回退 UTC）；正常路径有写入校验。对称 Go SerializeLine。
+    happenedAt = row.happenedAt.toISOString()
+  }
   return serializeRecord({
     id: row.id,
-    happened_at: formatHappenedAt(row.happenedAt, row.utcOffset),
+    happened_at: happenedAt,
     ...(row.numericValue !== null ? { numeric_value: row.numericValue } : {}),
     raw_content: row.rawContent,
     tags: row.tags,

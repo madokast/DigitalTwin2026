@@ -2,6 +2,7 @@
  * tag 校验与纯 JSON 变换（可被 Client Component 安全导入）。
  * 写库（renameAcrossRecords）在 `@/lib/tagsdb`，勿在此文件 import `@/db`。
  */
+import { newInternalMsg } from '@/lib/myerr' 
 
 /**
  * 验证 tag 格式
@@ -119,11 +120,12 @@ export function firstDuplicateTag(tagList: string[]): string | null {
 /** 与 Go `tags.ErrTagsNotJSONArray` 同文案：解析成功但根不是数组 */
 export const TAGS_NOT_JSON_ARRAY = 'tags field is not a JSON array'
 
-/** 解析 records.tags JSON；非法 JSON 抛出；根非数组抛出 TAGS_NOT_JSON_ARRAY */
+/** 解析 records.tags JSON；非法 JSON / 根非数组 = DB 脏数据（内部错误 500，非客户端请求问题）。
+ * 与 Go `tags.parseTagsJSONArray` 对称（NewInternalMsg 固定文案，无类型名前缀）。 */
 function parseTagsJsonArray(tagsJson: string): unknown[] {
   const parsed: unknown = JSON.parse(tagsJson)
   if (!Array.isArray(parsed)) {
-    throw new Error(TAGS_NOT_JSON_ARRAY)
+    throw newInternalMsg(TAGS_NOT_JSON_ARRAY)
   }
   return parsed
 }

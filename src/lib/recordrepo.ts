@@ -17,7 +17,7 @@ import { eq } from 'drizzle-orm'
 import * as schema from '@/db/schema'
 import { fromDB, type Record } from '@/lib/record'
 import { parseHappenedAt } from '@/lib/draft'
-import { newInternal, newNotFound, newValidation } from '@/lib/myerr'
+import { newInternal, newInternalMsg, newNotFound, newValidation } from '@/lib/myerr'
 import type { Executor } from '@/db/uow'
 
 export class RecordRepository {
@@ -52,7 +52,7 @@ export class RecordRepository {
       throw newInternal(err)
     }
     if (rows.length !== 1) {
-      throw newInternal(new Error(`todo update affected ${rows.length} rows`))
+      throw newInternalMsg(`todo update affected ${rows.length} rows`)
     }
   }
 

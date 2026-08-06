@@ -30,6 +30,9 @@ export const newValidation = (msg: string): MyError => new MyError(400, msg)
 /** 409（唯一约束冲突 / 重名等；暂未使用）。 */
 export const newConflict = (msg: string): MyError => new MyError(409, msg)
 
+/** 500 固定文案（非驱动错误：外部服务失败等已知原因，无需 describe 烙类型名——对称 Go NewInternalMsg）。 */
+export const newInternalMsg = (msg: string): MyError => new MyError(500, msg)
+
 /** 503（健康探测等「服务暂不可用」；非客户端请求问题）。 */
 export const newServiceUnavailable = (msg: string): MyError => new MyError(503, msg)
 
