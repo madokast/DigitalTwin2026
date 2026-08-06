@@ -131,6 +131,10 @@
 ### C2 Node 单测的 fake 注入机制
 - 问题：Go 有接口注入先例；Node 现在单测靠 `vi.mock('@/db')`？事务回滚测试（继承项 2 双端）Node 侧如何 fake `db.transaction` 使其失败回滚？
 - 待决：Node 测试注入方案。
+- 状态：✅ **已定案**——沿用现有 `vi.mock` 机制（`logapi.transition.test.ts` 先例）：
+  - 单测 `vi.mock('@/db')` 手工 mock drizzle builder 链（select/from/where/limit、update/set/where、insert/values）+ fake `transaction`。
+  - **withTx 引入后**：mock 目标保持 `@/db` 的 `transaction`（`withTx` 内部调它，无需 mock `withTx` 模块本身）；Repository 方法收 mock 的 `Executor`（union 在测试中由 fake 满足）。
+  - **回滚测试模式**：fake executor 的某操作 `mockRejectedValueOnce(...)` → `withTx` 外层整体 reject → 业务函数返回 500 / 无成功半状态。现状 `logapi.transition.test.ts` 已是此模式（`txValues.mockRejectedValueOnce` → `result.error`）；log/numbers `SaveAll` 回滚测试（继承项 2）照此编写，与 Go `fakeTx`（failOn 触发回滚）对称。
 
 ## D. 方法细节
 
