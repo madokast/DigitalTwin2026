@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/recordjsonl"
+	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 )
 
 // ErrExportLimitError 与 Next EXPORT_LIMIT_ERROR 同文案（数据/格式问题 → 400）。
@@ -70,74 +70,26 @@ func ParseExportRecordsParams(q url.Values) (*ParsedExport, *myerr.MyError) {
 
 const selectCols = `id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis`
 
-// FetchExportRecords 有 from 时先确认存在，再 id >= from ORDER BY id ASC LIMIT。
-// from 不存在 → myerr 404。
+// FetchExportRecords keyset 游标导出（§10b 步骤 3 定案：Exists 404 + FindByCriteria.IDFrom）。
+// from 不存在 → myerr 404；无 from → 全表 id ASC LIMIT。
 func FetchExportRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedExport) ([]record.Record, *myerr.MyError) {
 	if p.From != "" {
-		var exists bool
-		err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM records WHERE id = $1)`, p.From).Scan(&exists)
-		if err != nil {
-			return nil, myerr.NewInternal(err)
+		exists, me := recordrepo.Repo.Exists(ctx, pool, p.From)
+		if me != nil {
+			return nil, me
 		}
 		if !exists {
 			return nil, myerr.NewNotFound(ErrExportFromNotFound)
 		}
 	}
 
-	var (
-		rows pgx.Rows
-		err  error
-	)
-	if p.From != "" {
-		rows, err = pool.Query(ctx,
-			`SELECT `+selectCols+` FROM records WHERE id >= $1 ORDER BY id ASC LIMIT $2`,
-			p.From, p.Limit,
-		)
-	} else {
-		rows, err = pool.Query(ctx,
-			`SELECT `+selectCols+` FROM records ORDER BY id ASC LIMIT $1`,
-			p.Limit,
-		)
-	}
-	if err != nil {
-		return nil, myerr.NewInternal(err)
-	}
-	defer rows.Close()
-
-	recs := []record.Record{}
-	for rows.Next() {
-		rec, scanErr := scanRecord(rows)
-		if scanErr != nil {
-			return nil, myerr.NewInternal(scanErr)
-		}
-		recs = append(recs, rec)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, myerr.NewInternal(err)
-	}
-	return recs, nil
-}
-
-func scanRecord(row pgx.Row) (record.Record, error) {
-	var (
-		id, tagsField, objectiveContext, utcOffset string
-		happenedAt                                 time.Time
-		numericValue, rawContent, subj             *string
-	)
-	err := row.Scan(&id, &happenedAt, &utcOffset, &numericValue, &rawContent, &tagsField, &objectiveContext, &subj)
-	if err != nil {
-		return record.Record{}, err
-	}
-	return record.FromDB(record.DBRow{
-		ID:               id,
-		HappenedAt:       happenedAt,
-		UtcOffset:        utcOffset,
-		NumericValue:     numericValue,
-		RawContent:       rawContent,
-		Tags:             tagsField,
-		ObjectiveContext: objectiveContext,
-		AiAnalysis:       subj,
-	}), nil
+	return recordrepo.Repo.FindByCriteria(ctx, pool, recordrepo.FindCriteria{
+		Criteria:  recordrepo.Criteria{IDFrom: p.From},
+		Page:      1,
+		PageSize:  p.Limit,
+		SortBy:    "id",
+		SortOrder: "asc",
+	})
 }
 
 // BuildExportNdjson 每行一条 Record JSON + 换行；0 行 → 空字符串。

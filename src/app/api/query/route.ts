@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
       count: result.total,
       page: result.page,
       page_size: result.pageSize,
-      sort_by: parsed.sortBy,
-      sort_order: parsed.sortOrder,
+      sort_by: parsed.criteria.sortBy,
+      sort_order: parsed.criteria.sortOrder,
       records: result.records.map(toQueryRecordJson),
     }
     if (parsed.hint) {

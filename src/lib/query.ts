@@ -9,7 +9,7 @@ import {
 } from '@/lib/record'
 import { aggregateTagCounts, TAGS_NOT_JSON_ARRAY, type TagCount } from '@/lib/tags'
 import { newInternalMsg } from '@/lib/myerr'
-import { Repo } from '@/lib/recordrepo'
+import { Repo, type FindCriteria } from '@/lib/recordrepo'
 import { RENAME_PAGE_SIZE } from '@/lib/tagsdb'
 import {
   getZonedDayBounds,
@@ -27,23 +27,8 @@ import {
  * `sort_by`: `happened_at`（默认）| `id`；`sort_order`: `asc`（默认）| `desc`（严格小写）。
  * happened_at desc 时次键 id 恒 ASC；id 排序无次键。
  */
-export type SortBy = 'happened_at' | 'id'
-export type SortOrder = 'asc' | 'desc'
-
-export function recordsOrderBySql(sortBy: SortBy, sortOrder: SortOrder): string {
-  if (sortBy === 'id') {
-    return sortOrder === 'desc' ? 'id DESC' : 'id ASC'
-  }
-  return sortOrder === 'desc' ? 'happened_at DESC, id ASC' : 'happened_at ASC, id ASC'
-}
-
 export type ParsedQuery = {
-  conditions: SQL[]
-  id: string | null
-  page: number
-  pageSize: number
-  sortBy: SortBy
-  sortOrder: SortOrder
+  criteria: FindCriteria
   /** 裸保留前缀 tag（恒空毒化交集）时给 AI 的纠正提示；无则 undefined */
   hint?: string
 }
@@ -63,17 +48,6 @@ const TAG_QUERY_WILDCARD = /^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*:\*$/
 
 /** 裸值永不被写入的保留前缀：query?tag=<这些值> 恒空，应提示用族通配。body:weight 例外（裸值即真实 tag）。 */
 export const BARE_RESERVED_TAG_HINTS = ['transaction_entry', 'todo', 'review'] as const
-
-/**
- * 转义 LIKE 通配符，使字面量匹配（PostgreSQL 默认 ESCAPE '\'）。
- * 与 Go `query.EscapeLikePattern` 对齐：先 `\`，再 `%` / `_`。
- */
-export function escapeLikePattern(raw: string): string {
-  return raw
-    .replace(/\\/g, '\\\\')
-    .replace(/%/g, '\\%')
-    .replace(/_/g, '\\_')
-}
 
 function parsePositiveInt(raw: string | null, fallback: number): number | null {
   if (raw === null || raw === '') return fallback
@@ -123,32 +97,21 @@ export function parseRecordQueryParams(
   if (sortOrderRaw !== null && sortOrderRaw !== 'asc' && sortOrderRaw !== 'desc') {
     return { error: 'sort_order must be one of: asc, desc' }
   }
-  const sortBy: SortBy = sortByRaw ?? 'happened_at'
-  const sortOrder: SortOrder = sortOrderRaw ?? 'asc'
+  const sortBy: FindCriteria['sortBy'] = sortByRaw ?? 'happened_at'
+  const sortOrder: FindCriteria['sortOrder'] = sortOrderRaw ?? 'asc'
 
   const from = parseIsoDate(searchParams.get('from'), 'from')
   if (from && 'error' in from) return from
   const to = parseIsoDate(searchParams.get('to'), 'to')
   if (to && 'error' in to) return to
 
-  const conditions: SQL[] = []
   const id = searchParams.get('id')
   let hint: string | undefined
-
-  if (id) {
-    if (!isValidRecordId(id)) {
-      return { error: INVALID_RECORD_ID }
-    }
-    conditions.push(eq(records.id, id))
+  if (id && !isValidRecordId(id)) {
+    return { error: INVALID_RECORD_ID }
   }
 
-  if (from instanceof Date) {
-    conditions.push(gte(records.happenedAt, from))
-  }
-  if (to instanceof Date) {
-    conditions.push(lt(records.happenedAt, to))
-  }
-
+  const tags: string[] = []
   for (const tag of searchParams.getAll('tag')) {
     if (!tag) continue
     if (tag.includes('*')) {
@@ -156,34 +119,32 @@ export function parseRecordQueryParams(
       if (!TAG_QUERY_WILDCARD.test(tag)) {
         return { error: INVALID_TAG_QUERY.replace('%s', tag) }
       }
-      // 族通配 `X:*` → `%"X:%`（去尾闭合引号、保留冒号）
-      conditions.push(
-        like(records.tags, `%"${escapeLikePattern(tag.slice(0, -1))}%`),
-      )
-    } else {
+    } else if (
+      !hint &&
+      (BARE_RESERVED_TAG_HINTS as readonly string[]).includes(tag)
+    ) {
       // 裸保留前缀恒空：记录首个命中，供响应加 hint（AI 纠错）
-      if (!hint && (BARE_RESERVED_TAG_HINTS as readonly string[]).includes(tag)) {
-        hint = `Use "tag=${tag}:*" to match ${tag} records (the bare tag "${tag}" is reserved and never stored)`
-      }
-      conditions.push(like(records.tags, `%"${escapeLikePattern(tag)}"%`))
+      hint = `Use "tag=${tag}:*" to match ${tag} records (the bare tag "${tag}" is reserved and never stored)`
     }
+    tags.push(tag)
   }
 
-  const q = searchParams.get('q')
-  if (q) {
-    const searchPattern = `%${escapeLikePattern(q)}%`
-    // 必须用 or() 包一层，否则 and(...conds) 拼出 tag AND vt OR obj …（AND 优先于 OR）
-    conditions.push(
-      or(
-        like(records.rawContent, searchPattern),
-        like(records.objectiveContext, searchPattern),
-        like(records.aiAnalysis, searchPattern),
-        like(records.tags, searchPattern),
-      )!,
-    )
-  }
+  const q = searchParams.get('q') ?? undefined
 
-  return { conditions, id, page, pageSize, sortBy, sortOrder, hint }
+  return {
+    criteria: {
+      id: id ?? undefined,
+      from: from instanceof Date ? from : undefined,
+      to: to instanceof Date ? to : undefined,
+      tags,
+      q,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    },
+    hint,
+  }
 }
 
 /** 与 Go `query.FetchResult` 同构：lib 内完成 FromDB 映射 */
@@ -211,53 +172,19 @@ export function toQueryRecordJson(rec: DomainRecord): QueryRecordJson {
 export async function fetchFilteredRecords(
   parsed: ParsedQuery,
 ): Promise<FetchResult> {
-  const where =
-    parsed.conditions.length > 0 ? and(...parsed.conditions) : undefined
+  const total = await Repo.count(db, parsed.criteria)
+  const recs = await Repo.findByCriteria(db, parsed.criteria)
 
-  const [countRow] = where
-    ? await db.select({ value: count() }).from(records).where(where)
-    : await db.select({ value: count() }).from(records)
-
-  const total = Number(countRow?.value ?? 0)
-
-  const listOrder = sql.raw(
-    recordsOrderBySql(parsed.sortBy, parsed.sortOrder),
-  )
-
-  // 有 id 时忽略分页，返回 0～1 条
-  if (parsed.id) {
-    const rows = where
-      ? await db.select().from(records).where(where).orderBy(listOrder)
-      : await db.select().from(records).orderBy(listOrder)
-    return {
-      total,
-      page: 1,
-      pageSize: rows.length || 1,
-      records: rows.map(fromDB),
-    }
+  // 有 id 时忽略分页，返回 0～1 条（Page/PageSize 回填实际——现状语义）
+  if (parsed.criteria.id) {
+    const pageSize = recs.length || 1
+    return { total, page: 1, pageSize, records: recs }
   }
-
-  const offset = (parsed.page - 1) * parsed.pageSize
-  const rows = where
-    ? await db
-        .select()
-        .from(records)
-        .where(where)
-        .orderBy(listOrder)
-        .limit(parsed.pageSize)
-        .offset(offset)
-    : await db
-        .select()
-        .from(records)
-        .orderBy(listOrder)
-        .limit(parsed.pageSize)
-        .offset(offset)
-
   return {
     total,
-    page: parsed.page,
-    pageSize: parsed.pageSize,
-    records: rows.map(fromDB),
+    page: parsed.criteria.page,
+    pageSize: parsed.criteria.pageSize,
+    records: recs,
   }
 }
 
@@ -278,17 +205,10 @@ export async function fetchSummary(
 
   const { start, end } = getZonedDayBounds(now, tz)
 
-  const [totalRow] = await db.select({ value: count() }).from(records)
-  const [todayRow] = await db
-    .select({ value: count() })
-    .from(records)
-    .where(and(gte(records.happenedAt, start), lt(records.happenedAt, end)))
+  const total = await Repo.count(db, { tags: [] })
+  const today = await Repo.count(db, { from: start, to: end, tags: [] })
 
-  return {
-    total: Number(totalRow?.value ?? 0),
-    today: Number(todayRow?.value ?? 0),
-    tz,
-  }
+  return { total, today, tz }
 }
 
 /** 全表 tags 聚合计数（与 Go FetchTagCounts 同构）；prefix 非空时真前缀过滤。
@@ -477,134 +397,116 @@ function sortBucketsBySumThenName<T extends { sum: bigint; name: string }>(
  * 脏行（无合法 category:subcategory / 无 numeric_value / 非法字面量）跳过。
  * 非法 tags JSON / 非数组抛错（HTTP 500）。
  */
-export function aggregateTransactionsSummary(
-  rows: TransactionsSummaryRow[],
-  fromRaw: string,
-  toRaw: string,
-): TransactionsSummaryResult {
-  const income = emptyAcc()
-  const expense = emptyAcc()
-  const incomeCats = new Map<
-    string,
-    { sum: bigint; count: number; subs: Map<string, AccBucket> }
-  >()
-  const expenseCats = new Map<
-    string,
-    { sum: bigint; count: number; subs: Map<string, AccBucket> }
-  >()
+/**
+ * 增量聚合器（分页循环逐行喂入，内存只留聚合状态——§10b 步骤 3 修正：
+ * 行数可能巨大，收集全量再聚合 = 内存爆炸）。与 Go txSummaryAcc 同构。
+ * 脏行（无合法 category:subcategory / 无 numeric_value / 非法字面量）跳过；
+ * tags 数组已由 fromDB 解析并兜底脏数据（与跳过语义统一）。
+ */
+export class TransactionsSummaryAcc {
+  private income = emptyAcc()
+  private expense = emptyAcc()
+  private incomeCats = new Map<string, { sum: bigint; count: number; subs: Map<string, AccBucket> }>()
+  private expenseCats = new Map<string, { sum: bigint; count: number; subs: Map<string, AccBucket> }>()
 
-  const addTo = (
-    side: 'income' | 'expense',
-    category: string,
-    subcategory: string,
-    amount: bigint,
-  ) => {
-    const top = side === 'income' ? income : expense
+  /** 逐行增量累加（tags 为领域数组）。 */
+  addRow(tags: string[], numericValue: string | null): void {
+    const entryType = classifyEntryType(tags)
+    if (!entryType) return
+    const pair = findCategoryPair(tags)
+    if (!pair) return
+    if (numericValue === null || numericValue === '') return
+    const amount = parseDecimalScaled(numericValue)
+    if (amount === null) return
+    const top = entryType === 'income' ? this.income : this.expense
     top.sum += amount
     top.count += 1
-    const cats = side === 'income' ? incomeCats : expenseCats
-    let cat = cats.get(category)
+    const cats = entryType === 'income' ? this.incomeCats : this.expenseCats
+    let cat = cats.get(pair.category)
     if (!cat) {
       cat = { sum: 0n, count: 0, subs: new Map() }
-      cats.set(category, cat)
+      cats.set(pair.category, cat)
     }
     cat.sum += amount
     cat.count += 1
-    let sub = cat.subs.get(subcategory)
+    let sub = cat.subs.get(pair.subcategory)
     if (!sub) {
       sub = emptyAcc()
-      cat.subs.set(subcategory, sub)
+      cat.subs.set(pair.subcategory, sub)
     }
     sub.sum += amount
     sub.count += 1
   }
 
-  for (const row of rows) {
-    const parsed: unknown = JSON.parse(row.tags)
-    if (!Array.isArray(parsed)) {
-      throw newInternalMsg(TAGS_NOT_JSON_ARRAY)
-    }
-    const tags = parsed.filter((t): t is string => typeof t === 'string')
-    const entryType = classifyEntryType(tags)
-    if (!entryType) continue
-    const pair = findCategoryPair(tags)
-    if (!pair) continue
-    if (row.numeric_value === null || row.numeric_value === '') continue
-    const amount = parseDecimalScaled(row.numeric_value)
-    if (amount === null) continue
-    addTo(entryType, pair.category, pair.subcategory, amount)
-  }
-
-  const toCategories = (
-    cats: Map<string, { sum: bigint; count: number; subs: Map<string, AccBucket> }>,
-  ): CategoryBucket[] => {
-    const list = [...cats.entries()].map(([category, cat]) => ({
-      name: category,
-      sum: cat.sum,
-      count: cat.count,
-      subs: cat.subs,
-    }))
-    return sortBucketsBySumThenName(list).map((cat) => {
-      const subs = [...cat.subs.entries()].map(([subcategory, sub]) => ({
-        name: subcategory,
-        sum: sub.sum,
-        count: sub.count,
-      }))
-      return {
-        category: cat.name,
-        sum: formatMoney2(cat.sum),
+  /** 组装结果（分类桶排序 + 金额格式化）。 */
+  finalize(fromRaw: string, toRaw: string): TransactionsSummaryResult {
+    const toCategories = (
+      cats: Map<string, { sum: bigint; count: number; subs: Map<string, AccBucket> }>,
+    ): CategoryBucket[] => {
+      const list = [...cats.entries()].map(([category, cat]) => ({
+        name: category,
+        sum: cat.sum,
         count: cat.count,
-        subcategories: sortBucketsBySumThenName(subs).map((s) => ({
-          subcategory: s.name,
-          sum: formatMoney2(s.sum),
-          count: s.count,
-        })),
-      }
-    })
-  }
+        subs: cat.subs,
+      }))
+      return sortBucketsBySumThenName(list).map((cat) => {
+        const subs = [...cat.subs.entries()].map(([subcategory, sub]) => ({
+          name: subcategory,
+          sum: sub.sum,
+          count: sub.count,
+        }))
+        return {
+          category: cat.name,
+          sum: formatMoney2(cat.sum),
+          count: cat.count,
+          subcategories: sortBucketsBySumThenName(subs).map((s) => ({
+            subcategory: s.name,
+            sum: formatMoney2(s.sum),
+            count: s.count,
+          })),
+        }
+      })
+    }
 
-  const netScaled = income.sum - expense.sum
-  return {
-    success: true,
-    from: fromRaw,
-    to: toRaw,
-    income: { sum: formatMoney2(income.sum), count: income.count },
-    expense: { sum: formatMoney2(expense.sum), count: expense.count },
-    net: formatMoney2(netScaled),
-    income_categories: toCategories(incomeCats),
-    expense_categories: toCategories(expenseCats),
+    const netScaled = this.income.sum - this.expense.sum
+    return {
+      success: true,
+      from: fromRaw,
+      to: toRaw,
+      income: { sum: formatMoney2(this.income.sum), count: this.income.count },
+      expense: { sum: formatMoney2(this.expense.sum), count: this.expense.count },
+      net: formatMoney2(netScaled),
+      income_categories: toCategories(this.incomeCats),
+      expense_categories: toCategories(this.expenseCats),
+    }
   }
 }
 
-/** 拉取区间内候选行并聚合（与 Go FetchTransactionsSummary 同构） */
+/** 分页循环拉取区间内候选行并增量聚合（§10b 步骤 3 修正：单族通配 transaction_entry:*
+ * 覆盖 income/expense；行数可能巨大 → 100 分页，每页行即弃）。与 Go FetchTransactionsSummary 同构。 */
 export async function fetchTransactionsSummary(
   from: Date,
   to: Date,
   fromRaw: string,
   toRaw: string,
 ): Promise<TransactionsSummaryResult> {
-  const incomeLike = `%"${escapeLikePattern(TX_ENTRY_INCOME)}"%`
-  const expenseLike = `%"${escapeLikePattern(TX_ENTRY_EXPENSE)}"%`
-  const rows = await db
-    .select({
-      tags: records.tags,
-      numericValue: records.numericValue,
+  const acc = new TransactionsSummaryAcc()
+  let page = 1
+  for (;;) {
+    const recs = await Repo.findByCriteria(db, {
+      from,
+      to,
+      tags: ['transaction_entry:*'],
+      page,
+      pageSize: RENAME_PAGE_SIZE,
+      sortBy: 'id',
+      sortOrder: 'asc',
     })
-    .from(records)
-    .where(
-      and(
-        gte(records.happenedAt, from),
-        lt(records.happenedAt, to),
-        or(like(records.tags, incomeLike), like(records.tags, expenseLike)),
-      ),
-    )
-
-  return aggregateTransactionsSummary(
-    rows.map((r) => ({
-      tags: r.tags,
-      numeric_value: r.numericValue,
-    })),
-    fromRaw,
-    toRaw,
-  )
+    for (const rec of recs) {
+      acc.addRow(rec.tags, rec.numeric_value ?? null)
+    }
+    if (recs.length < RENAME_PAGE_SIZE) break
+    page += 1
+  }
+  return acc.finalize(fromRaw, toRaw)
 }

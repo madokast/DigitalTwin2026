@@ -2,9 +2,8 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  aggregateTransactionsSummary,
+  TransactionsSummaryAcc,
   parseTransactionsSummaryParams,
-  type TransactionsSummaryRow,
 } from './query'
 
 type SharedCases = {
@@ -12,7 +11,7 @@ type SharedCases = {
     name: string
     from: string
     to: string
-    rows: TransactionsSummaryRow[]
+    rows: Array<{ tags: string; numeric_value: string | null }>
     expected: unknown
   }>
   parse_errors: Array<{
@@ -62,12 +61,29 @@ describe('parseTransactionsSummaryParams (shared fixtures)', () => {
   })
 })
 
-describe('aggregateTransactionsSummary (shared fixtures)', () => {
+function aggregateFixture(
+  rows: Array<{ tags: string; numeric_value: string | null }>,
+  from: string,
+  to: string,
+) {
+  const acc = new TransactionsSummaryAcc()
+  for (const r of rows) {
+    const parsed: unknown = JSON.parse(r.tags)
+    if (!Array.isArray(parsed)) throw new Error('fixture tags not array')
+    acc.addRow(
+      parsed.filter((t): t is string => typeof t === 'string'),
+      r.numeric_value,
+    )
+  }
+  return acc.finalize(from, to)
+}
+
+describe('TransactionsSummaryAcc (shared fixtures)', () => {
   const { cases } = loadCases()
 
   for (const tc of cases) {
     it(tc.name, () => {
-      const got = aggregateTransactionsSummary(tc.rows, tc.from, tc.to)
+      const got = aggregateFixture(tc.rows, tc.from, tc.to)
       expect(got).toEqual(tc.expected)
     })
   }
@@ -75,7 +91,7 @@ describe('aggregateTransactionsSummary (shared fixtures)', () => {
   it('all money fields are exactly two decimal strings', () => {
     const money2 = /^-?(?:0|[1-9]\d*)\.\d{2}$/
     for (const tc of cases) {
-      const got = aggregateTransactionsSummary(tc.rows, tc.from, tc.to)
+      const got = aggregateFixture(tc.rows, tc.from, tc.to)
       expect(got.income.sum).toMatch(money2)
       expect(got.expense.sum).toMatch(money2)
       expect(got.net).toMatch(money2)

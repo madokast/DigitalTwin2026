@@ -136,15 +136,6 @@ func TestParseRecordQueryParamsTagCasesSharedFixture(t *testing.T) {
 			if c.Hint == "" && p.Hint != "" {
 				t.Fatalf("%s: unexpected hint %q", c.Name, p.Hint)
 			}
-			// buildWhere 里该 tag 应只产出一个 LIKE（族通配或精确）
-			where, args := buildWhere(p)
-			want := "tags LIKE $1"
-			if where != want {
-				t.Fatalf("%s where: got %q want %q", c.Name, where, want)
-			}
-			if len(args) != 1 || args[0] != c.Pattern {
-				t.Fatalf("%s pattern: got %#v want %q", c.Name, args, c.Pattern)
-			}
 		} else {
 			if err == nil || err.Message != c.Error {
 				t.Fatalf("%s: got %v want %q", c.Name, err, c.Error)
@@ -172,65 +163,6 @@ func TestParseRecordQueryParamsFirstBareReservedHint(t *testing.T) {
 	}
 	if p2.Hint != "" {
 		t.Fatalf("wildcard must not hint: %q", p2.Hint)
-	}
-}
-
-func TestParseRecordQueryParamsTagWildcardEscaping(t *testing.T) {
-	// tag 内字面 `_` 先转义，`:*` 尾缀再翻译（pattern 保留冒号、去尾闭合引号）
-	p, err := ParseRecordQueryParams(url.Values{"tag": {"foo_bar:*"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	where, args := buildWhere(p)
-	if where != "tags LIKE $1" {
-		t.Fatalf("where: %q", where)
-	}
-	got := args[0].(string)
-	want := `%"foo\_bar:%`
-	if got != want {
-		t.Fatalf("pattern: got %q want %q", got, want)
-	}
-}
-
-func TestRecordsListOrderBySharedFixture(t *testing.T) {
-	t.Parallel()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
-	b, err := os.ReadFile(filepath.Join(root, "testdata", "query-records-list-order.json"))
-	if err != nil {
-		t.Fatalf("read shared order fixture: %v", err)
-	}
-	var shared struct {
-		Orders map[string]string `json:"orders"`
-	}
-	if err := json.Unmarshal(b, &shared); err != nil {
-		t.Fatalf("parse shared order fixture: %v", err)
-	}
-	for combo, want := range shared.Orders {
-		var sortBy, sortOrder string
-		switch combo {
-		case "happened_at+asc":
-			sortBy, sortOrder = "happened_at", "asc"
-		case "happened_at+desc":
-			sortBy, sortOrder = "happened_at", "desc"
-		case "id+asc":
-			sortBy, sortOrder = "id", "asc"
-		case "id+desc":
-			sortBy, sortOrder = "id", "desc"
-		default:
-			t.Fatalf("unknown combo %q", combo)
-		}
-		if got := RecordsOrderBySql(sortBy, sortOrder); got != want {
-			t.Fatalf("%s: got %q want %q", combo, got, want)
-		}
-	}
-	// FetchFilteredRecords 经 orderByRecordsList 拼接（默认 happened_at ASC, id ASC）
-	got := orderByRecordsList("happened_at", "asc")
-	if got != " ORDER BY happened_at ASC, id ASC" {
-		t.Fatalf("orderByRecordsList=%q", got)
 	}
 }
 

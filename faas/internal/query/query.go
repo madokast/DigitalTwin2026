@@ -2,7 +2,6 @@ package query
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -12,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
@@ -58,24 +56,6 @@ type ParsedQuery struct {
 
 // RecordsOrderBySql 列表查询排序（与 Next recordsOrderBySql、
 // testdata/query-records-list-order.json 对齐）。
-// sort_by: happened_at（默认）| id；sort_order: asc（默认）| desc（严格小写）。
-// happened_at desc 时次键 id 恒 ASC；id 排序无次键。
-func RecordsOrderBySql(sortBy, sortOrder string) string {
-	if sortBy == "id" {
-		if sortOrder == "desc" {
-			return "id DESC"
-		}
-		return "id ASC"
-	}
-	if sortOrder == "desc" {
-		return "happened_at DESC, id ASC"
-	}
-	return "happened_at ASC, id ASC"
-}
-
-func orderByRecordsList(sortBy, sortOrder string) string {
-	return " ORDER BY " + RecordsOrderBySql(sortBy, sortOrder)
-}
 
 func parsePositiveInt(raw string, fallback int) (int, *myerr.MyError) {
 	if raw == "" {
@@ -185,82 +165,6 @@ func ParseRecordQueryParams(q url.Values) (*ParsedQuery, *myerr.MyError) {
 	}, nil
 }
 
-// EscapeLikePattern 转义 LIKE 通配符（PostgreSQL 默认 ESCAPE '\'）。
-// 与 Next escapeLikePattern 对齐：先 `\`，再 `%` / `_`。
-func EscapeLikePattern(raw string) string {
-	s := strings.ReplaceAll(raw, `\`, `\\`)
-	s = strings.ReplaceAll(s, `%`, `\%`)
-	s = strings.ReplaceAll(s, `_`, `\_`)
-	return s
-}
-
-func buildWhere(p *ParsedQuery) (string, []any) {
-	var parts []string
-	var args []any
-	n := 1
-
-	if p.ID != "" {
-		parts = append(parts, fmt.Sprintf("id = $%d", n))
-		args = append(args, p.ID)
-		n++
-	}
-	if p.From != nil {
-		parts = append(parts, fmt.Sprintf("happened_at >= $%d", n))
-		args = append(args, *p.From)
-		n++
-	}
-	if p.To != nil {
-		parts = append(parts, fmt.Sprintf("happened_at < $%d", n))
-		args = append(args, *p.To)
-		n++
-	}
-	for _, tag := range p.Tags {
-		parts = append(parts, fmt.Sprintf("tags LIKE $%d", n))
-		pattern := `%"` + EscapeLikePattern(tag) + `"%`
-		if strings.HasSuffix(tag, ":*") {
-			// 族通配 `X:*` → `%"X:%`（去尾闭合引号、保留冒号）；`:*` 已在校验期保证为尾缀
-			pattern = `%"` + EscapeLikePattern(tag[:len(tag)-1]) + `%`
-		}
-		args = append(args, pattern)
-		n++
-	}
-	if p.Q != "" {
-		pattern := `%` + EscapeLikePattern(p.Q) + `%`
-		parts = append(parts, fmt.Sprintf(
-			`(raw_content LIKE $%d OR objective_context LIKE $%d OR ai_analysis LIKE $%d OR tags LIKE $%d)`,
-			n, n+1, n+2, n+3,
-		))
-		args = append(args, pattern, pattern, pattern, pattern)
-	}
-
-	if len(parts) == 0 {
-		return "", nil
-	}
-	return strings.Join(parts, " AND "), args
-}
-
-func scanRecord(row pgx.Row) (record.Record, error) {
-	var (
-		id, tagsField, objectiveContext, utcOffset string
-		happenedAt                                 time.Time
-		numericValue, rawContent, subj             *string
-	)
-	err := row.Scan(&id, &happenedAt, &utcOffset, &numericValue, &rawContent, &tagsField, &objectiveContext, &subj)
-	if err != nil {
-		return record.Record{}, err
-	}
-	return record.FromDB(record.DBRow{
-		ID:               id,
-		HappenedAt:       happenedAt,
-		UtcOffset:        utcOffset,
-		NumericValue:     numericValue,
-		RawContent:       rawContent,
-		Tags:             tagsField,
-		ObjectiveContext: objectiveContext,
-		AiAnalysis:       subj,
-	}), nil
-}
-
 type FetchResult struct {
 	Total    int
 	Page     int
@@ -286,65 +190,42 @@ func RecordsForResponse(recs []record.Record) []any {
 	return out
 }
 
+// toCriteria ParsedQuery → FindCriteria（去 Hint；Hint 是响应辅助，业务层 parse 时产出、随响应返回）。
+func toCriteria(p *ParsedQuery) recordrepo.FindCriteria {
+	return recordrepo.FindCriteria{
+		Criteria: recordrepo.Criteria{
+			ID:   p.ID,
+			From: p.From,
+			To:   p.To,
+			Tags: p.Tags,
+			Q:    p.Q,
+		},
+		Page:      p.Page,
+		PageSize:  p.PageSize,
+		SortBy:    p.SortBy,
+		SortOrder: p.SortOrder,
+	}
+}
+
 func FetchFilteredRecords(ctx context.Context, pool *pgxpool.Pool, p *ParsedQuery) (*FetchResult, *myerr.MyError) {
-	where, args := buildWhere(p)
-	countSQL := "SELECT count(*) FROM records"
-	if where != "" {
-		countSQL += " WHERE " + where
+	c := toCriteria(p)
+
+	total, me := recordrepo.Repo.Count(ctx, pool, c.Criteria)
+	if me != nil {
+		return nil, me
 	}
-	var total int
-	if err := pool.QueryRow(ctx, countSQL, args...).Scan(&total); err != nil {
-		return nil, myerr.NewInternal(err)
+	recs, me := recordrepo.Repo.FindByCriteria(ctx, pool, c)
+	if me != nil {
+		return nil, me
 	}
 
-	selectSQL := `SELECT id, happened_at, utc_offset, numeric_value, raw_content, tags, objective_context, ai_analysis
-FROM records`
-	if where != "" {
-		selectSQL += " WHERE " + where
-	}
-	selectSQL += orderByRecordsList(p.SortBy, p.SortOrder)
-
+	// ID 非空时忽略分页：Page/PageSize 回填实际（现状语义：ps=len 或 1）
 	if p.ID != "" {
-		rows, err := pool.Query(ctx, selectSQL, args...)
-		if err != nil {
-			return nil, myerr.NewInternal(err)
-		}
-		defer rows.Close()
-		recs := []record.Record{}
-		for rows.Next() {
-			rec, err := scanRecord(rows)
-			if err != nil {
-				return nil, myerr.NewInternal(err)
-			}
-			recs = append(recs, rec)
-		}
-		if err := rows.Err(); err != nil {
-			return nil, myerr.NewInternal(err)
-		}
 		ps := len(recs)
 		if ps == 0 {
 			ps = 1
 		}
 		return &FetchResult{Total: total, Page: 1, PageSize: ps, Records: recs}, nil
-	}
-
-	offset := (p.Page - 1) * p.PageSize
-	selectSQL += fmt.Sprintf(" LIMIT %d OFFSET %d", p.PageSize, offset)
-	rows, err := pool.Query(ctx, selectSQL, args...)
-	if err != nil {
-		return nil, myerr.NewInternal(err)
-	}
-	defer rows.Close()
-	recs := []record.Record{}
-	for rows.Next() {
-		rec, err := scanRecord(rows)
-		if err != nil {
-			return nil, myerr.NewInternal(err)
-		}
-		recs = append(recs, rec)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, myerr.NewInternal(err)
 	}
 	return &FetchResult{Total: total, Page: p.Page, PageSize: p.PageSize, Records: recs}, nil
 }
@@ -364,15 +245,13 @@ func FetchSummary(ctx context.Context, pool *pgxpool.Pool, tz string, now time.T
 		return nil, myerr.NewValidation("query parameter tz must be a valid IANA time zone")
 	}
 
-	var total, today int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM records`).Scan(&total); err != nil {
-		return nil, myerr.NewInternal(err)
+	total, me := recordrepo.Repo.Count(ctx, pool, recordrepo.Criteria{})
+	if me != nil {
+		return nil, me
 	}
-	if err := pool.QueryRow(ctx,
-		`SELECT count(*) FROM records WHERE happened_at >= $1 AND happened_at < $2`,
-		start, end,
-	).Scan(&today); err != nil {
-		return nil, myerr.NewInternal(err)
+	today, me := recordrepo.Repo.Count(ctx, pool, recordrepo.Criteria{From: &start, To: &end})
+	if me != nil {
+		return nil, me
 	}
 	return &SummaryResult{Total: total, Today: today, TZ: tz}, nil
 }
@@ -438,11 +317,6 @@ type TransactionsSummaryResult struct {
 	Net               string           `json:"net"`
 	IncomeCategories  []CategoryBucket `json:"income_categories"`
 	ExpenseCategories []CategoryBucket `json:"expense_categories"`
-}
-
-type TransactionsSummaryRow struct {
-	Tags         string
-	NumericValue *string
 }
 
 type ParsedTransactionsSummaryRange struct {
@@ -600,123 +474,122 @@ func categoriesFromMap(cats map[string]*catAcc) []CategoryBucket {
 
 // AggregateTransactionsSummary 内存聚合（与 Next aggregateTransactionsSummary 同构）。
 // 脏行跳过；非法 tags JSON / 非数组返回 error。
-func AggregateTransactionsSummary(rows []TransactionsSummaryRow, fromRaw, toRaw string) (*TransactionsSummaryResult, *myerr.MyError) {
-	income := newAcc()
-	expense := newAcc()
-	incomeCats := map[string]*catAcc{}
-	expenseCats := map[string]*catAcc{}
+// txSummaryAcc 增量聚合器（分页循环逐行喂入，内存只留聚合状态——§10b 步骤 3 修正：
+// 行数可能巨大，收集全量再聚合 = 内存爆炸）。与 Next aggregateTransactionsSummary 同构。
+type txSummaryAcc struct {
+	income      *accBucket
+	expense     *accBucket
+	incomeCats  map[string]*catAcc
+	expenseCats map[string]*catAcc
+}
 
-	addTo := func(side, category, subcategory string, amount *big.Rat) {
-		var top *accBucket
-		var cats map[string]*catAcc
-		if side == "income" {
-			top = income
-			cats = incomeCats
-		} else {
-			top = expense
-			cats = expenseCats
-		}
-		top.sum.Add(top.sum, amount)
-		top.count++
-		cat := ensureCat(cats, category)
-		cat.sum.Add(cat.sum, amount)
-		cat.count++
-		sub, ok := cat.subs[subcategory]
-		if !ok {
-			sub = newAcc()
-			cat.subs[subcategory] = sub
-		}
-		sub.sum.Add(sub.sum, amount)
-		sub.count++
+func newTxSummaryAcc() *txSummaryAcc {
+	return &txSummaryAcc{
+		income:      newAcc(),
+		expense:     newAcc(),
+		incomeCats:  map[string]*catAcc{},
+		expenseCats: map[string]*catAcc{},
 	}
+}
 
-	for _, row := range rows {
-		var parsed any
-		if err := json.Unmarshal([]byte(row.Tags), &parsed); err != nil {
-			return nil, myerr.NewInternal(err)
-		}
-		arr, ok := parsed.([]any)
-		if !ok {
-			return nil, myerr.NewInternalMsg(tags.ErrTagsNotJSONArray)
-		}
-		tagList := make([]string, 0, len(arr))
-		for _, item := range arr {
-			if s, ok := item.(string); ok {
-				tagList = append(tagList, s)
-			}
-		}
-		entryType := classifyEntryType(tagList)
-		if entryType == "" {
-			continue
-		}
-		category, subcategory, ok := findCategoryPair(tagList)
-		if !ok {
-			continue
-		}
-		if row.NumericValue == nil || *row.NumericValue == "" {
-			continue
-		}
-		// D6 对齐：与 Next parseDecimalScaled 同规则——复用写路径 ValidateDecimalString
-		// （无前导零 / 科学计数 / 分数 / + 号；int≤28 位、frac≤10 位），非法字面量跳过该行。
-		// 修复前 big.Rat.SetString 会接受前导零 / 科学计数等，导致双端聚合分叉。
-		if err := draft.ValidateDecimalString(*row.NumericValue); err != nil {
-			continue
-		}
-		amount := new(big.Rat)
-		if _, ok := amount.SetString(*row.NumericValue); !ok {
-			continue
-		}
-		addTo(entryType, category, subcategory, amount)
+// addRow 逐行增量累加（tagList 为领域数组——FromDB 已 parse 并兜底脏数据，与跳过语义统一）。
+func (a *txSummaryAcc) addRow(tagList []string, numericValue *string) *myerr.MyError {
+	entryType := classifyEntryType(tagList)
+	if entryType == "" {
+		return nil
 	}
+	category, subcategory, ok := findCategoryPair(tagList)
+	if !ok {
+		return nil
+	}
+	if numericValue == nil || *numericValue == "" {
+		return nil
+	}
+	// D6 对齐：与 Next parseDecimalScaled 同规则——复用写路径 ValidateDecimalString
+	// （无前导零 / 科学计数 / 分数 / + 号；int≤28 位、frac≤10 位），非法字面量跳过该行。
+	if err := draft.ValidateDecimalString(*numericValue); err != nil {
+		return nil
+	}
+	amount := new(big.Rat)
+	if _, ok := amount.SetString(*numericValue); !ok {
+		return nil
+	}
+	var top *accBucket
+	var cats map[string]*catAcc
+	if entryType == "income" {
+		top = a.income
+		cats = a.incomeCats
+	} else {
+		top = a.expense
+		cats = a.expenseCats
+	}
+	top.sum.Add(top.sum, amount)
+	top.count++
+	cat := ensureCat(cats, category)
+	cat.sum.Add(cat.sum, amount)
+	cat.count++
+	sub, ok := cat.subs[subcategory]
+	if !ok {
+		sub = newAcc()
+		cat.subs[subcategory] = sub
+	}
+	sub.sum.Add(sub.sum, amount)
+	sub.count++
+	return nil
+}
 
-	incomeCatsOut := categoriesFromMap(incomeCats)
-	expenseCatsOut := categoriesFromMap(expenseCats)
+// finalize 组装结果（分类桶排序 + 金额格式化）。
+func (a *txSummaryAcc) finalize(fromRaw, toRaw string) *TransactionsSummaryResult {
+	incomeCatsOut := categoriesFromMap(a.incomeCats)
+	expenseCatsOut := categoriesFromMap(a.expenseCats)
 	if incomeCatsOut == nil {
 		incomeCatsOut = []CategoryBucket{}
 	}
 	if expenseCatsOut == nil {
 		expenseCatsOut = []CategoryBucket{}
 	}
-
-	net := new(big.Rat).Sub(income.sum, expense.sum)
+	net := new(big.Rat).Sub(a.income.sum, a.expense.sum)
 	return &TransactionsSummaryResult{
 		Success:           true,
 		From:              fromRaw,
 		To:                toRaw,
-		Income:            MoneyBucket{Sum: formatMoney2(income.sum), Count: income.count},
-		Expense:           MoneyBucket{Sum: formatMoney2(expense.sum), Count: expense.count},
+		Income:            MoneyBucket{Sum: formatMoney2(a.income.sum), Count: a.income.count},
+		Expense:           MoneyBucket{Sum: formatMoney2(a.expense.sum), Count: a.expense.count},
 		Net:               formatMoney2(net),
 		IncomeCategories:  incomeCatsOut,
 		ExpenseCategories: expenseCatsOut,
-	}, nil
+	}
 }
 
-// FetchTransactionsSummary 拉取区间候选行并聚合。
+// FetchTransactionsSummary 分页循环拉取区间候选行并增量聚合（§10b 步骤 3 修正：
+// 单族通配 transaction_entry:* 覆盖 income/expense；行数可能巨大 → 100 分页，每页行即弃）。
 func FetchTransactionsSummary(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, fromRaw, toRaw string) (*TransactionsSummaryResult, *myerr.MyError) {
-	incomeLike := `%"` + EscapeLikePattern(txEntryIncome) + `"%`
-	expenseLike := `%"` + EscapeLikePattern(txEntryExpense) + `"%`
-	rows, err := pool.Query(ctx, `
-SELECT tags, numeric_value FROM records
-WHERE happened_at >= $1 AND happened_at < $2
-  AND (tags LIKE $3 OR tags LIKE $4)`,
-		from, to, incomeLike, expenseLike,
-	)
-	if err != nil {
-		return nil, myerr.NewInternal(err)
-	}
-	defer rows.Close()
-
-	var list []TransactionsSummaryRow
-	for rows.Next() {
-		var tagsField string
-		var vn *string
-		if err := rows.Scan(&tagsField, &vn); err != nil {
-			return nil, myerr.NewInternal(err)
+	acc := newTxSummaryAcc()
+	page := 1
+	for {
+		recs, me := recordrepo.Repo.FindByCriteria(ctx, pool, recordrepo.FindCriteria{
+			Criteria: recordrepo.Criteria{
+				From: &from,
+				To:   &to,
+				Tags: []string{"transaction_entry:*"},
+			},
+			Page:      page,
+			PageSize:  tags.RenamePageSize,
+			SortBy:    "id",
+			SortOrder: "asc",
+		})
+		if me != nil {
+			return nil, me
 		}
-		list = append(list, TransactionsSummaryRow{Tags: tagsField, NumericValue: vn})
+		for _, rec := range recs {
+			if me := acc.addRow(rec.Tags, rec.NumericValue); me != nil {
+				return nil, me
+			}
+		}
+		if len(recs) < tags.RenamePageSize {
+			break
+		}
+		page++
 	}
-	if err := rows.Err(); err != nil {
-		return nil, myerr.NewInternal(err)
-	}
-	return AggregateTransactionsSummary(list, fromRaw, toRaw)
+	return acc.finalize(fromRaw, toRaw), nil
 }

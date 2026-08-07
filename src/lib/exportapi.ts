@@ -10,6 +10,7 @@ import { asc, eq, gte } from 'drizzle-orm'
 import db from '@/db'
 import { records } from '@/db/schema'
 import { newNotFound } from '@/lib/myerr'
+import { Repo } from '@/lib/recordrepo'
 import {
   fromDB,
   INVALID_RECORD_ID,
@@ -73,31 +74,21 @@ export async function fetchExportRecords(
   parsed: ParsedExport,
 ): Promise<FetchExportResult> {
   if (parsed.from !== null) {
-    const existing = await db
-      .select({ id: records.id })
-      .from(records)
-      .where(eq(records.id, parsed.from))
-      .limit(1)
-    if (existing.length === 0) {
+    const exists = await Repo.exists(db, parsed.from)
+    if (!exists) {
       throw newNotFound(EXPORT_FROM_NOT_FOUND)
     }
   }
 
-  const rows =
-    parsed.from !== null
-      ? await db
-          .select()
-          .from(records)
-          .where(gte(records.id, parsed.from))
-          .orderBy(asc(records.id))
-          .limit(parsed.limit)
-      : await db
-          .select()
-          .from(records)
-          .orderBy(asc(records.id))
-          .limit(parsed.limit)
-
-  return { records: rows.map(fromDB), status: 200 }
+  const records = await Repo.findByCriteria(db, {
+    idFrom: parsed.from ?? undefined,
+    tags: [],
+    page: 1,
+    pageSize: parsed.limit,
+    sortBy: 'id',
+    sortOrder: 'asc',
+  })
+  return { records, status: 200 }
 }
 
 /** 每行一条 Record JSON + 换行；0 行 → 空字符串 */

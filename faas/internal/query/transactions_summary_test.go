@@ -91,14 +91,17 @@ func TestAggregateTransactionsSummarySharedFixtures(t *testing.T) {
 
 	for _, tc := range cases.Cases {
 		t.Run(tc.Name, func(t *testing.T) {
-			rows := make([]TransactionsSummaryRow, len(tc.Rows))
-			for i, r := range tc.Rows {
-				rows[i] = TransactionsSummaryRow(r)
+			acc := newTxSummaryAcc()
+			for _, r := range tc.Rows {
+				var tagList []string
+				if err := json.Unmarshal([]byte(r.Tags), &tagList); err != nil {
+					t.Fatalf("%s: fixture tags %q not a JSON array: %v", tc.Name, r.Tags, err)
+				}
+				if me := acc.addRow(tagList, r.NumericValue); me != nil {
+					t.Fatal(me)
+				}
 			}
-			got, me := AggregateTransactionsSummary(rows, tc.From, tc.To)
-			if me != nil {
-				t.Fatal(me)
-			}
+			got := acc.finalize(tc.From, tc.To)
 			gotJSON, err := json.Marshal(got)
 			if err != nil {
 				t.Fatal(err)

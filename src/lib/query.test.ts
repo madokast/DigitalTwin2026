@@ -1,19 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { and } from 'drizzle-orm'
-import { PgDialect } from 'drizzle-orm/pg-core'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseRecordQueryParams, recordsOrderBySql } from './query'
+import { parseRecordQueryParams } from './query'
+import type { FindCriteria } from './recordrepo'
 
-const dialect = new PgDialect()
-
-function whereSQL(params: URLSearchParams): string {
+/** 构造已校验的 criteria（测试辅助；断言错误走 fail） */
+function criteria(params: URLSearchParams): FindCriteria {
   const result = parseRecordQueryParams(params)
   expect('error' in result).toBe(false)
   if ('error' in result) throw new Error(result.error)
-  const where = and(...result.conditions)
-  if (!where) throw new Error('expected conditions')
-  return dialect.sqlToQuery(where).sql
+  return result.criteria
 }
 
 describe('parseRecordQueryParams from/to timezone', () => {
@@ -50,7 +46,7 @@ describe('parseRecordQueryParams from/to timezone', () => {
     )
     expect('error' in result).toBe(false)
     if ('error' in result) return
-    expect(result.conditions.length).toBeGreaterThan(0)
+    expect(result.criteria.from).toBeInstanceOf(Date)
   })
 
   it('rejects lowercase z / space / non-padded from', () => {
@@ -74,7 +70,8 @@ describe('parseRecordQueryParams from/to timezone', () => {
     )
     expect('error' in result).toBe(false)
     if ('error' in result) return
-    expect(result.conditions).toHaveLength(2)
+    expect(result.criteria.from).toBeInstanceOf(Date)
+    expect(result.criteria.to).toBeInstanceOf(Date)
   })
 
   it('accepts offset without colon (+0800)', () => {
@@ -87,12 +84,13 @@ describe('parseRecordQueryParams from/to timezone', () => {
   it('allows omitting from and to', () => {
     const result = parseRecordQueryParams(new URLSearchParams())
     expect(result).toEqual({
-      conditions: [],
-      id: null,
-      page: 1,
-      pageSize: 20,
-      sortBy: 'happened_at',
-      sortOrder: 'asc',
+      criteria: {
+        tags: [],
+        page: 1,
+        pageSize: 20,
+        sortBy: 'happened_at',
+        sortOrder: 'asc',
+      },
       hint: undefined,
     })
   })
@@ -137,31 +135,6 @@ describe('parseRecordQueryParams from/to timezone', () => {
   })
 })
 
-describe('parseRecordQueryParams q OR grouping', () => {
-  it('parenthesizes q OR when combined with tag (AND binds tighter than OR)', () => {
-    const sql = whereSQL(new URLSearchParams({ q: 'foo', tag: 'x' }))
-    // 必须是 tag AND (vt OR obj OR subj OR tags)，不能是 (tag AND vt) OR obj OR ...
-    expect(sql).toMatch(
-      /like \$1 and \("records"\."raw_content" like \$2 or "records"\."objective_context" like \$3 or "records"\."ai_analysis" like \$4 or "records"\."tags" like \$5\)/i,
-    )
-    expect(sql).not.toMatch(
-      /like \$1 and "records"\."raw_content" like \$2 or "records"\."objective_context"/i,
-    )
-  })
-
-  it('parenthesizes q OR when combined with from', () => {
-    const sql = whereSQL(
-      new URLSearchParams({
-        q: 'foo',
-        from: '2026-07-30T00:00:00Z',
-      }),
-    )
-    expect(sql).toMatch(
-      /and \("records"\."raw_content" like .+ or "records"\."objective_context" like .+ or "records"\."ai_analysis" like .+ or "records"\."tags" like .+\)/i,
-    )
-  })
-})
-
 describe('parseRecordQueryParams tag query (shared with Go)', () => {
   const shared = JSON.parse(
     readFileSync(join(process.cwd(), 'testdata', 'tag-query-cases.json'), 'utf8'),
@@ -189,12 +162,7 @@ describe('parseRecordQueryParams tag query (shared with Go)', () => {
       expect('error' in result, c.name).toBe(false)
       if ('error' in result) continue
       expect(result.hint, c.name).toBe(c.hint === '' ? undefined : c.hint)
-      // 单 tag → 恰一个条件；pattern 经 drizzle 参数化后落入 params
-      expect(result.conditions, c.name).toHaveLength(1)
-      const where = and(...result.conditions)
-      expect(where, c.name).toBeTruthy()
-      const { params } = dialect.sqlToQuery(where!)
-      expect(params, c.name).toEqual([c.pattern])
+      expect(result.criteria.tags, c.name).toEqual([c.tag])
     }
   })
 
@@ -205,7 +173,7 @@ describe('parseRecordQueryParams tag query (shared with Go)', () => {
     expect('error' in result).toBe(false)
     if ('error' in result) return
     expect(result.hint).toMatch(/^Use "tag=review:\*"/)
-    expect(result.conditions).toHaveLength(3)
+    expect(result.criteria.tags).toEqual(['review', 'todo', 'work'])
   })
 
   it('wildcard tag does not produce a hint', () => {
@@ -217,35 +185,5 @@ describe('parseRecordQueryParams tag query (shared with Go)', () => {
     expect(result.hint).toBeUndefined()
   })
 
-  it('escapes literal _ in the family prefix', () => {
-    const result = parseRecordQueryParams(
-      new URLSearchParams({ tag: 'foo_bar:*' }),
-    )
-    expect('error' in result).toBe(false)
-    if ('error' in result) return
-    expect(result.conditions).toHaveLength(1)
-    const where = and(...result.conditions)
-    expect(where).toBeTruthy()
-    const { params } = dialect.sqlToQuery(where!)
-    expect(params).toEqual(['%"foo\\_bar:%'])
-  })
 })
 
-describe('recordsOrderBySql (shared with Go)', () => {
-  it('matches testdata/query-records-list-order.json for all four combos', () => {
-    const shared = JSON.parse(
-      readFileSync(
-        join(process.cwd(), 'testdata', 'query-records-list-order.json'),
-        'utf8',
-      ),
-    ) as { orders: Record<string, string> }
-    expect(recordsOrderBySql('happened_at', 'asc')).toBe(
-      shared.orders['happened_at+asc'],
-    )
-    expect(recordsOrderBySql('happened_at', 'desc')).toBe(
-      shared.orders['happened_at+desc'],
-    )
-    expect(recordsOrderBySql('id', 'asc')).toBe(shared.orders['id+asc'])
-    expect(recordsOrderBySql('id', 'desc')).toBe(shared.orders['id+desc'])
-  })
-})
