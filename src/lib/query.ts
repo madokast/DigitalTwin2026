@@ -376,7 +376,7 @@ function parseDecimalScaled(s: string): bigint | null {
  * 定点金额 → 恰好两位小数字符串。
  * 舍入：half away from zero（与 Go big.Rat.FloatString(2) 一致）。
  */
-function formatMoney2(scaled: bigint): string {
+function formatMoney(scaled: bigint): string {
   const div = 10n ** BigInt(DECIMAL_FRAC_SCALE - 2)
   const half = div / 2n
   const q = scaled >= 0n ? (scaled + half) / div : (scaled - half) / div
@@ -500,11 +500,11 @@ export class TransactionsSummaryAcc {
         }))
         return {
           category: cat.name,
-          sum: formatMoney2(cat.sum),
+          sum: formatMoney(cat.sum),
           count: cat.count,
           subcategories: sortBucketsBySumThenName(subs).map((s) => ({
             subcategory: s.name,
-            sum: formatMoney2(s.sum),
+            sum: formatMoney(s.sum),
             count: s.count,
           })),
         }
@@ -516,9 +516,9 @@ export class TransactionsSummaryAcc {
       success: true,
       from: fromRaw,
       to: toRaw,
-      income: { sum: formatMoney2(this.income.sum), count: this.income.count },
-      expense: { sum: formatMoney2(this.expense.sum), count: this.expense.count },
-      net: formatMoney2(netScaled),
+      income: { sum: formatMoney(this.income.sum), count: this.income.count },
+      expense: { sum: formatMoney(this.expense.sum), count: this.expense.count },
+      net: formatMoney(netScaled),
       income_categories: toCategories(this.incomeCats),
       expense_categories: toCategories(this.expenseCats),
     }

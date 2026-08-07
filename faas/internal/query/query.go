@@ -361,7 +361,7 @@ func ParseTransactionsSummaryParams(q url.Values) (*ParsedTransactionsSummaryRan
 	}, nil
 }
 
-func formatMoney2(r *big.Rat) string {
+func formatMoney(r *big.Rat) string {
 	if r == nil {
 		return "0.00"
 	}
@@ -458,13 +458,13 @@ func categoriesFromMap(cats map[string]*catAcc) []CategoryBucket {
 		for _, s := range subList {
 			subs = append(subs, SubcategoryBucket{
 				Subcategory: s.name,
-				Sum:         formatMoney2(s.sum),
+				Sum:         formatMoney(s.sum),
 				Count:       s.count,
 			})
 		}
 		out = append(out, CategoryBucket{
 			Category:      cat.name,
-			Sum:           formatMoney2(cat.sum),
+			Sum:           formatMoney(cat.sum),
 			Count:         cat.count,
 			Subcategories: subs,
 		})
@@ -553,9 +553,9 @@ func (a *txSummaryAcc) finalize(fromRaw, toRaw string) *TransactionsSummaryResul
 		Success:           true,
 		From:              fromRaw,
 		To:                toRaw,
-		Income:            MoneyBucket{Sum: formatMoney2(a.income.sum), Count: a.income.count},
-		Expense:           MoneyBucket{Sum: formatMoney2(a.expense.sum), Count: a.expense.count},
-		Net:               formatMoney2(net),
+		Income:            MoneyBucket{Sum: formatMoney(a.income.sum), Count: a.income.count},
+		Expense:           MoneyBucket{Sum: formatMoney(a.expense.sum), Count: a.expense.count},
+		Net:               formatMoney(net),
 		IncomeCategories:  incomeCatsOut,
 		ExpenseCategories: expenseCatsOut,
 	}
