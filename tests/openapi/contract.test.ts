@@ -184,6 +184,22 @@ describe('OpenAPI contract (Phase 2)', () => {
     )
   })
 
+  it('accepts TagsAddRequest / TagsEditSuccess and rejects unknown keys', async () => {
+    await assertValidSchema('TagsAddRequest', readFixture('tags-add-request-valid.json'))
+    await assertValidSchema('TagsEditSuccess', readFixture('tags-edit-success.json'))
+    const ok = readFixture('tags-edit-success.json') as {
+      changed: boolean
+      tags: { from: string[]; to: string[] }
+    }
+    expect(ok.changed).toBe(true)
+    expect(ok.tags.from).toEqual(['exercise'])
+    expect(ok.tags.to).toEqual(['exercise', 'workout:arm'])
+    await assertInvalidSchema('TagsAddRequest', {
+      ...(readFixture('tags-add-request-valid.json') as object),
+      extra: 1,
+    })
+  })
+
   it('rejects LogTransactionsRequest empty entries / JSON number amount / missing type', async () => {
     await assertInvalidSchema(
       'LogTransactionsRequest',

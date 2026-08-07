@@ -326,3 +326,89 @@
         $ref: '../components/responses.yaml#/PayloadTooLarge'
       '500':
         $ref: '../components/responses.yaml#/InternalError'
+
+/api/log/tags/add:
+  post:
+    operationId: logTagsAdd
+    tags: [log]
+    summary: Attach a single ordinary tag to an existing record
+    description: |
+      Appends one ordinary `tag` to the target record's tag list (pure
+      append; existing tags untouched). Missing `id` → 404
+      (`record <id> not found`); duplicate tag → 200 `changed: false`
+      with `from == to` (idempotent, no error). Illegal tag name /
+      reserved prefix / unknown key → 400. Concurrent edits of the same
+      record are serialized by a row lock inside the transaction. On
+      `changed: true` a `Tags updated` notification is scheduled
+      (best-effort, does not affect the response).
+      Auth: ApiToken (AI token or Admin token).
+    security:
+      - ApiToken: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/TagsAddRequest'
+          example:
+            id: '019f1234-abcd-7000-8000-000000000000'
+            tag: 'workout:arm'
+    responses:
+      '200':
+        description: Tag attached (or already present, changed:false)
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/TagsEditSuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+/api/log/tags/remove:
+  post:
+    operationId: logTagsRemove
+    tags: [log]
+    summary: Detach a single ordinary tag from an existing record
+    description: |
+      Removes one ordinary `tag` in place (remaining order preserved).
+      Reserved-prefix tags (`todo:*`, `body:weight`, `transaction_entry:*`,
+      `review:*`) cannot be removed (400) — state machine tags are managed
+      by the transition endpoint. Absent tag → 200 `changed: false`
+      (idempotent). Missing `id` → 404. Same validation order and
+      row-lock concurrency as add. Notification only when
+      `changed: true`. Auth: ApiToken.
+    security:
+      - ApiToken: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/TagsAddRequest'
+          example:
+            id: '019f1234-abcd-7000-8000-000000000000'
+            tag: 'workout:arm'
+    responses:
+      '200':
+        description: Tag removed (or absent, changed:false)
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/TagsEditSuccess'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

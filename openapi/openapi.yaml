@@ -170,6 +170,10 @@ components:
       $ref: './components/schemas.yaml#/RenameTagsRequest'
     RenameTagsSuccess:
       $ref: './components/schemas.yaml#/RenameTagsSuccess'
+    TagsAddRequest:
+      $ref: './components/schemas.yaml#/TagsAddRequest'
+    TagsEditSuccess:
+      $ref: './components/schemas.yaml#/TagsEditSuccess'
     ImportRecordsSuccess:
       $ref: './components/schemas.yaml#/ImportRecordsSuccess'
     LogNumberRequest:

@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "id": "019f1234-abcd-7000-8000-000000000000",
+  "changed": true,
+  "tags": {
+    "from": ["exercise"],
+    "to": ["exercise", "workout:arm"]
+  }
+}

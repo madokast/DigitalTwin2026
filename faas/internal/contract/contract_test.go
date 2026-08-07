@@ -103,6 +103,8 @@ func TestFixturesMatchSchemas(t *testing.T) {
 		{"tags-success.json", "TagsSuccess"},
 		{"rename-tags-request-valid.json", "RenameTagsRequest"},
 		{"rename-tags-success.json", "RenameTagsSuccess"},
+		{"tags-add-request-valid.json", "TagsAddRequest"},
+		{"tags-edit-success.json", "TagsEditSuccess"},
 		{"telegram-probe-request.json", "TelegramProbeRequest"},
 		{"telegram-probe-success.json", "SuccessOnly"},
 		{"qqbot-probe-request.json", "QqbotProbeRequest"},
@@ -255,4 +257,15 @@ func mustJSONObj(t *testing.T, v any) map[string]any {
 		t.Fatal(err)
 	}
 	return m
+}
+
+func TestTagsAddRequestRejectsUnknownKeys(t *testing.T) {
+	doc := loadDoc(t)
+	var data any
+	if err := json.Unmarshal(readFixture(t, "tags-add-request-valid.json"), &data); err != nil {
+		t.Fatal(err)
+	}
+	m := data.(map[string]any)
+	m["extra"] = 1
+	visitJSONExpectFail(t, schema(t, doc, "TagsAddRequest"), data)
 }

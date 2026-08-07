@@ -755,6 +755,66 @@ TodoTransitionSuccess:
         to:
           $ref: '#/TodoState'
 
+TagsAddRequest:
+  type: object
+  required: [id, tag]
+  additionalProperties: false
+  description: |
+    Add or remove a single ordinary tag on an existing record by `id`
+    (shared by `POST /api/log/tags/add` and `POST /api/log/tags/remove`).
+    Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`,
+    `body:weight` / `body:weight:*`, `todo` / `todo:*`, `review` /
+    `review:*`) are rejected for both add and remove (400) — state and
+    aggregation tags are managed by the dedicated log endpoints.
+    Idempotent no-ops (duplicate add / absent remove) return 200 with
+    `changed: false`.
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Target record id (any record type)
+    tag:
+      $ref: '#/TagName'
+      description: Single ordinary tag name (reserved prefixes rejected)
+
+TagsEditSuccess:
+  type: object
+  required: [success, id, changed, tags]
+  additionalProperties: false
+  description: |
+    HTTP 200 body for both tags add/remove. `tags.from` / `tags.to` are
+    the full actual tag lists before/after the operation (reserved tags
+    included); the AI infers the outcome from the diff.
+  properties:
+    success:
+      type: boolean
+      const: true
+    id:
+      type: string
+      format: uuid
+      description: Target record id (same as request `id`)
+    changed:
+      type: boolean
+      description: |
+        `true` on a real change; `false` on an idempotent no-op
+        (duplicate add / absent remove). Notification fires only when
+        `changed: true`.
+    tags:
+      type: object
+      required: [from, to]
+      additionalProperties: false
+      properties:
+        from:
+          type: array
+          items:
+            type: string
+          description: Full actual tag list before the operation
+        to:
+          type: array
+          items:
+            type: string
+          description: Full actual tag list after the operation
+
 LogTextRequest:
   type: object
   required: [happened_at, raw_content, objective_context]
