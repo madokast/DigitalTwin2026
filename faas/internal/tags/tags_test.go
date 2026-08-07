@@ -235,39 +235,41 @@ func TestAggregateTagCountsDirtyJSONSkipped(t *testing.T) {
 	}
 }
 
-func TestValidateRename(t *testing.T) {
-	if r := ValidateRename("", "to_tag"); r.Valid || r.Error != "missing required fields: from, to" {
+func TestValidateNormalize(t *testing.T) {
+	if r := ValidateNormalize(nil, "to_tag"); r.Valid || r.Error != "missing required field: from" {
+		t.Fatalf("nil from: %+v", r)
+	}
+	if r := ValidateNormalize([]string{}, "to_tag"); r.Valid || r.Error != "missing required field: from" {
 		t.Fatalf("empty from: %+v", r)
 	}
-	if r := ValidateRename("from_tag", ""); r.Valid || r.Error != "missing required fields: from, to" {
+	if r := ValidateNormalize([]string{"from_tag"}, ""); r.Valid || r.Error != "missing required field: to" {
 		t.Fatalf("empty to: %+v", r)
 	}
-	if r := ValidateRename("bad-tag", "ok"); r.Valid || r.Error != "from and to must be valid tag names" {
-		t.Fatalf("invalid: %+v", r)
+	if r := ValidateNormalize([]string{"bad-tag"}, "ok"); r.Valid || r.Error != InvalidTagMessage("bad-tag") {
+		t.Fatalf("invalid from element: %+v", r)
 	}
-	if r := ValidateRename("transaction_entry", "weight"); r.Valid || r.Error != ReservedTagError("transaction_entry") {
+	if r := ValidateNormalize([]string{"a", "b", "a"}, "c"); r.Valid || r.Error != `duplicate tag in from: "a"` {
+		t.Fatalf("dup from: %+v", r)
+	}
+	if r := ValidateNormalize([]string{"transaction_entry"}, "weight"); r.Valid || r.Error != ReservedTagError("transaction_entry") {
 		t.Fatalf("reserved from: %+v", r)
 	}
-	if r := ValidateRename("weight", "transaction_entry:income"); r.Valid || r.Error != ReservedTagError("transaction_entry:income") {
+	if r := ValidateNormalize([]string{"weight"}, "transaction_entry:income"); r.Valid || r.Error != ReservedTagError("transaction_entry:income") {
 		t.Fatalf("reserved to: %+v", r)
 	}
-	if r := ValidateRename("todo", "errand"); r.Valid || r.Error != ReservedTagError("todo") {
+	if r := ValidateNormalize([]string{"todo"}, "errand"); r.Valid || r.Error != ReservedTagError("todo") {
 		t.Fatalf("reserved todo from: %+v", r)
 	}
-	if r := ValidateRename("errand", "todo:in_progress"); r.Valid || r.Error != ReservedTagError("todo:in_progress") {
+	if r := ValidateNormalize([]string{"errand"}, "todo:in_progress"); r.Valid || r.Error != ReservedTagError("todo:in_progress") {
 		t.Fatalf("reserved todo to: %+v", r)
 	}
-	if r := ValidateRename("weight", "weight"); r.Valid || r.Error != "from and to must be different" {
-		t.Fatalf("same: %+v", r)
+	if r := ValidateNormalize([]string{"weight"}, "weight"); r.Valid || r.Error != "to must not be in from" {
+		t.Fatalf("to in from: %+v", r)
 	}
-	if r := ValidateRename("exercise", "workout"); !r.Valid {
+	if r := ValidateNormalize([]string{"exercise", "workout"}, "training"); !r.Valid {
 		t.Fatalf("expected valid: %+v", r)
 	}
 }
-
-// renameAcrossQuerier 写库路径见 tags_db_test.go（假 Querier）。
-// 生产 RenameAcrossRecords 另包事务 + advisory lock。
-// 此处保留纯逻辑契约：脏 JSON 与 RenameTagInTagsJSON 对齐。
 
 func TestFirstDuplicateTag(t *testing.T) {
 	if got := FirstDuplicateTag([]string{"a", "b", "a"}); got != "a" {
@@ -282,4 +284,50 @@ func TestFirstDuplicateTag(t *testing.T) {
 	if got := FirstDuplicateTag([]string{"a", "b", "c"}); got != "" {
 		t.Fatalf("no dup: got %q", got)
 	}
+}
+
+// normalizeTags 纯逻辑契约（多源一次变换 + 顺序懒惰定案）：
+// 删 from 系列原地（后续前移）；to 已存在保持原位；否则尾加；无命中原样返回。
+func TestNormalizeTags(t *testing.T) {
+	eq := func(name string, tags, from []string, to string, want []string, wantChanged bool) {
+		t.Helper()
+		got, changed := normalizeTags(tags, from, to)
+		if changed != wantChanged {
+			t.Fatalf("%s: changed=%v want %v", name, changed, wantChanged)
+		}
+		if len(got) != len(want) {
+			t.Fatalf("%s: got %v want %v", name, got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("%s: got %v want %v", name, got, want)
+			}
+		}
+	}
+	// 多源一次变换：删全部 from（原地、后续前移）+ 尾加 to
+	eq("multi remove append",
+		[]string{"workout", "exercise", "workout:arm", "morning"},
+		[]string{"workout", "workout:arm"}, "training",
+		[]string{"exercise", "morning", "training"}, true)
+	// to 已存在 → 保持原位（不尾加）
+	eq("to exists in place",
+		[]string{"exercise", "workout", "morning"},
+		[]string{"workout"}, "morning",
+		[]string{"exercise", "morning"}, true)
+	// 无命中 → 原样
+	eq("no match",
+		[]string{"a", "b"}, []string{"x"}, "c",
+		[]string{"a", "b"}, false)
+	// 与 rename 等价（单源 + to 不在场 → 原位移除 + 尾加）
+	eq("single source",
+		[]string{"weight", "morning"}, []string{"weight"}, "mass",
+		[]string{"morning", "mass"}, true)
+	// 保留 tag 不在 from 时不动（transform 不碰；校验层拦截 from 元素保留）
+	eq("reserved untouched",
+		[]string{"body:weight", "weight"}, []string{"weight"}, "mass",
+		[]string{"body:weight", "mass"}, true)
+	// 防御：from 含 to（校验层已拦截，不可达）→ 删后尾加
+	eq("to in from defensive",
+		[]string{"a", "w"}, []string{"a", "w"}, "w",
+		[]string{"w"}, true)
 }

@@ -89,8 +89,8 @@ type TagsSuccess struct {
 	Tags    []tags.TagCount `json:"tags"`
 }
 
-// RenameTagsSuccess `{success, updated}`。
-type RenameTagsSuccess struct {
+// NormalizeTagsSuccess `{success, updated}`（from 系列归一化为 to；normalize 定案）。
+type NormalizeTagsSuccess struct {
 	Success bool `json:"success"`
 	Updated int  `json:"updated"`
 }

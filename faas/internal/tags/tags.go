@@ -98,22 +98,38 @@ func FirstDuplicateTag(tagList []string) string {
 	return ""
 }
 
-// ValidateRename rename 业务校验：非空、合法 tag、非保留、from≠to。调用方应先 trim。
-func ValidateRename(from, to string) ValidationResult {
-	if from == "" || to == "" {
-		return ValidationResult{Valid: false, Error: "missing required fields: from, to"}
+// ValidateNormalize normalize 业务校验（零 DB，调用方应先 trim 元素）：
+// from 非空数组（元素合法 / 无重复 / 非保留前缀）、to 非空合法非保留、to ∉ from。
+// 校验顺序定案（docs/20260805-tag-design.md §tag 归一化）：from 形状 → to 缺失 →
+// from 元素（逐个：非法 → 重复 → 保留）→ to（非法 → 保留）→ 交集。
+func ValidateNormalize(from []string, to string) ValidationResult {
+	if len(from) == 0 {
+		return ValidationResult{Valid: false, Error: "missing required field: from"}
 	}
-	if !IsValidTag(from) || !IsValidTag(to) {
-		return ValidationResult{Valid: false, Error: "from and to must be valid tag names"}
+	if to == "" {
+		return ValidationResult{Valid: false, Error: "missing required field: to"}
 	}
-	if IsReservedTag(from) {
-		return ValidationResult{Valid: false, Error: ReservedTagError(from)}
+	seen := map[string]bool{}
+	for _, f := range from {
+		if !IsValidTag(f) {
+			return ValidationResult{Valid: false, Error: InvalidTagMessage(f)}
+		}
+		if seen[f] {
+			return ValidationResult{Valid: false, Error: fmt.Sprintf(`duplicate tag in from: "%s"`, f)}
+		}
+		seen[f] = true
+		if IsReservedTag(f) {
+			return ValidationResult{Valid: false, Error: ReservedTagError(f)}
+		}
+	}
+	if !IsValidTag(to) {
+		return ValidationResult{Valid: false, Error: InvalidTagMessage(to)}
 	}
 	if IsReservedTag(to) {
 		return ValidationResult{Valid: false, Error: ReservedTagError(to)}
 	}
-	if from == to {
-		return ValidationResult{Valid: false, Error: "from and to must be different"}
+	if seen[to] {
+		return ValidationResult{Valid: false, Error: "to must not be in from"}
 	}
 	return ValidationResult{Valid: true}
 }
@@ -153,48 +169,54 @@ func AggregateTagCounts(tagLists [][]string, prefix string) []TagCount {
 	return list
 }
 
-// RenamePageSize rename 分页循环的页大小（写死 100，§6 定案）。
-const RenamePageSize = 100
+// NormalizePageSize normalize 分页循环的页大小（写死 100，§6 定案；原 rename 同名常量）。
+const NormalizePageSize = 100
 
-// RenameAcrossRecords 在单事务内将 tags 中 from 重命名为 to（业务层编排，§10b 步骤 2 二次定案）：
-// uow 开事务 → repo.AcquireRenameLock（advisory xact lock：并发 rename 互斥、随事务结束自动释放）
-// → 分页循环 repo.FindByCriteria（Criteria{Tags:[from], PageSize: RenamePageSize, SortBy: id}）
-// → 每行 renameTags 变换 → repo.Update 写回 → len(页) < RenamePageSize 终止。
+// NormalizeAcrossRecords 在单事务内将 tags 中 from 系列归一化为 to（业务层编排，
+// §10b 步骤 2 骨架复用 + normalize 定案）：
+// uow 开事务 → repo.AcquireRenameLock（advisory xact lock：并发互斥、随事务结束自动释放）
+// → 对每个 from 元素分页扫描（FindByCriteria 的 Tags 为 AND 交集语义，不能一次匹配任一；
+// 每行 normalizeTags 做一次多源变换——顺序语义定案「删 from 系列 + 尾加 to」，
+// 不能分解为逐源 rename）→ 命中才 repo.Update 写回 → len(页) < NormalizePageSize 终止。
+// 同一行含多个 from 元素时：首次命中更新，后续 normalizeTags 返回 !changed 不重复写。
 // 中途失败全滚（任何 DB 错误 → 500）；OFFSET 分页 + 事务内多页：页间并发提交可能跳行/漏改（尽力而为）。
-func RenameAcrossRecords(ctx context.Context, b db.TxBeginner, from, to string) (int, *myerr.MyError) {
+func NormalizeAcrossRecords(ctx context.Context, b db.TxBeginner, from []string, to string) (int, *myerr.MyError) {
 	updated := 0
 	me := db.WithTx(ctx, b, func(q db.Executor) *myerr.MyError {
 		if me := recordrepo.Repo.AcquireRenameLock(ctx, q); me != nil {
 			return me
 		}
-		page := 1
-		for {
-			recs, me := recordrepo.Repo.FindByCriteria(ctx, q, recordrepo.FindCriteria{
-				Criteria:  recordrepo.Criteria{Tags: []string{from}},
-				Page:      page,
-				PageSize:  RenamePageSize,
-				SortBy:    "id",
-				SortOrder: "asc",
-			})
-			if me != nil {
-				return me
-			}
-			for _, rec := range recs {
-				next, ok := renameTags(rec.Tags, from, to)
-				if !ok {
-					continue
-				}
-				rec.Tags = next
-				if me := recordrepo.Repo.Update(ctx, q, rec); me != nil {
+		for _, f := range from {
+			page := 1
+			for {
+				recs, me := recordrepo.Repo.FindByCriteria(ctx, q, recordrepo.FindCriteria{
+					Criteria:  recordrepo.Criteria{Tags: []string{f}},
+					Page:      page,
+					PageSize:  NormalizePageSize,
+					SortBy:    "id",
+					SortOrder: "asc",
+				})
+				if me != nil {
 					return me
 				}
-				updated++
+				for _, rec := range recs {
+					next, ok := normalizeTags(rec.Tags, from, to)
+					if !ok {
+						continue
+					}
+					rec.Tags = next
+					if me := recordrepo.Repo.Update(ctx, q, rec); me != nil {
+						return me
+					}
+					updated++
+				}
+				if len(recs) < NormalizePageSize {
+					break
+				}
+				page++
 			}
-			if len(recs) < RenamePageSize {
-				return nil
-			}
-			page++
 		}
+		return nil
 	})
 	if me != nil {
 		return 0, me
@@ -202,42 +224,38 @@ func RenameAcrossRecords(ctx context.Context, b db.TxBeginner, from, to string) 
 	return updated, nil
 }
 
-// renameTags 数组版变换（§10b 步骤 2 二次定案，替代串版 RenameTagInTagsJSON）：
-// to ∈ tags → 移除 from（去重语义）；否则 from 原位替换为 to。from ∉ tags → 不变（防御）。
-func renameTags(tags []string, from, to string) ([]string, bool) {
-	fromIdx := -1
-	for i, t := range tags {
-		if t == from {
-			fromIdx = i
+// normalizeTags 多源一次变换（normalize 定案；替代 renameTags 串版）：
+// tags 含 from 中任意 tag → 全部原地删（后续前移）；to 已存在（且非 from 元素）保持原位，
+// 否则尾加。from 含 to 已被 ValidateNormalize 拦截（防御：若发生，先删后尾加）。
+// 不含任何 from 元素 → 原样返回 changed=false。
+func normalizeTags(tags []string, from []string, to string) ([]string, bool) {
+	inFrom := make(map[string]bool, len(from))
+	for _, f := range from {
+		inFrom[f] = true
+	}
+	changed := false
+	for _, t := range tags {
+		if inFrom[t] {
+			changed = true
 			break
 		}
 	}
-	if fromIdx < 0 {
+	if !changed {
 		return tags, false
 	}
+	out := make([]string, 0, len(tags))
 	hasTo := false
 	for _, t := range tags {
+		if inFrom[t] {
+			continue // 原地删、后续前移
+		}
+		out = append(out, t)
 		if t == to {
 			hasTo = true
-			break
 		}
 	}
-	if hasTo {
-		out := make([]string, 0, len(tags)-1)
-		for _, t := range tags {
-			if t != from {
-				out = append(out, t)
-			}
-		}
-		return out, true
-	}
-	out := make([]string, len(tags))
-	for i, t := range tags {
-		if t == from {
-			out[i] = to
-		} else {
-			out[i] = t
-		}
+	if !hasTo {
+		out = append(out, to) // target 不存在 → 尾加
 	}
 	return out, true
 }

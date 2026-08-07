@@ -138,7 +138,7 @@ func TestAdminPathPrefixDoesNotMatchAdministration(t *testing.T) {
 
 func TestAdminRejectsAIToken(t *testing.T) {
 	h := testServer().Handler()
-	req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/rename", strings.NewReader(`{"from":"a","to":"b"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/normalize", strings.NewReader(`{"from":["a"],"to":"b"}`))
 	req.Header.Set("Authorization", "Bearer ai-tok")
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -246,8 +246,8 @@ func TestWriteEndpointsRejectTrailingGarbageAfterJSON(t *testing.T) {
 			`{"happened_at":"2026-08-01T12:00:00Z","type":"expense","entries":[{"amount":"1.00","memo":"m","tags":["food"]}]}` + garbage,
 		},
 		{
-			http.MethodPost, "/api/admin/tags/rename",
-			`{"from":"a","to":"b"}` + garbage,
+			http.MethodPost, "/api/admin/tags/normalize",
+			`{"from":["a"],"to":"b"}` + garbage,
 		},
 	}
 	for _, tc := range cases {
@@ -278,7 +278,7 @@ func TestWriteEndpointsRejectNonObjectJSON(t *testing.T) {
 			{http.MethodPost, "/api/log/numbers"},
 			{http.MethodPost, "/api/log/text"},
 			{http.MethodPost, "/api/log/transactions"},
-			{http.MethodPost, "/api/admin/tags/rename"},
+			{http.MethodPost, "/api/admin/tags/normalize"},
 		}
 		for _, tc := range cases {
 			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(payload))
@@ -601,21 +601,21 @@ func TestLogBodyWeightRejectsJSONNumber(t *testing.T) {
 	assertProblemDetail(t, rr, "numeric_value must be a decimal string")
 }
 
-func TestRenameTagsRejectsReservedTag(t *testing.T) {
+func TestNormalizeTagsRejectsReservedTag(t *testing.T) {
 	h := testServer().Handler()
 	for _, tc := range []struct {
 		payload string
 		want    string
 	}{
-		{`{"from":"transaction_entry","to":"legacy_tx"}`, `tag "transaction_entry" is reserved; use the dedicated log API for this record type`},
-		{`{"from":"food","to":"transaction_entry"}`, `tag "transaction_entry" is reserved; use the dedicated log API for this record type`},
-		{`{"from":"transaction_entry:income","to":"legacy_tx"}`, `tag "transaction_entry:income" is reserved; use the dedicated log API for this record type`},
-		{`{"from":"weight","to":"body:weight"}`, `tag "body:weight" is reserved; use the dedicated log API for this record type`},
-		{`{"from":"body:weight","to":"mass"}`, `tag "body:weight" is reserved; use the dedicated log API for this record type`},
-		{`{"from":"todo","to":"errand"}`, `tag "todo" is reserved; use the dedicated log API for this record type`},
-		{`{"from":"errand","to":"todo:in_progress"}`, `tag "todo:in_progress" is reserved; use the dedicated log API for this record type`},
+		{`{"from":["transaction_entry"],"to":"legacy_tx"}`, `tag "transaction_entry" is reserved; use the dedicated log API for this record type`},
+		{`{"from":["food"],"to":"transaction_entry"}`, `tag "transaction_entry" is reserved; use the dedicated log API for this record type`},
+		{`{"from":["transaction_entry:income"],"to":"legacy_tx"}`, `tag "transaction_entry:income" is reserved; use the dedicated log API for this record type`},
+		{`{"from":["weight"],"to":"body:weight"}`, `tag "body:weight" is reserved; use the dedicated log API for this record type`},
+		{`{"from":["body:weight"],"to":"mass"}`, `tag "body:weight" is reserved; use the dedicated log API for this record type`},
+		{`{"from":["todo"],"to":"errand"}`, `tag "todo" is reserved; use the dedicated log API for this record type`},
+		{`{"from":["errand"],"to":"todo:in_progress"}`, `tag "todo:in_progress" is reserved; use the dedicated log API for this record type`},
 	} {
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/rename", strings.NewReader(tc.payload))
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/normalize", strings.NewReader(tc.payload))
 		req.Header.Set("Authorization", "Bearer admin-tok")
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()

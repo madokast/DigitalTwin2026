@@ -263,7 +263,7 @@ func FetchTagCounts(ctx context.Context, pool *pgxpool.Pool, prefix string) ([]t
 	for {
 		recs, me := recordrepo.Repo.FindByCriteria(ctx, pool, recordrepo.FindCriteria{
 			Page:      page,
-			PageSize:  tags.RenamePageSize, // 100，与 rename 循环一致
+			PageSize:  tags.NormalizePageSize, // 100，与 rename 循环一致
 			SortBy:    "id",
 			SortOrder: "asc",
 		})
@@ -273,7 +273,7 @@ func FetchTagCounts(ctx context.Context, pool *pgxpool.Pool, prefix string) ([]t
 		for _, rec := range recs {
 			tagLists = append(tagLists, rec.Tags)
 		}
-		if len(recs) < tags.RenamePageSize {
+		if len(recs) < tags.NormalizePageSize {
 			break
 		}
 		page++
@@ -574,7 +574,7 @@ func FetchTransactionsSummary(ctx context.Context, pool *pgxpool.Pool, from, to 
 				Tags: []string{"transaction_entry:*"},
 			},
 			Page:      page,
-			PageSize:  tags.RenamePageSize,
+			PageSize:  tags.NormalizePageSize,
 			SortBy:    "id",
 			SortOrder: "asc",
 		})
@@ -586,7 +586,7 @@ func FetchTransactionsSummary(ctx context.Context, pool *pgxpool.Pool, from, to 
 				return nil, me
 			}
 		}
-		if len(recs) < tags.RenamePageSize {
+		if len(recs) < tags.NormalizePageSize {
 			break
 		}
 		page++

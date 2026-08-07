@@ -19,9 +19,9 @@ func NewService(pool *pgxpool.Pool) *Service {
 	return &Service{b: db.NewPoolTxBeginner(pool)}
 }
 
-// RenameAcrossRecords 单事务内全表改名（锁 + 分页循环）。
-func (s *Service) RenameAcrossRecords(ctx context.Context, from, to string) (int, *myerr.MyError) {
-	return RenameAcrossRecords(ctx, s.b, from, to)
+// NormalizeAcrossRecords 单事务内全表归一化（from 系列 → to；锁 + 分页循环）。
+func (s *Service) NormalizeAcrossRecords(ctx context.Context, from []string, to string) (int, *myerr.MyError) {
+	return NormalizeAcrossRecords(ctx, s.b, from, to)
 }
 
 // AttachTag 追加单个普通 tag（校验零 DB 已在 handler；此处 UoW 事务 + Repository 原语）。

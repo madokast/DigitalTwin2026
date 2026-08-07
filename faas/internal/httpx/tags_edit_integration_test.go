@@ -35,6 +35,8 @@ SELECT EXISTS (
 	}
 
 	const id = "01900000-0000-7000-8000-0000000000d1"
+	// 自愈：历史失败运行可能残留本固定 id 行——先删再 seed
+	_, _ = pool.Exec(ctx, `DELETE FROM records WHERE id = $1`, id)
 	marker := "go-tags-" + time.Now().UTC().Format("150405.000")
 	if _, err := pool.Exec(ctx, `
 INSERT INTO records (id, happened_at, utc_offset, numeric_value, raw_content, objective_context, ai_analysis, tags)

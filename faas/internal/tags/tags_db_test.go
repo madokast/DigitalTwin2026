@@ -54,7 +54,7 @@ func (t *fakeTx) Exec(_ context.Context, sql string, args ...any) (pgconn.Comman
 }
 
 func (t *fakeTx) QueryRow(context.Context, string, ...any) pgx.Row {
-	panic("QueryRow not used by RenameAcrossRecords")
+	panic("QueryRow not used by NormalizeAcrossRecords")
 }
 func (t *fakeTx) Commit(context.Context) error   { t.committed = true; return nil }
 func (t *fakeTx) Rollback(context.Context) error { t.rolledBack = true; return nil }
@@ -133,13 +133,13 @@ func renameRow(id, tags string) []any {
 	}
 }
 
-func TestRenameAcrossRecords_updatesMatchingRows(t *testing.T) {
+func TestNormalizeAcrossRecords_updatesMatchingRows(t *testing.T) {
 	tx := &fakeTx{
 		queryPages: [][][]any{
 			{renameRow("id-1", `["weight","morning"]`), renameRow("id-2", `["weight"]`)},
 		},
 	}
-	updated, me := RenameAcrossRecords(context.Background(), &fakeTxBeginner{tx: tx}, "weight", "mass")
+	updated, me := NormalizeAcrossRecords(context.Background(), &fakeTxBeginner{tx: tx}, []string{"weight"}, "mass")
 	if me != nil {
 		t.Fatal(me)
 	}
@@ -159,7 +159,8 @@ func TestRenameAcrossRecords_updatesMatchingRows(t *testing.T) {
 		}
 	}
 	// Update 全列写回：tags JSON 在参数位 4（$5），id 在末位（$8）
-	if got := tx.execs[1].args[4]; got != `["mass","morning"]` {
+	// normalize 顺序定案：删 from + 尾加 to（与原 rename 原位替换不同）
+	if got := tx.execs[1].args[4]; got != `["morning","mass"]` {
 		t.Fatalf("exec[1] tags arg=%v", got)
 	}
 	if got := tx.execs[2].args[4]; got != `["mass"]` {
@@ -176,8 +177,8 @@ func TestRenameAcrossRecords_updatesMatchingRows(t *testing.T) {
 	}
 }
 
-func TestRenameAcrossRecords_paginatesUntilShortPage(t *testing.T) {
-	page1 := make([][]any, RenamePageSize)
+func TestNormalizeAcrossRecords_paginatesUntilShortPage(t *testing.T) {
+	page1 := make([][]any, NormalizePageSize)
 	for i := range page1 {
 		page1[i] = renameRow("id-"+string(rune('a'+i)), `["weight"]`)
 	}
@@ -187,12 +188,12 @@ func TestRenameAcrossRecords_paginatesUntilShortPage(t *testing.T) {
 			{renameRow("id-z", `["weight","weight:extra"]`)},
 		},
 	}
-	updated, me := RenameAcrossRecords(context.Background(), &fakeTxBeginner{tx: tx}, "weight", "mass")
+	updated, me := NormalizeAcrossRecords(context.Background(), &fakeTxBeginner{tx: tx}, []string{"weight"}, "mass")
 	if me != nil {
 		t.Fatal(me)
 	}
-	if updated != RenamePageSize+1 {
-		t.Fatalf("updated=%d want %d", updated, RenamePageSize+1)
+	if updated != NormalizePageSize+1 {
+		t.Fatalf("updated=%d want %d", updated, NormalizePageSize+1)
 	}
 	if len(tx.querySQLs) != 2 {
 		t.Fatalf("Query count=%d want 2 pages", len(tx.querySQLs))
@@ -205,13 +206,13 @@ func TestRenameAcrossRecords_paginatesUntilShortPage(t *testing.T) {
 	}
 }
 
-func TestRenameAcrossRecords_noMatchSkipsUpdate(t *testing.T) {
+func TestNormalizeAcrossRecords_noMatchSkipsUpdate(t *testing.T) {
 	tx := &fakeTx{
 		queryPages: [][][]any{
 			{renameRow("id-1", `["alpha"]`)},
 		},
 	}
-	updated, me := RenameAcrossRecords(context.Background(), &fakeTxBeginner{tx: tx}, "weight", "mass")
+	updated, me := NormalizeAcrossRecords(context.Background(), &fakeTxBeginner{tx: tx}, []string{"weight"}, "mass")
 	if me != nil {
 		t.Fatal(me)
 	}
@@ -226,14 +227,14 @@ func TestRenameAcrossRecords_noMatchSkipsUpdate(t *testing.T) {
 	}
 }
 
-func TestRenameAcrossRecords_driverErrorRollsBack(t *testing.T) {
+func TestNormalizeAcrossRecords_driverErrorRollsBack(t *testing.T) {
 	tx := &fakeTx{
 		queryPages: [][][]any{
 			{renameRow("id-1", `["weight"]`)},
 		},
 		execErr: errors.New(`ERROR: relation "records" does not exist (SQLSTATE 42P01)`),
 	}
-	_, me := RenameAcrossRecords(context.Background(), &fakeTxBeginner{tx: tx}, "weight", "mass")
+	_, me := NormalizeAcrossRecords(context.Background(), &fakeTxBeginner{tx: tx}, []string{"weight"}, "mass")
 	if me == nil {
 		t.Fatal("want error")
 	}
@@ -242,39 +243,5 @@ func TestRenameAcrossRecords_driverErrorRollsBack(t *testing.T) {
 	}
 	if tx.committed || !tx.rolledBack {
 		t.Fatalf("driver error must roll back (committed=%v rolledBack=%v)", tx.committed, tx.rolledBack)
-	}
-}
-
-func TestRenameTagsTransform(t *testing.T) {
-	cases := []struct {
-		name string
-		tags []string
-		from string
-		to   string
-		want []string
-		ok   bool
-	}{
-		{"replace", []string{"work", "urgent"}, "work", "job", []string{"job", "urgent"}, true},
-		{"to exists removes from", []string{"job", "work", "x"}, "work", "job", []string{"job", "x"}, true},
-		{"to exists single", []string{"work", "job"}, "work", "job", []string{"job"}, true},
-		{"from absent unchanged", []string{"alpha"}, "weight", "mass", []string{"alpha"}, false},
-		{"empty tags", []string{}, "weight", "mass", []string{}, false},
-		{"order preserved", []string{"a", "work", "b", "work"}, "work", "job", []string{"a", "job", "b", "job"}, true},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, ok := renameTags(tc.tags, tc.from, tc.to)
-			if ok != tc.ok {
-				t.Fatalf("ok=%v want %v", ok, tc.ok)
-			}
-			if len(got) != len(tc.want) {
-				t.Fatalf("got %v want %v", got, tc.want)
-			}
-			for i := range tc.want {
-				if got[i] != tc.want[i] {
-					t.Fatalf("got %v want %v", got, tc.want)
-				}
-			}
-		})
 	}
 }

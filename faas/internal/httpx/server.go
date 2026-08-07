@@ -70,7 +70,7 @@ type QueryService interface {
 }
 
 type TagsService interface {
-	RenameAcrossRecords(ctx context.Context, from, to string) (int, *myerr.MyError)
+	NormalizeAcrossRecords(ctx context.Context, from []string, to string) (int, *myerr.MyError)
 	AttachTag(ctx context.Context, id, tag string) (recordrepo.EditTagsResult, *myerr.MyError)
 	DetachTag(ctx context.Context, id, tag string) (recordrepo.EditTagsResult, *myerr.MyError)
 }
@@ -133,7 +133,7 @@ func (s *Server) Handler() http.Handler {
 	rt.HandleFunc(http.MethodGet, "/api/query/tags", s.handleTags)
 	rt.HandleFunc(http.MethodGet, "/api/query/transactions/summary", s.handleTransactionsSummary)
 	rt.HandleFunc(http.MethodGet, "/api/admin/records/stats", s.handleSummary)
-	rt.HandleFunc(http.MethodPost, "/api/admin/tags/rename", s.handleRenameTags)
+	rt.HandleFunc(http.MethodPost, "/api/admin/tags/normalize", s.handleNormalizeTags)
 	rt.HandleFunc(http.MethodPost, "/api/admin/import/records", s.handleImportRecords)
 	rt.HandleFunc(http.MethodGet, "/api/export/records", s.handleExportRecords)
 	// 404/405 由自写路由直接输出 problem+json（router.go，消除 ServeMux 改写的双缓冲）。
@@ -646,16 +646,18 @@ func (s *Server) handleTransactionsSummary(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, result)
 }
 
-func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
+// handleNormalizeTags 全表 tag 归一化（from 系列 → to；AdminToken）。
+// 校验顺序（docs/20260805-tag-design.md §tag 归一化）：未知键 → from 形状（缺失/非数组/空）
+// → to 缺失 → from 元素（非法/重复/保留）→ to（非法/保留）→ 交集——全部零 DB。
+func (s *Server) handleNormalizeTags(w http.ResponseWriter, r *http.Request) {
 	raw, ok := readBodyOrError(w, r)
 	if !ok {
 		return
 	}
 	if me := jsonutil.RejectUnknownObjectKeys(raw, []string{"from", "to"}); me != nil {
-		writeErr(w, me, "rename tags")
+		writeErr(w, me, "normalize tags")
 		return
 	}
-	// any 字段：与 Next 对齐，非 string from/to 走 validateRename，而非 Invalid JSON body
 	var body struct {
 		From any `json:"from"`
 		To   any `json:"to"`
@@ -664,25 +666,36 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	from := ""
-	if s, ok := body.From.(string); ok {
-		from = strings.TrimSpace(s)
+	fromList, ok := body.From.([]any)
+	if !ok {
+		// 与 Next 对齐：非数组 from 走 validateNormalize 前的形状文案，而非 Invalid JSON body
+		writeError(w, http.StatusBadRequest, "from must be an array of strings")
+		return
+	}
+	from := make([]string, 0, len(fromList))
+	for _, item := range fromList {
+		itemStr, ok := item.(string)
+		if !ok {
+			writeError(w, http.StatusBadRequest, "from must be an array of strings")
+			return
+		}
+		from = append(from, strings.TrimSpace(itemStr))
 	}
 	to := ""
 	if s, ok := body.To.(string); ok {
 		to = strings.TrimSpace(s)
 	}
-	if vr := tags.ValidateRename(from, to); !vr.Valid {
+	if vr := tags.ValidateNormalize(from, to); !vr.Valid {
 		writeError(w, http.StatusBadRequest, vr.Error)
 		return
 	}
 
-	updated, err := s.TagsSvc.RenameAcrossRecords(r.Context(), from, to)
+	updated, err := s.TagsSvc.NormalizeAcrossRecords(r.Context(), from, to)
 	if err != nil {
-		writeErr(w, err, "rename tags")
+		writeErr(w, err, "normalize tags")
 		return
 	}
-	writeJSON(w, http.StatusOK, RenameTagsSuccess{Success: true, Updated: updated})
+	writeJSON(w, http.StatusOK, NormalizeTagsSuccess{Success: true, Updated: updated})
 }
 
 func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {

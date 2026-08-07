@@ -174,16 +174,16 @@ func (f *fakeQueryService) FetchTransactionsSummary(ctx context.Context, from, t
 }
 
 type fakeTagsService struct {
-	renameAcross func(context.Context, string, string) (int, *myerr.MyError)
-	attachTag    func(context.Context, string, string) (recordrepo.EditTagsResult, *myerr.MyError)
-	detachTag    func(context.Context, string, string) (recordrepo.EditTagsResult, *myerr.MyError)
+	normalizeAcross func(context.Context, []string, string) (int, *myerr.MyError)
+	attachTag       func(context.Context, string, string) (recordrepo.EditTagsResult, *myerr.MyError)
+	detachTag       func(context.Context, string, string) (recordrepo.EditTagsResult, *myerr.MyError)
 }
 
-func (f *fakeTagsService) RenameAcrossRecords(ctx context.Context, from, to string) (int, *myerr.MyError) {
-	if f.renameAcross == nil {
-		panic("RenameAcrossRecords not injected")
+func (f *fakeTagsService) NormalizeAcrossRecords(ctx context.Context, from []string, to string) (int, *myerr.MyError) {
+	if f.normalizeAcross == nil {
+		panic("NormalizeAcrossRecords not injected")
 	}
-	return f.renameAcross(ctx, from, to)
+	return f.normalizeAcross(ctx, from, to)
 }
 
 func (f *fakeTagsService) AttachTag(ctx context.Context, id, tag string) (recordrepo.EditTagsResult, *myerr.MyError) {
