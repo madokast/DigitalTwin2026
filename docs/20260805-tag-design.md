@@ -113,7 +113,7 @@ POST /api/admin/tags/normalize（或 canonicalize）
   2. `from` / `to` 含保留前缀（`body:weight`/`todo`/`transaction_entry`/`review`）→ 400。
   3. ~~父子关系检查~~ **不做**：`from: ["workout","workout:arm"]` 合并丢子类粒度，是 **AI 的语义决策**，系统信任 AI 不拦（备份兜底）。
   4. 去重：合并后同一记录重复 tag → 去重（机械操作，必须做）。
-  5. 原子性：全表单事务 + advisory lock（对齐现有 `renameAcrossRecords`）。
+  5. 原子性：全表单事务 + advisory lock（对齐 `NormalizeAcrossRecords`）。
   6. 响应 `{success, updated}`。
 - 鉴权：**AdminToken**（全表破坏性，系统最大风险点；与补 tag 的 ApiToken 区分）。
 
@@ -127,16 +127,22 @@ tag 数组顺序只保留「创建时的用户意图 + 追加序」，**不刻�
 
 优点：代码最简（append / 原地删，无重排）；顺序保留「创建序 + 追加序」弱语义；tag 本质无序，此顺序是「无额外成本」。
 
-### 待定
+### 待定项拍板（2026-08-07）
 
-- 路径名：`normalize` / `canonicalize` / `merge`；是否替换现有 `tags/rename`。
-- 是否支持 `to` 为空（纯删除 from 系列）？——倾向不支持（删除单条 tag 用 add/remove 接口）。
+- ✅ **路径名 `normalize`**；**替换现有 `tags/rename`**（rename 全链删除：双端端点/OpenAPI/前端入口；`from:[A]` 即 rename 语义）。
+- ✅ **不支持 `to` 为空**（纯删除 from 系列不支持——单条删除走 tags add/remove 接口）。
 
-## 实现待办（定案后）
+### 实现状态（2026-08-07 已全部完成）
 
-- **query 通配**：双端 `parseRecordQueryParams` / `ParseRecordQueryParams` 解析 `tag` 尾缀 `:*`（校验：中间 `*` / 裸 `*` → 400，复用 `Invalid tag` 或新增文案）；`tag=X:*` 生成 `tags LIKE '%"X:%'`；OpenAPI `query.yaml` 描述、`like_escape_test.go` 相关断言同步。
-- **tags 排序 + 形状 + prefix**：双端 `FetchTagCounts(prefix)` 返回 `[]TagCount{Tag, Count}`，计数降序、同名升序；Go `handleTags`、TS `aggregateTagCounts`、`fetchTags`、OpenAPI `TagsSuccess`（map → array）、3 个前端消费方、契约 fixture 同步改。
-- **docs/20260805-status-analysis.md §2C**：更新为「已解决——`tag=review:*`」。
+- ✅ **query 通配**（`tag=X:*` 族通配，双端 + OpenAPI + 断言）——早于本节，已实现。
+- ✅ **tags 排序 + 形状 + prefix**（`[{tag, count}]` 计数降序 + `?prefix=`）——早于本节，已实现。
+- ✅ **docs/20260805-status-analysis.md §2C**：已更新为「已解决——`tag=review:*`」。
+- ✅ **normalize 实现（2026-08-07）**：`POST /api/admin/tags/normalize`（operationId `adminNormalizeTag`）双端落地——
+  - 业务校验 `ValidateNormalize`（顺序：from 形状 → to 缺失 → from 元素非法/重复/保留 → to 非法/保留 → `to must not be in from`；文案双端逐字：`missing required field: from|to`、`from must be an array of strings`、`duplicate tag in from: "X"`、`to must not be in from`）。
+  - 变换 `normalizeTags`：**多源一次变换**（删全部 from 原地 + 后续前移；to 已存在保持原位否则尾加）——**不能分解为逐源 rename**（逐源会破坏「尾加」顺序语义）。
+  - 全表扫描：对每个 from 元素分页扫 `FindByCriteria`（Tags 为 AND 交集语义，不能一次匹配任一）；同一行多源命中只更新一次（后续 normalizeTags 无命中）。
+  - 原子性：单事务 + advisory lock（沿用 `NormalizeAcrossRecords`，原 `RenameAcrossRecords` 骨架）；AdminToken。
+  - `from` 形状错误（非数组/元素非 string）→ 400 `from must be an array of strings`（双端）。
 
 ## 相关记录
 

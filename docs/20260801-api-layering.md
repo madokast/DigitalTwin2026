@@ -73,7 +73,7 @@ flowchart LR
 
 以下偏差已在 Phase 2–5 落地，两端同构，**不再是缺口**：
 
-- TS：`src/app/api/log/*`、rename、query summary/tags 的业务 Drizzle 已抽到 `src/lib`（`logapi` / `tags` / `record` / `query`），与 Go 同构。
+- TS：`src/app/api/log/*`、normalize、query summary/tags 的业务 Drizzle 已抽到 `src/lib`（`logapi` / `tags` / `record` / `query`），与 Go 同构。
 - Go：`server.go` 业务 SQL 已抽到 `tags` / `record` / `query` / `logapi`。
 - 交易纯解析在 `transactiondraft`（两端独立模块）。
 - 体重纯解析在 `bodyweightdraft`（两端独立模块）。
@@ -82,8 +82,8 @@ flowchart LR
 
 ## 3. 同构规则
 
-1. **同 stem**：`CreateNumber` ↔ `createNumber`；`RenameAcrossRecords` ↔ `renameAcrossRecords`；`FetchFilteredRecords` ↔ `fetchFilteredRecords`。
-2. **同参数语义顺序**：Go 为 `(ctx, db, …)`；TS 用模块内默认 `db`，其余参数顺序与 Go 去掉 `ctx` / pool 后一致。写库路径：`RenameAcrossRecords` 接受 `*pgxpool.Pool`（内开事务 + `pg_advisory_xact_lock`）；TS `renameAcrossRecords` 生产同语义，可选末参 `store` 注入同构边界供单测（无真实锁）。
+1. **同 stem**：`CreateNumber` ↔ `createNumber`；`NormalizeAcrossRecords` ↔ `normalizeAcrossRecords`；`FetchFilteredRecords` ↔ `fetchFilteredRecords`。
+2. **同参数语义顺序**：Go 为 `(ctx, db, …)`；TS 用模块内默认 `db`，其余参数顺序与 Go 去掉 `ctx` / pool 后一致。写库路径：`NormalizeAcrossRecords` 接受 `*pgxpool.Pool`（内开事务 + `pg_advisory_xact_lock`）；TS `normalizeAcrossRecords` 生产同语义，可选末参 `store` 注入同构边界供单测（无真实锁）。
 3. **同结构体字段名**：对外 JSON / JSONL 键一律 **snake_case**（见根 [`AGENTS.md`](../AGENTS.md)）；内部 DTO / Drizzle / Go struct 字段名可仍用惯用 camelCase / PascalCase，经 `json:"…"` 或显式序列化映射。API 记录类型两端都叫 **`Record`**（TS 已收敛原 `ApiRecord` / `TwinRecord` 到共享后端域的 `Record`；前端 `api-client` 可再导出别名）。
 4. **同错误文案**：用户可见英文错误字符串必须字节级一致（契约测继续守）。
 5. **先表后码**：本轮新建 / 迁移的符号必须先写入本文对照表再实现；禁止「Go 叫 `CreateText`、TS 叫 `makeText`」这类不对齐命名。
@@ -97,7 +97,7 @@ flowchart LR
 
 | Stem | Go | TS | 备注 |
 |------|----|----|------|
-| `tags` | `faas/internal/tags` | `src/lib/tags.ts` | 已有；含 `RenameAcrossRecords` |
+| `tags` | `faas/internal/tags` | `src/lib/tags.ts` | 已有；含 `NormalizeAcrossRecords` |
 | `draft` | `faas/internal/draft` | `src/lib/draft.ts` | 共享 helper：`ParseHappenedAt` / `RequireTrimmedText` / `OptionalTrimmedNullable` / `ValidateDecimalString` / `ParseNumericValue` / `EmptyStringToNull`。编辑草稿解析 `ParseRecordDraft` 已随 PATCH 删除（2026-08-04） |
 | `transactiondraft` | `faas/internal/transactiondraft` | `src/lib/transactiondraft.ts` | **独立成包**（已落地）；TS 已由 `transaction-draft.ts` 改名；Go 已从 `logapi` 抽出纯解析 |
 | `bodyweightdraft` | `faas/internal/bodyweightdraft` | `src/lib/bodyweightdraft.ts` | **独立成包**；体重 `numeric_value` 解析/规范化；落库 tags 组装含 `body:weight` |
@@ -142,7 +142,7 @@ flowchart LR
 | tododraft | `ParseTodo` / `ParseTodoTransition` / `ToTodoRecordJSON` / `ShouldDeformTodoRecordTags` / `AuditObjectiveContext` / `TodoAuditNotifyText` / type `TodoRecordJSON` | `parseTodo` / `parseTodoTransition` / `toTodoRecordJson` / `shouldDeformTodoRecordTags` / `auditObjectiveContext` / `todoAuditNotifyText` / type `TodoRecordJson` |
 | reviewdraft | `ParseReview` / type `NormalizedReview` | `parseReview` / type `NormalizedReview` |
 | query | `ParseRecordQueryParams` / `FetchFilteredRecords` / `ToQueryRecordJSON` / `RecordsForResponse` / … | `parseRecordQueryParams` / `fetchFilteredRecords` / `toQueryRecordJson` / … |
-| tags | `RenameAcrossRecords` / `ValidateRename` | `renameAcrossRecords`（`tagsdb`）/ `validateRename`（`tags`） |
+| tags | `NormalizeAcrossRecords` / `ValidateNormalize` | `normalizeAcrossRecords`（`tagsdb`）/ `validateNormalize`（`tags`） |
 | record | `FromDB` / `TagsJSON` / type `Record` | `fromDB` / `tagsJSON` / type `Record`（已取代 `toApiRecord` / `ApiRecord`，或薄包装同名） |
 | record | `FormatHappenedAt` | `formatHappenedAt`（读路径：瞬间 + 隐列 `utc_offset` 带区；无 offset 重载仅作损坏回退。见 [`docs/20260803-utc-offset.md`](20260803-utc-offset.md)） |
 | record | `IsValidID` / `InvalidID` | `isValidRecordId` / `INVALID_RECORD_ID` |
@@ -155,9 +155,9 @@ flowchart LR
 | Stem | Go | TS |
 |------|----|----|
 | draft | `EmptyStringToNull` / `ParseHappenedAt` / `ValidateDecimalString` / `ParseNumericValue` | `emptyStringToNull` / `parseHappenedAt` / `validateDecimalString` / `parseNumericValue` |
-| tags | `IsValidTag` / `IsReservedTag` / `ValidateTags` / `AssertNoReservedTags` / `ValidateRename` / `RenameTagInTagsJSON` / `AggregateTagCounts` / `RenameAcrossRecords` | `isValidTag` / … / `aggregateTagCounts`（`@/lib/tags`，可进 Client）；`renameAcrossRecords`（`@/lib/tagsdb`，仅服务端，避免 Client 打进 postgres） |
-| tags | `ValidationResult{Valid, Error}` | `ValidationResult{ valid, error? }`（`assertNoReservedTags` / `validateTags` / `validateRename` 共用） |
-| tags | 脏 `tags` JSON：`AggregateTagCounts` / `RenameTagInTagsJSON`（及 `RenameAcrossRecords`）解析失败或根非数组 → **error**（HTTP 500） | 同左：抛错 / 向上失败，**禁止**静默 skip |
+| tags | `IsValidTag` / `IsReservedTag` / `ValidateTags` / `AssertNoReservedTags` / `ValidateNormalize` / `normalizeTags` / `AggregateTagCounts` / `NormalizeAcrossRecords` | `isValidTag` / … / `aggregateTagCounts`（`@/lib/tags`，可进 Client）；`normalizeAcrossRecords`（`@/lib/tagsdb`，仅服务端，避免 Client 打进 postgres） |
+| tags | `ValidationResult{Valid, Error}` | `ValidationResult{ valid, error? }`（`assertNoReservedTags` / `validateTags` / `validateNormalize` 共用） |
+| tags | 脏 `tags` JSON：`AggregateTagCounts` / `normalizeTags`（及 `NormalizeAcrossRecords`）解析失败或根非数组 → **error**（HTTP 500） | 同左：抛错 / 向上失败，**禁止**静默 skip |
 | query | `ParseRecordQueryParams` / `FetchFilteredRecords` / `FetchSummary` / `FetchTagCounts` / `EscapeLikePattern` / `ParseTransactionsSummaryParams` / `AggregateTransactionsSummary` / `FetchTransactionsSummary` | `parseRecordQueryParams` / `fetchFilteredRecords` / `fetchSummary` / `fetchTagCounts` / `escapeLikePattern` / `parseTransactionsSummaryParams` / `aggregateTransactionsSummary` / `fetchTransactionsSummary` |
 | query | `FetchFilteredRecords` 在 lib 内 `FromDB`，返回 `[]Record`（HTTP 不再 map） | `fetchFilteredRecords` 在 lib 内 `fromDB`，返回 `Record[]` |
 | timeutil | `IsValidTimeZone` / `GetZonedDayBounds` / `CalendarDayBounds` / `ExpandCompactOffset` / `ParseRFC3339Flexible` | `isValidTimeZone` / `getZonedDayBounds` / `calendarDayBounds` / `expandCompactOffset` / `parseRFC3339Flexible` |
