@@ -41,18 +41,24 @@
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
-/api/admin/tags/rename:
+/api/admin/tags/normalize:
   post:
-    operationId: adminRenameTag
+    operationId: adminNormalizeTag
     tags: [admin]
-    summary: Rename a tag across all records
+    summary: Merge a tag set into one canonical tag across all records
     description: |
-      Exact tag-name replace in each record's tags JSON. If `to` already exists
-      on a record, duplicates are removed (first-seen order kept).
-      `updated` is the number of records whose tags string changed.
+      Search normalization (replaces the former tags/rename; rename is the
+      single-source case `from: [A]`). In each record's tags JSON, every
+      tag listed in `from` is removed in place (remaining order kept) and
+      `to` is kept at its existing position or appended at the tail; exact
+      duplicates are removed. `updated` is the number of records whose tags
+      string actually changed (a record matching several `from` tags counts
+      once). One DB transaction + advisory lock; any error rolls back.
       Reserved tag prefixes (`transaction_entry` / `transaction_entry:*`,
-      `body:weight` / `body:weight:*`, `todo` / `todo:*`) are rejected for both `from` and `to`.
-      Auth: **AdminToken only**.
+      `body:weight` / `body:weight:*`, `todo` / `todo:*`, `review` /
+      `review:*`) are rejected for both `from` elements and `to`; `to` must
+      not be in `from`; `from` must be non-empty without duplicates.
+      Auth: **AdminToken only** (destructive full-table operation).
     security:
       - AdminToken: []
     requestBody:
@@ -60,17 +66,17 @@
       content:
         application/json:
           schema:
-            $ref: '../components/schemas.yaml#/RenameTagsRequest'
+            $ref: '../components/schemas.yaml#/NormalizeTagsRequest'
           example:
-            from: weight
-            to: mass
+            from: [exercise, workout, training]
+            to: workout
     responses:
       '200':
-        description: Rename applied
+        description: Normalization applied
         content:
           application/json:
             schema:
-              $ref: '../components/schemas.yaml#/RenameTagsSuccess'
+              $ref: '../components/schemas.yaml#/NormalizeTagsSuccess'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':

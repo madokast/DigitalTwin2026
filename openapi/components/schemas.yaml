@@ -415,17 +415,31 @@ TagsSuccess:
           - tag: weight
             count: 1
 
-RenameTagsRequest:
+NormalizeTagsRequest:
   type: object
   required: [from, to]
   additionalProperties: false
+  description: |
+    Merge the `from` tag set into the single canonical `to` tag across
+    all records (search normalization). Per record: any `from` tag is
+    removed in place (remaining order preserved); `to` stays at its
+    existing position when already present, otherwise appended at the
+    tail. Duplicates are mechanically removed. `to` is required and
+    must not be in `from` (pure deletion of the `from` set is not
+    supported - use the per-record tags add/remove endpoints).
   properties:
     from:
-      $ref: '#/TagName'
+      type: array
+      minItems: 1
+      uniqueItems: true
+      items:
+        $ref: '#/TagName'
+      description: Tags to merge (must be non-empty, no duplicates)
     to:
       $ref: '#/TagName'
+      description: Canonical target tag (must not be in `from`)
 
-RenameTagsSuccess:
+NormalizeTagsSuccess:
   type: object
   required: [success, updated]
   additionalProperties: false

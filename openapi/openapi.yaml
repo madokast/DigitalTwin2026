@@ -83,8 +83,8 @@ paths:
     $ref: './paths/time.yaml#/~1api~1time'
   /api/admin/records/stats:
     $ref: './paths/admin.yaml#/~1api~1admin~1records~1stats'
-  /api/admin/tags/rename:
-    $ref: './paths/admin.yaml#/~1api~1admin~1tags~1rename'
+  /api/admin/tags/normalize:
+    $ref: './paths/admin.yaml#/~1api~1admin~1tags~1normalize'
   /api/admin/import/records:
     $ref: './paths/admin.yaml#/~1api~1admin~1import~1records'
   /api/export/records:
@@ -166,10 +166,10 @@ components:
       $ref: './components/schemas.yaml#/TransactionsSummarySuccess'
     TagsSuccess:
       $ref: './components/schemas.yaml#/TagsSuccess'
-    RenameTagsRequest:
-      $ref: './components/schemas.yaml#/RenameTagsRequest'
-    RenameTagsSuccess:
-      $ref: './components/schemas.yaml#/RenameTagsSuccess'
+    NormalizeTagsRequest:
+      $ref: './components/schemas.yaml#/NormalizeTagsRequest'
+    NormalizeTagsSuccess:
+      $ref: './components/schemas.yaml#/NormalizeTagsSuccess'
     TagsAddRequest:
       $ref: './components/schemas.yaml#/TagsAddRequest'
     TagsEditSuccess:

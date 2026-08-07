@@ -62,12 +62,12 @@ describe('OpenAPI contract (Phase 2)', () => {
     await assertValidSchema('LogTextRequest', readFixture('log-text-request-valid.json'))
     await assertValidSchema('TagsSuccess', readFixture('tags-success.json'))
     await assertValidSchema(
-      'RenameTagsRequest',
-      readFixture('rename-tags-request-valid.json'),
+      'NormalizeTagsRequest',
+      readFixture('normalize-tags-request-valid.json'),
     )
     await assertValidSchema(
-      'RenameTagsSuccess',
-      readFixture('rename-tags-success.json'),
+      'NormalizeTagsSuccess',
+      readFixture('normalize-tags-success.json'),
     )
     await assertValidSchema(
       'ImportRecordsSuccess',
