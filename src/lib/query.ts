@@ -1,6 +1,101 @@
-import { and, count, eq, gte, like, lt, or, sql, type SQL } from 'drizzle-orm'
 import db from '@/db'
-import { records } from '@/db/schema'
+type Db = typeof db
+const dbDefault = db
+
+/**
+ * QueryService（§10b 步骤 4：class + 构造注入 db；模块级单例）。
+ */
+export class QueryService {
+  constructor(private readonly db: Db = dbDefault) {}
+
+  async fetchFilteredRecords(
+    parsed: ParsedQuery,
+  ): Promise<FetchResult> {
+    const total = await Repo.count(this.db, parsed.criteria)
+    const recs = await Repo.findByCriteria(this.db, parsed.criteria)
+  
+    // 有 id 时忽略分页，返回 0～1 条（Page/PageSize 回填实际——现状语义）
+    if (parsed.criteria.id) {
+      const pageSize = recs.length || 1
+      return { total, page: 1, pageSize, records: recs }
+    }
+    return {
+      total,
+      page: parsed.criteria.page,
+      pageSize: parsed.criteria.pageSize,
+      records: recs,
+    }
+  }
+
+  async fetchSummary(
+    tz: string,
+    now: Date = new Date(),
+  ): Promise<SummaryResult | { error: string }> {
+    if (!tz || !isValidTimeZone(tz)) {
+      return { error: 'query parameter tz must be a valid IANA time zone' }
+    }
+
+    const { start, end } = getZonedDayBounds(now, tz)
+
+    const total = await Repo.count(this.db, { tags: [] })
+    const today = await Repo.count(this.db, { from: start, to: end, tags: [] })
+
+    return { total, today, tz }
+  }
+
+  async fetchTagCounts(prefix = ''): Promise<TagCount[]> {
+    const tagLists: string[][] = []
+    let page = 1
+    for (;;) {
+      const recs = await Repo.findByCriteria(this.db, {
+        tags: [],
+        page,
+        pageSize: RENAME_PAGE_SIZE,
+        sortBy: 'id',
+        sortOrder: 'asc',
+      })
+      for (const rec of recs) {
+        tagLists.push(rec.tags)
+      }
+      if (recs.length < RENAME_PAGE_SIZE) break
+      page += 1
+    }
+    return aggregateTagCounts(tagLists, prefix)
+  }
+
+  async fetchTransactionsSummary(
+    from: Date,
+    to: Date,
+    fromRaw: string,
+    toRaw: string,
+  ): Promise<TransactionsSummaryResult> {
+    const acc = new TransactionsSummaryAcc()
+    let page = 1
+    for (;;) {
+      const recs = await Repo.findByCriteria(this.db, {
+        from,
+        to,
+        tags: ['transaction_entry:*'],
+        page,
+        pageSize: RENAME_PAGE_SIZE,
+        sortBy: 'id',
+        sortOrder: 'asc',
+      })
+      for (const rec of recs) {
+        acc.addRow(rec.tags, rec.numeric_value ?? null)
+      }
+      if (recs.length < RENAME_PAGE_SIZE) break
+      page += 1
+    }
+    return acc.finalize(fromRaw, toRaw)
+  }
+}
+
+/** 模块级单例（route 装配；vi.mock 兼容）。 */
+export const queryService = new QueryService()
+
+
+
 import {
   fromDB,
   INVALID_RECORD_ID,
@@ -169,24 +264,7 @@ export function toQueryRecordJson(rec: DomainRecord): QueryRecordJson {
   return rec
 }
 
-export async function fetchFilteredRecords(
-  parsed: ParsedQuery,
-): Promise<FetchResult> {
-  const total = await Repo.count(db, parsed.criteria)
-  const recs = await Repo.findByCriteria(db, parsed.criteria)
 
-  // 有 id 时忽略分页，返回 0～1 条（Page/PageSize 回填实际——现状语义）
-  if (parsed.criteria.id) {
-    const pageSize = recs.length || 1
-    return { total, page: 1, pageSize, records: recs }
-  }
-  return {
-    total,
-    page: parsed.criteria.page,
-    pageSize: parsed.criteria.pageSize,
-    records: recs,
-  }
-}
 
 export type SummaryResult = {
   total: number
@@ -194,44 +272,9 @@ export type SummaryResult = {
   tz: string
 }
 
-/** 汇总 total / 今日条数；tz 非法时返回 { error }（与 Go FetchSummary 同文案） */
-export async function fetchSummary(
-  tz: string,
-  now: Date = new Date(),
-): Promise<SummaryResult | { error: string }> {
-  if (!tz || !isValidTimeZone(tz)) {
-    return { error: 'query parameter tz must be a valid IANA time zone' }
-  }
-
-  const { start, end } = getZonedDayBounds(now, tz)
-
-  const total = await Repo.count(db, { tags: [] })
-  const today = await Repo.count(db, { from: start, to: end, tags: [] })
-
-  return { total, today, tz }
-}
-
 /** 全表 tags 聚合计数（与 Go FetchTagCounts 同构）；prefix 非空时真前缀过滤。
  * 分页循环 Repo.findByCriteria 收集每行 tags 数组 → 数组版聚合（§10b 步骤 3 二次定案）。 */
-export async function fetchTagCounts(prefix = ''): Promise<TagCount[]> {
-  const tagLists: string[][] = []
-  let page = 1
-  for (;;) {
-    const recs = await Repo.findByCriteria(db, {
-      tags: [],
-      page,
-      pageSize: RENAME_PAGE_SIZE,
-      sortBy: 'id',
-      sortOrder: 'asc',
-    })
-    for (const rec of recs) {
-      tagLists.push(rec.tags)
-    }
-    if (recs.length < RENAME_PAGE_SIZE) break
-    page += 1
-  }
-  return aggregateTagCounts(tagLists, prefix)
-}
+
 
 // --- GET /api/query/transactions/summary ---
 
@@ -484,29 +527,4 @@ export class TransactionsSummaryAcc {
 
 /** 分页循环拉取区间内候选行并增量聚合（§10b 步骤 3 修正：单族通配 transaction_entry:*
  * 覆盖 income/expense；行数可能巨大 → 100 分页，每页行即弃）。与 Go FetchTransactionsSummary 同构。 */
-export async function fetchTransactionsSummary(
-  from: Date,
-  to: Date,
-  fromRaw: string,
-  toRaw: string,
-): Promise<TransactionsSummaryResult> {
-  const acc = new TransactionsSummaryAcc()
-  let page = 1
-  for (;;) {
-    const recs = await Repo.findByCriteria(db, {
-      from,
-      to,
-      tags: ['transaction_entry:*'],
-      page,
-      pageSize: RENAME_PAGE_SIZE,
-      sortBy: 'id',
-      sortOrder: 'asc',
-    })
-    for (const rec of recs) {
-      acc.addRow(rec.tags, rec.numeric_value ?? null)
-    }
-    if (recs.length < RENAME_PAGE_SIZE) break
-    page += 1
-  }
-  return acc.finalize(fromRaw, toRaw)
-}
+

@@ -2,7 +2,7 @@
  * tag 校验与纯 JSON 变换（可被 Client Component 安全导入）。
  * 写库（renameAcrossRecords）在 `@/lib/tagsdb`，勿在此文件 import `@/db`。
  */
-import { newInternalMsg } from '@/lib/myerr' 
+
 
 /**
  * 验证 tag 格式

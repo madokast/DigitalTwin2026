@@ -28,7 +28,7 @@ const execute = vi.fn()
 const q = { select, update, insert, execute } as unknown as Executor
 
 import type { Executor } from '@/db/uow'
-import { Repo, type Criteria, type FindCriteria } from '@/lib/recordrepo'
+import { Repo, type FindCriteria } from '@/lib/recordrepo'
 
 const row = {
   id: '01900000-0000-7000-8000-000000000003',

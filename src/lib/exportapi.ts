@@ -1,3 +1,38 @@
+import db from '@/db'
+type Db = typeof db
+const dbDefault = db
+
+/**
+ * ExportService（§10b 步骤 4：class + 构造注入 db；模块级单例）。
+ */
+export class ExportService {
+  constructor(private readonly db: Db = dbDefault) {}
+
+  async fetchExportRecords(
+    parsed: ParsedExport,
+  ): Promise<FetchExportResult> {
+    if (parsed.from !== null) {
+      const exists = await Repo.exists(this.db, parsed.from)
+      if (!exists) {
+        throw newNotFound(EXPORT_FROM_NOT_FOUND)
+      }
+    }
+  
+    const records = await Repo.findByCriteria(this.db, {
+      idFrom: parsed.from ?? undefined,
+      tags: [],
+      page: 1,
+      pageSize: parsed.limit,
+      sortBy: 'id',
+      sortOrder: 'asc',
+    })
+    return { records, status: 200 }
+  }
+}
+
+/** 模块级单例（route 装配；vi.mock 兼容）。 */
+export const exportService = new ExportService()
+
 /**
  * Records 导出（与 Go `exportapi` 同构）。
  *
@@ -6,13 +41,11 @@
  * （写出成功后再 schedule）。本路由无 JSON body，勿接 `readJsonBody`。
  */
 
-import { asc, eq, gte } from 'drizzle-orm'
-import db from '@/db'
-import { records } from '@/db/schema'
+
+
 import { newNotFound } from '@/lib/myerr'
 import { Repo } from '@/lib/recordrepo'
 import {
-  fromDB,
   INVALID_RECORD_ID,
   isValidRecordId,
   type Record as DomainRecord,
@@ -70,26 +103,7 @@ export function parseExportRecordsParams(
  * 有 from 时先确认该 id 存在，再 `id >= from` + `ORDER BY id ASC` + LIMIT。
  * 无 from：全表按 id ASC 取 limit 行（空库 → 0 行）。from 不存在 → throw myerr 404。
  */
-export async function fetchExportRecords(
-  parsed: ParsedExport,
-): Promise<FetchExportResult> {
-  if (parsed.from !== null) {
-    const exists = await Repo.exists(db, parsed.from)
-    if (!exists) {
-      throw newNotFound(EXPORT_FROM_NOT_FOUND)
-    }
-  }
 
-  const records = await Repo.findByCriteria(db, {
-    idFrom: parsed.from ?? undefined,
-    tags: [],
-    page: 1,
-    pageSize: parsed.limit,
-    sortBy: 'id',
-    sortOrder: 'asc',
-  })
-  return { records, status: 200 }
-}
 
 /** 每行一条 Record JSON + 换行；0 行 → 空字符串 */
 export function buildExportNdjson(recs: DomainRecord[]): string {

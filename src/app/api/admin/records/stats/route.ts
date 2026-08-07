@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { errorResponse, routeError } from '@/lib/httperror'
-import { fetchSummary } from '@/lib/query'
+import { queryService } from '@/lib/query'
 
 export async function GET(request: NextRequest) {
   try {
     const tz = request.nextUrl.searchParams.get('tz') ?? ''
-    const result = await fetchSummary(tz)
+    const result = await queryService.fetchSummary(tz)
     if ('error' in result) {
       return errorResponse(result.error, 400)
     }

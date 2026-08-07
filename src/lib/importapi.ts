@@ -1,3 +1,78 @@
+import db from '@/db'
+type Db = typeof db
+const dbDefault = db
+
+/**
+ * ImportService（§10b 步骤 4：class + 构造注入 db；模块级单例）。
+ */
+export class ImportService {
+  constructor(private readonly db: Db = dbDefault) {}
+
+  async importRecordsJsonl(
+    text: string,
+    fileBytes: number,
+    store: ImportStore = defaultStore(),
+  ): Promise<ImportCounts> {
+    if (fileBytes > MAX_IMPORT_FILE_BYTES) {
+      throw newValidation(IMPORT_LIMITS_ERROR)
+    }
+  
+    const counts = await store.begin(async (tx) => {
+        let inserted = 0
+        let updated = 0
+        const seen = new Set<string>()
+        let physicalLine = 0
+        let nonEmpty = 0
+  
+        const lines = text.length === 0 ? [] : text.split('\n')
+        for (const raw of lines) {
+          physicalLine += 1
+          let line = raw.endsWith('\r') ? raw.slice(0, -1) : raw
+          if (physicalLine === 1 && line.charCodeAt(0) === 0xfeff) {
+            line = line.slice(1)
+          }
+          if (line.trim() === '') {
+            continue
+          }
+          nonEmpty += 1
+          if (nonEmpty > MAX_IMPORT_LINES) {
+            throw newValidation(IMPORT_LIMITS_ERROR)
+          }
+  
+          const parsed = parseLine(line, physicalLine)
+          if ('error' in parsed) {
+            throw newValidation(parsed.error)
+          }
+  
+          if (seen.has(parsed.id)) {
+            throw newValidation(duplicateIdError(parsed.id, physicalLine))
+          }
+          seen.add(parsed.id)
+  
+          const exists = await tx.exists(parsed.id)
+          if (exists) {
+            await tx.update(parsed)
+            updated += 1
+          } else {
+            await tx.insert(parsed)
+            inserted += 1
+          }
+        }
+  
+        return {
+          inserted,
+          updated,
+          total: inserted + updated,
+        } satisfies ImportCounts
+      })
+  
+    return counts
+  }
+}
+
+/** 模块级单例（route 装配；vi.mock 兼容）。 */
+export const importService = new ImportService()
+
 /**
  * Records 导入（与 Go `importapi` 同构）。
  *
@@ -10,9 +85,8 @@ import { newValidation } from './myerr'
 import { Repo } from '@/lib/recordrepo'
 import { toDomainRecord } from '@/lib/recordjsonl'
 import { type ImportCounts } from '@/lib/record'
-import { eq } from 'drizzle-orm'
-import db from '@/db'
-import { records } from '@/db/schema'
+
+
 import {
   formatLineError,
   parseLine,
@@ -155,63 +229,4 @@ function defaultStore(): ImportStore {
  * `fileBytes` 为 file part 原始字节数（超限直接 400）。
  * 空文件 / 仅空行 → 全 0 成功。
  */
-export async function importRecordsJsonl(
-  text: string,
-  fileBytes: number,
-  store: ImportStore = defaultStore(),
-): Promise<ImportCounts> {
-  if (fileBytes > MAX_IMPORT_FILE_BYTES) {
-    throw newValidation(IMPORT_LIMITS_ERROR)
-  }
 
-  const counts = await store.begin(async (tx) => {
-      let inserted = 0
-      let updated = 0
-      const seen = new Set<string>()
-      let physicalLine = 0
-      let nonEmpty = 0
-
-      const lines = text.length === 0 ? [] : text.split('\n')
-      for (const raw of lines) {
-        physicalLine += 1
-        let line = raw.endsWith('\r') ? raw.slice(0, -1) : raw
-        if (physicalLine === 1 && line.charCodeAt(0) === 0xfeff) {
-          line = line.slice(1)
-        }
-        if (line.trim() === '') {
-          continue
-        }
-        nonEmpty += 1
-        if (nonEmpty > MAX_IMPORT_LINES) {
-          throw newValidation(IMPORT_LIMITS_ERROR)
-        }
-
-        const parsed = parseLine(line, physicalLine)
-        if ('error' in parsed) {
-          throw newValidation(parsed.error)
-        }
-
-        if (seen.has(parsed.id)) {
-          throw newValidation(duplicateIdError(parsed.id, physicalLine))
-        }
-        seen.add(parsed.id)
-
-        const exists = await tx.exists(parsed.id)
-        if (exists) {
-          await tx.update(parsed)
-          updated += 1
-        } else {
-          await tx.insert(parsed)
-          inserted += 1
-        }
-      }
-
-      return {
-        inserted,
-        updated,
-        total: inserted + updated,
-      } satisfies ImportCounts
-    })
-
-  return counts
-}

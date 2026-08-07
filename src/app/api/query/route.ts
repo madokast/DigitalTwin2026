@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { errorResponse, routeError } from '@/lib/httperror'
 import {
-  fetchFilteredRecords,
   parseRecordQueryParams,
   toQueryRecordJson,
+  queryService,
 } from '@/lib/query'
 
 export async function GET(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       return errorResponse(parsed.error, 400)
     }
 
-    const result = await fetchFilteredRecords(parsed)
+    const result = await queryService.fetchFilteredRecords(parsed)
 
     const body: Record<string, unknown> = {
       success: true,

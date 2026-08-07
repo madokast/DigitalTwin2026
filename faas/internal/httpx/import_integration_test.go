@@ -81,7 +81,7 @@ SELECT EXISTS (
 	h := srv.Handler()
 
 	// empty → 0 + Notify
-	notified = nil
+	srv.Notifier.(*spyNotifier).reset()
 	emptyBody, emptyCT := buildImportMultipartBytes(t, "records.jsonl", "application/x-ndjson", "")
 	emptyReq := httptest.NewRequest(http.MethodPost, "/api/admin/import/records", emptyBody)
 	emptyReq.Header.Set("Authorization", "Bearer admin-tok")
@@ -105,7 +105,7 @@ SELECT EXISTS (
 	line1 := fmt.Sprintf(`{"id":%q,"happened_at":"2026-07-30T00:00:00.000Z","numeric_value":"1","raw_content":null,"tags":"[\"weight\"]","objective_context":%q,"ai_analysis":null}`, id1, marker+"-1")
 
 	// duplicate → 400, no notify, no row
-	notified = nil
+	srv.Notifier.(*spyNotifier).reset()
 	dupBody, dupCT := buildImportMultipartBytes(t, "records.jsonl", "application/x-ndjson", line1+"\n"+line1)
 	dupReq := httptest.NewRequest(http.MethodPost, "/api/admin/import/records", dupBody)
 	dupReq.Header.Set("Authorization", "Bearer admin-tok")
@@ -130,7 +130,7 @@ SELECT EXISTS (
 	}
 
 	// reserved tag insert OK
-	notified = nil
+	srv.Notifier.(*spyNotifier).reset()
 	id2 := "01900000-0000-7000-8000-0000000000c2"
 	reserved := fmt.Sprintf(`{"id":%q,"happened_at":"2026-07-30T00:00:00.000Z","numeric_value":"70","raw_content":null,"tags":"[\"body:weight\"]","objective_context":%q,"ai_analysis":null}`, id2, marker+"-reserved")
 	resBody, resCT := buildImportMultipartBytes(t, "records.jsonl", "application/x-ndjson", reserved)
@@ -177,7 +177,7 @@ SELECT EXISTS (
 	ridRecs := ridBody["records"].([]any)
 	rid := ridRecs[0].(map[string]any)["id"].(string)
 
-	notified = nil
+	srv.Notifier.(*spyNotifier).reset()
 	expReq := httptest.NewRequest(http.MethodGet, "/api/export/records?from="+rid+"&limit=1", nil)
 	expReq.Header.Set("Authorization", "Bearer ai-tok")
 	expRR := httptest.NewRecorder()
@@ -192,7 +192,7 @@ SELECT EXISTS (
 
 	_, _ = pool.Exec(ctx, `DELETE FROM records WHERE id = $1`, rid)
 
-	notified = nil
+	srv.Notifier.(*spyNotifier).reset()
 	impBody, impCT := buildImportMultipartBytes(t, "records.jsonl", "application/x-ndjson", ndjson)
 	impReq := httptest.NewRequest(http.MethodPost, "/api/admin/import/records", impBody)
 	impReq.Header.Set("Authorization", "Bearer admin-tok")

@@ -10,7 +10,6 @@ import {
   extractMultipartBoundary,
   formatImportNotifyMessage,
   IMPORT_LIMITS_ERROR,
-  importRecordsJsonl,
   isAcceptedImportFilePart,
   MAX_IMPORT_FILE_BYTES,
   MULTIPART_CONTENT_TYPE,
@@ -18,6 +17,7 @@ import {
   MULTIPART_MULTIPLE_FILE,
   MULTIPART_PART_TOO_LARGE,
   UNSUPPORTED_FILE_CONTENT_TYPE,
+  importService,
 } from '@/lib/importapi'
 import { notify_user, scheduleBestEffortNotify } from '@/lib/notify'
 
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     const fileBytes = file.size
     const text = await file.text()
 
-    const result = await importRecordsJsonl(text, fileBytes)
+    const result = await importService.importRecordsJsonl(text, fileBytes)
 
     // commit 已成功：先构造成功 200 JSON，再 schedule Notify（对齐导出写出后 Notify）。
     const response = NextResponse.json({

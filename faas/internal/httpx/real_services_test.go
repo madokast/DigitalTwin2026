@@ -49,6 +49,13 @@ func (n *spyNotifier) NotifyUser(text string) {
 	n.mu.Unlock()
 }
 
+// reset 清空记录（测试间重置；走锁避免与异步 notify 竞态）。
+func (n *spyNotifier) reset() {
+	n.mu.Lock()
+	*n.texts = nil
+	n.mu.Unlock()
+}
+
 // waitTexts 等待至少 count 条通知。
 func (n *spyNotifier) waitTexts(count int) []string {
 	for i := 0; i < 200; i++ {

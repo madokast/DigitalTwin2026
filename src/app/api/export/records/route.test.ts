@@ -13,7 +13,9 @@ const notify_user = vi.fn()
 vi.mock('@/lib/exportapi', () => ({
   parseExportRecordsParams: (...args: unknown[]) =>
     parseExportRecordsParams(...args),
-  fetchExportRecords: (...args: unknown[]) => fetchExportRecords(...args),
+  exportService: {
+    fetchExportRecords: (...args: unknown[]) => fetchExportRecords(...args),
+  },
   buildExportNdjson: (...args: unknown[]) => buildExportNdjson(...args),
   exportContentDisposition: (...args: unknown[]) =>
     exportContentDisposition(...args),

@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  type ImportStore,
+  type ImportTx,
   extractMultipartBoundary,
   formatDuplicateIdError,
   formatImportNotifyMessage,
   IMPORT_LIMITS_ERROR,
-  importRecordsJsonl,
   isAcceptedImportFilePart,
   MAX_IMPORT_FILE_BYTES,
   MAX_IMPORT_LINES,
-  type ImportStore,
-  type ImportTx,
+  importService,
 } from './importapi'
 import { serializeLine, type RecordJsonlRow } from './recordjsonl'
 
@@ -87,10 +87,10 @@ describe('importapi helpers', () => {
   })
 })
 
-describe('importRecordsJsonl', () => {
+describe('importService.importRecordsJsonl', () => {
   it('returns zeros for empty file and still uses one transaction', async () => {
     const mem = memoryStore()
-    const result = await importRecordsJsonl('', 0, mem.store)
+    const result = await importService.importRecordsJsonl('', 0, mem.store)
     expect(result).toEqual({ inserted: 0, updated: 0, total: 0 })
     expect(mem.began.n).toBe(1)
   })
@@ -98,7 +98,7 @@ describe('importRecordsJsonl', () => {
   it('rejects oversize file bytes before parse', async () => {
     const mem = memoryStore()
     await expect(
-      importRecordsJsonl('x', MAX_IMPORT_FILE_BYTES + 1, mem.store),
+      importService.importRecordsJsonl('x', MAX_IMPORT_FILE_BYTES + 1, mem.store),
     ).rejects.toMatchObject({ status: 400, message: IMPORT_LIMITS_ERROR })
     expect(mem.began.n).toBe(0)
   })
@@ -112,21 +112,21 @@ describe('importRecordsJsonl', () => {
     }
     const text = lines.join('\n')
     await expect(
-      importRecordsJsonl(text, text.length, mem.store),
+      importService.importRecordsJsonl(text, text.length, mem.store),
     ).rejects.toMatchObject({ status: 400, message: IMPORT_LIMITS_ERROR })
   })
 
   it('rejects duplicate ids with uuid and line number', async () => {
     const mem = memoryStore()
     const text = `${sampleLine(ID1)}\n${sampleLine(ID1)}`
-    await expect(importRecordsJsonl(text, text.length, mem.store)).rejects
+    await expect(importService.importRecordsJsonl(text, text.length, mem.store)).rejects
       .toMatchObject({ status: 400, message: `line 2: duplicate record id ${ID1}` })
   })
 
   it('rejects line-level parse errors with line prefix', async () => {
     const mem = memoryStore()
     const text = `${sampleLine(ID1)}\n{not-json}`
-    await expect(importRecordsJsonl(text, text.length, mem.store)).rejects
+    await expect(importService.importRecordsJsonl(text, text.length, mem.store)).rejects
       .toMatchObject({ status: 400, message: 'line 2: invalid JSON line' })
   })
 
@@ -143,7 +143,7 @@ describe('importRecordsJsonl', () => {
       aiAnalysis: null,
     })
     const text = `${sampleLine(ID1)}\n${reserved}`
-    const result = await importRecordsJsonl(text, text.length, mem.store)
+    const result = await importService.importRecordsJsonl(text, text.length, mem.store)
     expect(result).toEqual({ inserted: 1, updated: 1, total: 2 })
     expect(mem.updated).toEqual([ID1])
     expect(mem.inserted).toEqual([ID2])
@@ -168,7 +168,7 @@ describe('importRecordsJsonl', () => {
     }
     const text = `${sampleLine(ID1)}\n{bad}`
     await expect(
-      importRecordsJsonl(text, text.length, store),
+      importService.importRecordsJsonl(text, text.length, store),
     ).rejects.toMatchObject({ status: 400, message: 'line 2: invalid JSON line' })
     expect(insert).not.toHaveBeenCalled()
   })

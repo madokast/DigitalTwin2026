@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { errorResponse, routeError } from '@/lib/httperror'
 import { readJsonBody } from '@/lib/httpjson'
 import { validateRename } from '@/lib/tags'
-import { renameAcrossRecords } from '@/lib/tagsdb'
+import { tagsService } from '@/lib/tagsdb'
 import { rejectUnknownKeys } from '@/lib/unknown-keys'
 
 const RENAME_KEYS = ['from', 'to'] as const
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       return errorResponse(validation.error!, 400)
     }
 
-    const updated = await renameAcrossRecords(from, to)
+    const updated = await tagsService.renameAcrossRecords(from, to)
 
     return NextResponse.json({
       success: true,

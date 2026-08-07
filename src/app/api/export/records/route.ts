@@ -3,9 +3,9 @@ import { errorResponse, routeError } from '@/lib/httperror'
 import {
   buildExportNdjson,
   exportContentDisposition,
-  fetchExportRecords,
   formatExportNotifyMessage,
   parseExportRecordsParams,
+  exportService,
 } from '@/lib/exportapi'
 import { notify_user, scheduleBestEffortNotify } from '@/lib/notify'
 
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       return errorResponse(parsed.error, 400)
     }
 
-    const result = await fetchExportRecords(parsed)
+    const result = await exportService.fetchExportRecords(parsed)
 
     // 校验/查库已完成；有界组 NDJSON（≤1000 行）后构造响应。
     // Notify 仅在成功响应构造之后调度（对齐 §4.5：写出失败不 Notify）。

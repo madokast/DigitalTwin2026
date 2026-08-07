@@ -1,5 +1,5 @@
 /**
- * renameAcrossRecords 业务编排：mock Repo（recordrepo）与 db.transaction，
+ * tagsService.renameAcrossRecords 业务编排：mock Repo（recordrepo）与 db.transaction，
  * 断言锁、分页循环、逐行变换更新与计数。与 Go tags_db_test.go 对齐。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -20,7 +20,7 @@ vi.mock('@/lib/recordrepo', () => ({
 }))
 vi.mock('@/db', () => ({ default: { transaction: mocks.transaction } }))
 
-import { RENAME_PAGE_SIZE, renameAcrossRecords } from '@/lib/tagsdb'
+import { RENAME_PAGE_SIZE, tagsService } from '@/lib/tagsdb'
 
 function rec(id: string, tags: string[]) {
   return {
@@ -40,10 +40,10 @@ beforeEach(() => {
   mocks.transaction.mockClear()
 })
 
-describe('renameAcrossRecords', () => {
+describe('tagsService.renameAcrossRecords', () => {
   it('locks first, pages, transforms and updates each row', async () => {
     mocks.findByCriteria.mockResolvedValueOnce([rec('id-1', ['weight', 'morning']), rec('id-2', ['weight'])])
-    const updated = await renameAcrossRecords('weight', 'mass')
+    const updated = await tagsService.renameAcrossRecords('weight', 'mass')
     expect(updated).toBe(2)
     expect(mocks.acquireRenameLock).toHaveBeenCalledTimes(1)
     expect(mocks.findByCriteria).toHaveBeenCalledTimes(1)
@@ -60,7 +60,7 @@ describe('renameAcrossRecords', () => {
     const page1 = Array.from({ length: RENAME_PAGE_SIZE }, (_, i) => rec(`id-${i}`, ['weight']))
     mocks.findByCriteria.mockResolvedValueOnce(page1)
     mocks.findByCriteria.mockResolvedValueOnce([rec('id-last', ['weight', 'weight:extra'])])
-    const updated = await renameAcrossRecords('weight', 'mass')
+    const updated = await tagsService.renameAcrossRecords('weight', 'mass')
     expect(updated).toBe(RENAME_PAGE_SIZE + 1)
     expect(mocks.findByCriteria).toHaveBeenCalledTimes(2)
     expect(mocks.findByCriteria).toHaveBeenNthCalledWith(
@@ -73,14 +73,14 @@ describe('renameAcrossRecords', () => {
 
   it('skips rows without from and returns 0', async () => {
     mocks.findByCriteria.mockResolvedValueOnce([rec('id-1', ['alpha'])])
-    const updated = await renameAcrossRecords('weight', 'mass')
+    const updated = await tagsService.renameAcrossRecords('weight', 'mass')
     expect(updated).toBe(0)
     expect(mocks.update).not.toHaveBeenCalled()
   })
 
   it('dedupes when to already present', async () => {
     mocks.findByCriteria.mockResolvedValueOnce([rec('id-1', ['job', 'work', 'x'])])
-    const updated = await renameAcrossRecords('work', 'job')
+    const updated = await tagsService.renameAcrossRecords('work', 'job')
     expect(updated).toBe(1)
     expect(mocks.update).toHaveBeenCalledWith({}, rec('id-1', ['job', 'x']))
   })

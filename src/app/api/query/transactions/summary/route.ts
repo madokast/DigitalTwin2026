@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { errorResponse, routeError } from '@/lib/httperror'
 import {
-  fetchTransactionsSummary,
   parseTransactionsSummaryParams,
+  queryService,
 } from '@/lib/query'
 
 export async function GET(request: NextRequest) {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       return errorResponse(parsed.error, 400)
     }
 
-    const result = await fetchTransactionsSummary(
+    const result = await queryService.fetchTransactionsSummary(
       parsed.from,
       parsed.to,
       parsed.fromRaw,

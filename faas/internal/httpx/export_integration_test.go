@@ -102,7 +102,7 @@ SELECT EXISTS (
 	sort.Strings(ids)
 
 	// 不依赖全表为空：从本批最小 id 起 limit=2
-	notified = nil
+	srv.Notifier.(*spyNotifier).reset()
 	q := httptest.NewRequest(http.MethodGet,
 		"/api/export/records?from="+ids[0]+"&limit=2", nil)
 	q.Header.Set("Authorization", "Bearer ai-tok")
@@ -141,7 +141,7 @@ SELECT EXISTS (
 		t.Fatal("utc_offset must not appear in export JSONL")
 	}
 
-	notified = nil
+	srv.Notifier.(*spyNotifier).reset()
 	q2 := httptest.NewRequest(http.MethodGet,
 		"/api/export/records?from="+ids[1]+"&limit=2", nil)
 	q2.Header.Set("Authorization", "Bearer ai-tok")
