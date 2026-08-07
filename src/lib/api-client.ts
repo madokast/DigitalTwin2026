@@ -84,8 +84,8 @@ export async function fetchTags(prefix?: string): Promise<{ tag: string; count: 
   return data.tags ?? []
 }
 
-export async function renameTag(from: string, to: string): Promise<number> {
-  const res = await fetch(apiUrl('/api/admin/tags/rename'), {
+export async function normalizeTags(from: string[], to: string): Promise<number> {
+  const res = await fetch(apiUrl('/api/admin/tags/normalize'), {
     method: 'POST',
     headers: authHeader(true),
     body: JSON.stringify({ from, to }),
