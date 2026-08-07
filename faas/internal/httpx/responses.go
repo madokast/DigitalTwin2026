@@ -103,3 +103,18 @@ type ImportRecordsSuccess struct {
 	Total    int  `json:"total"`
 	Atomic   bool `json:"atomic"`
 }
+
+// TagsEditSuccess `{success, id, changed, tags:{from,to}}`（add/remove 共用；定案见
+// docs/20260805-tags-add.md —— from/to 为操作前后完整实际列表（含保留 tag），不加 action/target）。
+type TagsEditSuccess struct {
+	Success bool     `json:"success"`
+	ID      string   `json:"id"`
+	Changed bool     `json:"changed"`
+	Tags    TagsDiff `json:"tags"`
+}
+
+// TagsDiff 操作前后完整 tag 列表。
+type TagsDiff struct {
+	From []string `json:"from"`
+	To   []string `json:"to"`
+}

@@ -13,6 +13,8 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/numberdraft"
 	"github.com/mdk/digitaltwin2026/faas/internal/query"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
+	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
+	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
 	"github.com/mdk/digitaltwin2026/faas/internal/reviewdraft"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/tododraft"
@@ -32,6 +34,13 @@ func (n *fakeNotifier) NotifyUser(text string) {
 	n.mu.Unlock()
 }
 
+// textsLocked 加锁读当前记录（changed:false 断言「零通知」用）。
+func (n *fakeNotifier) textsLocked() []string {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return append([]string{}, n.texts...)
+}
+
 // waitTexts 等待至少 count 条通知（notify 为异步 go 调用）。
 func (n *fakeNotifier) waitTexts(count int) []string {
 	for i := 0; i < 100; i++ {
@@ -49,6 +58,13 @@ func (n *fakeNotifier) waitTexts(count int) []string {
 func (n *fakeNotifier) NotifyRecordInserted(record.Record)             {}
 func (n *fakeNotifier) NotifyNumberBatchInserted([]record.Record)      {}
 func (n *fakeNotifier) NotifyTransactionBatchInserted([]record.Record) {}
+
+// NotifyTagsEdited 记录文本（tags 编辑通知为异步 go 调用，用 waitTexts 轮询断言）。
+func (n *fakeNotifier) NotifyTagsEdited(action, id, tag string, from, to []string) {
+	n.mu.Lock()
+	n.texts = append(n.texts, telegram.FormatTagsEditedMessage(action, id, tag, from, to))
+	n.mu.Unlock()
+}
 
 type fakeLogService struct {
 	createText        func(context.Context, logapi.TextBody) (record.Record, *myerr.MyError)
@@ -159,6 +175,8 @@ func (f *fakeQueryService) FetchTransactionsSummary(ctx context.Context, from, t
 
 type fakeTagsService struct {
 	renameAcross func(context.Context, string, string) (int, *myerr.MyError)
+	attachTag    func(context.Context, string, string) (recordrepo.EditTagsResult, *myerr.MyError)
+	detachTag    func(context.Context, string, string) (recordrepo.EditTagsResult, *myerr.MyError)
 }
 
 func (f *fakeTagsService) RenameAcrossRecords(ctx context.Context, from, to string) (int, *myerr.MyError) {
@@ -166,4 +184,18 @@ func (f *fakeTagsService) RenameAcrossRecords(ctx context.Context, from, to stri
 		panic("RenameAcrossRecords not injected")
 	}
 	return f.renameAcross(ctx, from, to)
+}
+
+func (f *fakeTagsService) AttachTag(ctx context.Context, id, tag string) (recordrepo.EditTagsResult, *myerr.MyError) {
+	if f.attachTag == nil {
+		panic("AttachTag not injected")
+	}
+	return f.attachTag(ctx, id, tag)
+}
+
+func (f *fakeTagsService) DetachTag(ctx context.Context, id, tag string) (recordrepo.EditTagsResult, *myerr.MyError) {
+	if f.detachTag == nil {
+		panic("DetachTag not injected")
+	}
+	return f.detachTag(ctx, id, tag)
 }

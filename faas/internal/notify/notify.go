@@ -217,3 +217,8 @@ func (n *Notifier) NotifyNumberBatchInserted(rows []record.Record) {
 	}
 	n.NotifyUser(telegram.FormatNumberBatchMessage(rows))
 }
+
+// NotifyTagsEdited best-effort：仅 changed:true 时由 handler 触发（幂等无变化不通知）。
+func (n *Notifier) NotifyTagsEdited(action, id, tag string, from, to []string) {
+	n.NotifyUser(telegram.FormatTagsEditedMessage(action, id, tag, from, to))
+}

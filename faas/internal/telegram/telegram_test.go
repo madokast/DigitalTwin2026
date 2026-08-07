@@ -167,3 +167,20 @@ func TestSendMessageTransportErrorFixedMessage(t *testing.T) {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestFormatTagsEditedMessage(t *testing.T) {
+	got := FormatTagsEditedMessage("add", "id-1", "workout:arm", []string{"exercise"}, []string{"exercise", "workout:arm"})
+	want := strings.Join([]string{
+		"Tags updated",
+		"id: id-1",
+		"action: add",
+		"tag: workout:arm",
+		"tags: from [exercise] to [exercise, workout:arm]",
+	}, "\n")
+	if got != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+	if got := FormatTagsEditedMessage("remove", "id-2", "t", []string{}, []string{}); !strings.Contains(got, "tags: from [] to []") {
+		t.Fatalf("empty lists: %s", got)
+	}
+}

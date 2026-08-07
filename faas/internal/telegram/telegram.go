@@ -244,3 +244,15 @@ func transactionTypeFromTags(tagList []string) string {
 
 // Default 进程级默认 Sender（生产路径）。
 var Default = &Sender{}
+
+// FormatTagsEditedMessage 补/删 tag 通知（仅 changed:true 时触发；格式定案见
+// docs/20260805-tags-add.md §通知：id / action / tag / from→to 完整列表）。
+func FormatTagsEditedMessage(action, id, tag string, from, to []string) string {
+	return strings.Join([]string{
+		"Tags updated",
+		"id: " + id,
+		"action: " + action,
+		"tag: " + tag,
+		"tags: from [" + formatTags(from) + "] to [" + formatTags(to) + "]",
+	}, "\n")
+}

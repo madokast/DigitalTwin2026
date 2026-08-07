@@ -12,6 +12,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/logapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/query"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
+	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 )
 
@@ -22,6 +23,7 @@ func (n *noopNotifier) NotifyUser(string)                              {}
 func (n *noopNotifier) NotifyRecordInserted(record.Record)             {}
 func (n *noopNotifier) NotifyNumberBatchInserted([]record.Record)      {}
 func (n *noopNotifier) NotifyTransactionBatchInserted([]record.Record) {}
+func (n *noopNotifier) NotifyTagsEdited(string, string, string, []string, []string) {}
 
 // newRealServer 集成测装配（真实业务 Service + noop Notifier）。
 func newRealServer(pool *pgxpool.Pool) *httpx.Server {
@@ -73,3 +75,7 @@ func (n *spyNotifier) waitTexts(count int) []string {
 func (n *spyNotifier) NotifyRecordInserted(record.Record)             {}
 func (n *spyNotifier) NotifyNumberBatchInserted([]record.Record)      {}
 func (n *spyNotifier) NotifyTransactionBatchInserted([]record.Record) {}
+
+func (n *spyNotifier) NotifyTagsEdited(action, id, tag string, from, to []string) {
+	n.NotifyUser(telegram.FormatTagsEditedMessage(action, id, tag, from, to))
+}

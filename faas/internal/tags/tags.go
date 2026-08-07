@@ -48,6 +48,14 @@ func IsReservedTag(tag string) bool {
 	return false
 }
 
+// InvalidTagMessage 单个 tag 非法文案（与 ValidateTags 数组版同文案；tags-add handler 用）。
+func InvalidTagMessage(tag string) string {
+	return fmt.Sprintf(
+		`invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number`,
+		tag,
+	)
+}
+
 // ReservedTagError 英文错误：指明保留 tag 应走专用记录 API（不指向具体端点）。
 func ReservedTagError(tag string) string {
 	return fmt.Sprintf(`tag "%s" is reserved; %s`, tag, reservedTagHint)
@@ -70,13 +78,7 @@ func AssertNoReservedTags(tagList []string) ValidationResult {
 func ValidateTags(tags []string) ValidationResult {
 	for _, tag := range tags {
 		if !IsValidTag(tag) {
-			return ValidationResult{
-				Valid: false,
-				Error: fmt.Sprintf(
-					`invalid tag: "%s". Tags must contain only letters, numbers, underscores, and cannot start with a number`,
-					tag,
-				),
-			}
+			return ValidationResult{Valid: false, Error: InvalidTagMessage(tag)}
 		}
 	}
 	return ValidationResult{Valid: true}

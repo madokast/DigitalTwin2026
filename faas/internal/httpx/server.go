@@ -26,6 +26,7 @@ import (
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/faas/internal/query"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
+	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/reviewdraft"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
@@ -70,6 +71,8 @@ type QueryService interface {
 
 type TagsService interface {
 	RenameAcrossRecords(ctx context.Context, from, to string) (int, *myerr.MyError)
+	AttachTag(ctx context.Context, id, tag string) (recordrepo.EditTagsResult, *myerr.MyError)
+	DetachTag(ctx context.Context, id, tag string) (recordrepo.EditTagsResult, *myerr.MyError)
 }
 
 // Notifier 通知边界（handler 行为；notify.Notifier 实现）。
@@ -78,6 +81,7 @@ type Notifier interface {
 	NotifyRecordInserted(rec record.Record)
 	NotifyNumberBatchInserted(recs []record.Record)
 	NotifyTransactionBatchInserted(rows []record.Record)
+	NotifyTagsEdited(action, id, tag string, from, to []string)
 }
 
 // Server 装配：构造必填接口注入（无 nil 回落；测试注入 fake struct）。
@@ -119,6 +123,8 @@ func (s *Server) Handler() http.Handler {
 	rt.HandleFunc(http.MethodPost, "/api/log/text", s.handleLogText)
 	rt.HandleFunc(http.MethodPost, "/api/log/review", s.handleLogReview)
 	rt.HandleFunc(http.MethodPost, "/api/log/transactions", s.handleLogTransactions)
+	rt.HandleFunc(http.MethodPost, "/api/log/tags/add", s.handleLogTagsAdd)
+	rt.HandleFunc(http.MethodPost, "/api/log/tags/remove", s.handleLogTagsRemove)
 	rt.HandleFunc(http.MethodPost, "/api/telegram/probe", s.handleTelegramProbe)
 	rt.HandleFunc(http.MethodPost, "/api/qqbot/probe", s.handleQqbotProbe)
 	rt.HandleFunc(http.MethodPost, "/api/db/probe", s.handleDbProbe)
@@ -383,6 +389,69 @@ func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
 		Sum:      sum,
 		Atomic:   true,
 	})
+}
+
+// handleLogTagsAdd 补单个普通 tag（handler 边界行为：校验零 DB → UoW → 通知）。
+func (s *Server) handleLogTagsAdd(w http.ResponseWriter, r *http.Request) {
+	s.handleLogTagsEdit(w, r, "add", func(ctx context.Context, id, tag string) (recordrepo.EditTagsResult, *myerr.MyError) {
+		return s.TagsSvc.AttachTag(ctx, id, tag)
+	})
+}
+
+// handleLogTagsRemove 删单个普通 tag。
+func (s *Server) handleLogTagsRemove(w http.ResponseWriter, r *http.Request) {
+	s.handleLogTagsEdit(w, r, "remove", func(ctx context.Context, id, tag string) (recordrepo.EditTagsResult, *myerr.MyError) {
+		return s.TagsSvc.DetachTag(ctx, id, tag)
+	})
+}
+
+// handleLogTagsEdit 共用：校验顺序（tags-add.md §校验顺序）未知键 → id 格式 → tag 合法
+// → 保留前缀（全部零 DB）→ 业务层 UoW（404/409 语义在 Repository）→ changed:true 才通知。
+func (s *Server) handleLogTagsEdit(w http.ResponseWriter, r *http.Request, action string, op func(context.Context, string, string) (recordrepo.EditTagsResult, *myerr.MyError)) {
+	raw, ok := readBodyOrError(w, r)
+	if !ok {
+		return
+	}
+	if me := jsonutil.RejectUnknownObjectKeys(raw, []string{"id", "tag"}); me != nil {
+		writeErr(w, me, "tags edit")
+		return
+	}
+	var body struct {
+		ID  string `json:"id"`
+		Tag string `json:"tag"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	id := strings.TrimSpace(body.ID)
+	tag := strings.TrimSpace(body.Tag)
+	if !record.IsValidID(id) {
+		writeError(w, http.StatusBadRequest, record.ErrInvalidID)
+		return
+	}
+	if !tags.IsValidTag(tag) {
+		writeError(w, http.StatusBadRequest, tags.InvalidTagMessage(tag))
+		return
+	}
+	if vr := tags.AssertNoReservedTags([]string{tag}); !vr.Valid {
+		writeError(w, http.StatusBadRequest, vr.Error)
+		return
+	}
+	result, me := op(r.Context(), id, tag)
+	if me != nil {
+		writeErr(w, me, "tags edit")
+		return
+	}
+	writeJSON(w, http.StatusOK, TagsEditSuccess{
+		Success: true,
+		ID:      id,
+		Changed: result.Changed,
+		Tags:    TagsDiff{From: result.From, To: result.To},
+	})
+	if result.Changed {
+		s.notify(func() { s.Notifier.NotifyTagsEdited(action, id, tag, result.From, result.To) })
+	}
 }
 
 func (s *Server) handleTelegramProbe(w http.ResponseWriter, r *http.Request) {
