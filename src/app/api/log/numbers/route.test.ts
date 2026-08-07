@@ -7,7 +7,9 @@ const scheduleBestEffortNotify = vi.fn()
 const notifyNumberBatchInserted = vi.fn()
 
 vi.mock('@/lib/logapi', () => ({
-  createNumberBatch: (...args: unknown[]) => createNumberBatch(...args),
+  logService: {
+    createNumberBatch: (...args: unknown[]) => createNumberBatch(...args),
+  },
 }))
 
 vi.mock('@/lib/notify', () => ({

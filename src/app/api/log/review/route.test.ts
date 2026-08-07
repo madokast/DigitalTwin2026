@@ -7,7 +7,9 @@ const scheduleBestEffortNotify = vi.fn()
 const notifyRecordInserted = vi.fn()
 
 vi.mock('@/lib/logapi', () => ({
-  createReview: (...args: unknown[]) => createReview(...args),
+  logService: {
+    createReview: (...args: unknown[]) => createReview(...args),
+  },
 }))
 
 vi.mock('@/lib/notify', () => ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createText } from '@/lib/logapi'
+import { logService } from '@/lib/logapi'
 import { reservedTagError } from '@/lib/tags'
 
 /** 决策 D：业务函数失败 throw MyError（status + message）。 */
@@ -15,7 +15,7 @@ describe('createText', () => {
   it('rejects whitespace-only raw_content', async () => {
     for (const raw of ['', '   ', '\t']) {
       await rejects(
-        createText({
+        logService.createText({
           happened_at: '2026-07-30T10:00:00Z',
           raw_content: raw,
           tags: ['study'],
@@ -29,7 +29,7 @@ describe('createText', () => {
 
   it('rejects happened_at without timezone', async () => {
     await rejects(
-      createText({
+      logService.createText({
         happened_at: '2026-07-30T10:00:00',
         raw_content: 'hello',
         tags: ['study'],
@@ -42,7 +42,7 @@ describe('createText', () => {
 
   it('rejects reserved tag', async () => {
     await rejects(
-      createText({
+      logService.createText({
         happened_at: '2026-08-01T12:30:00+08:00',
         raw_content: 'should fail',
         tags: ['transaction_entry'],
@@ -55,7 +55,7 @@ describe('createText', () => {
 
   it('rejects duplicate tags', async () => {
     await rejects(
-      createText({
+      logService.createText({
         happened_at: '2026-08-01T12:30:00+08:00',
         raw_content: 'dup',
         tags: ['study', 'study'],
@@ -68,7 +68,7 @@ describe('createText', () => {
 
   it('rejects todo reserved tag', async () => {
     await rejects(
-      createText({
+      logService.createText({
         happened_at: '2026-08-01T12:30:00+08:00',
         raw_content: 'should fail',
         tags: ['todo:in_progress'],
@@ -81,7 +81,7 @@ describe('createText', () => {
 
   it('rejects non-string ai_analysis', async () => {
     await rejects(
-      createText({
+      logService.createText({
         happened_at: '2026-08-01T12:30:00+08:00',
         raw_content: 'hello',
         tags: ['study'],
@@ -95,7 +95,7 @@ describe('createText', () => {
 
   it('rejects non-string raw_content', async () => {
     await rejects(
-      createText({
+      logService.createText({
         happened_at: '2026-07-30T08:00:00Z',
         raw_content: 123,
         tags: ['study'],

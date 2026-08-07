@@ -7,7 +7,9 @@ const scheduleBestEffortNotify = vi.fn()
 const notify_user = vi.fn()
 
 vi.mock('@/lib/logapi', () => ({
-  transitionTodo: (...args: unknown[]) => transitionTodo(...args),
+  logService: {
+    transitionTodo: (...args: unknown[]) => transitionTodo(...args),
+  },
 }))
 
 vi.mock('@/lib/notify', () => ({

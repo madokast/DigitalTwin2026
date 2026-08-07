@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { errorResponse, routeError } from '@/lib/httperror'
 import { readJsonBody } from '@/lib/httpjson'
-import { createTransactionBatch } from '@/lib/logapi'
+import { logService } from '@/lib/logapi'
 import { parseTransactionBatch } from '@/lib/transactiondraft'
 import {
   notifyTransactionBatchInserted,
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return errorResponse(batch.error, 400)
     }
 
-    const result = await createTransactionBatch(batch)
+    const result = await logService.createTransactionBatch(batch)
     
     scheduleBestEffortNotify(() =>
       notifyTransactionBatchInserted(result.records),
