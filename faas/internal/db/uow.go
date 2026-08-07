@@ -67,6 +67,11 @@ func NewUoW(pool *pgxpool.Pool) *UoW {
 	return &UoW{pool: NewPoolTxBeginner(pool)}
 }
 
+// NewUoWTxBeginner 以任意 TxBeginner 构造 UoW（测试注入 fake 事务源）。
+func NewUoWTxBeginner(b TxBeginner) *UoW {
+	return &UoW{pool: b}
+}
+
 // WithTx 闭包式事务（函数形态，接受任意 TxBeginner——测试可注入 fake）：
 // fn 返回 nil → Commit；返回 *MyError → Rollback 并透传。fn 收到的 q 满足 Executor。
 // 第三方驱动错误（Begin/Commit）在此统一包装为 myerr.NewInternal（决策 D）。

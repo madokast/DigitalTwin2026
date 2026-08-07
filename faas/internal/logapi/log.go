@@ -1,16 +1,10 @@
 package logapi
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mdk/digitaltwin2026/faas/internal/draft"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
-	"github.com/mdk/digitaltwin2026/faas/internal/record"
-	"github.com/mdk/digitaltwin2026/faas/internal/recordrepo"
 	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 )
 
@@ -77,53 +71,3 @@ func optionalTagList(raw any) ([]string, *myerr.MyError) {
 }
 
 // CreateText 与 Next createText 对齐：校验 + INSERT。收 typed 请求体（route 层已
-// reject unknown keys + decode）；业务层只做字段校验与落库。
-func CreateText(ctx context.Context, pool *pgxpool.Pool, body TextBody) (record.Record, *myerr.MyError) {
-	happenedRaw := happenedAtString(body.HappenedAt)
-	if me := draft.ValidateHappenedAt(happenedRaw); me != nil {
-		return record.Record{}, me
-	}
-	rawContent, me := draft.RequireTrimmedText(body.RawContent, "raw_content")
-	if me != nil {
-		return record.Record{}, me
-	}
-	tagList, me := optionalTagList(body.Tags)
-	if me != nil {
-		return record.Record{}, me
-	}
-	tv := tags.ValidateTags(tagList)
-	if !tv.Valid {
-		return record.Record{}, myerr.NewValidation(tv.Error)
-	}
-	if rv := tags.AssertNoReservedTags(tagList); !rv.Valid {
-		return record.Record{}, myerr.NewValidation(rv.Error)
-	}
-	objCtx, me := draft.RequireTrimmedText(body.ObjectiveContext, "objective_context")
-	if me != nil {
-		return record.Record{}, me
-	}
-	subj, me := draft.OptionalTrimmedNullable(body.AiAnalysis, "ai_analysis")
-	if me != nil {
-		return record.Record{}, me
-	}
-
-	id, err := uuid.NewV7()
-	if err != nil {
-		return record.Record{}, myerr.NewInternal(err)
-	}
-
-	// 单条 INSERT：无事务（pool 当 Executor）；返回规范化领域 Record，业务层唯一使用。
-	rec, me := recordrepo.Repo.Save(ctx, pool, record.Record{
-		ID:               id.String(),
-		HappenedAt:       happenedRaw,
-		NumericValue:     nil,
-		RawContent:       &rawContent,
-		Tags:             tagList,
-		ObjectiveContext: objCtx,
-		AiAnalysis:       subj,
-	})
-	if me != nil {
-		return record.Record{}, me
-	}
-	return rec, nil
-}

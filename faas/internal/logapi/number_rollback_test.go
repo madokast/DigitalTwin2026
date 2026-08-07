@@ -98,7 +98,7 @@ func TestCreateNumberBatchRollsBackOnInsertFailure(t *testing.T) {
 	fx := &fakeNumberTx{failOn: 2}
 	q := &fakeNumberBeginner{tx: fx}
 
-	inserted, recs, err := createNumberBatch(context.Background(), q, numberBatchParsed)
+	inserted, recs, err := (&Service{db: q, uow: db.NewUoWTxBeginner(q)}).CreateNumberBatch(context.Background(), numberBatchParsed)
 	assertMyStatus(t, err, 500)
 	if err == nil || !strings.Contains(err.Message, "injected insert failure") {
 		t.Fatalf("err=%v", err)
@@ -121,7 +121,7 @@ func TestCreateNumberBatchSuccessCommits(t *testing.T) {
 	fx := &fakeNumberTx{}
 	q := &fakeNumberBeginner{tx: fx}
 
-	inserted, recs, err := createNumberBatch(context.Background(), q, numberBatchParsed)
+	inserted, recs, err := (&Service{db: q, uow: db.NewUoWTxBeginner(q)}).CreateNumberBatch(context.Background(), numberBatchParsed)
 	if err != nil {
 		t.Fatalf("err=%v", err)
 	}

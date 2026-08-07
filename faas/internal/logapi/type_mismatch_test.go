@@ -17,7 +17,7 @@ func TestCreateTextTypeMismatchMessages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = CreateText(context.Background(), nil, body)
+	_, err = (&Service{}).CreateText(context.Background(), body)
 	assertMyStatus(t, err, 400)
 	if err.Message != "missing required field: raw_content" {
 		t.Fatalf("err=%v", err)
@@ -94,7 +94,7 @@ func TestTransitionTodoRejectsValidation(t *testing.T) {
 			if perr != nil {
 				t.Fatalf("%s: parse: %v", c.raw, perr)
 			}
-			_, me = TransitionTodo(context.Background(), nil, parsed)
+			_, me = (&Service{}).TransitionTodo(context.Background(), parsed)
 			assertMyStatus(t, me, 400)
 		} else {
 			// route 层 draft 解析错误（myerr 400），直接断言文案

@@ -10,9 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
-	"github.com/mdk/digitaltwin2026/faas/internal/httpx"
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
 )
@@ -44,12 +42,10 @@ SELECT EXISTS (
 	})
 
 	var notified []string
-	srv := httpx.NewServer(pool, auth.Tokens{AI: "ai-tok", Admin: "admin-tok"})
+	srv := newRealServer(pool)
 	srv.Telegram = &telegram.Sender{Getenv: func(string) string { return "" }}
 	srv.Qqbot = &qqbot.Sender{Getenv: func(string) string { return "" }}
-	srv.NotifyUser = func(text string) {
-		notified = append(notified, text)
-	}
+	srv.Notifier = &spyNotifier{texts: &notified}
 	h := srv.Handler()
 
 	// from 不存在 → 404，不 Notify
@@ -127,8 +123,9 @@ SELECT EXISTS (
 	if len(lines) != 2 {
 		t.Fatalf("want 2 lines got %d body %q", len(lines), qr.Body.String())
 	}
-	if len(notified) != 1 || !strings.Contains(notified[0], "Exported 2 records") {
-		t.Fatalf("notify %v", notified)
+	gotNotify := srv.Notifier.(*spyNotifier).waitTexts(1)
+	if len(gotNotify) != 1 || !strings.Contains(gotNotify[0], "Exported 2 records") {
+		t.Fatalf("notify %v", gotNotify)
 	}
 
 	var first, second map[string]any
@@ -169,7 +166,8 @@ SELECT EXISTS (
 	if _, ok := overlap["created_at"]; ok {
 		t.Fatal("unexpected created_at deform")
 	}
-	if len(notified) != 1 {
-		t.Fatalf("page2 notify %v", notified)
+	gotNotify2 := srv.Notifier.(*spyNotifier).waitTexts(1)
+	if len(gotNotify2) != 1 {
+		t.Fatalf("page2 notify %v", gotNotify2)
 	}
 }

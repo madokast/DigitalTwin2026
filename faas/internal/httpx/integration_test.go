@@ -9,9 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
-	"github.com/mdk/digitaltwin2026/faas/internal/httpx"
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
 )
@@ -38,16 +36,19 @@ SELECT EXISTS (
 		t.Skip("records table not found; run npm run db:migrate first")
 	}
 
-	srv := httpx.NewServer(pool, auth.Tokens{AI: "ai-tok", Admin: "admin-tok"})
+	srv := newRealServer(pool)
 	// 集成测不打扰真实通知渠道（SUPPRESS_BOT_NOTIFICATION=1 也会跳过；双保险）
 	srv.Telegram = &telegram.Sender{Getenv: func(string) string { return "" }}
 	srv.Qqbot = &qqbot.Sender{Getenv: func(string) string { return "" }}
 	h := srv.Handler()
 
 	marker := "go-fc-integration-" + time.Now().UTC().Format("150405.000")
+	// 自愈：历史失败运行可能残留固定 tag（go_small/go_fc_test）行
+	_, _ = pool.Exec(ctx, `DELETE FROM records WHERE tags LIKE '%go_small%' OR tags LIKE '%go_fc_test%'`)
 	// 须在断言之前注册：t.Fatalf 会跳过函数末尾 cleanup，残留测试行
 	t.Cleanup(func() {
 		_, _ = pool.Exec(ctx, `DELETE FROM records WHERE objective_context = $1`, marker)
+		_, _ = pool.Exec(ctx, `DELETE FROM records WHERE tags LIKE '%go_small%' OR tags LIKE '%go_fc_test%'`)
 	})
 
 	body := `{

@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/exportapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/record"
@@ -54,9 +53,7 @@ func TestExportRecordsNotifyOnEmptySuccess(t *testing.T) {
 	// 无 DB：用校验失败路径确认失败不 Notify；成功路径见集成测。
 	var notified []string
 	srv := testServer()
-	srv.NotifyUser = func(text string) {
-		notified = append(notified, text)
-	}
+	srv.Notifier = &fakeNotifier{texts: []string{}}
 	h := srv.Handler()
 	req := httptest.NewRequest(http.MethodGet, "/api/export/records?limit=0", nil)
 	req.Header.Set("Authorization", "Bearer ai-tok")
@@ -73,12 +70,12 @@ func TestExportRecordsNotifyOnEmptySuccess(t *testing.T) {
 func TestExportRecordsNoNotifyWhenWriteFails(t *testing.T) {
 	var notified []string
 	srv := testServer()
-	srv.FetchExportRecords = func(_ context.Context, _ *pgxpool.Pool, _ *exportapi.ParsedExport) ([]record.Record, *myerr.MyError) {
-		return []record.Record{}, nil
+	srv.ExportSvc = &fakeExportService{
+		fetchExport: func(_ context.Context, _ *exportapi.ParsedExport) ([]record.Record, *myerr.MyError) {
+			return []record.Record{}, nil
+		},
 	}
-	srv.NotifyUser = func(text string) {
-		notified = append(notified, text)
-	}
+	srv.Notifier = &fakeNotifier{texts: []string{}}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/export/records?limit=1", nil)
 	req.Header.Set("Authorization", "Bearer ai-tok")

@@ -215,7 +215,7 @@ func TestTransitionTodo_fourDomainErrors(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			_, err := transitionTodo(context.Background(), c.db, todoParsed)
+			_, err := (&Service{db: c.db, uow: db.NewUoWTxBeginner(c.db)}).TransitionTodo(context.Background(), todoParsed)
 			assertMyStatus(t, err, c.status)
 			if err == nil || err.Message != c.want {
 				t.Fatalf("err=%v want %q", err, c.want)
@@ -234,7 +234,7 @@ func TestTransitionTodo_updateAffectedNotOne(t *testing.T) {
 		selectRow: sampleTodoSelect(`["todo:in_progress"]`, "Buy milk"),
 		tx:        &fakeTx{rowsAff: 2},
 	}
-	_, err := transitionTodo(context.Background(), fdb, todoParsed)
+	_, err := (&Service{db: fdb, uow: db.NewUoWTxBeginner(fdb)}).TransitionTodo(context.Background(), todoParsed)
 	assertMyStatus(t, err, 500)
 	if err == nil || !strings.Contains(err.Message, "todo update affected 2 rows") {
 		t.Fatalf("err=%v", err)
@@ -269,7 +269,7 @@ func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 			`["todo:transition"]`,
 		}},
 	}
-	db := &fakeTransitionDB{
+	fakeDB := &fakeTransitionDB{
 		selectRow: &fakeRow{vals: []any{
 			todoID,
 			happened,
@@ -283,7 +283,7 @@ func TestTransitionTodo_successShapeAndAuditText(t *testing.T) {
 		tx: tx,
 	}
 
-	result, err := transitionTodo(context.Background(), db, todoParsed)
+	result, err := (&Service{db: fakeDB, uow: db.NewUoWTxBeginner(fakeDB)}).TransitionTodo(context.Background(), todoParsed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,12 +311,12 @@ func TestTransitionTodo_updateOkInsertFailRollsBack(t *testing.T) {
 	tx := &fakeTx{
 		insertRow: &fakeRow{err: insertBoom},
 	}
-	db := &fakeTransitionDB{
+	fakeDB := &fakeTransitionDB{
 		selectRow: sampleTodoSelect(`["todo:in_progress","errand"]`, "Buy milk"),
 		tx:        tx,
 	}
 
-	_, err := transitionTodo(context.Background(), db, todoParsed)
+	_, err := (&Service{db: fakeDB, uow: db.NewUoWTxBeginner(fakeDB)}).TransitionTodo(context.Background(), todoParsed)
 	assertMyStatus(t, err, 500)
 	if err == nil || !strings.Contains(err.Message, "audit insert failed") {
 		t.Fatalf("err=%v want audit insert failure", err)

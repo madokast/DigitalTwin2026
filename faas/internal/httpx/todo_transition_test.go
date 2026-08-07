@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/logapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
@@ -20,10 +19,10 @@ func TestLogTodoTransitionSuccessBodyAndNotify(t *testing.T) {
 		todoID     = "01900000-0000-7000-8000-000000000003"
 		notifyText = "Complete a to-do 01900000-0000-7000-8000-000000000003 created at 2026-08-02T02:00:00.000Z: Buy milk"
 	)
-	var notified []string
-	s := &Server{
-		Tokens: auth.Tokens{AI: "ai-tok", Admin: "admin-tok"},
-		TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ tododraft.NormalizedTodoTransition) (logapi.TransitionResult, *myerr.MyError) {
+	notifier := &fakeNotifier{}
+	s := testServer()
+	s.LogSvc = &fakeLogService{
+		transitionTodo: func(_ context.Context, _ tododraft.NormalizedTodoTransition) (logapi.TransitionResult, *myerr.MyError) {
 			return logapi.TransitionResult{
 				ID:                  todoID,
 				From:                tododraft.TodoStateInProgress,
@@ -31,10 +30,8 @@ func TestLogTodoTransitionSuccessBodyAndNotify(t *testing.T) {
 				TodoAuditNotifyText: notifyText,
 			}, nil
 		},
-		NotifyUser: func(text string) {
-			notified = append(notified, text)
-		},
 	}
+	s.Notifier = notifier
 	h := s.Handler()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/log/todo/transition", strings.NewReader(`{
@@ -67,8 +64,9 @@ func TestLogTodoTransitionSuccessBodyAndNotify(t *testing.T) {
 	if _, has := body["audit_record"]; has {
 		t.Fatal("must not include audit_record")
 	}
-	if len(notified) != 1 || notified[0] != notifyText {
-		t.Fatalf("notified=%v want [%q]", notified, notifyText)
+	got := notifier.waitTexts(1)
+	if len(got) != 1 || got[0] != notifyText {
+		t.Fatalf("notified=%v want [%q]", got, notifyText)
 	}
 }
 
@@ -111,9 +109,9 @@ func TestLogTodoTransitionDomainErrorsWithoutDB(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			wantStatus := c.status
 			wantErr := c.err
-			s := &Server{
-				Tokens: auth.Tokens{AI: "ai-tok", Admin: "admin-tok"},
-				TransitionTodo: func(_ context.Context, _ *pgxpool.Pool, _ tododraft.NormalizedTodoTransition) (logapi.TransitionResult, *myerr.MyError) {
+			s := testServer()
+			s.LogSvc = &fakeLogService{
+				transitionTodo: func(_ context.Context, _ tododraft.NormalizedTodoTransition) (logapi.TransitionResult, *myerr.MyError) {
 					if wantStatus == 404 {
 						return logapi.TransitionResult{}, myerr.NewNotFound(wantErr)
 					}

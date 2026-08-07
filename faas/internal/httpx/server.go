@@ -16,14 +16,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/bodyweightdraft"
-	"github.com/mdk/digitaltwin2026/faas/internal/db"
 	"github.com/mdk/digitaltwin2026/faas/internal/dbprobe"
 	"github.com/mdk/digitaltwin2026/faas/internal/exportapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/importapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/jsonutil"
 	"github.com/mdk/digitaltwin2026/faas/internal/logapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
-	"github.com/mdk/digitaltwin2026/faas/internal/notify"
 	"github.com/mdk/digitaltwin2026/faas/internal/numberdraft"
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/faas/internal/query"
@@ -44,29 +42,71 @@ var ErrBodyTooLarge = errors.New("request body too large")
 
 const BodyTooLargeMessage = "request body too large"
 
-type Server struct {
-	Pool     *pgxpool.Pool
-	Tokens   auth.Tokens
-	Now      func() time.Time
-	Telegram *telegram.Sender
-	Qqbot    *qqbot.Sender
-	Notify   *notify.Notifier
-	// TransitionTodo 可选；nil → logapi.TransitionTodo（单测注入成功/域错误结果，无需真实数据库）。
-	TransitionTodo func(ctx context.Context, pool *pgxpool.Pool, parsed tododraft.NormalizedTodoTransition) (logapi.TransitionResult, *myerr.MyError)
-	// NotifyUser 可选；非 nil 时同步调用（单测 spy）；nil → go notify().NotifyUser（生产路径）。
-	NotifyUser func(text string)
-	// FetchExportRecords 可选；nil → exportapi.FetchExportRecords（单测注入空页，无需真实数据库）。
-	FetchExportRecords func(ctx context.Context, pool *pgxpool.Pool, p *exportapi.ParsedExport) ([]record.Record, *myerr.MyError)
+// 各业务接口（消费方定义，业务包实现——§10b 步骤 4：构造必填、无 nil 约定）。
+type LogService interface {
+	CreateText(ctx context.Context, body logapi.TextBody) (record.Record, *myerr.MyError)
+	CreateTodo(ctx context.Context, parsed tododraft.NormalizedTodo) (record.Record, *myerr.MyError)
+	CreateBodyWeight(ctx context.Context, parsed bodyweightdraft.NormalizedBodyWeight) (record.Record, *myerr.MyError)
+	CreateReview(ctx context.Context, parsed reviewdraft.NormalizedReview) (record.Record, *myerr.MyError)
+	CreateNumberBatch(ctx context.Context, batch numberdraft.NormalizedNumberBatch) (int, []record.Record, *myerr.MyError)
+	CreateTransactionBatch(ctx context.Context, batch transactiondraft.NormalizedTransactionBatch) (int, string, string, []record.Record, *myerr.MyError)
+	TransitionTodo(ctx context.Context, parsed tododraft.NormalizedTodoTransition) (logapi.TransitionResult, *myerr.MyError)
 }
 
-func NewServer(pool *pgxpool.Pool, tokens auth.Tokens) *Server {
+type ImportService interface {
+	ImportRecordsJSONL(ctx context.Context, r io.Reader) (record.ImportCounts, *myerr.MyError)
+}
+
+type ExportService interface {
+	FetchExportRecords(ctx context.Context, p *exportapi.ParsedExport) ([]record.Record, *myerr.MyError)
+}
+
+type QueryService interface {
+	FetchFilteredRecords(ctx context.Context, p *query.ParsedQuery) (*query.FetchResult, *myerr.MyError)
+	FetchSummary(ctx context.Context, tz string, now time.Time) (*query.SummaryResult, *myerr.MyError)
+	FetchTagCounts(ctx context.Context, prefix string) ([]tags.TagCount, *myerr.MyError)
+	FetchTransactionsSummary(ctx context.Context, from, to time.Time, fromRaw, toRaw string) (*query.TransactionsSummaryResult, *myerr.MyError)
+}
+
+type TagsService interface {
+	RenameAcrossRecords(ctx context.Context, from, to string) (int, *myerr.MyError)
+}
+
+// Notifier 通知边界（handler 行为；notify.Notifier 实现）。
+type Notifier interface {
+	NotifyUser(text string)
+	NotifyRecordInserted(rec record.Record)
+	NotifyNumberBatchInserted(recs []record.Record)
+	NotifyTransactionBatchInserted(rows []record.Record)
+}
+
+// Server 装配：构造必填接口注入（无 nil 回落；测试注入 fake struct）。
+type Server struct {
+	Pool      *pgxpool.Pool // dbprobe 专用（基础设施健康检查，不进 Service）
+	Tokens    auth.Tokens
+	Now       func() time.Time
+	LogSvc    LogService
+	ImportSvc ImportService
+	ExportSvc ExportService
+	QuerySvc  QueryService
+	TagsSvc   TagsService
+	Notifier  Notifier
+	Telegram  *telegram.Sender
+	Qqbot     *qqbot.Sender
+}
+
+// NewServer 构造（业务 Service 由调用方构造传入；pool 供 dbprobe）。
+func NewServer(pool *pgxpool.Pool, tokens auth.Tokens, logSvc LogService, importSvc ImportService, exportSvc ExportService, querySvc QueryService, tagsSvc TagsService, notifier Notifier) *Server {
 	return &Server{
-		Pool:     pool,
-		Tokens:   tokens,
-		Now:      time.Now,
-		Telegram: telegram.Default,
-		Qqbot:    qqbot.Default,
-		Notify:   notify.Default,
+		Pool:      pool,
+		Tokens:    tokens,
+		Now:       time.Now,
+		LogSvc:    logSvc,
+		ImportSvc: importSvc,
+		ExportSvc: exportSvc,
+		QuerySvc:  querySvc,
+		TagsSvc:   tagsSvc,
+		Notifier:  notifier,
 	}
 }
 
@@ -205,7 +245,7 @@ func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "Error creating number records")
 		return
 	}
-	inserted, recs, me := logapi.CreateNumberBatch(r.Context(), s.Pool, batch)
+	inserted, recs, me := s.LogSvc.CreateNumberBatch(r.Context(), batch)
 	if me != nil {
 		writeErr(w, me, "Error creating number records")
 		return
@@ -213,7 +253,7 @@ func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 	// INSERT 成功后异步 best-effort notify（整批一条摘要），不阻塞写响应。
 	// 刻意允许的双端差异（docs/20260801-api-layering.md §1.1 / §7）：
 	// Go 用 go 协程；Next 用 after()。语义同为成功后不阻塞的扇出。
-	go s.notify().NotifyNumberBatchInserted(recs)
+	go s.Notifier.NotifyNumberBatchInserted(recs)
 	writeJSON(w, http.StatusCreated, NumberBatchSuccess{Success: true, Inserted: inserted, Atomic: true})
 }
 
@@ -227,12 +267,12 @@ func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "Error creating body weight record")
 		return
 	}
-	rec, me := logapi.CreateBodyWeight(r.Context(), s.Pool, parsed)
+	rec, me := s.LogSvc.CreateBodyWeight(r.Context(), parsed)
 	if me != nil {
 		writeErr(w, me, "Error creating body weight record")
 		return
 	}
-	go s.notify().NotifyRecordInserted(rec)
+	go s.Notifier.NotifyRecordInserted(rec)
 	writeJSON(w, http.StatusCreated, RecordSuccess{Success: true, Record: rec})
 }
 
@@ -246,12 +286,12 @@ func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "Error creating to-do record")
 		return
 	}
-	rec, me := logapi.CreateTodo(r.Context(), s.Pool, parsed)
+	rec, me := s.LogSvc.CreateTodo(r.Context(), parsed)
 	if me != nil {
 		writeErr(w, me, "Error creating to-do record")
 		return
 	}
-	go s.notify().NotifyRecordInserted(rec)
+	go s.Notifier.NotifyRecordInserted(rec)
 	writeJSON(w, http.StatusCreated, TodoRecordSuccess{Success: true, Record: tododraft.ToTodoRecordJSON(rec)})
 }
 
@@ -265,23 +305,13 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 		writeErr(w, me, "Error transitioning to-do")
 		return
 	}
-	var result logapi.TransitionResult
-	var me2 *myerr.MyError
-	if s.TransitionTodo != nil {
-		result, me2 = s.TransitionTodo(r.Context(), s.Pool, parsed)
-	} else {
-		result, me2 = logapi.TransitionTodo(r.Context(), s.Pool, parsed)
-	}
+	result, me2 := s.LogSvc.TransitionTodo(r.Context(), parsed)
 	if me2 != nil {
 		writeErr(w, me2, "Error transitioning to-do")
 		return
 	}
 	// D6：恰好一次 notify，正文 = objective_context 句 + ": " + 原文
-	if s.NotifyUser != nil {
-		s.NotifyUser(result.TodoAuditNotifyText)
-	} else {
-		go s.notify().NotifyUser(result.TodoAuditNotifyText)
-	}
+	go s.Notifier.NotifyUser(result.TodoAuditNotifyText)
 	writeJSON(w, http.StatusOK, TransitionSuccess{
 		Success: true,
 		ID:      result.ID,
@@ -302,12 +332,12 @@ func (s *Server) handleLogReview(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "Error creating review record")
 		return
 	}
-	rec, me := logapi.CreateReview(r.Context(), s.Pool, parsed)
+	rec, me := s.LogSvc.CreateReview(r.Context(), parsed)
 	if me != nil {
 		writeErr(w, me, "Error creating review record")
 		return
 	}
-	go s.notify().NotifyRecordInserted(rec)
+	go s.Notifier.NotifyRecordInserted(rec)
 	writeJSON(w, http.StatusCreated, RecordSuccess{Success: true, Record: rec})
 }
 
@@ -321,12 +351,12 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "Error creating text record")
 		return
 	}
-	rec, me := logapi.CreateText(r.Context(), s.Pool, body)
+	rec, me := s.LogSvc.CreateText(r.Context(), body)
 	if me != nil {
 		writeErr(w, me, "Error creating text record")
 		return
 	}
-	go s.notify().NotifyRecordInserted(rec)
+	go s.Notifier.NotifyRecordInserted(rec)
 	writeJSON(w, http.StatusCreated, RecordSuccess{Success: true, Record: rec})
 }
 
@@ -340,12 +370,12 @@ func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "Error creating transaction records")
 		return
 	}
-	inserted, batchType, sum, recs, me := logapi.CreateTransactionBatch(r.Context(), s.Pool, batch)
+	inserted, batchType, sum, recs, me := s.LogSvc.CreateTransactionBatch(r.Context(), batch)
 	if me != nil {
 		writeErr(w, me, "Error creating transaction records")
 		return
 	}
-	go s.notify().NotifyTransactionBatchInserted(recs)
+	go s.Notifier.NotifyTransactionBatchInserted(recs)
 	writeJSON(w, http.StatusCreated, TransactionBatchSuccess{
 		Success:  true,
 		Inserted: inserted,
@@ -448,23 +478,13 @@ func (s *Server) qqbot() *qqbot.Sender {
 	return qqbot.Default
 }
 
-func (s *Server) notify() *notify.Notifier {
-	if s.Notify != nil {
-		return s.Notify
-	}
-	return &notify.Notifier{
-		Telegram: s.telegram(),
-		Qqbot:    s.qqbot(),
-	}
-}
-
 func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 	parsed, me := query.ParseRecordQueryParams(r.URL.Query())
 	if me != nil {
 		writeErr(w, me, "query records")
 		return
 	}
-	result, me := query.FetchFilteredRecords(r.Context(), s.Pool, parsed)
+	result, me := s.QuerySvc.FetchFilteredRecords(r.Context(), parsed)
 	if me != nil {
 		writeErr(w, me, "query records")
 		return
@@ -483,7 +503,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 	tz := r.URL.Query().Get("tz")
-	result, err := query.FetchSummary(r.Context(), s.Pool, tz, s.Now())
+	result, err := s.QuerySvc.FetchSummary(r.Context(), tz, s.Now())
 	if err != nil {
 		writeErr(w, err, "query summary")
 		return
@@ -517,7 +537,7 @@ func (s *Server) handleTime(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
 	prefix := r.URL.Query().Get("prefix")
-	counts, err := query.FetchTagCounts(r.Context(), s.Pool, prefix)
+	counts, err := s.QuerySvc.FetchTagCounts(r.Context(), prefix)
 	if err != nil {
 		writeErr(w, err, "aggregate tags")
 		return
@@ -534,8 +554,8 @@ func (s *Server) handleTransactionsSummary(w http.ResponseWriter, r *http.Reques
 		writeErr(w, me, "query transaction summary")
 		return
 	}
-	result, err := query.FetchTransactionsSummary(
-		r.Context(), s.Pool, parsed.From, parsed.To, parsed.FromRaw, parsed.ToRaw,
+	result, err := s.QuerySvc.FetchTransactionsSummary(
+		r.Context(), parsed.From, parsed.To, parsed.FromRaw, parsed.ToRaw,
 	)
 	if err != nil {
 		writeErr(w, err, "query transaction summary")
@@ -575,7 +595,7 @@ func (s *Server) handleRenameTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := tags.RenameAcrossRecords(r.Context(), db.NewPoolTxBeginner(s.Pool), from, to)
+	updated, err := s.TagsSvc.RenameAcrossRecords(r.Context(), from, to)
 	if err != nil {
 		writeErr(w, err, "rename tags")
 		return
@@ -589,13 +609,7 @@ func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "export records")
 		return
 	}
-	var recs []record.Record
-	var me2 *myerr.MyError
-	if s.FetchExportRecords != nil {
-		recs, me2 = s.FetchExportRecords(r.Context(), s.Pool, parsed)
-	} else {
-		recs, me2 = exportapi.FetchExportRecords(r.Context(), s.Pool, parsed)
-	}
+	recs, me2 := s.ExportSvc.FetchExportRecords(r.Context(), parsed)
 	if me2 != nil {
 		writeErr(w, me2, "Error exporting records")
 		return
@@ -615,11 +629,7 @@ func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg := exportapi.FormatExportNotifyMessage(len(recs), parsed.From, parsed.Limit)
-	if s.NotifyUser != nil {
-		s.NotifyUser(msg)
-	} else {
-		go s.notify().NotifyUser(msg)
-	}
+	go s.Notifier.NotifyUser(msg)
 }
 
 // handleImportRecords：勿走 readBody（MaxBodyBytes）；MultipartReader 取 file part（≤4MiB）。
@@ -695,7 +705,7 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	counts, me := importapi.ImportRecordsJSONL(r.Context(), s.Pool, strings.NewReader(string(fileRaw)))
+	counts, me := s.ImportSvc.ImportRecordsJSONL(r.Context(), strings.NewReader(string(fileRaw)))
 	if me != nil {
 		writeErr(w, me, "import records")
 		return
@@ -717,9 +727,5 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg := importapi.FormatImportNotifyMessage(counts)
-	if s.NotifyUser != nil {
-		s.NotifyUser(msg)
-	} else {
-		go s.notify().NotifyUser(msg)
-	}
+	go s.Notifier.NotifyUser(msg)
 }

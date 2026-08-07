@@ -13,9 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
-	"github.com/mdk/digitaltwin2026/faas/internal/httpx"
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
 	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
 )
@@ -64,8 +62,11 @@ SELECT EXISTS (
 	}
 
 	marker := "go-import-" + time.Now().UTC().Format("150405.000")
+	// 自愈：历史失败运行可能残留固定 tag（go_rt）行——`?tag=go_rt` 取第一条依赖库干净
+	_, _ = pool.Exec(ctx, `DELETE FROM records WHERE tags LIKE '%go_rt%'`)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(ctx, `DELETE FROM records WHERE objective_context LIKE $1`, marker+"%")
+		_, _ = pool.Exec(ctx, `DELETE FROM records WHERE tags LIKE '%go_rt%'`)
 		_, _ = pool.Exec(ctx, `DELETE FROM records WHERE id = $1 OR id = $2`,
 			"01900000-0000-7000-8000-0000000000c1",
 			"01900000-0000-7000-8000-0000000000c2",
@@ -73,12 +74,10 @@ SELECT EXISTS (
 	})
 
 	var notified []string
-	srv := httpx.NewServer(pool, auth.Tokens{AI: "ai-tok", Admin: "admin-tok"})
+	srv := newRealServer(pool)
 	srv.Telegram = &telegram.Sender{Getenv: func(string) string { return "" }}
 	srv.Qqbot = &qqbot.Sender{Getenv: func(string) string { return "" }}
-	srv.NotifyUser = func(text string) {
-		notified = append(notified, text)
-	}
+	srv.Notifier = &spyNotifier{texts: &notified}
 	h := srv.Handler()
 
 	// empty → 0 + Notify
@@ -97,7 +96,8 @@ SELECT EXISTS (
 	if emptyOK["inserted"] != float64(0) || emptyOK["total"] != float64(0) {
 		t.Fatalf("empty body %v", emptyOK)
 	}
-	if len(notified) != 1 || !strings.Contains(notified[0], "Imported 0 records") {
+	gotNotify := srv.Notifier.(*spyNotifier).waitTexts(1)
+	if len(gotNotify) != 1 || !strings.Contains(gotNotify[0], "Imported 0 records") {
 		t.Fatalf("empty notify %v", notified)
 	}
 
@@ -142,8 +142,9 @@ SELECT EXISTS (
 	if resRR.Code != 200 {
 		t.Fatalf("reserved status %d body %s", resRR.Code, resRR.Body.String())
 	}
-	if len(notified) != 1 {
-		t.Fatalf("reserved notify %v", notified)
+	gotNotify1 := srv.Notifier.(*spyNotifier).waitTexts(1)
+	if len(gotNotify1) != 1 {
+		t.Fatalf("reserved notify %v", gotNotify1)
 	}
 
 	// round-trip: create via log → export → delete → import
@@ -206,14 +207,15 @@ SELECT EXISTS (
 	if impOK["inserted"] != float64(1) || impOK["total"] != float64(1) {
 		t.Fatalf("import body %v", impOK)
 	}
-	if len(notified) != 1 || !strings.Contains(notified[0], "Imported 1 records") {
-		t.Fatalf("import notify %v", notified)
+	gotNotify2 := srv.Notifier.(*spyNotifier).waitTexts(1)
+	if len(gotNotify2) != 1 || !strings.Contains(gotNotify2[0], "Imported 1 records") {
+		t.Fatalf("import notify %v", gotNotify2)
 	}
 	var oc, offset string
 	var happenedAt time.Time
 	err = pool.QueryRow(ctx, `SELECT objective_context, utc_offset, happened_at FROM records WHERE id = $1`, rid).Scan(&oc, &offset, &happenedAt)
 	if err != nil || oc != marker+"-rt" {
-		t.Fatalf("restored row oc=%q err=%v", oc, err)
+		t.Fatalf("restored row oc=%q want %q err=%v", oc, marker+"-rt", err)
 	}
 	if offset != "+08:00" {
 		t.Fatalf("utc_offset=%q want +08:00", offset)

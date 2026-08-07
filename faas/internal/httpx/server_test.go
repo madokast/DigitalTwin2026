@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,16 +14,34 @@ import (
 
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/importapi"
+	"github.com/mdk/digitaltwin2026/faas/internal/logapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/myerr"
 	"github.com/mdk/digitaltwin2026/faas/internal/qqbot"
+	"github.com/mdk/digitaltwin2026/faas/internal/query"
+	"github.com/mdk/digitaltwin2026/faas/internal/record"
 	"github.com/mdk/digitaltwin2026/faas/internal/telegram"
 )
 
+// logSvcRejectingText 业务校验失败 fake（route 层转发 400 的语义测试）。
+func logSvcRejectingText(detail string) LogService {
+	return &fakeLogService{
+		createText: func(_ context.Context, _ logapi.TextBody) (record.Record, *myerr.MyError) {
+			return record.Record{}, myerr.NewValidation(detail)
+		},
+	}
+}
+
 func testServer() *Server {
 	return &Server{
-		Pool:   nil,
-		Tokens: auth.Tokens{AI: "ai-tok", Admin: "admin-tok"},
-		Now:    time.Now,
+		Pool:      nil,
+		Tokens:    auth.Tokens{AI: "ai-tok", Admin: "admin-tok"},
+		Now:       time.Now,
+		LogSvc:    &fakeLogService{},
+		ImportSvc: &fakeImportService{},
+		ExportSvc: &fakeExportService{},
+		QuerySvc:  &fakeQueryService{},
+		TagsSvc:   &fakeTagsService{},
+		Notifier:  &fakeNotifier{},
 	}
 }
 
@@ -324,7 +343,14 @@ func TestLogNumberRejectsMissingTimezone(t *testing.T) {
 }
 
 func TestLogTextRejectsMissingTimezone(t *testing.T) {
-	h := testServer().Handler()
+	s := testServer()
+	s.LogSvc = &fakeLogService{
+		createText: func(_ context.Context, _ logapi.TextBody) (record.Record, *myerr.MyError) {
+			// 语义校验在业务层（route 层只做未知键/解码）
+			return record.Record{}, myerr.NewValidation("happened_at must be ISO 8601 with timezone (Z or ±HH:MM)")
+		},
+	}
+	h := s.Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/text", strings.NewReader(`{
 		"happened_at": "2026-07-30T10:00:00",
 		"raw_content": "hello",
@@ -347,7 +373,13 @@ func TestLogTextRejectsMissingTimezone(t *testing.T) {
 }
 
 func TestLogTextRejectsReservedTag(t *testing.T) {
-	h := testServer().Handler()
+	s := testServer()
+	s.LogSvc = &fakeLogService{
+		createText: func(_ context.Context, _ logapi.TextBody) (record.Record, *myerr.MyError) {
+			return record.Record{}, myerr.NewValidation(`tag "transaction_entry" is reserved; use the dedicated log API for this record type`)
+		},
+	}
+	h := s.Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/text", strings.NewReader(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
 		"raw_content": "should fail",
@@ -370,7 +402,9 @@ func TestLogTextRejectsReservedTag(t *testing.T) {
 }
 
 func TestLogTextRejectsReviewReservedTag(t *testing.T) {
-	h := testServer().Handler()
+	s := testServer()
+	s.LogSvc = logSvcRejectingText(`tag "review:weekly" is reserved; use the dedicated log API for this record type`)
+	h := s.Handler()
 	req := httptest.NewRequest(http.MethodPost, "/api/log/text", strings.NewReader(`{
 		"happened_at": "2026-08-01T12:30:00+08:00",
 		"raw_content": "should fail",
@@ -594,7 +628,13 @@ func TestRenameTagsRejectsReservedTag(t *testing.T) {
 }
 
 func TestSummaryInvalidTZWithoutDB(t *testing.T) {
-	h := testServer().Handler()
+	s := testServer()
+	s.QuerySvc = &fakeQueryService{
+		fetchSummary: func(_ context.Context, _ string, _ time.Time) (*query.SummaryResult, *myerr.MyError) {
+			return nil, myerr.NewValidation("query parameter tz must be a valid IANA time zone")
+		},
+	}
+	h := s.Handler()
 	// 该路由属 /api/admin/*：AI token 必须 401，仅 AdminToken 可达
 	aiReq := httptest.NewRequest(http.MethodGet, "/api/admin/records/stats?tz=UTC", nil)
 	aiReq.Header.Set("Authorization", "Bearer ai-tok")

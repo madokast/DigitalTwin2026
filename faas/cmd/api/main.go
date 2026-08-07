@@ -11,7 +11,13 @@ import (
 
 	"github.com/mdk/digitaltwin2026/faas/internal/auth"
 	"github.com/mdk/digitaltwin2026/faas/internal/db"
+	"github.com/mdk/digitaltwin2026/faas/internal/exportapi"
 	"github.com/mdk/digitaltwin2026/faas/internal/httpx"
+	"github.com/mdk/digitaltwin2026/faas/internal/importapi"
+	"github.com/mdk/digitaltwin2026/faas/internal/logapi"
+	"github.com/mdk/digitaltwin2026/faas/internal/notify"
+	"github.com/mdk/digitaltwin2026/faas/internal/query"
+	"github.com/mdk/digitaltwin2026/faas/internal/tags"
 )
 
 func main() {
@@ -27,7 +33,16 @@ func main() {
 	}
 	defer pool.Close()
 
-	srv := httpx.NewServer(pool, auth.TokensFromEnv())
+	srv := httpx.NewServer(
+		pool,
+		auth.TokensFromEnv(),
+		logapi.NewService(pool),
+		importapi.NewService(pool),
+		exportapi.NewService(pool),
+		query.NewService(pool),
+		tags.NewService(pool),
+		notify.Default,
+	)
 	addr := ":8080"
 	if p := os.Getenv("PORT"); p != "" {
 		addr = ":" + p
