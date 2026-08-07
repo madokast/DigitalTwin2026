@@ -14,6 +14,8 @@ import { GET as queryTags } from '@/app/api/query/tags/route'
 import { GET as exportRecords } from '@/app/api/export/records/route'
 import { POST as importRecords } from '@/app/api/admin/import/records/route'
 import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
+import { POST as postTagsAdd } from '@/app/api/log/tags/add/route'
+import { POST as postTagsRemove } from '@/app/api/log/tags/remove/route'
 import { closeDb } from '@/db'
 import {
   assertSafeTestDatabaseUrl,
@@ -1405,6 +1407,82 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       }))
       expect(todoTo.status).toBe(400)
       expect((await todoTo.json()).detail).toBe(reservedTagError('todo:in_progress'))
+    })
+  })
+
+  describe('POST /api/log/tags/add + remove', () => {
+    it('attaches, reports changed:false on duplicate, detaches; notifies only on change', async () => {
+      const create = await postText(jsonPost('http://localhost/api/log/text', {
+        happened_at: '2026-07-30T09:00:00+08:00',
+        raw_content: 'gym',
+        tags: ['exercise'],
+        objective_context: 'session',
+      }))
+      expect(create.status).toBe(201)
+      const id = (await create.json()).record.id as string
+
+      const add = await postTagsAdd(jsonPost('http://localhost/api/log/tags/add', {
+        id,
+        tag: 'workout:arm',
+      }))
+      expect(add.status).toBe(200)
+      const addBody = await add.json()
+      expect(addBody).toEqual({
+        success: true,
+        id,
+        changed: true,
+        tags: { from: ['exercise'], to: ['exercise', 'workout:arm'] },
+      })
+
+      const dup = await postTagsAdd(jsonPost('http://localhost/api/log/tags/add', {
+        id,
+        tag: 'workout:arm',
+      }))
+      expect(dup.status).toBe(200)
+      expect((await dup.json()).changed).toBe(false)
+
+      const remove = await postTagsRemove(jsonPost('http://localhost/api/log/tags/remove', {
+        id,
+        tag: 'workout:arm',
+      }))
+      expect(remove.status).toBe(200)
+      const removeBody = await remove.json()
+      expect(removeBody).toEqual({
+        success: true,
+        id,
+        changed: true,
+        tags: { from: ['exercise', 'workout:arm'], to: ['exercise'] },
+      })
+
+      const absent = await postTagsRemove(jsonPost('http://localhost/api/log/tags/remove', {
+        id,
+        tag: 'workout:arm',
+      }))
+      expect(absent.status).toBe(200)
+      expect((await absent.json()).changed).toBe(false)
+
+      const rows = await admin`
+        SELECT tags FROM records WHERE id = ${id}
+      `
+      expect(rows[0].tags).toBe(JSON.stringify(['exercise']))
+    })
+
+    it('rejects reserved tags on both add and remove; 404 for missing id', async () => {
+      const addRes = await postTagsAdd(jsonPost('http://localhost/api/log/tags/add', {
+        id: '01900000-0000-7000-8000-000000000001',
+        tag: 'body:weight',
+      }))
+      expect(addRes.status).toBe(400)
+      expect((await addRes.json()).detail).toBe(reservedTagError('body:weight'))
+
+      const missing = await postTagsAdd(jsonPost('http://localhost/api/log/tags/add', {
+        id: '01900000-0000-7000-8000-000000000099',
+        tag: 'workout:arm',
+      }))
+      expect(missing.status).toBe(404)
+      expect((await missing.json()).detail).toBe(
+        'record 01900000-0000-7000-8000-000000000099 not found',
+      )
     })
   })
 
