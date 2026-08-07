@@ -8,6 +8,16 @@ const dbDefault = db
 export class TagsService {
   constructor(private readonly db: Db = dbDefault) {}
 
+  /** 追加单个普通 tag（UoW 事务 + Repo 原语；校验零 DB 在 route）。 */
+  async attachTag(id: string, tag: string): Promise<EditTagsResult> {
+    return this.db.transaction(async (tx) => Repo.attachTag(tx, id, tag))
+  }
+
+  /** 删除单个普通 tag。 */
+  async detachTag(id: string, tag: string): Promise<EditTagsResult> {
+    return this.db.transaction(async (tx) => Repo.detachTag(tx, id, tag))
+  }
+
   async renameAcrossRecords(
     from: string,
     to: string,
@@ -49,6 +59,7 @@ export const tagsService = new TagsService()
 
 
 import { Repo } from '@/lib/recordrepo'
+import type { EditTagsResult } from '@/lib/recordrepo'
 import { renameTags } from '@/lib/tags'
 
 /** rename 分页循环页大小（与 Go `tags.RenamePageSize` 一致）。 */

@@ -17,6 +17,11 @@ export function isValidTag(tag: string): boolean {
   return /^[a-zA-Z_][a-zA-Z0-9_]*(?::[a-zA-Z0-9_]+)*$/.test(tag)
 }
 
+/** 单个 tag 非法文案（与 Go `tags.InvalidTagMessage` 同文案；validateTags 复用） */
+export function invalidTagMessage(tag: string): string {
+  return `invalid tag: "${tag}". Tags must contain only letters, numbers, underscores, and cannot start with a number.`
+}
+
 /**
  * 保留 tag **前缀**列表（非仅精确匹配）。
  * 某 tag 视为保留当且仅当：`tag === P` 或 `tag.startsWith(P + ":")`
@@ -91,10 +96,7 @@ export function validateTags(tags: string[]): ValidationResult {
 
   for (const tag of tags) {
     if (!isValidTag(tag)) {
-      return {
-        valid: false,
-        error: `invalid tag: "${tag}". Tags must contain only letters, numbers, underscores, and cannot start with a number.`,
-      }
+      return { valid: false, error: invalidTagMessage(tag) }
     }
   }
 

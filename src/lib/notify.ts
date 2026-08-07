@@ -8,6 +8,7 @@ import { after } from 'next/server'
 import {
   formatNumberBatchMessage,
   formatRecordMessage,
+  formatTagsEditedMessage,
   formatTransactionBatchMessage,
   isTelegramConfigured,
   sendTelegramMessage,
@@ -191,3 +192,15 @@ export async function notifyNumberBatchInserted(
 }
 
 export type { NotifyRecord }
+
+/** tags 编辑成功后 best-effort（仅 changed:true 时由 route 调用） */
+export async function notifyTagsEdited(
+  action: string,
+  id: string,
+  tag: string,
+  from: string[],
+  to: string[],
+  options?: { env?: EnvLike; fetch?: FetchLike; timeoutMs?: number },
+): Promise<void> {
+  await notify_user(formatTagsEditedMessage(action, id, tag, from, to), options)
+}

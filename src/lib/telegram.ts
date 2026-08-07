@@ -203,3 +203,21 @@ export async function sendTelegramMessage(
     return { ok: false, error: TELEGRAM_TRANSPORT_FAILED }
   }
 }
+
+/** 补/删 tag 通知（仅 changed:true 时触发；格式定案见 docs/20260805-tags-add.md §通知：
+ * id / action / tag / from→to 完整列表）。与 Go `telegram.FormatTagsEditedMessage` 同构。 */
+export function formatTagsEditedMessage(
+  action: string,
+  id: string,
+  tag: string,
+  from: string[],
+  to: string[],
+): string {
+  return [
+    'Tags updated',
+    `id: ${id}`,
+    `action: ${action}`,
+    `tag: ${tag}`,
+    `tags: from [${from.join(', ')}] to [${to.join(', ')}]`,
+  ].join('\n')
+}
