@@ -253,7 +253,7 @@ func (s *Server) handleLogNumbers(w http.ResponseWriter, r *http.Request) {
 	// INSERT 成功后异步 best-effort notify（整批一条摘要），不阻塞写响应。
 	// 刻意允许的双端差异（docs/20260801-api-layering.md §1.1 / §7）：
 	// Go 用 go 协程；Next 用 after()。语义同为成功后不阻塞的扇出。
-	go s.Notifier.NotifyNumberBatchInserted(recs)
+	s.notify(func() { s.Notifier.NotifyNumberBatchInserted(recs) })
 	writeJSON(w, http.StatusCreated, NumberBatchSuccess{Success: true, Inserted: inserted, Atomic: true})
 }
 
@@ -272,7 +272,7 @@ func (s *Server) handleLogBodyWeight(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "Error creating body weight record")
 		return
 	}
-	go s.Notifier.NotifyRecordInserted(rec)
+	s.notify(func() { s.Notifier.NotifyRecordInserted(rec) })
 	writeJSON(w, http.StatusCreated, RecordSuccess{Success: true, Record: rec})
 }
 
@@ -291,7 +291,7 @@ func (s *Server) handleLogTodo(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "Error creating to-do record")
 		return
 	}
-	go s.Notifier.NotifyRecordInserted(rec)
+	s.notify(func() { s.Notifier.NotifyRecordInserted(rec) })
 	writeJSON(w, http.StatusCreated, TodoRecordSuccess{Success: true, Record: tododraft.ToTodoRecordJSON(rec)})
 }
 
@@ -311,7 +311,7 @@ func (s *Server) handleLogTodoTransition(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// D6：恰好一次 notify，正文 = objective_context 句 + ": " + 原文
-	go s.Notifier.NotifyUser(result.TodoAuditNotifyText)
+	s.notify(func() { s.Notifier.NotifyUser(result.TodoAuditNotifyText) })
 	writeJSON(w, http.StatusOK, TransitionSuccess{
 		Success: true,
 		ID:      result.ID,
@@ -337,7 +337,7 @@ func (s *Server) handleLogReview(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "Error creating review record")
 		return
 	}
-	go s.Notifier.NotifyRecordInserted(rec)
+	s.notify(func() { s.Notifier.NotifyRecordInserted(rec) })
 	writeJSON(w, http.StatusCreated, RecordSuccess{Success: true, Record: rec})
 }
 
@@ -356,7 +356,7 @@ func (s *Server) handleLogText(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "Error creating text record")
 		return
 	}
-	go s.Notifier.NotifyRecordInserted(rec)
+	s.notify(func() { s.Notifier.NotifyRecordInserted(rec) })
 	writeJSON(w, http.StatusCreated, RecordSuccess{Success: true, Record: rec})
 }
 
@@ -375,7 +375,7 @@ func (s *Server) handleLogTransactions(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, me, "Error creating transaction records")
 		return
 	}
-	go s.Notifier.NotifyTransactionBatchInserted(recs)
+	s.notify(func() { s.Notifier.NotifyTransactionBatchInserted(recs) })
 	writeJSON(w, http.StatusCreated, TransactionBatchSuccess{
 		Success:  true,
 		Inserted: inserted,
@@ -462,6 +462,19 @@ func (s *Server) handleDbProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+// notify fire-and-forget 通知：goroutine 顶格 recover 防 panic 崩进程（业界惯例），
+// 错误日志兜底（通知本身 best-effort，见 notify 包超时语义）。
+func (s *Server) notify(fn func()) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("notify panic", "err", r)
+			}
+		}()
+		fn()
+	}()
 }
 
 func (s *Server) telegram() *telegram.Sender {
@@ -629,7 +642,7 @@ func (s *Server) handleExportRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg := exportapi.FormatExportNotifyMessage(len(recs), parsed.From, parsed.Limit)
-	go s.Notifier.NotifyUser(msg)
+	s.notify(func() { s.Notifier.NotifyUser(msg) })
 }
 
 // handleImportRecords：勿走 readBody（MaxBodyBytes）；MultipartReader 取 file part（≤4MiB）。
@@ -727,5 +740,5 @@ func (s *Server) handleImportRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg := importapi.FormatImportNotifyMessage(counts)
-	go s.Notifier.NotifyUser(msg)
+	s.notify(func() { s.Notifier.NotifyUser(msg) })
 }
