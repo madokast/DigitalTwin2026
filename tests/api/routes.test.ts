@@ -13,7 +13,7 @@ import { GET as getTime } from '@/app/api/time/route'
 import { GET as queryTags } from '@/app/api/query/tags/route'
 import { GET as exportRecords } from '@/app/api/export/records/route'
 import { POST as importRecords } from '@/app/api/admin/import/records/route'
-import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
+import { POST as normalizeTagsRoute } from '@/app/api/admin/tags/normalize/route'
 import { POST as postTagsAdd } from '@/app/api/log/tags/add/route'
 import { POST as postTagsRemove } from '@/app/api/log/tags/remove/route'
 import { closeDb } from '@/db'
@@ -1315,27 +1315,39 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
     })
   })
 
-  describe('POST /api/admin/tags/rename', () => {
+  describe('POST /api/admin/tags/normalize', () => {
     it('returns 400 when from/to missing or invalid', async () => {
-      const missing = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
-        from: 'exercise',
+      const missing = await normalizeTagsRoute(jsonPost('http://localhost/api/admin/tags/normalize', {
+        to: 'fitness',
       }))
       expect(missing.status).toBe(400)
 
-      const invalid = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
+      const notArray = await normalizeTagsRoute(jsonPost('http://localhost/api/admin/tags/normalize', {
         from: 'exercise',
+        to: 'fitness',
+      }))
+      expect(notArray.status).toBe(400)
+
+      const invalid = await normalizeTagsRoute(jsonPost('http://localhost/api/admin/tags/normalize', {
+        from: ['exercise'],
         to: '体锻',
       }))
       expect(invalid.status).toBe(400)
 
-      const same = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
-        from: 'exercise',
+      const toInFrom = await normalizeTagsRoute(jsonPost('http://localhost/api/admin/tags/normalize', {
+        from: ['exercise'],
         to: 'exercise',
       }))
-      expect(same.status).toBe(400)
+      expect(toInFrom.status).toBe(400)
+
+      const dup = await normalizeTagsRoute(jsonPost('http://localhost/api/admin/tags/normalize', {
+        from: ['exercise', 'exercise'],
+        to: 'fitness',
+      }))
+      expect(dup.status).toBe(400)
     })
 
-    it('renames tags across records and reports updated count', async () => {
+    it('normalizes multiple sources across records and reports updated count', async () => {
       await postNumbers(jsonPost('http://localhost/api/log/numbers', {
         happened_at: '2026-07-30T08:00:00+08:00',
         entries: [{ numeric_value: '1', memo: 'a', tags: ['exercise', 'morning'] }],
@@ -1353,9 +1365,10 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         objective_context: 'c',
       }))
 
-      const res = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
-        from: 'exercise',
-        to: 'workout',
+      // id-2 同时含 exercise + workout：一次多源变换 → 只算一次更新
+      const res = await normalizeTagsRoute(jsonPost('http://localhost/api/admin/tags/normalize', {
+        from: ['exercise', 'workout'],
+        to: 'fitness',
       }))
       expect(res.status).toBe(200)
       await expect(res.json()).resolves.toEqual({ success: true, updated: 2 })
@@ -1363,30 +1376,31 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
       const tagsRes = await queryTags(jsonGet('http://localhost/api/query/tags'))
       const body = await tagsRes.json()
       expect(body.tags).toEqual([
-        { tag: 'workout', count: 2 },
+        { tag: 'fitness', count: 2 },
         { tag: 'morning', count: 1 },
         { tag: 'study', count: 1 },
       ])
       expect(body.tags.some((t: { tag: string }) => t.tag === 'exercise')).toBe(false)
+      expect(body.tags.some((t: { tag: string }) => t.tag === 'workout')).toBe(false)
     })
 
     it('rejects reserved tag as from or to', async () => {
-      const fromRes = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
-        from: 'transaction_entry',
+      const fromRes = await normalizeTagsRoute(jsonPost('http://localhost/api/admin/tags/normalize', {
+        from: ['transaction_entry'],
         to: 'legacy_tx',
       }))
       expect(fromRes.status).toBe(400)
       expect((await fromRes.json()).detail).toBe(reservedTagError('transaction_entry'))
 
-      const toRes = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
-        from: 'food',
+      const toRes = await normalizeTagsRoute(jsonPost('http://localhost/api/admin/tags/normalize', {
+        from: ['food'],
         to: 'transaction_entry',
       }))
       expect(toRes.status).toBe(400)
       expect((await toRes.json()).detail).toBe(reservedTagError('transaction_entry'))
 
-      const prefixed = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
-        from: 'transaction_entry:income',
+      const prefixed = await normalizeTagsRoute(jsonPost('http://localhost/api/admin/tags/normalize', {
+        from: ['transaction_entry:income'],
         to: 'legacy_tx',
       }))
       expect(prefixed.status).toBe(400)
@@ -1394,15 +1408,15 @@ describe.skipIf(!runApiIntegration)('API integration', () => {
         reservedTagError('transaction_entry:income'),
       )
 
-      const todoFrom = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
-        from: 'todo',
+      const todoFrom = await normalizeTagsRoute(jsonPost('http://localhost/api/admin/tags/normalize', {
+        from: ['todo'],
         to: 'errand',
       }))
       expect(todoFrom.status).toBe(400)
       expect((await todoFrom.json()).detail).toBe(reservedTagError('todo'))
 
-      const todoTo = await renameTags(jsonPost('http://localhost/api/admin/tags/rename', {
-        from: 'errand',
+      const todoTo = await normalizeTagsRoute(jsonPost('http://localhost/api/admin/tags/normalize', {
+        from: ['errand'],
         to: 'todo:in_progress',
       }))
       expect(todoTo.status).toBe(400)

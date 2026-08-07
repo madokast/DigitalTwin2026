@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { POST as postNumbers } from '@/app/api/log/numbers/route'
 import { POST as postText } from '@/app/api/log/text/route'
 import { POST as postTransactions } from '@/app/api/log/transactions/route'
-import { POST as renameTags } from '@/app/api/admin/tags/rename/route'
+import { POST as normalizeTagsRoute } from '@/app/api/admin/tags/normalize/route'
 
 /** 与 Go httpx「Invalid JSON body」对齐：空 body / 语法错误 → 400，而非 500 */
 function rawPost(url: string, body: string): NextRequest {
@@ -33,9 +33,9 @@ describe('malformed / empty JSON body → 400', () => {
         postTransactions(rawPost('http://localhost/api/log/transactions', body)),
     },
     {
-      name: 'POST /api/admin/tags/rename',
+      name: 'POST /api/admin/tags/normalize',
       run: (body) =>
-        renameTags(rawPost('http://localhost/api/admin/tags/rename', body)),
+        normalizeTagsRoute(rawPost('http://localhost/api/admin/tags/normalize', body)),
     },
   ]
 

@@ -50,14 +50,14 @@ export class QueryService {
       const recs = await Repo.findByCriteria(this.db, {
         tags: [],
         page,
-        pageSize: RENAME_PAGE_SIZE,
+        pageSize: NORMALIZE_PAGE_SIZE,
         sortBy: 'id',
         sortOrder: 'asc',
       })
       for (const rec of recs) {
         tagLists.push(rec.tags)
       }
-      if (recs.length < RENAME_PAGE_SIZE) break
+      if (recs.length < NORMALIZE_PAGE_SIZE) break
       page += 1
     }
     return aggregateTagCounts(tagLists, prefix)
@@ -77,14 +77,14 @@ export class QueryService {
         to,
         tags: ['transaction_entry:*'],
         page,
-        pageSize: RENAME_PAGE_SIZE,
+        pageSize: NORMALIZE_PAGE_SIZE,
         sortBy: 'id',
         sortOrder: 'asc',
       })
       for (const rec of recs) {
         acc.addRow(rec.tags, rec.numeric_value ?? null)
       }
-      if (recs.length < RENAME_PAGE_SIZE) break
+      if (recs.length < NORMALIZE_PAGE_SIZE) break
       page += 1
     }
     return acc.finalize(fromRaw, toRaw)
@@ -105,7 +105,7 @@ import {
 import { aggregateTagCounts, TAGS_NOT_JSON_ARRAY, type TagCount } from '@/lib/tags'
 import { newInternalMsg } from '@/lib/myerr'
 import { Repo, type FindCriteria } from '@/lib/recordrepo'
-import { RENAME_PAGE_SIZE } from '@/lib/tagsdb'
+import { NORMALIZE_PAGE_SIZE } from '@/lib/tagsdb'
 import {
   getZonedDayBounds,
   isValidTimeZone,

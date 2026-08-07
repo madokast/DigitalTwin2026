@@ -5,9 +5,10 @@ import {
   firstDuplicateTag,
   isReservedTag,
   isValidTag,
-  renameTags,
+  invalidTagMessage,
+  normalizeTags,
   reservedTagError,
-  validateRename,
+  validateNormalize,
   validateTags,
 } from './tags'
 
@@ -209,76 +210,101 @@ describe('aggregateTagCounts', () => {
   })
 })
 
-describe('renameTags', () => {
-  it('renames from to when to absent, order preserved', () => {
-    expect(renameTags(['a', 'work', 'b'], 'work', 'job')).toEqual(['a', 'job', 'b'])
+describe('normalizeTags', () => {
+  it('removes all from tags in place and appends to at tail', () => {
+    expect(normalizeTags(
+      ['workout', 'exercise', 'workout:arm', 'morning'],
+      ['workout', 'workout:arm'],
+      'training',
+    )).toEqual(['exercise', 'morning', 'training'])
   })
 
-  it('removes from when to already exists (dedupe)', () => {
-    expect(renameTags(['job', 'work', 'x'], 'work', 'job')).toEqual(['job', 'x'])
-    expect(renameTags(['work', 'job'], 'work', 'job')).toEqual(['job'])
+  it('keeps to in place when it already exists (no tail append)', () => {
+    expect(normalizeTags(['exercise', 'workout', 'morning'], ['workout'], 'morning'))
+      .toEqual(['exercise', 'morning'])
   })
 
-  it('returns null when from is absent', () => {
-    expect(renameTags(['alpha'], 'weight', 'mass')).toBeNull()
-    expect(renameTags([], 'weight', 'mass')).toBeNull()
+  it('returns null when no from tag is present', () => {
+    expect(normalizeTags(['alpha'], ['weight'], 'mass')).toBeNull()
+    expect(normalizeTags([], ['weight'], 'mass')).toBeNull()
+  })
+
+  it('single source equals rename semantics with tail append', () => {
+    expect(normalizeTags(['weight', 'morning'], ['weight'], 'mass'))
+      .toEqual(['morning', 'mass'])
+  })
+
+  it('leaves reserved tags untouched (validation layer rejects them in from)', () => {
+    expect(normalizeTags(['body:weight', 'weight'], ['weight'], 'mass'))
+      .toEqual(['body:weight', 'mass'])
   })
 })
 
-describe('validateRename', () => {
+describe('validateNormalize', () => {
   it('rejects empty from or to', () => {
-    expect(validateRename('', 'to_tag')).toEqual({
+    expect(validateNormalize([], 'to_tag')).toEqual({
       valid: false,
-      error: 'missing required fields: from, to',
+      error: 'missing required field: from',
     })
-    expect(validateRename('from_tag', '')).toEqual({
+    expect(validateNormalize(['from_tag'], '')).toEqual({
       valid: false,
-      error: 'missing required fields: from, to',
+      error: 'missing required field: to',
     })
   })
 
-  it('rejects invalid tag names', () => {
-    expect(validateRename('bad-tag', 'ok')).toEqual({
+  it('rejects invalid from element / to', () => {
+    expect(validateNormalize(['bad-tag'], 'ok')).toEqual({
       valid: false,
-      error: 'from and to must be valid tag names',
+      error: invalidTagMessage('bad-tag'),
+    })
+  })
+
+  it('rejects duplicate from elements', () => {
+    expect(validateNormalize(['a', 'b', 'a'], 'c')).toEqual({
+      valid: false,
+      error: 'duplicate tag in from: "a"',
     })
   })
 
   it('rejects reserved from/to (from preferred when both reserved)', () => {
-    expect(validateRename('transaction_entry', 'weight')).toEqual({
+    expect(validateNormalize(['transaction_entry'], 'weight')).toEqual({
       valid: false,
       error: reservedTagError('transaction_entry'),
     })
-    expect(validateRename('weight', 'transaction_entry:income')).toEqual({
+    expect(validateNormalize(['weight'], 'transaction_entry:income')).toEqual({
       valid: false,
       error: reservedTagError('transaction_entry:income'),
     })
-    expect(validateRename('todo', 'errand')).toEqual({
+    expect(validateNormalize(['todo'], 'errand')).toEqual({
       valid: false,
       error: reservedTagError('todo'),
     })
-    expect(validateRename('errand', 'todo:in_progress')).toEqual({
+    expect(validateNormalize(['errand'], 'todo:in_progress')).toEqual({
       valid: false,
       error: reservedTagError('todo:in_progress'),
     })
-    expect(validateRename('review', 'insight')).toEqual({
+    expect(validateNormalize(['review'], 'insight')).toEqual({
       valid: false,
       error: reservedTagError('review'),
     })
-    expect(validateRename('insight', 'review:weekly')).toEqual({
+    expect(validateNormalize(['insight'], 'review:weekly')).toEqual({
       valid: false,
       error: reservedTagError('review:weekly'),
     })
   })
 
-  it('rejects when from equals to', () => {
-    expect(validateRename('weight', 'weight')).toEqual({
+  it('rejects when to is in from', () => {
+    expect(validateNormalize(['weight'], 'weight')).toEqual({
       valid: false,
-      error: 'from and to must be different',
+      error: 'to must not be in from',
+    })
+    expect(validateNormalize(['a', 'weight'], 'weight')).toEqual({
+      valid: false,
+      error: 'to must not be in from',
     })
   })
 
-  it('accepts a valid rename pair', () => {
-    expect(validateRename('exercise', 'workout')).toEqual({ valid: true })
+  it('accepts a valid multi-source pair', () => {
+    expect(validateNormalize(['exercise', 'workout'], 'training')).toEqual({ valid: true })
   })
 })

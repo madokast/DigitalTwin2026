@@ -158,41 +158,66 @@ export function aggregateTagCounts(
 }
 
 /**
- * 数组版 rename 变换（与 Go `tags.renameTags` 对称，§10b 步骤 2 二次定案）：
- * to ∈ tags → 移除 from（去重语义）；否则 from 原位替换为 to；from ∉ tags → 返回 null（防御）。
+ * 多源一次变换（normalize 定案；与 Go `tags.normalizeTags` 对称）：
+ * tags 含 from 中任意 tag → 全部原地删（后续前移）；to 已存在（且非 from 元素）保持原位，
+ * 否则尾加。from 含 to 已被 validateNormalize 拦截（防御：若发生，先删后尾加）。
+ * 不含任何 from 元素 → 原样返回 null（不变）。
+ * 顺序语义定案「删 from 系列 + 尾加 to」——不能分解为逐源 rename（会破坏尾加顺序）。
  */
-export function renameTags(
+export function normalizeTags(
   tags: string[],
-  from: string,
+  from: string[],
   to: string,
 ): string[] | null {
-  const fromIdx = tags.indexOf(from)
-  if (fromIdx < 0) return null
-  if (tags.includes(to)) {
-    return tags.filter((t) => t !== from)
+  const inFrom = new Set(from)
+  if (!tags.some((t) => inFrom.has(t))) return null
+  const out: string[] = []
+  let hasTo = false
+  for (const t of tags) {
+    if (inFrom.has(t)) continue // 原地删、后续前移
+    out.push(t)
+    if (t === to) hasTo = true
   }
-  return tags.map((t) => (t === from ? to : t))
+  if (!hasTo) out.push(to) // target 不存在 → 尾加
+  return out
 }
 
 /**
- * rename 业务校验：非空、合法 tag、非保留、from≠to。
- * 与 Go `ValidateRename` 同构；调用方应先 trim。
+ * normalize 业务校验（零 DB，调用方应先 trim 元素）：from 非空数组（元素合法/无重复/
+ * 非保留前缀）、to 非空合法非保留、to ∉ from。
+ * 校验顺序定案（docs/20260805-tag-design.md §tag 归一化）：from 形状 → to 缺失 →
+ * from 元素（逐个：非法 → 重复 → 保留）→ to（非法 → 保留）→ 交集。
+ * 与 Go `ValidateNormalize` 同构。
  */
-export function validateRename(from: string, to: string): ValidationResult {
-  if (!from || !to) {
-    return { valid: false, error: 'missing required fields: from, to' }
+export function validateNormalize(from: string[], to: string): ValidationResult {
+  if (from.length === 0) {
+    return { valid: false, error: 'missing required field: from' }
   }
-  if (!isValidTag(from) || !isValidTag(to)) {
-    return { valid: false, error: 'from and to must be valid tag names' }
+  if (!to) {
+    return { valid: false, error: 'missing required field: to' }
   }
-  if (isReservedTag(from)) {
-    return { valid: false, error: reservedTagError(from) }
+  const seen = new Set<string>()
+  for (const f of from) {
+    if (!isValidTag(f)) {
+      return { valid: false, error: invalidTagMessage(f) }
+    }
+    if (seen.has(f)) {
+      return { valid: false, error: `duplicate tag in from: "${f}"` }
+    }
+    seen.add(f)
+    if (isReservedTag(f)) {
+      return { valid: false, error: reservedTagError(f) }
+    }
+  }
+  if (!isValidTag(to)) {
+    return { valid: false, error: invalidTagMessage(to) }
   }
   if (isReservedTag(to)) {
     return { valid: false, error: reservedTagError(to) }
   }
-  if (from === to) {
-    return { valid: false, error: 'from and to must be different' }
+  if (seen.has(to)) {
+    return { valid: false, error: 'to must not be in from' }
   }
   return { valid: true }
 }
+

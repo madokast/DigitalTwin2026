@@ -18,31 +18,36 @@ export class TagsService {
     return this.db.transaction(async (tx) => Repo.detachTag(tx, id, tag))
   }
 
-  async renameAcrossRecords(
-    from: string,
-    to: string,
-  ): Promise<number> {
+  /**
+   * 单事务内全表归一化（from 系列 → to；锁 + 分页循环）。
+   * 对每个 from 元素分页扫描（FindByCriteria 的 tags 为 AND 交集语义，不能一次匹配任一；
+   * 每行 normalizeTags 一次多源变换——顺序语义定案「删 from 系列 + 尾加 to」）。
+   * 同一行含多个 from 元素：首次命中更新，后续 normalizeTags 返回 null 不重复写。
+   */
+  async normalizeAcrossRecords(from: string[], to: string): Promise<number> {
     return this.db.transaction(async (tx) => {
       await Repo.acquireRenameLock(tx)
       let updated = 0
-      let page = 1
-      for (;;) {
-        const recs = await Repo.findByCriteria(tx, {
-          tags: [from],
-          page,
-          pageSize: RENAME_PAGE_SIZE,
-          sortBy: 'id',
-          sortOrder: 'asc',
-        })
-        for (const rec of recs) {
-          const next = renameTags(rec.tags, from, to)
-          if (next === null) continue
-          rec.tags = next
-          await Repo.update(tx, rec)
-          updated += 1
+      for (const f of from) {
+        let page = 1
+        for (;;) {
+          const recs = await Repo.findByCriteria(tx, {
+            tags: [f],
+            page,
+            pageSize: NORMALIZE_PAGE_SIZE,
+            sortBy: 'id',
+            sortOrder: 'asc',
+          })
+          for (const rec of recs) {
+            const next = normalizeTags(rec.tags, from, to)
+            if (next === null) continue
+            rec.tags = next
+            await Repo.update(tx, rec)
+            updated += 1
+          }
+          if (recs.length < NORMALIZE_PAGE_SIZE) break
+          page += 1
         }
-        if (recs.length < RENAME_PAGE_SIZE) break
-        page += 1
       }
       return updated
     })
@@ -60,16 +65,13 @@ export const tagsService = new TagsService()
 
 import { Repo } from '@/lib/recordrepo'
 import type { EditTagsResult } from '@/lib/recordrepo'
-import { renameTags } from '@/lib/tags'
+import { normalizeTags } from '@/lib/tags'
 
-/** rename 分页循环页大小（与 Go `tags.RenamePageSize` 一致）。 */
-export const RENAME_PAGE_SIZE = 100
+/** normalize 分页循环页大小（与 Go `tags.NormalizePageSize` 一致）。 */
+export const NORMALIZE_PAGE_SIZE = 100
 
 /**
- * 单事务内将 tags 中 from 重命名为 to（业务层编排，§10b 步骤 2 二次定案）：
- * db.transaction 开事务 → Repo.acquireRenameLock（advisory xact lock：并发 rename 互斥）
- * → 分页循环 Repo.findByCriteria（Criteria{tags:[from], pageSize: RENAME_PAGE_SIZE, sortBy:'id'}）
- * → 每行 renameTags 变换 → Repo.update 写回 → len(页) < RENAME_PAGE_SIZE 终止。
+ * 单事务内全表归一化（normalize 定案；见 normalizeAcrossRecords 方法注释）。
  * 中途失败全滚（任何 DB 错误 → 500）；OFFSET 分页 + 事务内多页：页间并发提交可能跳行/漏改（尽力而为）。
  */
 
