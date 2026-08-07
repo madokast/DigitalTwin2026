@@ -15,13 +15,23 @@
 
 import { and, count, eq, gte, like, lt, or, sql, type SQL } from 'drizzle-orm'
 import * as schema from '@/db/schema'
-import { fromDB, type Record } from '@/lib/record'
+import { fromDB, parseTagsField, type Record } from '@/lib/record'
 import { parseHappenedAt } from '@/lib/draft'
-import { newInternal, newInternalMsg, newNotFound, newValidation } from '@/lib/myerr'
+import { MyError, newInternal, newInternalMsg, newNotFound, newValidation } from '@/lib/myerr'
 import type { Executor } from '@/db/uow'
 
+/** attach/detach 原语结果：from/to = 操作前后完整实际 tags 列表（含保留 tag，业务层 diff 组织响应）；
+ * changed = 本次是否真的变更（重复 add / 不存在 remove → false）。 */
+export type EditTagsResult = {
+  from: string[]
+  to: string[]
+  changed: boolean
+}
+
 export class RecordRepository {
-  /** 按 id 查完整行（持久化转换：瞬间 + 隐列 → 带区串，在 fromDB 收敛）；未找到 → throw 404 */
+  /**
+   * 按 id 查完整行（持久化转换：瞬间 + 隐列 → 带区串，在 fromDB 收敛）；未找到 → throw 404
+   */
   async findById(q: Executor, id: string): Promise<Record> {
     let rows: typeof schema.records.$inferSelect[]
     try {
@@ -37,6 +47,70 @@ export class RecordRepository {
       throw newNotFound(`record ${id} not found`)
     }
     return fromDB(rows[0])
+  }
+
+  /**
+   * 追加单个普通 tag（纯追加，不改/不删已有 tag；tag 合法性与保留前缀校验在业务层，零 DB——本原语不再校验）。
+   * 并发语义（U2 定案，实现选型：事务内 FOR UPDATE 行锁而非 CAS 字符串比较）：
+   * `.for('update')` 锁行后读-改-写，串行化并发同 id 修改——无丢失更新，也无
+   * 「影响行数 0 二次读区分 404/409」路径；且消除跨端（Go encoding/json vs Node
+   * JSON.stringify）序列化格式差异导致的 CAS 比较误报。锁随业务层 UoW 事务结束释放。
+   */
+  async attachTag(q: Executor, id: string, tag: string): Promise<EditTagsResult> {
+    return this.editTag(q, id, (cur) => {
+      if (cur.includes(tag)) return { tags: cur, changed: false }
+      return { tags: [...cur, tag], changed: true }
+    })
+  }
+
+  /**
+   * 原地删除单个普通 tag（保持剩余顺序；tag 不存在 → changed:false 原样返回）。
+   * 并发语义与 attachTag 相同（FOR UPDATE 行锁）。
+   */
+  async detachTag(q: Executor, id: string, tag: string): Promise<EditTagsResult> {
+    return this.editTag(q, id, (cur) => {
+      const i = cur.indexOf(tag)
+      if (i === -1) return { tags: cur, changed: false }
+      return { tags: [...cur.slice(0, i), ...cur.slice(i + 1)], changed: true }
+    })
+  }
+
+  /** 共用实现：FOR UPDATE 读当前 tags → 变换闭包判定是否变更 → 有变更才 UPDATE（锁下必命中 1 行）。 */
+  private async editTag(
+    q: Executor,
+    id: string,
+    mutate: (cur: string[]) => { tags: string[]; changed: boolean },
+  ): Promise<EditTagsResult> {
+    let rows: { tags: string }[]
+    try {
+      rows = await q
+        .select({ tags: schema.records.tags })
+        .from(schema.records)
+        .where(eq(schema.records.id, id))
+        .for('update')
+    } catch (err) {
+      throw newInternal(err)
+    }
+    if (rows.length === 0) {
+      throw newNotFound(`record ${id} not found`)
+    }
+    const from = parseTagsField(rows[0].tags)
+    const { tags: to, changed } = mutate(from)
+    if (!changed) return { from, to, changed }
+    try {
+      const updated = await q
+        .update(schema.records)
+        .set({ tags: JSON.stringify(to) })
+        .where(eq(schema.records.id, id))
+        .returning({ id: schema.records.id })
+      if (updated.length !== 1) {
+        throw newInternalMsg(`tag edit affected ${updated.length} rows`)
+      }
+    } catch (err) {
+      if (err instanceof MyError) throw err
+      throw newInternal(err)
+    }
+    return { from, to, changed }
   }
 
   /** 只 UPDATE tags（WHERE id）；影响行数 ≠ 1 → 内部错误（D7 并发竞态文案含实际行数）。 */

@@ -28,6 +28,7 @@ const execute = vi.fn()
 const q = { select, update, insert, execute } as unknown as Executor
 
 import type { Executor } from '@/db/uow'
+import * as schema from '@/db/schema'
 import { Repo, type FindCriteria } from '@/lib/recordrepo'
 
 const row = {
@@ -298,6 +299,91 @@ describe('count', () => {
     await expect(Repo.count(cQ, { tags: [] })).rejects.toMatchObject({
       status: 500,
       message: 'Error: connection refused',
+    })
+  })
+})
+
+describe('attachTag / detachTag', () => {
+  // 全局部链：顶部共享 updateWhere 会被 update 测试的 mockResolvedValue 污染
+  const atReturning = vi.fn()
+  const atUpdateWhere = vi.fn(() => ({ returning: atReturning }))
+  const atUpdateSet = vi.fn(() => ({ where: atUpdateWhere }))
+  const atUpdate = vi.fn(() => ({ set: atUpdateSet }))
+  const atForUpdate = vi.fn()
+  const atWhere = vi.fn(() => ({ for: atForUpdate }))
+  const atFrom = vi.fn(() => ({ where: atWhere }))
+  const atSelect = vi.fn(() => ({ from: atFrom }))
+  const atQ = { select: atSelect, update: atUpdate, insert, execute } as unknown as Executor
+
+  beforeEach(() => {
+    atReturning.mockClear()
+    atUpdateWhere.mockClear()
+    atUpdateSet.mockClear()
+    atUpdate.mockClear()
+    atForUpdate.mockClear()
+    atWhere.mockClear()
+    atFrom.mockClear()
+    atSelect.mockClear()
+  })
+
+  it('attach appends and updates tags', async () => {
+    atForUpdate.mockResolvedValue([{ tags: JSON.stringify(['exercise']) }])
+    atReturning.mockResolvedValue([{ id: 'id-1' }])
+    const res = await Repo.attachTag(atQ, 'id-1', 'workout:arm')
+    expect(res).toEqual({
+      from: ['exercise'],
+      to: ['exercise', 'workout:arm'],
+      changed: true,
+    })
+    expect(atSelect).toHaveBeenCalledWith({ tags: schema.records.tags })
+    expect(atForUpdate).toHaveBeenCalledWith('update')
+    expect(atUpdateSet).toHaveBeenCalledWith({ tags: JSON.stringify(['exercise', 'workout:arm']) })
+  })
+
+  it('attach duplicate returns changed:false and skips update', async () => {
+    atForUpdate.mockResolvedValue([{ tags: JSON.stringify(['a', 'b']) }])
+    const res = await Repo.attachTag(atQ, 'id-1', 'b')
+    expect(res).toEqual({ from: ['a', 'b'], to: ['a', 'b'], changed: false })
+    expect(atUpdate).not.toHaveBeenCalled()
+  })
+
+  it('attach missing record throws 404', async () => {
+    atForUpdate.mockResolvedValue([])
+    await expect(Repo.attachTag(atQ, 'missing', 't')).rejects.toMatchObject({
+      status: 404,
+      message: 'record missing not found',
+    })
+    expect(atUpdate).not.toHaveBeenCalled()
+  })
+
+  it('attach recovers from dirty non-array tags', async () => {
+    atForUpdate.mockResolvedValue([{ tags: '{"not":"array"}' }])
+    atReturning.mockResolvedValue([{ id: 'id-1' }])
+    const res = await Repo.attachTag(atQ, 'id-1', 't')
+    expect(res).toEqual({ from: [], to: ['t'], changed: true })
+  })
+
+  it('detach removes in place preserving order', async () => {
+    atForUpdate.mockResolvedValue([{ tags: JSON.stringify(['a', 'b', 'c']) }])
+    atReturning.mockResolvedValue([{ id: 'id-1' }])
+    const res = await Repo.detachTag(atQ, 'id-1', 'b')
+    expect(res).toEqual({ from: ['a', 'b', 'c'], to: ['a', 'c'], changed: true })
+    expect(atUpdateSet).toHaveBeenCalledWith({ tags: JSON.stringify(['a', 'c']) })
+  })
+
+  it('detach absent tag returns changed:false and skips update', async () => {
+    atForUpdate.mockResolvedValue([{ tags: JSON.stringify(['a']) }])
+    const res = await Repo.detachTag(atQ, 'id-1', 'zzz')
+    expect(res).toEqual({ from: ['a'], to: ['a'], changed: false })
+    expect(atUpdate).not.toHaveBeenCalled()
+  })
+
+  it('edit affecting zero rows throws internal 500', async () => {
+    atForUpdate.mockResolvedValue([{ tags: JSON.stringify(['a']) }])
+    atReturning.mockResolvedValue([])
+    await expect(Repo.attachTag(atQ, 'id-1', 'b')).rejects.toMatchObject({
+      status: 500,
+      message: 'tag edit affected 0 rows',
     })
   })
 })
