@@ -31,7 +31,10 @@
 ## 3. 放开「AI 不能修改」原则
 
 - **推翻** `docs/20260805-status-analysis.md` §1 记录的「PATCH 编辑 API 彻底删除」——该决策基于「日志不应编辑」的旧假设；新形态下 AI 可修改数据。
-- **容错靠备份还原**：AI 操作失误导致数据问题时，通过**备份还原**解决，不靠限制 AI 权限。
+- **容错靠备份还原**：AI 操作失误导致数据问题时，通过**备份还原**解决，不靠限制 AI 权限。实现路径（2026-08-07 确认，见 §6 备份机制）：
+  1. **云托管 PG 自动备份 + PITR**（生产库托管商内置，零代码）：Neon 每 24h 自动全量备份 + WAL 归档（保留 7 天）+ 任意时间点恢复（PITR）——灾备主力；控制台点恢复，应用层不写任何备份代码（云服务无磁盘，备份是托管商职责）。
+  2. **操作前手动 JSONL 快照**：对全表破坏性操作（如 tag 归一化 normalize、导入导入覆盖）前后，`GET /api/export/records` 游标导出 JSONL 存本地磁盘——AI 操作失误的还原手段（`POST /api/admin/import/records` 按 id upsert 写回，可重复导入）。
+  3. **迁移/切库**：同一对 export/import API（`docs/20260803-records-import-export.md`）；标准 PostgreSQL 保证可迁任意云 RDS 或内网实例（各自亦有自动备份能力）。
 - 保留的数据完整性约束（非权限，是结构/聚合依据）：
   - **待办状态机**：`todo:*` 四态 + transition 审计链，禁止绕过 transition 直接改状态 tag。
   - **保留前缀**：`body:weight` / `transaction_entry:*` / `review:*` 是聚合/统计依据（体重 dashboard、记账聚合、review 检索），禁止随意修改。
@@ -93,4 +96,4 @@
 - 前端写 UI 清理：settings 的 token 配置、tags 页 rename 等写入口是否保留（前端只读 → 应移除或置灰）——另行评估。
 - tags 编辑接口（add/remove）实现——见 `docs/20260805-tags-add.md`。
 - tag 归一化 normalize 实现（替换 rename）——见 `docs/20260805-tag-design.md`。
-- 备份机制（当前仓库是否已有备份策略）——未确认。
+- ✅ 备份机制（2026-08-07 确认）：**已有，且无需新增代码**——灾备 = 生产库托管商（Neon）自动备份 + PITR（见 §3 容错段）；迁移/手动快照 = 现有 export/import JSONL API；测试库无价值数据不需备份。

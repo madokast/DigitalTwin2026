@@ -101,6 +101,8 @@ HTTP API 由 **Next（Vercel）** 与 **Go（阿里云 FC / 腾讯云 SCF，同�
 
 备份 / 迁移（无前端 UI）：`GET /api/export/records`（ApiToken；JSONL 游标导出）、`POST /api/admin/import/records`（AdminToken；multipart JSONL upsert）。详见 [`docs/20260803-records-import-export.md`](docs/20260803-records-import-export.md)。
 
+**备份策略**（2026-08-07 定）：灾备由生产库托管商负责（Neon 自动每日备份 + WAL 归档 + PITR，控制台恢复，应用层零备份代码——云服务无磁盘，备份是托管商职责）；export/import 这对 API 定位为**迁移与手动快照**（全表破坏性操作前导出 JSONL 存本地，可事后还原；见 [`docs/20260805-design-philosophy.md`](docs/20260805-design-philosophy.md) §3）。
+
 **接口契约**以 OpenAPI 3.1 为准：[`openapi/openapi.yaml`](openapi/openapi.yaml)（说明见 [`openapi/README.md`](openapi/README.md)）。根 README 不再维护接口表。契约基建已收口：`npm run openapi:lint` + `npm run test:openapi` + `cd faas && go test ./internal/contract/`。CI 另跑无 DB 单元测；集成测无库 Skip（可选 secrets 启用）。**不做** codegen / Schemathesis / 新 OpenAPI Phase。本地 Redoc：`npm run openapi:preview`。
 
 ## 数据库管理
