@@ -43,11 +43,11 @@ export class RecordRepository {
   async transition(q: Executor, id: string, tags: string[]): Promise<void> {
     let rows: { id: string }[]
     try {
-      rows = (await q
+      rows = await q
         .update(schema.records)
         .set({ tags: JSON.stringify(tags) })
         .where(eq(schema.records.id, id))
-        .returning({ id: schema.records.id })) as { id: string }[]
+        .returning({ id: schema.records.id })
     } catch (err) {
       throw newInternal(err)
     }
@@ -74,13 +74,13 @@ export class RecordRepository {
     let rows: { value: number }[]
     try {
       rows = where
-        ? ((await q
+        ? await q
             .select({ value: count() })
             .from(schema.records)
-            .where(where)) as { value: number }[])
-        : ((await q
+            .where(where)
+        : await q
             .select({ value: count() })
-            .from(schema.records)) as { value: number }[])
+            .from(schema.records)
     } catch (err) {
       throw newInternal(err)
     }
@@ -92,11 +92,11 @@ export class RecordRepository {
   async exists(q: Executor, id: string): Promise<boolean> {
     let rows: { id: string }[]
     try {
-      rows = (await q
+      rows = await q
         .select({ id: schema.records.id })
         .from(schema.records)
         .where(eq(schema.records.id, id))
-        .limit(1)) as { id: string }[]
+        .limit(1)
     } catch (err) {
       throw newInternal(err)
     }
