@@ -71,6 +71,8 @@
 | 给单条记录加/删一个 tag | ApiToken | 低 | 搜索辅助 | `docs/20260805-tags-add.md`；单 id + 单 tag；普通 tag 可增删，保留前缀禁 |
 | 整体 tag 归一化（normalize） | AdminToken | **最大**（全表） | **最高**（搜索规范化） | 多源→单目标；合并 `exercise`/`workout` 等避免双重搜索；系统最大风险点；见 `docs/20260805-tag-design.md` |
 
+> 实现状态（2026-08-07）：「给单条记录加/删一个 tag」已实现——`POST /api/log/tags/add` / `POST /api/log/tags/remove`（双端 + OpenAPI `logTagsAdd`/`logTagsRemove`；幂等 no-op 返回 `changed: false` 不报错；AI 用 query 搜回 id 后补 tag，见 `docs/20260805-tags-add.md`）。
+
 不提供的修改能力：
 - ❌ PATCH / 通用字段编辑（四字段均不可改）
 - ❌ 时间修改

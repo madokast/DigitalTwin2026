@@ -304,10 +304,10 @@ src/lib/logapi.ts 等   业务层（Service class）
 3. **迁移 transition**（最小先例）：`transitionTodo` 走 `db.WithTx` + `recordrepo.Transition`/`Save`/`FindByID` 原语，fake 单测。✅ 已完成（`6c6607c`）——**暂用函数形态 `db.WithTx(ctx, q, fn)`**（Service 结构体未引入；`UoW.Do` 即 `WithTx` 的注入封装，行为一致）
 4. **迁移批量 create**（number/transaction）：`SaveAll` → **补 log/numbers 回滚测试**（继承项 2）。✅ 已完成（`SaveAll` 循环复用 `Save` 单条原语；业务层 `db.WithTx`/`UoW.do` + `SaveAll`，无手写 Begin/Commit；回滚测试：Go `number_rollback_test.go` fakeTx failOn 第 2 条 INSERT 注入错误 → 500/回滚/无半状态；Node `logapi.number-rollback.test.ts` `mockRejectedValueOnce` 同语义）。
 5. **迁移单条 create**（text/todo/bodyWeight/review）：`Save`（无事务）。
-6. **迁移 import / rename**（✅ 设计定案 2026-08-06，见 §10b 步骤 2）：先建 `FindByCriteria`（renameTag 复用，依赖顺序二次定案）→ `Exists` / `Update` 原语 + `AcquireRenameLock`（insert 分支复用 `Save`；rename 业务层编排——`RenameAcrossRecords` 用 `FindByCriteria` + `Update` 分页循环；双端对称）；`ImportCounts` 移 `record` 包。
-7. **tags 增删接口**（新接口，暂停中）：`AttachTag` / `DetachTag`（CAS）——业务层零 DB 校验 → `uow.Do` → Repository 存在性/重复性/CAS（见 `docs/20260805-tags-add.md`）。
-8. **迁移读路径**（query/export/stats/summary/tags）：`FindByCriteria` / `FindByCursor` / `Count` / `CountTags`（fake executor 单测查询条件）。
-9. **Service 化（横切，2026-08-06 补充）**：业务层自由函数（logapi/importapi/exportapi/query）→ **Service struct/class 方法**，构造注入 `db` + `uow`；`db.WithTx(ctx, q, fn)` → `s.uow.Do(ctx, fn)`（Node `new UoW(db)` → 构造注入 `this.uow`）；httpx/route 装配注入 Service；测试改注入 fake uow。双端对称，一次性横切。
+6. **迁移 import / rename**（✅ 已完成）：先建 `FindByCriteria` → `Exists` / `Update` 原语 + `AcquireRenameLock`（insert 分支复用 `Save`；rename 业务层编排——`RenameAcrossRecords` 用 `FindByCriteria` + `Update` 分页循环；双端对称）；`ImportCounts` 移 `record` 包。
+7. **tags 增删接口**（✅ 已完成，2026-08-07）：`AttachTag` / `DetachTag`（实现选型：事务内 FOR UPDATE 行锁读-改-写，替代 CAS 字符串比较——消除跨端 JSON 序列化差异误报与 affected==0 二次读路径；设计见 `docs/20260805-tags-add.md`）——业务层零 DB 校验（未知键/id 格式/tag 合法/保留前缀，handler 层）→ UoW 事务（`tags.Service.AttachTag`/`DetachTag`）→ Repository 存在性 404 / 重复性 changed:false / 并发由行锁串行化；`notifyTagsEdited`/`NotifyTagsEdited` 仅 changed:true 触发。双端路由：`POST /api/log/tags/add|remove`；OpenAPI `logTagsAdd`/`logTagsRemove` + `TagsAddRequest`/`TagsEditSuccess`；双端单测 + 集成测（含 404 / 幂等 / 通知断言）。
+8. **迁移读路径**（query/export/stats/summary/tags）（✅ 已完成）：`FindByCriteria` / `Count`（fake executor 单测查询条件）。
+9. **Service 化（横切，2026-08-06 补充，✅ 已完成）**：业务层自由函数（logapi/importapi/exportapi/query）→ **Service struct/class 方法**，构造注入 `db` + `uow`；`db.WithTx(ctx, q, fn)` → `s.uow.Do(ctx, fn)`（Node `new UoW(db)` → 构造注入 `this.uow`）；httpx/route 装配注入 Service；测试改注入 fake uow。双端对称，一次性横切。
    **届时废除 httpx 的可选函数字段 + nil 回落注入**（`Server.TransitionTodo` / `Server.NotifyUser` / `Server.FetchExportRecords`，即「nil = 默认实现」模式——调用点 `if s.X != nil` 分支 + 测试用结构体字面量绕过 `NewServer` 的构造契约分裂）：改为 **接口注入**（`Server` 收 `TodoService` / `ExportService` 等接口，构造时必填、无 nil 约定，测试注入 fake struct；生产路径零分支）。过渡期（函数字段形态）仅为单测注入 fake 的权宜，**不得扩展该模式**（新增 handler 依赖禁止再开函数字段），新增依赖一律等步骤 9 接口注入。
 10. **回归**：全量 unit + integration + lint（`npm run test:unit`、`npm run test:integration`、`go build/vet/golangci-lint`、`npm run openapi:lint`）。
 
@@ -327,7 +327,7 @@ src/lib/logapi.ts 等   业务层（Service class）
    - Node `transition` 的 `res.count` 类型断言（`as { count: number }`）脆弱——drizzle update 无 `.returning()` 时返回 postgres-js 原始 result，`count` 为 number 是驱动实现细节（`connection.js` `+x` 强转），非 drizzle 类型契约；升级驱动可能变 string → `"1" !== 1` 恒真 500。改为 `.returning({ id })` 用 `rows.length`（与 Go `RowsAffected() != 1` 语义对齐，零类型断言）。
    - Go 业务层 `me.Status == 404` 魔法数字（todo.go 预读映射）——HTTP status 承载域语义（耦合）。建议 myerr 加语义判等 `IsNotFound()`（Go）/ `isNotFound()`（TS），内部仍按 status，调用点改语义名。
    - Go `writeErr` 的 `errors.As` → 直接断言：MyError 无 Unwrap（决策 D），As 永不命中链，只是断言。**倾向签名直接收紧 `writeErr(w, me *myerr.MyError, ...)`**（全 16 个调用点已传 *MyError，编译期保证，删兜底分支）；Node `routeError` 保留 `unknown` 兜底（JS 无编译期保证，框架差异可接受）。
-2. **UoW 步骤 6：迁移 import / rename**——写路径最后一块手写 SQL：`recordrepo` 加原语（双端对称）；`ImportCounts` 移 `record` 包；importapi / tagsdb / tags.go 瘦身。**设计定案（2026-08-06 讨论）**：
+2. **UoW 步骤 6：迁移 import / rename**（✅ 已完成）——写路径最后一块手写 SQL：`recordrepo` 加原语（双端对称）；`ImportCounts` 移 `record` 包；importapi / tagsdb / tags.go 瘦身。**设计定案（2026-08-06 讨论）**：
    - **import 用 `Exists` / `Update` 两原语 + insert 分支复用 `Save`，保守复刻（行为零变化）**（✅ 已接线：importapi `importTextInTx` 改走原语，`rowExists`/`insertRow`/`updateRow` 删除；`Counts` → `record.ImportCounts`）（`Insert` 原语已砍——`Save` 即 INSERT + RETURNING，import 忽略返回值即可，2026-08-06 用户拍板）。否决 `INSERT ... ON CONFLICT DO UPDATE` + `xmax` 计数技巧：**并发同 id 时唯一索引拦截 → 500 整单回滚是正确的失败语义**——它明确告诉操作者两个导入文件数据源重叠、导入失败；ON CONFLICT 静默覆盖会掩盖这一事实（第二个导入者以为已更新，实际数据源冲突被吞掉）。「改成事务」亦不能解决：import 现已是单事务，竞态是 check-then-act（READ COMMITTED 下两事务的 `EXISTS` 互不可见、均 false → 双 INSERT → 唯一索引拦后者），事务只保原子性、不提供「先查后写」的互斥；SERIALIZABLE 也只是把 500 换成 40001 序列化失败，同样是失败。**竞态 500 = 特性，保留**。
    - **rename 业务层编排（2026-08-06 三次定案，`RenameTag` 原语作废）**：业务层（tags.go）`ValidateRename`（from/to 合法 + 非保留 tag → 400，零 DB）→ `RenameAcrossRecords`：`db.WithTx`/`db.transaction` 开事务 → `Repo.AcquireRenameLock`（新薄原语——业务层禁止直接发 SQL，锁是 DB 基础设施归 repo）→ 分页循环复用 `FindByCriteria` + 逐行 `renameTags` 数组变换 + `Repo.Update`；任何 DB 错误 500 + 整单回滚（见 §5 #12）。**脏 tags 行为变化（用户认可为净收益）**：旧全表扫对脏 JSON 500 整单回滚；现 FromDB 容忍——根非数组静默跳过（脏数据留 DB）、非 string 元素写回时静默清理——rename 不再被单行脏数据搞死。
    - **原语入参收领域 `record.Record`**（与 `Save` 一致）：import 行 → `Record` 转换后入 repo；`Update` 全列覆盖，utc_offset 由 repo 内 `ParseHappenedAt(rec.HappenedAt)` 重解析（§4 两次解析成本原则）。
@@ -339,7 +339,7 @@ src/lib/logapi.ts 等   业务层（Service class）
      5. **row → Record 转换**：`recordjsonl` 包加导出转换函数（Go `ToDomainRecord` / Node 对称），importapi 调用；`UtcOffset` 丢弃、repo 内重解析。
      6. **`ImportRecordsJSONLTx` 双入口保留**：Tx 版供单测注入 / 步骤 9 Service 化后内部复用，只换内部原语。
      7. **依赖顺序调整（二次定案）**：`RenameTag` 复用 `findByCriteria`，故**步骤 6 先建 `findByCriteria`**（从 query.go `FetchFilteredRecords` 迁移 Criteria + 分页 + tag 过滤），`RenameTag` 与步骤 8 共用；步骤 8 再把 query.go 其余调用迁入。
-3. **UoW 步骤 8：迁移读路径**——query/export/stats/summary/tags 的散落 SELECT 收进 `recordrepo`（`FindByCriteria` 已在步骤 6 建立 / `FindByCursor` / `Count` / `CountTags`，fake executor 单测查询条件），query.go 瘦身。**设计定案（2026-08-06 讨论）**：
+3. **UoW 步骤 8：迁移读路径**（✅ 已完成）——query/export/stats/summary/tags 的散落 SELECT 收进 `recordrepo`（`FindByCriteria` / `Count`，fake executor 单测查询条件），query.go 瘦身。**设计定案（2026-08-06 讨论）**：
    - **summary 复用 `FindByCriteria`，无新原语（2026-08-06 修正：分页循环 + 增量聚合）**：`FetchTransactionsSummary` 的「区间 + income OR expense LIKE」查询 → `FindCriteria{From, To, Tags: ["transaction_entry:*"], Page, PageSize: 100, SortBy: id}` 单族通配。等价性：`X:*` 族通配即 `tags LIKE '%"X:%'`（与 `buildWhere` 现实现同形），单条件覆盖 income/expense 两前缀、无 OR 问题（一条记录只有一个 transaction_entry 前缀）；多余的 transaction_entry 行由业务层 `classifyEntryType` 精确 tag 分类自然跳过 → **聚合结果与现状等价**。**行数可能巨大 → 100 分页循环 + 增量聚合**（`AggregateTransactionsSummary` 从「收全量 list 一次聚合」重构为逐行累加：桶/计数/分类 map 累积，每页行即弃——收集全量再聚合 = 内存爆炸，用户拍板否决）；循环至短页终止。
    - **否决的候选**：FindInRange 通用区间原语（多拉全列行 + 业务层内存 LIKE 过滤，无必要）；专用事务行原语（repo 耦合 transaction 常量）；`Criteria.Tags` 改 OR / 加 `TagsAny`（破坏列表 AND 语义 / 污染契约）。
    - **条件构建迁入**：`buildWhere` / `orderByRecordsList` / `EscapeLikePattern` / 族通配判定迁 repo（§5 D3 已定案）；fake executor 单测断言查询条件（Go 断言 SQL 与参数 / Node vi.mock drizzle builder 链）。
@@ -359,14 +359,14 @@ src/lib/logapi.ts 等   业务层（Service class）
      - **A. `Count` 校验范围（✅ 定案：类型层面解决）**：`Criteria`/`FindCriteria` 分层——`Count` 收 `Criteria`（无分页/排序字段），类型上不存在可校验的分页字段；`validateCriteria` 只属 `FindCriteria`。
      - **B/C（✅ 消解，2026-08-06）**：`FindCriteria.IDFrom` 方案取消 `FindByCursor`——404 检查在业务层（`Repo.Exists`），`ErrExportFromNotFound` 留 exportapi 包（repo 不碰文案）；limit 即 PageSize（`validateCriteria` 已检测）。
      - **D. Node parse 层重构（最大改动）**：`parseRecordQueryParams` 现产 `conditions: SQL[]`（drizzle 条件）——接线后应**产 `Criteria`**（SQL 构建整个移 repo，对齐 Go ParsedQuery 领域值），返回 `{criteria, hint}`；Go 侧 ParseRecordQueryParams 保留 + 业务层 `toCriteria()` 转换；影响 query.test.ts 断言。
-4. **UoW 步骤 9：Service 化（最终横切）**——业务层自由函数 → Service struct/class 方法，构造注入 `db` + `uow`；**届时废除 httpx 可选函数字段 + nil 回落**（TransitionTodo/NotifyUser/FetchExportRecords → 接口注入）。依赖 2/3 完成后的完整原语集合。**设计定案（2026-08-06 讨论）**：
+4. **UoW 步骤 9：Service 化（最终横切，✅ 已完成）**——业务层自由函数 → Service struct/class 方法，构造注入 `db` + `uow`；**届时废除 httpx 可选函数字段 + nil 回落**（TransitionTodo/NotifyUser/FetchExportRecords → 接口注入）。依赖 2/3 完成后的完整原语集合。**设计定案（2026-08-06 讨论）**：
    - **粒度：按业务包各一个 Service**——`logapi.Service`（7 个 create/transition 方法）、`importapi.Service`（`ImportRecordsJSONL`）、`exportapi.Service`（`FetchExportRecords`）、`query.Service`（4 个 fetch）、`tags.Service`（`RenameAcrossRecords`）；包即边界，构造依赖最小。
    - **httpx 全接口化（不最小化）**：`NewServer(pool, tokens, logSvc, importSvc, exportSvc, querySvc, tagsSvc, notify)` 构造必填接口、无 nil 约定；**废除全部 nil 回落**——3 个函数字段（`TransitionTodo`/`NotifyUser`/`FetchExportRecords`）与 `Telegram`/`Qqbot`/`Notify` 字段及 `s.notify()` 的 nil 分支一并删除；httpx 单测一律 fake 接口注入（废除「struct 字面量绕过 NewServer」模式）。接口定义在消费方（httpx），业务包实现。
    - **route 层解析保留**（决策 C）：httpx 仍承担未知键/解码/draft 解析（仍 import draft 包），仅落库调用改 Service 方法。
    - **notify 不进业务 Service**：notify 是 handler 边界行为（8 处 `go s.notify().NotifyXXX` 全在 httpx handler，业务层不调），生产路径不变。
    - **纯函数保留包级**：Parse 系列（`ParseTextBody`/`ParseRecordQueryParams` 等）与 Format/Build/ExportFilename 等零 DB 纯函数不收入 Service，route 层与 handler 继续直接调用。
    - **Node 对称**：各业务模块自由函数 → class 方法（`class LogService` 等），构造注入 `db` + `uow`；route（app/api）持有实例；Node 无函数字段问题（route 直接 import），改动限于自由函数收进 class。
-5. **步骤 7：tags 增删接口**——保持暂停（新接口，动 OpenAPI 契约 + 双端，待 4 后）。
+5. **步骤 7：tags 增删接口**（✅ 已完成，2026-08-07）：动 OpenAPI 契约 + 双端落地（见 §10 步骤 7 完成注）。
 
 ## 11. 阶段 B（ErrInternal 防腐层）——已被决策 D 的 myerr 吸收（作废）
 
