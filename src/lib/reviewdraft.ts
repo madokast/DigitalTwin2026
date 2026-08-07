@@ -107,7 +107,7 @@ export function parseReview(
   }
   const reserved = assertNoReservedTags(tagList)
   if (!reserved.valid) {
-    return { error: reserved.error! }
+    return { error: reserved.error }
   }
   const dup = firstDuplicateTag(tagList)
   if (dup !== null) {

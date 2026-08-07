@@ -63,8 +63,8 @@ export function reservedTagError(tag: string): string {
   return `tag "${tag}" is reserved; ${RESERVED_TAG_HINT}`
 }
 
-/** 与 Go `tags.ValidationResult` 同构 */
-export type ValidationResult = { valid: boolean; error?: string }
+/** 与 Go `tags.ValidationResult` 同构；判别联合：valid=false 时 error 必存在（零非空断言）。 */
+export type ValidationResult = { valid: true } | { valid: false; error: string }
 
 /**
  * 客户端传入的 tags 不得含保留前缀。

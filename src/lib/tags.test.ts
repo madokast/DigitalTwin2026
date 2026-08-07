@@ -46,7 +46,7 @@ describe('validateTags', () => {
 
   it('rejects when any tag is invalid', () => {
     const result = validateTags(['weight', '体重'])
-    expect(result.valid).toBe(false)
+    if (result.valid) throw new Error('expected invalid')
     expect(result.error).toContain('体重')
   })
 

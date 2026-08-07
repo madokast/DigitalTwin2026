@@ -115,7 +115,7 @@ function parseOptionalClientTags(
   }
   const reserved = assertNoReservedTags(list)
   if (!reserved.valid) {
-    return { error: reserved.error! }
+    return { error: reserved.error }
   }
   const dup = firstDuplicateTag(list)
   if (dup !== null) {
