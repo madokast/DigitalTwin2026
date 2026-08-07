@@ -52,7 +52,7 @@ describe('proxy API auth', () => {
   })
 
   it('rejects AI token on /api/admin', () => {
-    const res = proxy(apiRequest('/api/admin/tags/rename', `Bearer ${ai}`))
+    const res = proxy(apiRequest('/api/admin/tags/normalize', `Bearer ${ai}`))
     expect(res.status).toBe(401)
   })
 
@@ -64,7 +64,7 @@ describe('proxy API auth', () => {
   })
 
   it('allows admin token on /api/admin', () => {
-    const res = proxy(apiRequest('/api/admin/tags/rename', `Bearer ${admin}`))
+    const res = proxy(apiRequest('/api/admin/tags/normalize', `Bearer ${admin}`))
     expect(res.status).toBe(200)
   })
 
