@@ -57,8 +57,8 @@ describe('api-client url helpers', () => {
     prefs.setApiAccelerateBase('https://example.fcapp.run/')
     const { apiUrl } = await import('./api-client')
     expect(apiUrl('/api/query')).toBe('https://example.fcapp.run/api/query')
-    expect(apiUrl('/api/admin/tags/rename')).toBe(
-      'https://example.fcapp.run/api/admin/tags/rename',
+    expect(apiUrl('/api/admin/tags/normalize')).toBe(
+      'https://example.fcapp.run/api/admin/tags/normalize',
     )
   })
 })

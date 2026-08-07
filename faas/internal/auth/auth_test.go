@@ -56,7 +56,7 @@ func TestVerifyAPIAccess(t *testing.T) {
 func TestVerifyAdminAccess(t *testing.T) {
 	tok := Tokens{AI: "ai-tok", Admin: "admin-tok"}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/rename", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/tags/normalize", nil)
 	req.Header.Set("Authorization", "Bearer ai-tok")
 	if tok.VerifyAdminAccess(req) {
 		t.Fatal("AI token must not pass admin")
