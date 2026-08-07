@@ -14,10 +14,11 @@ vi.mock('@/lib/notify', () => ({
 }))
 
 import { tagsService } from '@/lib/tagsdb'
-import { notifyTagsEdited } from '@/lib/notify'
+import { notifyTagsEdited as notifyTagsEditedReal } from '@/lib/notify'
 
 const attachTag = tagsService.attachTag as ReturnType<typeof vi.fn>
 const detachTag = tagsService.detachTag as ReturnType<typeof vi.fn>
+const notifyTagsEdited = notifyTagsEditedReal as ReturnType<typeof vi.fn>
 
 /** 与 Go httpx tags_edit_test.go 对齐的 handler 单测（fake service，校验/成功路径零 DB） */
 function rawPost(url: string, body: string): NextRequest {
