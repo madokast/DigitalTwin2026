@@ -84,6 +84,81 @@ func (r *RecordRepository) Transition(ctx context.Context, q db.Executor, id str
 	return nil
 }
 
+// EditTagsResult attach/detach 原语结果：From/To = 操作前后完整实际 tags 列表
+// （含保留 tag，业务层 diff 组织响应）；Changed = 本次是否真的变更
+// （重复 add / 不存在 remove → false）。
+type EditTagsResult struct {
+	From    []string
+	To      []string
+	Changed bool
+}
+
+// AttachTag 追加单个普通 tag（纯追加，不改/不删已有 tag；tag 合法性与保留前缀校验在业务层，
+// 零 DB——本原语不再校验）。
+//
+// 并发语义（U2 定案，实现选型：事务内 FOR UPDATE 行锁而非 CAS 字符串比较）：
+// `SELECT ... FOR UPDATE` 锁行后读-改-写，串行化并发同 id 修改——无丢失更新，也无
+// 「affected==0 二次读区分 404/409」路径；且消除跨端（Go encoding/json vs Node
+// JSON.stringify）序列化格式差异导致的 CAS 比较误报。锁随业务层 UoW 事务结束释放。
+func (r *RecordRepository) AttachTag(ctx context.Context, q db.Executor, id, tag string) (EditTagsResult, *myerr.MyError) {
+	return r.editTag(ctx, q, id, func(cur []string) ([]string, bool) {
+		for _, t := range cur {
+			if t == tag {
+				return cur, false
+			}
+		}
+		return append(cur, tag), true
+	})
+}
+
+// DetachTag 原地删除单个普通 tag（保持剩余顺序；tag 不存在 → changed:false 原样返回）。
+// 并发语义与 AttachTag 相同（FOR UPDATE 行锁）。
+func (r *RecordRepository) DetachTag(ctx context.Context, q db.Executor, id, tag string) (EditTagsResult, *myerr.MyError) {
+	return r.editTag(ctx, q, id, func(cur []string) ([]string, bool) {
+		for i, t := range cur {
+			if t == tag {
+				next := make([]string, 0, len(cur)-1)
+				next = append(next, cur[:i]...)
+				next = append(next, cur[i+1:]...)
+				return next, true
+			}
+		}
+		return cur, false
+	})
+}
+
+// editTag 共用实现：FOR UPDATE 读当前 tags → 变换闭包判定是否变更 →
+// 有变更才 UPDATE（锁下 RowsAffected 必为 1，0 为程序 bug 防御性内部错误）。
+func (r *RecordRepository) editTag(ctx context.Context, q db.Executor, id string, mutate func([]string) ([]string, bool)) (EditTagsResult, *myerr.MyError) {
+	var cur string
+	err := q.QueryRow(ctx, `SELECT tags FROM records WHERE id = $1 FOR UPDATE`, id).Scan(&cur)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return EditTagsResult{}, myerr.NewNotFound(fmt.Sprintf("record %s not found", id))
+		}
+		return EditTagsResult{}, myerr.NewInternal(err)
+	}
+	from := record.ParseTagsField(cur)
+	to, changed := mutate(from)
+	res := EditTagsResult{From: from, To: to, Changed: changed}
+	if !changed {
+		return res, nil
+	}
+	tagsJSON, me := record.TagsJSON(to)
+	if me != nil {
+		return EditTagsResult{}, me
+	}
+	ct, err := q.Exec(ctx, `UPDATE records SET tags = $1 WHERE id = $2`, tagsJSON, id)
+	if err != nil {
+		return EditTagsResult{}, myerr.NewInternal(err)
+	}
+	if ct.RowsAffected() != 1 {
+		// FOR UPDATE 锁下行存在，UPDATE 必命中；0 行 = 程序 bug（防御，文案对齐 Transition）
+		return EditTagsResult{}, myerr.NewInternal(fmt.Errorf("tag edit affected %d rows", ct.RowsAffected()))
+	}
+	return res, nil
+}
+
 // Save 单条 INSERT + RETURNING 完整行。rec 为领域 Record（HappenedAt 为业务层已校验的
 // 请求串，Repository 内 ParseHappenedAt 解析落库——接受两次解析成本）；
 // 返回规范化领域 Record（FromDB）——业务层唯一使用的 happened_at 来源。

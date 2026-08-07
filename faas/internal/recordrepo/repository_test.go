@@ -584,3 +584,110 @@ func TestCountDriverErrorInternal(t *testing.T) {
 		t.Fatalf("me=%v want 500", me)
 	}
 }
+
+func TestAttachTagAppend(t *testing.T) {
+	f := &fakeExecutor{row: &fakeRow{vals: []any{`["exercise"]`}}, rowsAff: 1}
+	res, me := Repo.AttachTag(context.Background(), f, "id-1", "workout:arm")
+	if me != nil {
+		t.Fatalf("err %v", me)
+	}
+	if !res.Changed || len(res.From) != 1 || res.From[0] != "exercise" {
+		t.Fatalf("from %v changed %v", res.From, res.Changed)
+	}
+	wantTo := []string{"exercise", "workout:arm"}
+	if len(res.To) != 2 || res.To[0] != wantTo[0] || res.To[1] != wantTo[1] {
+		t.Fatalf("to %v", res.To)
+	}
+	if !strings.Contains(f.queryRowSQL, "FOR UPDATE") {
+		t.Fatalf("want FOR UPDATE lock, got %s", f.queryRowSQL)
+	}
+	if len(f.execSQL) != 1 {
+		t.Fatalf("want 1 exec, got %d", len(f.execSQL))
+	}
+	wantTags := `["exercise","workout:arm"]`
+	if f.execArgs[0][0] != wantTags || f.execArgs[0][1] != "id-1" {
+		t.Fatalf("args %v", f.execArgs[0])
+	}
+}
+
+func TestAttachTagDuplicateNoUpdate(t *testing.T) {
+	f := &fakeExecutor{row: &fakeRow{vals: []any{`["a","b"]`}}}
+	res, me := Repo.AttachTag(context.Background(), f, "id-1", "b")
+	if me != nil {
+		t.Fatalf("err %v", me)
+	}
+	if res.Changed {
+		t.Fatal("want changed=false for duplicate")
+	}
+	if len(res.To) != 2 || res.To[0] != "a" || res.To[1] != "b" {
+		t.Fatalf("to %v", res.To)
+	}
+	if len(f.execSQL) != 0 {
+		t.Fatalf("want no UPDATE on duplicate, got %d", len(f.execSQL))
+	}
+}
+
+func TestAttachTagNotFound(t *testing.T) {
+	f := &fakeExecutor{queryRowErr: pgx.ErrNoRows}
+	_, me := Repo.AttachTag(context.Background(), f, "missing", "t")
+	if me == nil {
+		t.Fatal("want error")
+	}
+	if me.Status != 404 || me.Message != "record missing not found" {
+		t.Fatalf("%v", me)
+	}
+}
+
+func TestAttachTagDirtyTagsRecover(t *testing.T) {
+	f := &fakeExecutor{row: &fakeRow{vals: []any{`{"not":"array"}`}}, rowsAff: 1}
+	res, me := Repo.AttachTag(context.Background(), f, "id-1", "t")
+	if me != nil {
+		t.Fatalf("err %v", me)
+	}
+	if !res.Changed || len(res.From) != 0 || len(res.To) != 1 || res.To[0] != "t" {
+		t.Fatalf("res %+v", res)
+	}
+}
+
+func TestDetachTagRemove(t *testing.T) {
+	f := &fakeExecutor{row: &fakeRow{vals: []any{`["a","b","c"]`}}, rowsAff: 1}
+	res, me := Repo.DetachTag(context.Background(), f, "id-1", "b")
+	if me != nil {
+		t.Fatalf("err %v", me)
+	}
+	if !res.Changed {
+		t.Fatal("want changed=true")
+	}
+	// 删除原地、保持剩余顺序
+	if len(res.To) != 2 || res.To[0] != "a" || res.To[1] != "c" {
+		t.Fatalf("to %v", res.To)
+	}
+	if f.execArgs[0][0] != `["a","c"]` {
+		t.Fatalf("args %v", f.execArgs[0])
+	}
+}
+
+func TestDetachTagAbsentNoUpdate(t *testing.T) {
+	f := &fakeExecutor{row: &fakeRow{vals: []any{`["a"]`}}}
+	res, me := Repo.DetachTag(context.Background(), f, "id-1", "zzz")
+	if me != nil {
+		t.Fatalf("err %v", me)
+	}
+	if res.Changed || len(res.To) != 1 {
+		t.Fatalf("res %+v", res)
+	}
+	if len(f.execSQL) != 0 {
+		t.Fatalf("want no UPDATE, got %d", len(f.execSQL))
+	}
+}
+
+func TestEditTagAffectedZeroInternal(t *testing.T) {
+	f := &fakeExecutor{row: &fakeRow{vals: []any{`["a"]`}}, rowsAff: 0}
+	_, me := Repo.AttachTag(context.Background(), f, "id-1", "b")
+	if me == nil {
+		t.Fatal("want error for rowsAffected != 1")
+	}
+	if me.Status != 500 || !strings.Contains(me.Message, "tag edit affected 0 rows") {
+		t.Fatalf("%v", me)
+	}
+}
